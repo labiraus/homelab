@@ -66,6 +66,7 @@ fi
 
 env_name="${ENV:-lab}"
 workspace="${env_name}-${component}-${primary_layer}"
+tfc_hostname="${TFC_HOSTNAME:-app.terraform.io}"
 
 env_var_file="${repo_root}/etc/env/${env_name}.tfvars"
 node_var_file="${repo_root}/etc/nodes/${primary_layer}.tfvars"
@@ -98,6 +99,50 @@ if [[ -z "${TFC_ORG:-}" ]]; then
   exit 1
 fi
 
+is_tfc_logged_in() {
+  local sanitized token_var
+  sanitized="${tfc_hostname//./_}"
+  sanitized="${sanitized//-/_}"
+  token_var="TF_TOKEN_${sanitized}"
+
+  if [[ -n "${!token_var:-}" ]]; then
+    return 0
+  fi
+
+  if [[ -f "${HOME}/.terraform.d/credentials.tfrc.json" ]] && \
+     grep -q "\"${tfc_hostname}\"" "${HOME}/.terraform.d/credentials.tfrc.json"; then
+    return 0
+  fi
+
+  if [[ -n "${TF_CLI_CONFIG_FILE:-}" ]] && [[ -f "${TF_CLI_CONFIG_FILE}" ]] && \
+     grep -q "${tfc_hostname}" "${TF_CLI_CONFIG_FILE}"; then
+    return 0
+  fi
+
+  return 1
+}
+
+if ! is_tfc_logged_in; then
+  echo "Terraform Cloud credentials were not found for ${tfc_hostname}." >&2
+  if [[ -t 0 && -t 1 ]]; then
+    read -r -p "Run 'terraform login ${tfc_hostname}' now? [Y/n] " login_answer
+    login_answer="${login_answer:-Y}"
+    if [[ "${login_answer}" =~ ^[Yy]$ ]]; then
+      terraform login "${tfc_hostname}"
+      if ! is_tfc_logged_in; then
+        echo "Error: Terraform Cloud login did not produce usable credentials." >&2
+        exit 1
+      fi
+    else
+      echo "Error: login required. Run: terraform login ${tfc_hostname}" >&2
+      exit 1
+    fi
+  else
+    echo "Error: login required. Run: terraform login ${tfc_hostname}" >&2
+    exit 1
+  fi
+fi
+
 export TF_IN_AUTOMATION=1
 export TF_PLUGIN_CACHE_DIR="${repo_root}/plugin-cache"
 mkdir -p "${TF_PLUGIN_CACHE_DIR}"
@@ -115,6 +160,7 @@ trap cleanup EXIT INT TERM
   cat <<EOF
 terraform {
   cloud {
+    hostname     = "${tfc_hostname}"
     organization = "${TFC_ORG}"
 EOF
 
@@ -147,6 +193,17 @@ for var_file in "${var_files[@]}"; do
 done
 
 cd "${component_dir}"
-terraform init -upgrade
+if ! terraform_init_output="$(terraform init -upgrade 2>&1)"; then
+  printf '%s\n' "${terraform_init_output}" >&2
+  if grep -q "Unreadable module directory" <<< "${terraform_init_output}" && \
+     grep -q "../../modules" <<< "${terraform_init_output}"; then
+    cat >&2 <<EOF
+Hint: this component uses a local module path (${component_dir}/../../modules).
+If your Terraform Cloud workspace is configured for Remote execution, that path is outside the uploaded config archive.
+Set the workspace execution mode to Local, or publish/use a remote module source.
+EOF
+  fi
+  exit 1
+fi
+printf '%s\n' "${terraform_init_output}"
 terraform "${action}" -input=false -lock-timeout=5m "${terraform_var_args[@]}" "${extra_tf_args[@]}"
-

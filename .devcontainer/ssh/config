@@ -1,0 +1,30 @@
+# Place your SSH client config here.
+# This directory is mounted to /home/vscode/.ssh inside the dev container.
+
+Host *
+  ServerAliveInterval 60
+  ServerAliveCountMax 3
+  ConnectTimeout 10
+  IdentitiesOnly yes
+  StrictHostKeyChecking accept-new
+  UserKnownHostsFile ~/.ssh/known_hosts
+
+Host proxmox-node1
+  HostName 192.168.8.229
+  User root
+
+Host proxmox-node2
+  HostName 192.168.8.133
+  User root
+
+Host proxmox-node3
+  HostName 192.168.8.231
+  User root
+
+Host proxmox-node4
+  HostName 192.168.8.103
+  User root
+
+Host yggdrasil
+  HostName 192.168.8.132
+  User oliver

@@ -1,0 +1,33 @@
+{
+  "name": "homelab",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/terraform:1": {},
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
+      "minikube": "none"
+    }
+  },
+  "mounts": [
+    "source=${localWorkspaceFolder}/.devcontainer/kubeconfig,target=/home/vscode/.kube/config,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/.devcontainer/hosts,target=/etc/hosts,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/.devcontainer/ssh,target=/home/vscode/.ssh,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/.devcontainer/.env,target=/home/vscode/.env,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/.devcontainer/.bashrc,target=/home/vscode/.bashrc.devcontainer,type=bind,consistency=cached"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "hashicorp.terraform",
+        "openai.chatgpt",
+        "ms-vscode.makefile-tools",
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "tim-koehler.helm-intellisense",
+        "redhat.vscode-yaml"
+      ]
+    }
+  }
+}

@@ -1,0 +1,75 @@
+#cloud-config
+hostname: ${cluster_name}-worker
+manage_etc_hosts: true
+package_update: true
+package_upgrade: false
+
+%{ if length(dns_servers) > 0 ~}
+resolv_conf:
+  nameservers: [${join(", ", formatlist("\"%s\"", dns_servers))}]
+%{ endif ~}
+
+%{ if length(ntp_servers) > 0 ~}
+ntp:
+  enabled: true
+  servers: [${join(", ", formatlist("\"%s\"", ntp_servers))}]
+%{ endif ~}
+
+write_files:
+  - path: /etc/modules-load.d/k8s.conf
+    owner: root:root
+    permissions: "0644"
+    content: |
+      overlay
+      br_netfilter
+  - path: /etc/sysctl.d/99-kubernetes-cri.conf
+    owner: root:root
+    permissions: "0644"
+    content: |
+      net.bridge.bridge-nf-call-iptables = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.ipv4.ip_forward = 1
+  - path: /etc/default/kubelet
+    owner: root:root
+    permissions: "0644"
+    content: |
+      KUBELET_EXTRA_ARGS="${kubelet_extra_args}"
+
+runcmd:
+  - modprobe overlay
+  - modprobe br_netfilter
+  - sysctl --system
+  - swapoff -a
+  - sed -ri '/\sswap\s/s/^#?/#/' /etc/fstab
+  - |
+      apt-get update
+      apt-get install -y ca-certificates curl gpg apt-transport-https containerd
+  - |
+      mkdir -p /etc/containerd
+      containerd config default >/etc/containerd/config.toml
+      sed -ri 's/^(\s*)SystemdCgroup = false/\1SystemdCgroup = true/' /etc/containerd/config.toml
+      systemctl restart containerd
+      systemctl enable containerd
+  - |
+      mkdir -p /etc/apt/keyrings
+      curl -fsSL "https://pkgs.k8s.io/core:/stable:/${kube_minor_channel}/deb/Release.key" | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      chmod 0644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/${kube_minor_channel}/deb/ /" >/etc/apt/sources.list.d/kubernetes.list
+      apt-get update
+  - |
+%{ if kube_version != "" ~}
+      apt-get install -y kubelet=${kube_version} kubeadm=${kube_version} kubectl=${kube_version}
+%{ else ~}
+      apt-get install -y kubelet kubeadm kubectl
+%{ endif ~}
+      apt-mark hold kubelet kubeadm kubectl
+      systemctl enable --now kubelet
+%{ if kubeadm_join_command != "" ~}
+  - |
+      if [ ! -f /etc/kubernetes/kubelet.conf ]; then
+        ${kubeadm_join_command}
+      fi
+%{ endif ~}
+
+final_message: "Kubernetes worker bootstrap complete."
+

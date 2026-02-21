@@ -1,0 +1,111 @@
+variable "node_name" {
+  description = "Proxmox node where the VM is created."
+  type        = string
+}
+
+variable "vm_id" {
+  description = "Unique VM ID in Proxmox."
+  type        = number
+}
+
+variable "vm_name" {
+  description = "VM name."
+  type        = string
+}
+
+variable "bridge" {
+  description = "Network bridge in Proxmox (for example vmbr0)."
+  type        = string
+}
+
+variable "datastore_id" {
+  description = "Primary datastore for VM disk."
+  type        = string
+}
+
+variable "image_datastore_id" {
+  description = "Datastore used for downloading the cloud image. Defaults to datastore_id."
+  type        = string
+  default     = null
+}
+
+variable "snippets_datastore_id" {
+  description = "Datastore used for cloud-init snippets. Defaults to datastore_id."
+  type        = string
+  default     = null
+}
+
+variable "vm_cpu_cores" {
+  description = "Number of vCPUs."
+  type        = number
+}
+
+variable "vm_memory_mb" {
+  description = "Memory in MB."
+  type        = number
+}
+
+variable "vm_disk_size_gb" {
+  description = "Disk size in GB."
+  type        = number
+}
+
+variable "ubuntu_image_url" {
+  description = "Ubuntu cloud image URL."
+  type        = string
+}
+
+variable "ubuntu_image_file_name" {
+  description = "Filename used on Proxmox for the downloaded image."
+  type        = string
+}
+
+variable "ssh_username" {
+  description = "Username configured by cloud-init."
+  type        = string
+  default     = "ubuntu"
+}
+
+variable "ssh_authorized_keys" {
+  description = "SSH public keys injected into cloud-init user account."
+  type        = list(string)
+
+  validation {
+    condition     = length(var.ssh_authorized_keys) > 0
+    error_message = "At least one SSH public key is required."
+  }
+}
+
+variable "cloud_init_user_data" {
+  description = "Rendered cloud-init user-data document."
+  type        = string
+}
+
+variable "use_dhcp" {
+  description = "Use DHCP for IPv4 if true."
+  type        = bool
+  default     = true
+
+  validation {
+    condition     = var.use_dhcp || (var.ipv4_address != "" && var.ipv4_gateway != "")
+    error_message = "When use_dhcp is false, ipv4_address and ipv4_gateway must both be set."
+  }
+}
+
+variable "ipv4_address" {
+  description = "Static IPv4 CIDR (for example 192.168.8.121/24)."
+  type        = string
+  default     = ""
+}
+
+variable "ipv4_gateway" {
+  description = "Static IPv4 gateway."
+  type        = string
+  default     = ""
+}
+
+variable "tags" {
+  description = "Optional Proxmox VM tags."
+  type        = list(string)
+  default     = []
+}
