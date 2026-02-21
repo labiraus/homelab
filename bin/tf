@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage:
+  bin/tf <action> <component> <primary_layer> [overlay_layer ...] [-- <extra terraform args>]
+
+Actions:
+  plan | apply | destroy
+
+Examples:
+  ENV=lab bin/tf plan kubernetes node1 cilium
+  ENV=lab bin/tf apply kubernetes node2 -- -auto-approve
+EOF
+}
+
+if [[ $# -lt 3 ]]; then
+  usage
+  exit 1
+fi
+
+if ! command -v terraform >/dev/null 2>&1; then
+  echo "Error: terraform command not found in PATH." >&2
+  exit 1
+fi
+
+action="$1"
+shift
+
+case "${action}" in
+  plan|apply|destroy) ;;
+  *)
+    echo "Error: action must be one of: plan, apply, destroy." >&2
+    usage
+    exit 1
+    ;;
+esac
+
+component="$1"
+shift
+primary_layer="$1"
+shift
+
+overlay_layers=()
+extra_tf_args=()
+
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "--" ]]; then
+    shift
+    extra_tf_args=("$@")
+    break
+  fi
+  overlay_layers+=("$1")
+  shift
+done
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd -- "${script_dir}/.." && pwd)"
+
+component_dir="${repo_root}/components/${component}"
+if [[ ! -d "${component_dir}" ]]; then
+  echo "Error: component directory not found: ${component_dir}" >&2
+  exit 1
+fi
+
+env_name="${ENV:-lab}"
+workspace="${env_name}-${component}-${primary_layer}"
+
+env_var_file="${repo_root}/etc/env/${env_name}.tfvars"
+node_var_file="${repo_root}/etc/nodes/${primary_layer}.tfvars"
+
+var_files=("${env_var_file}" "${node_var_file}")
+
+for layer in "${overlay_layers[@]}"; do
+  candidate_a="${repo_root}/etc/${layer}.tfvars"
+  candidate_b="${repo_root}/etc/overlays/${layer}.tfvars"
+
+  if [[ -f "${candidate_a}" ]]; then
+    var_files+=("${candidate_a}")
+  elif [[ -f "${candidate_b}" ]]; then
+    var_files+=("${candidate_b}")
+  else
+    echo "Error: overlay '${layer}' not found as '${candidate_a}' or '${candidate_b}'." >&2
+    exit 1
+  fi
+done
+
+for var_file in "${var_files[@]}"; do
+  if [[ ! -f "${var_file}" ]]; then
+    echo "Error: tfvars file not found: ${var_file}" >&2
+    exit 1
+  fi
+done
+
+if [[ -z "${TFC_ORG:-}" ]]; then
+  echo "Error: TFC_ORG must be set in the environment." >&2
+  exit 1
+fi
+
+export TF_IN_AUTOMATION=1
+export TF_PLUGIN_CACHE_DIR="${repo_root}/plugin-cache"
+mkdir -p "${TF_PLUGIN_CACHE_DIR}"
+
+export TF_DATA_DIR="${repo_root}/.tfdata/${env_name}/${component}/${workspace}"
+mkdir -p "${TF_DATA_DIR}"
+
+cloud_tf="${component_dir}/cloud.auto.tf"
+cleanup() {
+  rm -f "${cloud_tf}"
+}
+trap cleanup EXIT INT TERM
+
+{
+  cat <<EOF
+terraform {
+  cloud {
+    organization = "${TFC_ORG}"
+EOF
+
+  if [[ -n "${TFC_PROJECT:-}" ]]; then
+    cat <<EOF
+    project = "${TFC_PROJECT}"
+EOF
+  fi
+
+  cat <<EOF
+    workspaces {
+      name = "${workspace}"
+    }
+  }
+}
+EOF
+} > "${cloud_tf}"
+
+terraform_var_args=()
+for var_file in "${var_files[@]}"; do
+  terraform_var_args+=("-var-file=${var_file}")
+done
+
+echo "Environment: ${env_name}"
+echo "Component:   ${component}"
+echo "Workspace:   ${workspace}"
+echo "Var files:"
+for var_file in "${var_files[@]}"; do
+  echo "  - ${var_file}"
+done
+
+cd "${component_dir}"
+terraform init -upgrade
+terraform "${action}" -input=false -lock-timeout=5m "${terraform_var_args[@]}" "${extra_tf_args[@]}"
+
