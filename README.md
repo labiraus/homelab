@@ -2,7 +2,7 @@
 
 ## Chromeboook
 
-ssh oliver@192.168.8.132 - chromebook
+ssh oliver@192.168.8.132 - yggdrasil
 
 ### Initial Setup
 
@@ -47,6 +47,7 @@ ssh root@192.168.8.103
 192.168.8.133 proxmox-node2
 192.168.8.231 proxmox-node3
 192.168.8.103 proxmox-node4
+192.168.8.132 yggdrasil
 ```
 
 `systemctl restart pveproxy pvedaemon`
