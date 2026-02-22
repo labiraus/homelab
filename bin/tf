@@ -4,13 +4,14 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  bin/tf <action> <component> <primary_layer> [overlay_layer ...] [-- <extra terraform args>]
+  bin/tf <action> <component> <primary_layer> [overlay_layer ...] [--no-refresh] [-- <extra terraform args>]
 
 Actions:
   plan | apply | destroy | unlock
 
 Examples:
   ENV=lab bin/tf plan kubernetes node1
+  ENV=lab bin/tf apply kubernetes node1 --no-refresh
   ENV=lab bin/tf apply kubernetes node2 -- -auto-approve
   ENV=lab bin/tf unlock kubernetes node1
 EOF
@@ -46,6 +47,7 @@ shift
 overlay_layers=()
 extra_tf_args=()
 unlock_lock_id=""
+disable_refresh=false
 
 if [[ "${action}" == "unlock" ]]; then
   if [[ $# -gt 1 ]]; then
@@ -58,6 +60,11 @@ if [[ "${action}" == "unlock" ]]; then
   fi
 else
   while [[ $# -gt 0 ]]; do
+    if [[ "$1" == "--no-refresh" ]]; then
+      disable_refresh=true
+      shift
+      continue
+    fi
     if [[ "$1" == "--" ]]; then
       shift
       extra_tf_args=("$@")
@@ -247,4 +254,9 @@ EOF
   exit 1
 fi
 printf '%s\n' "${terraform_init_output}"
-terraform "${action}" -auto-approve -input=false -lock-timeout=5m "${terraform_var_args[@]}" "${extra_tf_args[@]}"
+terraform_cmd=(terraform "${action}" -auto-approve -input=false -lock-timeout=5m)
+if [[ "${disable_refresh}" == "true" ]]; then
+  terraform_cmd+=("-refresh=false")
+fi
+terraform_cmd+=("${terraform_var_args[@]}" "${extra_tf_args[@]}")
+"${terraform_cmd[@]}"
