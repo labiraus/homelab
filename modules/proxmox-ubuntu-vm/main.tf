@@ -6,7 +6,7 @@ locals {
 resource "proxmox_virtual_environment_download_file" "ubuntu_cloud_image" {
   node_name    = var.node_name
   datastore_id = local.image_datastore_id
-  content_type = "import"
+  content_type = "iso"
   url          = var.ubuntu_image_url
   file_name    = var.ubuntu_image_file_name
   overwrite    = false
@@ -47,7 +47,7 @@ resource "proxmox_virtual_environment_vm" "this" {
 
   disk {
     datastore_id = var.datastore_id
-    import_from  = proxmox_virtual_environment_download_file.ubuntu_cloud_image.id
+    file_id      = proxmox_virtual_environment_download_file.ubuntu_cloud_image.id
     interface    = "scsi0"
     size         = var.vm_disk_size_gb
     iothread     = true
