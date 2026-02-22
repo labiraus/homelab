@@ -1,7 +1,7 @@
 proxmox = {
   node_name             = "proxmox-node4"
   vm_id                 = 3104
-  vm_name               = "k8s-worker-4"
+  vm_name               = "niflheim"
   bridge                = "vmbr0"
   datastore_id          = "local-lvm"
   image_datastore_id    = "local"
@@ -9,9 +9,9 @@ proxmox = {
 }
 
 vm = {
-  cpu_cores    = 4
-  memory_mb    = 8192
-  disk_size_gb = 60
+  cpu_cores    = 8
+  memory_mb    = 5368
+  disk_size_gb = 80
   ssh_username = "ubuntu"
 }
 
@@ -22,7 +22,7 @@ network = {
 }
 
 ssh_authorized_keys = [
-  "ssh-ed25519 REPLACE_WITH_YOUR_PUBLIC_KEY homelab-node4",
+  "cert-authority,principals=\"ubuntu\" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAD/I8jzz4PjePbJRSS/Wh4ID1rfLUSgG7lkPN4H2E10 homelab-user-ca",
 ]
 
 kubeadm_join_command = ""

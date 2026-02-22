@@ -2,7 +2,6 @@
   "name": "homelab",
   "build": {
     "dockerfile": "Dockerfile",
-    "context": ".."
   },
   "features": {
     "ghcr.io/devcontainers/features/terraform:1": {},
@@ -11,11 +10,31 @@
     }
   },
   "mounts": [
-    "source=${localWorkspaceFolder}/.devcontainer/kubeconfig,target=/home/vscode/.kube/config,type=bind,consistency=cached",
-    "source=${localWorkspaceFolder}/.devcontainer/hosts,target=/etc/hosts,type=bind,consistency=cached",
-    "source=${localWorkspaceFolder}/.devcontainer/ssh,target=/home/vscode/.ssh,type=bind,consistency=cached",
-    "source=${localWorkspaceFolder}/.devcontainer/.env,target=/home/vscode/.env,type=bind,consistency=cached",
-    "source=${localWorkspaceFolder}/.devcontainer/.bashrc,target=/home/vscode/.bashrc.devcontainer,type=bind,consistency=cached"
+    {
+      "type": "bind",
+      "source": "${localWorkspaceFolder}/.devcontainer/kubeconfig",
+      "target": "/home/vscode/.kube/config"
+    },
+    {
+      "type": "bind",
+      "source": "${localWorkspaceFolder}/.devcontainer/hosts",
+      "target": "/etc/hosts"
+    },
+    {
+      "type": "bind",
+      "source": "${localWorkspaceFolder}/.devcontainer/ssh",
+      "target": "/home/vscode/.ssh"
+    },
+    {
+      "type": "bind",
+      "source": "${localWorkspaceFolder}/.devcontainer/.env",
+      "target": "/home/vscode/.env"
+    },
+    {
+      "type": "bind",
+      "source": "${localWorkspaceFolder}/.devcontainer/.bashrc",
+      "target": "/home/vscode/.bashrc.devcontainer"
+    }
   ],
   "customizations": {
     "vscode": {
@@ -29,5 +48,13 @@
         "redhat.vscode-yaml"
       ]
     }
-  }
+  },
+  "postCreateCommand": {
+    "git": "git config --global --add safe.directory /workspaces/homelab",
+    "scripts": "find . -type d -name node_modules -prune -o -type f -path '*/scripts/*.sh' -exec chmod +x {} + || true",
+    "terraform.sh": "chmod +x ./bin/tf",
+    "ssh": "[ -d /home/vscode/.ssh ] && (sudo chown -R vscode:vscode /home/vscode/.ssh 2>/dev/null || true) && chmod 700 /home/vscode/.ssh && find /home/vscode/.ssh -maxdepth 1 -type f -exec chmod 600 {} + 2>/dev/null || true"
+  },
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": true
 }

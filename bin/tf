@@ -10,7 +10,7 @@ Actions:
   plan | apply | destroy
 
 Examples:
-  ENV=lab bin/tf plan kubernetes node1 cilium
+  ENV=lab bin/tf plan kubernetes node1
   ENV=lab bin/tf apply kubernetes node2 -- -auto-approve
 EOF
 }
@@ -206,4 +206,4 @@ EOF
   exit 1
 fi
 printf '%s\n' "${terraform_init_output}"
-terraform "${action}" -input=false -lock-timeout=5m "${terraform_var_args[@]}" "${extra_tf_args[@]}"
+terraform "${action}" -auto-approve -input=false -lock-timeout=5m "${terraform_var_args[@]}" "${extra_tf_args[@]}"

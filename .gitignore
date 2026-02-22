@@ -15,4 +15,5 @@ override.tf.json
 *.secret.tfvars
 *.local.tfvars
 terraform.rc
-
+ssh_user_ca
+id_ed25519*

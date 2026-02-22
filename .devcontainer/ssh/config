@@ -5,7 +5,12 @@ Host *
   ServerAliveInterval 60
   ServerAliveCountMax 3
   ConnectTimeout 10
+  PreferredAuthentications publickey
+  PubkeyAuthentication yes
+  PasswordAuthentication no
   IdentitiesOnly yes
+  IdentityFile ~/.ssh/id_ed25519
+  CertificateFile ~/.ssh/id_ed25519-cert.pub
   StrictHostKeyChecking accept-new
   UserKnownHostsFile ~/.ssh/known_hosts
 

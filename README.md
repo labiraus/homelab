@@ -29,7 +29,6 @@ This repository provisions Kubernetes worker VMs on Proxmox VE using Terraform, 
 │   │   ├── node2.tfvars
 │   │   ├── node3.tfvars
 │   │   └── node4.tfvars
-│   └── cilium.tfvars
 ├── Makefile
 └── README.md
 ```
@@ -109,7 +108,7 @@ bin/tf <action> <component> <primary_layer> [overlay_layer ...] [-- <extra terra
 - `action`: `plan`, `apply`, `destroy`
 - `component`: currently `kubernetes`
 - `primary_layer`: first node layer (`node1`, `node2`, ...)
-- overlay layers: from `etc/<layer>.tfvars` (example `cilium`)
+- overlay layers: from `etc/<layer>.tfvars` when needed
 - extra Terraform flags can be passed after `--`
 
 The script:
@@ -131,8 +130,8 @@ The script:
 ## Example Commands
 
 ```bash
-ENV=lab TFC_ORG=my-org bin/tf plan kubernetes node1 cilium
-ENV=lab TFC_ORG=my-org bin/tf apply kubernetes node1 cilium
+ENV=lab TFC_ORG=my-org bin/tf plan kubernetes node1
+ENV=lab TFC_ORG=my-org bin/tf apply kubernetes node1
 ENV=lab TFC_ORG=my-org bin/tf apply kubernetes node2
 ENV=lab TFC_ORG=my-org bin/tf destroy kubernetes node2
 ```
@@ -147,7 +146,7 @@ Makefile shortcuts:
 
 ```bash
 make plan COMPONENT=kubernetes LAYER=node1
-make apply COMPONENT=kubernetes LAYER=node1 OVERLAYS="cilium"
+make apply COMPONENT=kubernetes LAYER=node1
 make destroy COMPONENT=kubernetes LAYER=node1
 ```
 
@@ -162,14 +161,10 @@ Cloud-init user-data installs and configures:
 Idempotency:
 - Join only runs if `/etc/kubernetes/kubelet.conf` does not exist.
 
-## Cilium Overlay
+## Helm Charts
 
-- `etc/cilium.tfvars` enables Cilium Helm install (`helm_release`) via:
-  - `https://helm.cilium.io/` (`chart = "cilium"`)
-- Supports optional kube-proxy replacement knobs:
-  - `kubeProxyReplacement`
-  - `k8sServiceHost`
-  - `k8sServicePort`
+This repository only provisions worker nodes and joins them to the cluster.
+Install CNI and other Helm charts separately from your cluster operations workflow.
 
 ## Security Notes
 

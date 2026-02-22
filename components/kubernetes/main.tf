@@ -1,4 +1,12 @@
 locals {
+  join_discovery_hash = trimsuffix(trimprefix(trimspace(var.kubeadm_discovery_token_ca_cert_hash), "sha256:"), "\n")
+  computed_kubeadm_join_command = (
+    trimspace(var.kube_api_server_host) != "" &&
+    trimspace(var.kubeadm_join_token) != "" &&
+    local.join_discovery_hash != ""
+  ) ? "kubeadm join ${var.kube_api_server_host}:${var.kube_api_server_port} --token ${var.kubeadm_join_token} --discovery-token-ca-cert-hash sha256:${local.join_discovery_hash}" : ""
+  effective_kubeadm_join_command = trimspace(var.kubeadm_join_command) != "" ? var.kubeadm_join_command : local.computed_kubeadm_join_command
+
   kubelet_extra_args_parts = concat(
     length(var.kubelet_node_labels) > 0 ? [
       "--node-labels=${join(",", [for key, value in var.kubelet_node_labels : "${key}=${value}"])}"
@@ -16,28 +24,9 @@ locals {
     ntp_servers          = var.ntp_servers
     kube_minor_channel   = var.kube_minor_channel
     kube_version         = var.kube_version
-    kubeadm_join_command = var.kubeadm_join_command
+    kubeadm_join_command = local.effective_kubeadm_join_command
     kubelet_extra_args   = local.kubelet_extra_args
   })
-
-  cilium_set_values = concat(
-    [for key, value in var.cilium.values : {
-      name  = key
-      value = tostring(value)
-    }],
-    var.cilium.kube_proxy_replacement != "" ? [{
-      name  = "kubeProxyReplacement"
-      value = var.cilium.kube_proxy_replacement
-    }] : [],
-    var.cilium.k8s_service_host != "" ? [{
-      name  = "k8sServiceHost"
-      value = var.cilium.k8s_service_host
-    }] : [],
-    var.cilium.k8s_service_host != "" ? [{
-      name  = "k8sServicePort"
-      value = tostring(var.cilium.k8s_service_port)
-    }] : []
-  )
 }
 
 provider "proxmox" {
@@ -49,16 +38,6 @@ provider "proxmox" {
     agent       = var.proxmox_ve_ssh_agent
     username    = var.proxmox_ve_ssh_user
     private_key = var.proxmox_ve_ssh_private_key_path != "" ? file(var.proxmox_ve_ssh_private_key_path) : null
-  }
-}
-
-provider "kubernetes" {
-  config_path = pathexpand(var.kubeconfig_path)
-}
-
-provider "helm" {
-  kubernetes = {
-    config_path = pathexpand(var.kubeconfig_path)
   }
 }
 
@@ -87,22 +66,4 @@ module "kubernetes_vm" {
   ubuntu_image_url       = var.ubuntu_image_url
   ubuntu_image_file_name = var.ubuntu_image_file_name
   tags                   = ["kubernetes", "worker", var.cluster_name]
-}
-
-resource "helm_release" "cilium" {
-  count = var.cilium.enabled ? 1 : 0
-
-  name       = "cilium"
-  namespace  = var.cilium.namespace
-  repository = "https://helm.cilium.io/"
-  chart      = "cilium"
-  version    = var.cilium.chart_version
-
-  create_namespace = false
-  atomic           = true
-  cleanup_on_fail  = true
-  wait             = true
-  timeout          = 600
-
-  set = local.cilium_set_values
 }

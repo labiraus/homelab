@@ -93,6 +93,31 @@ variable "kubeadm_join_command" {
   sensitive   = true
 }
 
+variable "kubeadm_join_token" {
+  description = "Optional kubeadm bootstrap token. If set with discovery hash, module builds kubeadm join command locally."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "kubeadm_discovery_token_ca_cert_hash" {
+  description = "CA cert hash for kubeadm discovery (hex only; optional 'sha256:' prefix is accepted)."
+  type        = string
+  default     = ""
+}
+
+variable "kube_api_server_host" {
+  description = "Kubernetes API server host used to build kubeadm join command."
+  type        = string
+  default     = ""
+}
+
+variable "kube_api_server_port" {
+  description = "Kubernetes API server port used to build kubeadm join command."
+  type        = number
+  default     = 6443
+}
+
 variable "kubelet_node_labels" {
   description = "Optional node labels for kubelet registration."
   type        = map(string)
@@ -103,12 +128,6 @@ variable "kubelet_register_taints" {
   description = "Optional kubelet taints on registration."
   type        = list(string)
   default     = []
-}
-
-variable "kubeconfig_path" {
-  description = "Kubeconfig path used by kubernetes and helm providers."
-  type        = string
-  default     = "~/.kube/config"
 }
 
 variable "proxmox_ve_endpoint" {
@@ -146,26 +165,4 @@ variable "proxmox_ve_ssh_private_key_path" {
   description = "Optional private key path for snippet uploads when agent is not used."
   type        = string
   default     = ""
-}
-
-variable "cilium" {
-  description = "Optional Cilium Helm configuration."
-  type = object({
-    enabled                = bool
-    chart_version          = string
-    namespace              = string
-    kube_proxy_replacement = string
-    k8s_service_host       = string
-    k8s_service_port       = number
-    values                 = map(string)
-  })
-  default = {
-    enabled                = false
-    chart_version          = "1.19.1"
-    namespace              = "kube-system"
-    kube_proxy_replacement = ""
-    k8s_service_host       = ""
-    k8s_service_port       = 6443
-    values                 = {}
-  }
 }

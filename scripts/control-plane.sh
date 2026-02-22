@@ -51,27 +51,7 @@ mkdir -p $HOME/.kube
 sudo cp /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
-# Install Helm
-curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-
-# Add Cilium repo
-helm repo add cilium https://helm.cilium.io/
-helm repo update
-
-# Install Cilium (VXLAN, cluster-pool IPAM)
-helm install cilium cilium/cilium \
-  -n kube-system \
-  --set kubeProxyReplacement=false \
-  --set routingMode=tunnel \
-  --set tunnelProtocol=vxlan \
-  --set ipam.mode=cluster-pool \
-  --set ipam.operator.clusterPoolIPv4PodCIDRList="{10.244.0.0/16}" \
-  --set ipam.operator.clusterPoolIPv4MaskSize=24 \
-  --set ipv6.enabled=false
-
-# Fix CNI chaining for Istio
-helm upgrade cilium cilium/cilium -n kube-system --reuse-values \
-  --set cni.exclusive=false
+# Install your CNI and other Helm charts separately from this bootstrap flow.
 
 # Install Istio CLI (1.29.x)
 curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.29.0 sh -
