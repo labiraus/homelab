@@ -29,7 +29,6 @@ ssh_authorized_keys = [
 kubeadm_join_command = ""
 
 kubelet_node_labels = {
-  "node-role.kubernetes.io/worker" = "true"
   "topology.kubernetes.io/zone"    = "lab-a"
 }
 
