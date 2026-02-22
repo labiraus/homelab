@@ -35,3 +35,4 @@ if [ -n "${PS1:-}" ]; then
 fi
 
 alias k='kubectl'
+alias pvesm='ssh "${PROXMOX_PVESM_HOST:-proxmox-node1}" pvesm'

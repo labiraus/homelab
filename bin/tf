@@ -7,11 +7,12 @@ Usage:
   bin/tf <action> <component> <primary_layer> [overlay_layer ...] [-- <extra terraform args>]
 
 Actions:
-  plan | apply | destroy
+  plan | apply | destroy | unlock
 
 Examples:
   ENV=lab bin/tf plan kubernetes node1
   ENV=lab bin/tf apply kubernetes node2 -- -auto-approve
+  ENV=lab bin/tf unlock kubernetes node1
 EOF
 }
 
@@ -29,9 +30,9 @@ action="$1"
 shift
 
 case "${action}" in
-  plan|apply|destroy) ;;
+  plan|apply|destroy|unlock) ;;
   *)
-    echo "Error: action must be one of: plan, apply, destroy." >&2
+    echo "Error: action must be one of: plan, apply, destroy, unlock." >&2
     usage
     exit 1
     ;;
@@ -44,16 +45,28 @@ shift
 
 overlay_layers=()
 extra_tf_args=()
+unlock_lock_id=""
 
-while [[ $# -gt 0 ]]; do
-  if [[ "$1" == "--" ]]; then
-    shift
-    extra_tf_args=("$@")
-    break
+if [[ "${action}" == "unlock" ]]; then
+  if [[ $# -gt 1 ]]; then
+    echo "Error: unlock accepts at most one optional lock ID argument." >&2
+    echo "Usage: bin/tf unlock <component> <primary_layer> [lock_id]" >&2
+    exit 1
   fi
-  overlay_layers+=("$1")
-  shift
-done
+  if [[ $# -eq 1 ]]; then
+    unlock_lock_id="$1"
+  fi
+else
+  while [[ $# -gt 0 ]]; do
+    if [[ "$1" == "--" ]]; then
+      shift
+      extra_tf_args=("$@")
+      break
+    fi
+    overlay_layers+=("$1")
+    shift
+  done
+fi
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "${script_dir}/.." && pwd)"
@@ -73,26 +86,28 @@ node_var_file="${repo_root}/etc/nodes/${primary_layer}.tfvars"
 
 var_files=("${env_var_file}" "${node_var_file}")
 
-for layer in "${overlay_layers[@]}"; do
-  candidate_a="${repo_root}/etc/${layer}.tfvars"
-  candidate_b="${repo_root}/etc/overlays/${layer}.tfvars"
+if [[ "${action}" != "unlock" ]]; then
+  for layer in "${overlay_layers[@]}"; do
+    candidate_a="${repo_root}/etc/${layer}.tfvars"
+    candidate_b="${repo_root}/etc/overlays/${layer}.tfvars"
 
-  if [[ -f "${candidate_a}" ]]; then
-    var_files+=("${candidate_a}")
-  elif [[ -f "${candidate_b}" ]]; then
-    var_files+=("${candidate_b}")
-  else
-    echo "Error: overlay '${layer}' not found as '${candidate_a}' or '${candidate_b}'." >&2
-    exit 1
-  fi
-done
+    if [[ -f "${candidate_a}" ]]; then
+      var_files+=("${candidate_a}")
+    elif [[ -f "${candidate_b}" ]]; then
+      var_files+=("${candidate_b}")
+    else
+      echo "Error: overlay '${layer}' not found as '${candidate_a}' or '${candidate_b}'." >&2
+      exit 1
+    fi
+  done
 
-for var_file in "${var_files[@]}"; do
-  if [[ ! -f "${var_file}" ]]; then
-    echo "Error: tfvars file not found: ${var_file}" >&2
-    exit 1
-  fi
-done
+  for var_file in "${var_files[@]}"; do
+    if [[ ! -f "${var_file}" ]]; then
+      echo "Error: tfvars file not found: ${var_file}" >&2
+      exit 1
+    fi
+  done
+fi
 
 if [[ -z "${TFC_ORG:-}" ]]; then
   echo "Error: TFC_ORG must be set in the environment." >&2
@@ -193,6 +208,32 @@ for var_file in "${var_files[@]}"; do
 done
 
 cd "${component_dir}"
+if [[ "${action}" == "unlock" ]]; then
+  if ! terraform_init_output="$(terraform init -upgrade=false 2>&1)"; then
+    printf '%s\n' "${terraform_init_output}" >&2
+    exit 1
+  fi
+  printf '%s\n' "${terraform_init_output}"
+
+  lock_id="${unlock_lock_id:-${TFC_ORG}/${workspace}}"
+  echo "Unlocking remote state lock ID: ${lock_id}"
+  if terraform force-unlock -force "${lock_id}"; then
+    echo "Remote state unlock completed."
+  else
+    echo "Remote unlock failed for '${lock_id}'." >&2
+    if [[ -z "${unlock_lock_id}" ]]; then
+      echo "Tip: re-run with explicit lock UUID from lock info:" >&2
+      echo "  bin/tf unlock ${component} ${primary_layer} <lock_uuid>" >&2
+    fi
+    exit 1
+  fi
+
+  echo "Clearing local lock files in TF_DATA_DIR (if present)..."
+  find "${TF_DATA_DIR}" -type f -name "*.lock.info" -print -delete 2>/dev/null || true
+  find "${component_dir}" -maxdepth 2 -type f -name "*.lock.info" -print -delete 2>/dev/null || true
+  exit 0
+fi
+
 if ! terraform_init_output="$(terraform init -upgrade 2>&1)"; then
   printf '%s\n' "${terraform_init_output}" >&2
   if grep -q "Unreadable module directory" <<< "${terraform_init_output}" && \

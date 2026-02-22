@@ -33,3 +33,23 @@ Host proxmox-node4
 Host yggdrasil
   HostName 192.168.8.132
   User oliver
+
+Host jotunheim
+  HostName 192.168.8.121
+  User ubuntu
+
+Host alfheim
+  HostName 192.168.8.122
+  User ubuntu
+
+Host helheim
+  HostName 192.168.8.123
+  User ubuntu
+
+Host niflheim
+  HostName 192.168.8.124
+  User ubuntu
+
+Host muspelheim
+  HostName 192.168.8.125
+  User ubuntu

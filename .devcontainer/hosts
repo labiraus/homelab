@@ -4,4 +4,10 @@
 192.168.8.133 proxmox-node2
 192.168.8.231 proxmox-node3
 192.168.8.103 proxmox-node4
+
 192.168.8.132 yggdrasil
+192.168.8.121 jotunheim
+192.168.8.122 alfheim
+192.168.8.123 helheim
+192.168.8.124 niflheim
+192.168.8.125 muspelheim

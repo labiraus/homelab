@@ -53,7 +53,7 @@ systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
 sudo nano /etc/systemd/logind.conf
 systemctl restart systemd-logind
 
-pvesm set local --content iso,vztmpl,backup,import,snippets,images
+pvesm set local --content iso,vztmpl,backup,import,snippets
 ```
 
 For ubuntu systems include the following:
