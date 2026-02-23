@@ -17,7 +17,7 @@ vm = {
 
 network = {
   use_dhcp     = false
-  ipv4_address = "192.168.8.123/24"
+  ipv4_address = "192.168.8.XXX/24"
   ipv4_gateway = "192.168.8.1"
 }
 
@@ -29,7 +29,7 @@ ssh_authorized_keys = [
 kubeadm_join_command = ""
 
 kubelet_node_labels = {
-  "topology.kubernetes.io/zone"    = "lab-c"
+  "topology.kubernetes.io/zone" = "lab-c"
 }
 
 kubelet_register_taints = []

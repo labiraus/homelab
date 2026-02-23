@@ -1,7 +1,7 @@
 {
   "name": "homelab",
   "build": {
-    "dockerfile": "Dockerfile",
+    "dockerfile": "Dockerfile"
   },
   "features": {
     "ghcr.io/devcontainers/features/terraform:1": {},
@@ -49,6 +49,13 @@
       ]
     }
   },
+  "containerEnv": {
+    "TF_PLUGIN_CACHE_DIR": "/home/vscode/terraform-plugin-cache"
+  },
+  "runArgs": [
+    "--env-file",
+    ".devcontainer/.env"
+  ],
   "postCreateCommand": {
     "git": "git config --global --add safe.directory /workspaces/homelab",
     "scripts": "find . -type d -name node_modules -prune -o -type f -path '*/scripts/*.sh' -exec chmod +x {} + || true",

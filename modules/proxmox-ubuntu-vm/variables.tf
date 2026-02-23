@@ -60,6 +60,24 @@ variable "ubuntu_image_file_name" {
   type        = string
 }
 
+variable "download_ubuntu_image" {
+  description = "Download Ubuntu image into Proxmox when true. Set to false to reuse an existing image file in image_datastore_id."
+  type        = bool
+  default     = true
+}
+
+variable "enable_drain_on_destroy" {
+  description = "Run a destroy-time drain command before deleting the VM."
+  type        = bool
+  default     = false
+}
+
+variable "drain_command" {
+  description = "Optional drain command to run on destroy (defaults to kubectl drain <vm_name>)."
+  type        = string
+  default     = ""
+}
+
 variable "ssh_username" {
   description = "Username configured by cloud-init."
   type        = string

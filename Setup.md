@@ -21,10 +21,11 @@ ssh-keygen -s .devcontainer/ssh/ssh_user_ca \
   .devcontainer/ssh/id_ed25519.pub
 
 ssh-add ~/.ssh/id_ed25519
-ssh-add ~/.ssh/id_ed25519-cert.pub
 ```
 
-You will need to run the second command every 30 days to re-sign the key, or remove the timout. In this example root is the user for proxmox, oliver is the user I set up for yggdrasil and ubuntu is the default username that will be used on all ubuntu machines.
+`ssh-add` only needs the private key. OpenSSH will use the matching certificate (`~/.ssh/id_ed25519-cert.pub`) automatically.
+
+You will need to run the second `ssh-keygen` command every 30 days to re-sign the key, or remove the timeout. In this example root is the user for proxmox, oliver is the user I set up for yggdrasil and ubuntu is the default username that will be used on all ubuntu machines.
 
 ## Chromebook
 
@@ -79,15 +80,7 @@ sshd -t && systemctl reload sshd
 Initialize the devcontainer kubeconfig from `yggdrasil`:
 
 ```bash
-# Run from the repository root
-set -euo pipefail
-
-mkdir -p .devcontainer
 ssh yggdrasil 'cat ~/.kube/config' > .devcontainer/kubeconfig
-chmod 600 .devcontainer/kubeconfig
-
-# Quick sanity check
-grep -E 'current-context:|server:' .devcontainer/kubeconfig
 ```
 
 This file contains cluster credentials and private key material. Keep it out of git and treat it as a secret.

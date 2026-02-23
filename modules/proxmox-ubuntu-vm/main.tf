@@ -1,15 +1,23 @@
 locals {
   image_datastore_id    = coalesce(var.image_datastore_id, var.datastore_id)
   snippets_datastore_id = coalesce(var.snippets_datastore_id, var.datastore_id)
+  ubuntu_image_file_id  = var.download_ubuntu_image ? proxmox_virtual_environment_download_file.ubuntu_cloud_image[0].id : "${local.image_datastore_id}:iso/${var.ubuntu_image_file_name}"
+  drain_command         = trimspace(var.drain_command) != "" ? var.drain_command : "kubectl drain ${var.vm_name} --ignore-daemonsets --delete-emptydir-data --force"
 }
 
 resource "proxmox_virtual_environment_download_file" "ubuntu_cloud_image" {
+  count = var.download_ubuntu_image ? 1 : 0
+
   node_name    = var.node_name
   datastore_id = local.image_datastore_id
   content_type = "iso"
   url          = var.ubuntu_image_url
   file_name    = var.ubuntu_image_file_name
   overwrite    = false
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "proxmox_virtual_environment_file" "cloud_init_user_data" {
@@ -47,7 +55,7 @@ resource "proxmox_virtual_environment_vm" "this" {
 
   disk {
     datastore_id = var.datastore_id
-    file_id      = proxmox_virtual_environment_download_file.ubuntu_cloud_image.id
+    file_id      = local.ubuntu_image_file_id
     interface    = "scsi0"
     size         = var.vm_disk_size_gb
     iothread     = true
@@ -75,4 +83,20 @@ resource "proxmox_virtual_environment_vm" "this" {
       keys     = var.ssh_authorized_keys
     }
   }
+}
+
+resource "null_resource" "drain_on_destroy" {
+  count = var.enable_drain_on_destroy ? 1 : 0
+
+  triggers = {
+    node_name     = var.vm_name
+    drain_command = local.drain_command
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = self.triggers.drain_command
+  }
+
+  depends_on = [proxmox_virtual_environment_vm.this]
 }

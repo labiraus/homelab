@@ -179,6 +179,7 @@ Each `etc/nodes/nodeX.tfvars` defines:
 - VM sizing (`vm.cpu_cores`, `vm.memory_mb`, `vm.disk_size_gb`)
 - Network (`network.use_dhcp` or static `network.ipv4_address` + `network.ipv4_gateway`)
 - `ssh_authorized_keys`
+- Optional image behavior (`download_ubuntu_image = false` to reuse an existing image file instead of downloading)
 - `kubeadm_join_command` (blank for provision-only)
 
 ## Outputs

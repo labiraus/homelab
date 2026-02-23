@@ -7,13 +7,16 @@ Usage:
   bin/tf <action> <component> <primary_layer> [overlay_layer ...] [--no-refresh] [-- <extra terraform args>]
 
 Actions:
-  plan | apply | destroy | unlock
+  plan | apply | destroy | unlock | import | state-rm | state-list
 
 Examples:
   ENV=lab bin/tf plan kubernetes node1
   ENV=lab bin/tf apply kubernetes node1 --no-refresh
   ENV=lab bin/tf apply kubernetes node2 -- -auto-approve
   ENV=lab bin/tf unlock kubernetes node1
+  ENV=lab bin/tf import kubernetes node2 -- <address> <id>
+  ENV=lab bin/tf state-rm kubernetes node2 -- <address> [address ...]
+  ENV=lab bin/tf state-list kubernetes node2
 EOF
 }
 
@@ -31,9 +34,9 @@ action="$1"
 shift
 
 case "${action}" in
-  plan|apply|destroy|unlock) ;;
+  plan|apply|destroy|unlock|import|state-rm|state-list) ;;
   *)
-    echo "Error: action must be one of: plan, apply, destroy, unlock." >&2
+    echo "Error: action must be one of: plan, apply, destroy, unlock, import, state-rm, state-list." >&2
     usage
     exit 1
     ;;
@@ -254,6 +257,36 @@ EOF
   exit 1
 fi
 printf '%s\n' "${terraform_init_output}"
+if [[ "${action}" == "import" ]]; then
+  if [[ "${#extra_tf_args[@]}" -lt 2 ]]; then
+    echo "Error: import requires <address> <id> after '--'." >&2
+    echo "Usage: bin/tf import <component> <primary_layer> [overlay_layer ...] -- <address> <id>" >&2
+    exit 1
+  fi
+  terraform_cmd=(terraform import -input=false -lock-timeout=5m)
+  terraform_cmd+=("${terraform_var_args[@]}" "${extra_tf_args[@]}")
+  "${terraform_cmd[@]}"
+  exit 0
+fi
+
+if [[ "${action}" == "state-rm" ]]; then
+  if [[ "${#extra_tf_args[@]}" -lt 1 ]]; then
+    echo "Error: state-rm requires at least one <address> after '--'." >&2
+    echo "Usage: bin/tf state-rm <component> <primary_layer> [overlay_layer ...] -- <address> [address ...]" >&2
+    exit 1
+  fi
+  terraform_cmd=(terraform state rm)
+  terraform_cmd+=("${extra_tf_args[@]}")
+  "${terraform_cmd[@]}"
+  exit 0
+fi
+
+if [[ "${action}" == "state-list" ]]; then
+  terraform_cmd=(terraform state list)
+  "${terraform_cmd[@]}"
+  exit 0
+fi
+
 terraform_cmd=(terraform "${action}" -auto-approve -input=false -lock-timeout=5m)
 if [[ "${disable_refresh}" == "true" ]]; then
   terraform_cmd+=("-refresh=false")

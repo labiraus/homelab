@@ -68,5 +68,8 @@ module "kubernetes_vm" {
 
   ubuntu_image_url       = var.ubuntu_image_url
   ubuntu_image_file_name = var.ubuntu_image_file_name
+  download_ubuntu_image  = var.download_ubuntu_image
+  enable_drain_on_destroy = var.enable_drain_on_destroy
+  drain_command           = var.drain_command
   tags                   = ["kubernetes", "worker", var.cluster_name]
 }

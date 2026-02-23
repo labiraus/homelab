@@ -29,7 +29,7 @@ ssh_authorized_keys = [
 kubeadm_join_command = ""
 
 kubelet_node_labels = {
-  "topology.kubernetes.io/zone"    = "lab-d"
+  "topology.kubernetes.io/zone" = "lab-d"
 }
 
 kubelet_register_taints = []
