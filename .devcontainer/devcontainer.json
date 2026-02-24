@@ -4,7 +4,15 @@
     "dockerfile": "Dockerfile"
   },
   "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1.8.0": {
+      "enableNonRootDocker": "true",
+      "moby": "true"
+    },
     "ghcr.io/devcontainers/features/terraform:1": {},
+    "ghcr.io/audacioustux/devcontainers/argo:1": {},
+    "ghcr.io/audacioustux/devcontainers/k9s:1": {},
+    "ghcr.io/audacioustux/devcontainers/cilium:1": {},
+    "ghcr.io/rio/features/skaffold:2": {},
     "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
       "minikube": "none"
     }
@@ -34,6 +42,11 @@
       "type": "bind",
       "source": "${localWorkspaceFolder}/.devcontainer/.bashrc",
       "target": "/home/vscode/.bashrc.devcontainer"
+    },
+    {
+      "type": "bind",
+      "source": "${localWorkspaceFolder}/plugin-cache",
+      "target": "/home/vscode/terraform-plugin-cache"
     }
   ],
   "customizations": {

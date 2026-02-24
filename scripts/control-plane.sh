@@ -58,5 +58,5 @@ curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.29.0 sh -
 cd istio-*
 sudo install -m 0755 bin/istioctl /usr/local/bin/istioctl
 
-# Install Istio Ambient
-istioctl install --set profile=ambient -y
++# Install Istio Ambient, but disable Istio CNI node agent (istio-cni-node DaemonSet)
+istioctl install --set profile=ambient --set components.cni.enabled=false -y
