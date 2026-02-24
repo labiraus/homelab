@@ -70,6 +70,9 @@ rm "cilium-linux-${CLI_ARCH}.tar.gz" "cilium-linux-${CLI_ARCH}.tar.gz.sha256sum"
 cilium install --set ipam.operator.clusterPoolIPv4PodCIDRList="10.244.0.0/16"
 cilium status --wait
 
+# Install Kubernetes Gateway API CRDs
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/latest/download/standard-install.yaml
+
 # Install Istio CLI (1.29.x)
 curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.29.0 sh -
 cd istio-*
