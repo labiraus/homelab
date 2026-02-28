@@ -1,3 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
 # Disable swap
 sudo swapoff -a
 sudo sed -i.bak '/\sswap\s/s/^/#/' /etc/fstab

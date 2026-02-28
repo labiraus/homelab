@@ -9,7 +9,7 @@
       "moby": "true"
     },
     "ghcr.io/devcontainers/features/terraform:1": {},
-    "ghcr.io/audacioustux/devcontainers/argo:1": {},
+    "ghcr.io/goldsam/dev-container-features/flux2": {},
     "ghcr.io/audacioustux/devcontainers/k9s:1": {},
     "ghcr.io/audacioustux/devcontainers/cilium:1": {},
     "ghcr.io/rio/features/skaffold:2": {},

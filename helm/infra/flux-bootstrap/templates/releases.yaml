@@ -1,7 +1,7 @@
 {{- $root := . -}}
 {{- range $chart := .Values.charts }}
 apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
+kind: HelmRelease
 metadata:
   name: {{ $chart }}
   namespace: flux-system
