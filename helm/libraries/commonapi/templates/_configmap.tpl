@@ -1,0 +1,3 @@
+{{ define "commonapi.configmap" }}
+
+{{- end -}}

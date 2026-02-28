@@ -1,0 +1,6 @@
+ingress:
+  hosts:
+    - host: uat.k8s-quickstart.com
+      paths:
+        - path: /grafana
+          pathType: PathPrefix

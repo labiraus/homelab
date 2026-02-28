@@ -1,0 +1,89 @@
+name: App GoApi CI/CD
+on:
+  repository_dispatch:
+    types: [docker-build]
+  push:
+    paths:
+      - "apps/goapi/**"
+      - "apps/pkg/**"
+      - ".github/actions/docker/**"
+      - ".github/workflows/app-goapi.yml"
+
+# This section defines the permissions given to the workflow through the secrets.GITHUB_TOKEN
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+concurrency: ci-goapi-docker-pipeline
+
+jobs:
+  test:
+    name: "GoApi Test"
+    runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci')
+
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v4.1.1
+
+      - 
+        name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.22.4' # Specify the Go version to use. Default is the latest stable version
+
+      - 
+        name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('./apps/goapi/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+    
+      -
+        name: unit test
+        run: go test ./apps/goapi/...
+
+  ghcr:
+    name: "GoApi Build to GHCR"
+    runs-on: ubuntu-latest
+    environment: uat
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && !contains(github.event.head_commit.message, 'no-ci')
+
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v4.1.1
+    
+      - name: Build to GHCR
+        uses: ./.github/actions/docker/ghcr
+        with:
+          dockerfile: ./apps/goapi/dockerfile
+          context: ./apps
+          token: ${{ secrets.GITHUB_TOKEN }}
+          registry: goapi
+          tag: latest
+
+  ecr:
+    name: "GoApi Build to ECR"
+    runs-on: ubuntu-latest
+    environment: uat
+    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci')
+
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v4.1.1
+    
+      - name: Build to ECR
+        uses: ./.github/actions/docker/ecr
+        with:
+          dockerfile: ./apps/goapi/dockerfile
+          context: ./apps
+          aws-region: ${{ vars.AWS_REGION}}
+          role-to-assume: ${{ vars.OIDC_BUILD_ROLE}}
+          registry: k8s-quickstart-ecr/goapi
+          tag: uat

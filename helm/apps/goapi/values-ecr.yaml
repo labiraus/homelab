@@ -1,0 +1,29 @@
+# imagePullSecrets:
+#   - name: ecr-registry-secret
+podLabels: {}
+
+image:
+  tag: "uat"
+
+ingress:
+ enabled: true
+ className: ""
+ annotations: {}
+ hosts:
+  - host: uat.k8s-quickstart.com
+    paths:
+     - path: /go
+       pathType: PathPrefix
+       rewrite:          
+         path:
+           type: ReplacePrefixMatch
+           replacePrefixMatch: /
+
+tolerations:
+  - key: "karpenter.sh/controller"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+
+env:
+    configValue: "eks"

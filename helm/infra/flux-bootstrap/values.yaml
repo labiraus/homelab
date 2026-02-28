@@ -1,0 +1,22 @@
+namespace: homelab
+provider: generic
+tag: uat
+secret: true
+image:
+  repository:
+charts:
+  [
+    cert-issuers,
+    flux-flagger,
+    flux-istio,
+    flux-prometheus,
+    gateway,
+    jaeger,
+    kiali,
+    kubecost,
+    metallb,
+    namespace,
+    goapi,
+    pythonapi,
+    reactapp,
+  ]

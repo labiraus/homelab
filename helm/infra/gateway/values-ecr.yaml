@@ -1,0 +1,20 @@
+ingress:
+  hostname: "uat.k8s-quickstart.com"
+
+tls: true
+certManager: true
+acm:
+  certificateArn: "arn:aws:acm:us-east-1:891377398971:certificate/727a65e8-f529-4c42-8246-4d320c53506c"
+  hostedZoneId: "Z01371592MTNNN9JA4QTJ"
+
+clusterIssuer:
+  name: letsencrypt-cluster-issuer
+  email: oliver@labiraus.com
+
+certificate:
+  name: uat-k8s-quickstart-com-cert
+  namespace: ingress
+  secretName: uat-k8s-quickstart-com-tls
+  commonName: uat.k8s-quickstart.com
+  dnsNames:
+    - uat.k8s-quickstart.com

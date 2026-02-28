@@ -4,9 +4,9 @@ on:
   push:
     branches: ["main"]
     paths:
-      - "charts/**"
+      - "helm/**"
       - "values/**"
-      - "infra/**"
+      - "apps/**"
       - "ansible/**"
       - "ci/**"
       - ".github/workflows/gh-actions-build-push.yaml"
@@ -37,16 +37,20 @@ jobs:
 
       - name: Lint local charts
         run: |
-          for c in charts/*; do
-            helm lint "$c"
-          done
+          find helm -mindepth 2 -maxdepth 2 -type f -name Chart.yaml -print0 \
+            | while IFS= read -r -d '' chart; do
+                dir="$(dirname "$chart")"
+                helm lint "$dir"
+              done
 
       - name: Package all local charts
         run: |
           mkdir -p /tmp/charts
-          for c in charts/*; do
-            helm package "$c" --destination /tmp/charts
-          done
+          find helm -mindepth 2 -maxdepth 2 -type f -name Chart.yaml -print0 \
+            | while IFS= read -r -d '' chart; do
+                dir="$(dirname "$chart")"
+                helm package "$dir" --destination /tmp/charts
+              done
 
       - name: Push charts to GHCR as OCI artifacts
         run: |

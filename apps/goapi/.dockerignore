@@ -1,0 +1,46 @@
+# Ignore all local logs and temporary files.
+*.log
+*.tmp
+
+# Ignore compiled Go binaries and objects,
+# as well as the directory that stores them.
+*.exe
+*.dll
+*.so
+*.dylib
+/bin/
+/pkg/
+
+# Ignore version control directories.
+/.git/
+/.svn/
+/.hg/
+/.bzr/
+
+# Ignore editor settings and backup files.
+*.swp
+*.swo
+.vscode/
+.idea/
+*.bak
+*.swp
+*.swo
+
+# Ignore all markdown, text, and documentation files.
+*.md
+*.txt
+LICENSE
+/docs/
+
+# Ignore test, benchmark, and example files.
+*_test.go
+*_benchmark.go
+/examples/
+/helm/
+
+# Ignore the vendor directory if dependencies are vendored.
+/vendor/
+
+# Ignore typical Go directories that don't need to be added to the Docker image.
+/testdata/
+/scripts/

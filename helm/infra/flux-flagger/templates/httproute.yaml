@@ -1,0 +1,33 @@
+{{- if .Values.ingress.enabled -}}
+{{- $root := . -}}
+{{- range $host := .Values.ingress.hosts }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "flagger.fullname" $root }}
+  namespace: flagger-system
+spec:
+  hostnames: [{{ $host.host }}]
+  parentRefs:
+  - name: gateway
+    namespace: ingress
+  rules:
+  {{- range $path := $host.paths }}
+  - matches:
+    - path:
+        type: {{ $path.pathType }}
+        value: {{ $path.path }}
+    filters:
+      - type: URLRewrite
+        urlRewrite:
+          path:
+            type: ReplacePrefixMatch
+            replacePrefixMatch: /
+    backendRefs:
+    - name: {{ include "flagger.fullname" $root }}
+      kind: Service
+      port: 80
+  {{- end }}
+---
+{{- end }}
+{{- end }}

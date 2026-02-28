@@ -1,0 +1,34 @@
+name: Helm GHCR
+description: Build and push Helm images to GitHub Container Registry
+inputs:
+    chart:
+        description: 'The path to the helm chart'
+        required: true
+    values:
+        description: 'The values file to use for the helm chart'
+        required: true
+
+runs:
+  using: "composite"
+  steps:
+    - 
+        name: Set up Helm
+        uses: azure/setup-helm@v4.2.0
+      
+    - 
+        name: Resolve Helm dependencies
+        shell: bash
+        run: |
+            helm dependency update ${{ github.workspace }}/helm/${{ inputs.chart }}
+      
+    - 
+        name: Lint Helm chart
+        shell: bash
+        run: |
+            helm lint ${{ github.workspace }}/helm/${{ inputs.chart }} -f  ${{ github.workspace }}/helm/${{ inputs.chart }}/${{ inputs.values }}
+
+    - 
+        name: Test Helm chart compilation
+        shell: bash
+        run: |
+            helm template test ${{ github.workspace }}/helm/${{ inputs.chart }} -f  ${{ github.workspace }}/helm/${{ inputs.chart }}/${{ inputs.values }}

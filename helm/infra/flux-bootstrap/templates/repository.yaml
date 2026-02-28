@@ -1,0 +1,19 @@
+{{- $root := . -}}
+{{- range $chart := .Values.charts }}
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: {{ $chart }}
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: oci://{{ $root.Values.image.repository }}/helm-{{ $chart }}
+  provider: {{ $root.Values.provider }}
+  {{- if $root.Values.secret }}
+  secretRef:
+    name: registry-key
+  {{- end }}
+  ref:
+    tag: {{ $root.Values.tag }}
+---
+{{- end }}

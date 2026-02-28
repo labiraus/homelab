@@ -1,0 +1,94 @@
+name: App ReactApp CI/CD
+on:
+  repository_dispatch:
+    types: [docker-build]
+  push:
+    paths:
+      - "apps/reactapp/**"
+      - ".github/actions/docker/**"
+      - ".github/workflows/app-reactapp.yml"
+
+# This section defines the permissions given to the workflow through the secrets.GITHUB_TOKEN
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+concurrency: ci-reactapp-docker-pipeline
+
+jobs:
+  test:
+    name: "ReactApp Test"
+    runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci')
+
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v4.1.1
+
+      - 
+        name: Cache Node.js modules
+        id: cache-node
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.npm
+            node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node-
+
+      - 
+        name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: apps/reactapp
+
+      - name: Run unit tests
+        run: CI=true npm test
+        working-directory: apps/reactapp
+
+  ghcr:
+    name: "ReactApp Build to GHCR"
+    runs-on: ubuntu-latest
+    environment: uat
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && !contains(github.event.head_commit.message, 'no-ci')
+
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v4.1.1
+    
+      - name: Build to GHCR
+        uses: ./.github/actions/docker/ghcr
+        with:
+          dockerfile: ./apps/reactapp/dockerfile
+          context: ./apps/reactapp
+          token: ${{ secrets.GITHUB_TOKEN }}
+          registry: reactapp
+          tag: latest
+
+  ecr:
+    name: "ReactApp Build to ECR"
+    runs-on: ubuntu-latest
+    environment: uat
+    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci')
+
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v4.1.1
+    
+      - name: Build to ECR
+        uses: ./.github/actions/docker/ecr
+        with:
+          dockerfile: ./apps/reactapp/dockerfile
+          context: ./apps/reactapp
+          aws-region: ${{ vars.AWS_REGION}}
+          role-to-assume: ${{ vars.OIDC_BUILD_ROLE}}
+          registry: k8s-quickstart-ecr/reactapp
+          tag: uat

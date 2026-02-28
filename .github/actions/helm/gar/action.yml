@@ -1,0 +1,130 @@
+name: Helm GAR
+description: Build and push Helm images to Google Artifact Registry
+inputs:
+  chart:
+    description: The path to the helm chart
+    required: true
+  tag:
+    description: The tag to apply to the Docker image
+    required: true
+  values:
+    description: The values file to use for the helm chart
+    required: true
+  region:
+    description: Google Artifact Registry region
+    required: true
+  project_id:
+    description: GCP project ID
+    required: true
+  service_account:
+    description: GCP Service Account with permissions to write to GAR
+    required: true
+  workload_identity_provider:
+    description: GCP Workload Identity Provider
+    required: true
+  registry:
+    description: Google Artifact Registry name
+    required: true
+  project_number:
+    description: GCP Project Number
+    required: true
+  set-parameters:
+    description: 'Array of parameters to set in the Helm template'
+    required: false
+
+runs:
+  using: "composite"
+  steps:  
+  - 
+    name: Set up Helm
+    uses: azure/setup-helm@v4.2.0
+
+  - 
+    name: Setup Flux CLI
+    uses: fluxcd/flux2/action@main
+
+  - 
+    name: Create Google Cloud Authentication File
+    id: google-auth
+    uses: 'google-github-actions/auth@v2'
+    with:
+      token_format: 'access_token'
+      access_token_lifetime: 300s
+      workload_identity_provider: "projects/${{ inputs.project_number }}/locations/global/workloadIdentityPools/github-pool-${{ inputs.workload_identity_provider }}/providers/github-pool-provider-${{ inputs.workload_identity_provider }}"
+      service_account: "${{ inputs.service_account }}"
+      create_credentials_file: true
+
+  - 
+    name: Set up Google Cloud SDK
+    uses: 'google-github-actions/setup-gcloud@v2'
+    with:
+      version: '>= 416.0.0'
+
+  - 
+    name: Login to Google Artifact Registry
+    shell: bash
+    run: |
+      helm registry login ${{ inputs.region }}-docker.pkg.dev --username "oauth2accesstoken" --password "${{ steps.google-auth.outputs.access_token }}"
+  
+  -
+    name: Get chart dependencies
+    shell: bash
+    run: |
+      helm dependency update ${{ github.workspace }}/helm/${{ inputs.chart }}
+
+  - 
+    name: Extract chart name
+    id: extract_chart_name
+    shell: bash
+    run: echo "chart_name=$(basename ${{ inputs.chart }})" >> $GITHUB_ENV
+
+  - 
+    name: Build set params
+    id: set_params
+    shell: bash
+    run: |
+      set_params=""
+      IFS=',' read -ra PARAMS <<< "${{ inputs.set-parameters }}"
+      for param in "${PARAMS[@]}"; do
+        set_params="$set_params --set $param"
+      done
+      echo "set_params=$set_params" >> $GITHUB_ENV
+
+  - 
+    name: Render Helm chart with custom values
+    shell: bash
+    run: |
+      mkdir -p ${{ github.workspace }}/deploy
+      echo ${{ env.set_params}}
+      
+      # Override helm values image.repository with correct gar location
+      helm template ${{ env.chart_name }} ${{ github.workspace }}/helm/${{ inputs.chart }} \
+        -f ${{ github.workspace }}/helm/${{ inputs.chart }}/${{ inputs.values }} \
+        ${{ env.set_params}} > ${{ github.workspace }}/deploy/app.yaml
+      
+      cat ${{ github.workspace }}/deploy/app.yaml 
+
+  - 
+    name: Configure Docker
+    shell: bash
+    run: gcloud auth configure-docker "${{ inputs.region }}-docker.pkg.dev"
+
+  - 
+    name: Push manifests
+    shell: bash
+    run: |
+      flux push artifact oci://${{ inputs.region }}-docker.pkg.dev/${{ inputs.project_id }}/${{ inputs.registry }}/${{ env.chart_name }}:$(git rev-parse --short HEAD) \
+        --path="${{ github.workspace }}/deploy" \
+        --source="$(git config --get remote.origin.url)" \
+        --revision="$(git branch --show-current)@sha1:$(git rev-parse HEAD)"
+
+  - 
+    name: Tag manifest
+    shell: bash
+    run: |
+      flux tag artifact oci://${{ inputs.region }}-docker.pkg.dev/${{ inputs.project_id }}/${{ inputs.registry }}/${{ env.chart_name }}:$(git rev-parse --short HEAD) --tag ${{ inputs.tag}}
+
+  - 
+    name: Print app.yaml content
+    shell: bash
+    run: cat ${{ github.workspace }}/deploy/app.yaml

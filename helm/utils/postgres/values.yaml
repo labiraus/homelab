@@ -1,0 +1,14 @@
+namespace: data
+cluster:
+  name: app-db
+  instances: 3
+  image: ghcr.io/cloudnative-pg/postgresql:16.13
+  storageClass: longhorn
+  storageSize: 30Gi
+  bootstrapSecretName: app-db-bootstrap
+  database: app
+  owner: app
+backup:
+  destinationPath: s3://cnpg-backups/app-db
+  endpointURL: https://minio.minio.svc.cluster.local:9000
+  credentialsSecret: cnpg-backup-s3

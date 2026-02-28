@@ -1,0 +1,15 @@
+imagePullSecrets:
+  - name: registry-key
+
+image:
+  repository: ghcr.io/labiraus/homelab/pythonapi
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "latest"
+
+canary:
+  enabled: true
+  path: "hello"
+
+env:
+  configValue: "ghcr"

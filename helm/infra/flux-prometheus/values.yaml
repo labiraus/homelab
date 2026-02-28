@@ -1,0 +1,18 @@
+service:
+  type: ClusterIP
+  port: 3000
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: local.k8s-quickstart.com
+      paths:
+        - path: /grafana
+          pathType: PathPrefix
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - local.k8s-quickstart.com

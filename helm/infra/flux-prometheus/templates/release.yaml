@@ -1,0 +1,29 @@
+{{- $root := . -}}
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: prometheus
+  namespace: flux-system
+spec:
+  interval: 1h
+  targetNamespace: istio-system
+  releaseName: prometheus
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      reconcileStrategy: ChartVersion
+      version: '*'
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus
+  values:
+    {{- with (first .Values.ingress.hosts) }}
+    {{- $host := .host -}}
+    {{- with (first .paths) }}
+    grafana:
+      grafana.ini:
+        server:
+          root_url: "{{ if empty $root.Values.tls }}http{{ else }}https{{ end }}://{{ $host }}{{ .path }}"
+          serve_from_sub_path: true 
+    {{- end }}
+    {{- end }}

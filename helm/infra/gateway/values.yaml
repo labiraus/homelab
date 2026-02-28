@@ -1,0 +1,6 @@
+ingress:
+  namespace: ingress
+  hostname: "*.k8s-quickstart.com"
+tls: false
+acm:
+  certificateArn: 

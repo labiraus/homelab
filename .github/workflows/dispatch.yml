@@ -1,0 +1,22 @@
+name: Dispatch
+
+on:
+  workflow_dispatch:
+    inputs:
+      build-type:
+        description: 'Type'
+        required: true
+        type: choice
+        options:
+          - helm-build
+          - docker-build
+
+jobs:
+  trigger-builds:
+    name: Trigger All Builds
+    runs-on: ubuntu-latest
+    steps:
+    - name: Trigger All Builds
+      uses: peter-evans/repository-dispatch@v3
+      with:
+        event-type: ${{ inputs.build-type }}

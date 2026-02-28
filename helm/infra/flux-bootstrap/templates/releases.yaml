@@ -1,0 +1,19 @@
+{{- $root := . -}}
+{{- range $chart := .Values.charts }}
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: {{ $chart }}
+  namespace: flux-system
+spec:
+  prune: true
+  interval: 1m
+  dependsOn: 
+    - name: gateway-api
+      namespace: flux-system
+  sourceRef:
+    kind: OCIRepository
+    name: {{ $chart }}
+  path: ./
+---
+{{- end }}

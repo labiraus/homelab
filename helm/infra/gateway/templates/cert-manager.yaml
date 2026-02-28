@@ -1,0 +1,43 @@
+{{- if .Values.certManager }}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .Values.clusterIssuer.name }}
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: {{ .Values.clusterIssuer.email }}
+    privateKeySecretRef:
+      name: {{ .Values.clusterIssuer.name }}-account-key
+    solvers:
+    - dns01:
+        # Configure your DNS provider here
+        # For example, if using Route53:
+        route53:
+          region: us-east-1
+          hostedZoneID: {{ .Values.acm.hostedZoneId }}
+
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.certificate.name }}
+  namespace: {{ .Values.certificate.namespace }}
+spec:
+  secretName: {{ .Values.certificate.secretName }}
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  commonName: {{ .Values.certificate.commonName }}
+  dnsNames:
+  {{- range .Values.certificate.dnsNames }}
+    - {{ . }}
+  {{- end }}
+  issuerRef:
+    name: {{ .Values.clusterIssuer.name }}
+    kind: ClusterIssuer
+  privateKey:
+    algorithm: RSA
+    size: 2048
+{{- end }}

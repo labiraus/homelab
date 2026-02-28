@@ -1,0 +1,80 @@
+name: Helm GHCR
+description: Build and push Helm images to GitHub Container Registry
+inputs:
+    chart:
+        description: The path to the helm chart
+        required: true
+    token:
+        description: The GitHub token to use for authentication
+        required: true
+    tag:
+        description: The tag to apply to the Docker image
+        required: true
+    values:
+        description: The values file to use for the helm chart
+        required: true
+
+runs:
+  using: "composite"
+  steps:    
+    - 
+      name: Set up Helm
+      uses: azure/setup-helm@v4.2.0
+
+    - 
+      name: Setup Flux CLI
+      uses: fluxcd/flux2/action@main
+
+    - 
+      name: Login to GitHub Container Registry
+      shell: bash
+      run: |
+        echo "${{ inputs.token }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+    
+    -
+      name: Get chart dependencies
+      shell: bash
+      run: |
+        helm dependency update ${{ github.workspace }}/helm/${{ inputs.chart }}
+
+    - 
+      name: Extract chart name
+      id: extract_chart_name
+      shell: bash
+      run: echo "chart_name=$(basename ${{ inputs.chart }})" >> $GITHUB_ENV
+
+    - 
+      name: Render Helm chart with custom values
+      shell: bash
+      run: |
+        echo ${{env.chart_name}}
+        mkdir -p ${{ github.workspace }}/deploy
+        helm template ${{ env.chart_name }} ${{ github.workspace }}/helm/${{ inputs.chart }} -f ${{ github.workspace }}/helm/${{ inputs.chart }}/${{ inputs.values }} > ${{ github.workspace }}/deploy/app.yaml
+
+    - 
+      name: Login to GHCR
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.token }}
+
+    - 
+      name: Push manifests
+      shell: bash
+      run: |
+        flux push artifact oci://ghcr.io/${{ github.repository }}/helm/${{ env.chart_name }}:$(git rev-parse --short HEAD) \
+          --path="${{ github.workspace }}/deploy" \
+          --source="$(git config --get remote.origin.url)" \
+          --revision="$(git branch --show-current)@sha1:$(git rev-parse HEAD)"   
+
+    - 
+      name: Tag manifest
+      shell: bash
+      run: |
+        flux tag artifact oci://ghcr.io/${{ github.repository }}/helm/${{ env.chart_name }}:$(git rev-parse --short HEAD) --tag ${{ inputs.tag}}
+
+    - 
+      name: Print app.yaml content
+      shell: bash
+      run: cat ${{ github.workspace }}/deploy/app.yaml
