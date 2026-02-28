@@ -75,7 +75,7 @@ jobs:
     name: "ReactApp Build to ECR"
     runs-on: ubuntu-latest
     environment: uat
-    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci') && vars.USE_ECR != 'false'
+    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci') && (vars.USE_ECR == 'true' || vars.USE_ECR == '')
     steps:
       -
         name: Checkout

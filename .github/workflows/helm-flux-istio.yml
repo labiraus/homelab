@@ -45,7 +45,8 @@ jobs:
   test-ecr:
     name: "Istio Helm Test ECR"
     runs-on: ubuntu-latest
-    if: github.ref != 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci') && vars.USE_ECR != 'false'
+    environment: uat
+    if: github.ref != 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci') && (vars.USE_ECR == 'true' || vars.USE_ECR == '')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.1.1
@@ -78,7 +79,7 @@ jobs:
     name: "Istio Helm Build to ECR"
     runs-on: ubuntu-latest
     environment: uat
-    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci') && vars.USE_ECR != 'false'
+    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci') && (vars.USE_ECR == 'true' || vars.USE_ECR == '')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.1.1
