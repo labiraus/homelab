@@ -74,9 +74,19 @@ runs:
         fi
 
         CHART_YAML="${CHART_DIR}/Chart.yaml"
-        yq -i ".version = \"${{ inputs.tag }}\"" "$CHART_YAML"
-        # optional: appVersion could track git sha too
-        yq -i ".appVersion = \"$(git rev-parse --short HEAD)\"" "$CHART_YAML"
+        TAG="${{ inputs.tag }}"
+        GIT_SHA="$(git rev-parse --short HEAD)"
+
+        # If TAG looks like semver (very basic check), keep it; else convert to prerelease.
+        if [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+].*)?$ ]]; then
+          CHART_VER="$TAG"
+        else
+          CHART_VER="0.0.0-${TAG}+${GIT_SHA}"
+        fi
+
+        yq -i ".version = \"${CHART_VER}\"" "${CHART_DIR}/Chart.yaml"
+        yq -i ".appVersion = \"${GIT_SHA}\"" "${CHART_DIR}/Chart.yaml"
+        echo "Chart version set to: $CHART_VER"
 
     - name: Package chart
       shell: bash
