@@ -1,0 +1,81 @@
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.namespace }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plex
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: plex
+  template:
+    metadata:
+      labels:
+        app: plex
+    spec:
+      containers:
+        - name: plex
+          image: {{ .Values.image }}
+          ports:
+            - containerPort: 32400
+          env:
+            - name: TZ
+              value: UTC
+            - name: PLEX_CLAIM
+              value: {{ .Values.plexClaimToken | quote }}
+          volumeMounts:
+            - name: plex-config
+              mountPath: /config
+            - name: media
+              mountPath: /data/media
+      volumes:
+        - name: plex-config
+          persistentVolumeClaim:
+            claimName: plex-config
+        - name: media
+          persistentVolumeClaim:
+            claimName: plex-media
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: plex-config
+  namespace: {{ .Values.namespace }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: {{ .Values.storage.config.storageClassName | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.config.size }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: plex-media
+  namespace: {{ .Values.namespace }}
+spec:
+  accessModes: ["ReadOnlyMany"]
+  storageClassName: {{ .Values.storage.media.storageClassName | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.media.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: plex
+  namespace: {{ .Values.namespace }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app: plex
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.port }}
+{{- end }}

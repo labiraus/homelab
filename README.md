@@ -188,3 +188,76 @@ Each `etc/nodes/nodeX.tfvars` defines:
 - `vm_name`
 - `vm_id`
 - `node_ip`
+
+
+---
+
+## Kubernetes GitOps Platform (Helm + Argo CD + Ansible)
+
+This repository also includes a Kubernetes GitOps stack (for Kubernetes `>= 1.34`) with this split of responsibilities:
+
+- Kubernetes cluster state (operators/apps/network/storage): Helm + Argo CD
+- MinIO service state (buckets/users/policies/lifecycle/replication): Ansible (`ansible/`)
+
+### GitOps Layout
+
+```text
+.
+├─ infra/
+│  └─ argocd/
+│     ├─ app-of-apps.yaml
+│     └─ applications/{platform.yaml,data.yaml,apps.yaml}
+├─ charts/
+│  ├─ metallb-config/
+│  ├─ istio-routing/
+│  ├─ cert-issuers/
+│  ├─ minio-tenant/
+│  ├─ cnpg-cluster/
+│  ├─ mongo-cluster/
+│  ├─ minecraft-ops/
+│  ├─ jobs/
+│  ├─ static-sites/
+│  ├─ plex/                # optional, disabled by default
+│  ├─ harvester/           # optional, disabled by default
+│  └─ kafka-example/       # optional, disabled by default
+├─ values/                 # values for upstream charts
+├─ ansible/                # MinIO state management (out-of-band)
+├─ ci/
+└─ docs/
+```
+
+### Values Source Of Truth
+
+- All upstream chart overrides are stored in `values/`.
+- Argo CD Applications reference these files via `$values/values/*.yaml`.
+
+### Kubernetes Platform Deployment
+
+1. Set your Git repo URL in Argo Application manifests (`infra/argocd/*.yaml`).
+2. Configure placeholder values:
+- `charts/metallb-config/values.yaml` IP range
+- domain names in `charts/istio-routing/values.yaml` and `charts/cert-issuers/values.yaml`
+3. Install Argo CD and apply root app:
+
+```bash
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl apply -f infra/argocd/app-of-apps.yaml
+```
+
+### MinIO State Management (Ansible)
+
+1. Deploy MinIO Operator + Tenant via Argo (`infra/argocd/applications/data.yaml`).
+2. Configure credentials via environment variables (see `ansible/README.md`).
+3. Run Ansible for in-cluster MinIO:
+
+```bash
+cd ansible
+ansible-playbook -i inventory/hosts.ini playbooks/minio-incluster.yml
+```
+
+4. Apply generated Kubernetes Secret manifests:
+
+```bash
+kubectl apply -f ansible/out/k8s-secrets/
+```

@@ -1,0 +1,62 @@
+---
+- name: Ensure managed buckets exist
+  ansible.builtin.command: >-
+    /bin/sh -ec
+    'if mc ls {{ minio_target_cfg.alias }}/{{ item.name }} >/dev/null 2>&1; then
+       echo unchanged;
+     else
+       mc mb --ignore-existing {{ minio_target_cfg.alias }}/{{ item.name }} >/dev/null;
+       echo created;
+     fi'
+  register: bucket_results
+  changed_when: "'created' in bucket_results.stdout"
+  loop: "{{ minio_buckets }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Render desired lifecycle config files
+  ansible.builtin.copy:
+    dest: "{{ minio_lifecycle_dir }}/{{ item.name }}.json"
+    mode: "0640"
+    content: |
+      {
+        "Rules": [
+          {
+            "ID": "expire-{{ item.name }}",
+            "Status": "Enabled",
+            "Filter": {
+              "Prefix": ""
+            },
+            "Expiration": {
+              "Days": {{ item.lifecycle_days }}
+            }
+          }
+        ]
+      }
+  loop: "{{ minio_buckets }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: (item.lifecycle_days | int) > 0
+
+- name: Read current lifecycle rules
+  ansible.builtin.command: "mc ilm export {{ minio_target_cfg.alias }}/{{ item.name }}"
+  register: lifecycle_export
+  changed_when: false
+  failed_when: false
+  loop: "{{ minio_buckets }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: (item.lifecycle_days | int) > 0
+
+- name: Apply lifecycle rules when drift is detected
+  ansible.builtin.shell: >-
+    mc ilm import {{ minio_target_cfg.alias }}/{{ item.item.name }}
+    < {{ minio_lifecycle_dir }}/{{ item.item.name }}.json
+  args:
+    executable: /bin/sh
+  loop: "{{ lifecycle_export.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when:
+    - item.item.lifecycle_days | int > 0
+    - item.rc != 0 or ((item.stdout | trim) != (lookup('ansible.builtin.file', minio_lifecycle_dir ~ '/' ~ item.item.name ~ '.json') | trim))

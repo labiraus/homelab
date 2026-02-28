@@ -17,3 +17,8 @@ override.tf.json
 terraform.rc
 ssh_user_ca
 id_ed25519*
+ansible/out/
+ansible/k8s-secrets/
+ansible/.env
+ansible/*.vault.yml
+k8s/generated-secrets/

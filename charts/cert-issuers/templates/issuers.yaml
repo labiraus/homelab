@@ -1,0 +1,70 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    email: {{ .Values.email | quote }}
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-staging-account-key
+    solvers:
+      - http01:
+          ingress:
+            class: {{ .Values.http01IngressClass }}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    email: {{ .Values.email | quote }}
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - http01:
+          ingress:
+            class: {{ .Values.http01IngressClass }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.certificate.name }}
+  namespace: {{ .Values.certificate.namespace }}
+spec:
+  secretName: {{ .Values.certificate.secretName }}
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+  dnsNames:
+{{- toYaml .Values.certificate.dnsNames | nindent 4 }}
+{{- if .Values.namecheap.enabled }}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-namecheap-dns01
+spec:
+  acme:
+    email: {{ .Values.email | quote }}
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-namecheap-dns01-account-key
+    solvers:
+      - dns01:
+          webhook:
+            groupName: {{ .Values.namecheap.groupName }}
+            solverName: namecheap
+            config:
+              apiUserSecretRef:
+                name: {{ .Values.namecheap.apiSecretName }}
+                key: api-user
+              apiKeySecretRef:
+                name: {{ .Values.namecheap.apiSecretName }}
+                key: api-key
+              clientIpSecretRef:
+                name: {{ .Values.namecheap.apiSecretName }}
+                key: client-ip
+{{- end }}

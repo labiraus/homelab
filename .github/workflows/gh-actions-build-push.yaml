@@ -1,0 +1,65 @@
+name: build-and-push
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "charts/**"
+      - "values/**"
+      - "infra/**"
+      - "ansible/**"
+      - "ci/**"
+      - ".github/workflows/gh-actions-build-push.yaml"
+  workflow_dispatch:
+
+jobs:
+  build-image-and-charts:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Lint local charts
+        run: |
+          for c in charts/*; do
+            helm lint "$c"
+          done
+
+      - name: Package all local charts
+        run: |
+          mkdir -p /tmp/charts
+          for c in charts/*; do
+            helm package "$c" --destination /tmp/charts
+          done
+
+      - name: Push charts to GHCR as OCI artifacts
+        run: |
+          helm registry login ghcr.io -u "${{ github.actor }}" -p "${{ secrets.GITHUB_TOKEN }}"
+          for p in /tmp/charts/*.tgz; do
+            helm push "$p" oci://ghcr.io/${{ github.repository }}/charts
+          done
+
+      - name: Build and push example image
+        if: ${{ hashFiles('Dockerfile') != '' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}/example-app:sha-${{ github.sha }}

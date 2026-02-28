@@ -1,0 +1,28 @@
+{{- if .Values.enabled }}
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: {{ .Values.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  kafka:
+    replicas: {{ .Values.kafka.replicas }}
+    storage:
+      type: persistent-claim
+      class: {{ .Values.kafka.storageClass }}
+      size: {{ .Values.kafka.storageSize }}
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+  zookeeper:
+    replicas: {{ .Values.zookeeper.replicas }}
+    storage:
+      type: persistent-claim
+      class: {{ .Values.zookeeper.storageClass }}
+      size: {{ .Values.zookeeper.storageSize }}
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+{{- end }}

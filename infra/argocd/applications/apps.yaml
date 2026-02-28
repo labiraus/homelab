@@ -1,0 +1,95 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: apps-jobs
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "29"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/platform-gitops.git # EDIT THIS
+    targetRevision: main
+    path: charts/jobs
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: data
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: apps-minecraft
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  project: default
+  sources:
+    - repoURL: https://itzg.github.io/minecraft-server-charts/
+      chart: minecraft
+      targetRevision: 4.24.0
+      helm:
+        valueFiles:
+          - $values/values/minecraft-values.yaml
+    - repoURL: https://github.com/your-org/platform-gitops.git # EDIT THIS
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: minecraft
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: apps-minecraft-backup-cron
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "31"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/platform-gitops.git # EDIT THIS
+    targetRevision: main
+    path: charts/minecraft-ops
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: minecraft
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: apps-static-sites
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "32"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/platform-gitops.git # EDIT THIS
+    targetRevision: main
+    path: charts/static-sites
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: static-sites
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

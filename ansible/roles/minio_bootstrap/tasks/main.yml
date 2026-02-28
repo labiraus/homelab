@@ -1,0 +1,67 @@
+---
+- name: Resolve MinIO target settings
+  ansible.builtin.set_fact:
+    minio_target_cfg: "{{ minio_targets[minio_target] }}"
+
+- name: Resolve MinIO admin credentials from environment
+  ansible.builtin.set_fact:
+    minio_admin_access_key: "{{ lookup('ansible.builtin.env', minio_target_cfg.access_key_env) }}"
+    minio_admin_secret_key: "{{ lookup('ansible.builtin.env', minio_target_cfg.secret_key_env) }}"
+
+- name: Ensure MinIO admin credentials are provided
+  ansible.builtin.assert:
+    that:
+      - minio_admin_access_key | length > 0
+      - minio_admin_secret_key | length > 0
+    fail_msg: >-
+      Missing MinIO admin credentials in env vars {{ minio_target_cfg.access_key_env }} and/or
+      {{ minio_target_cfg.secret_key_env }}.
+
+- name: Ensure output directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0750"
+  loop:
+    - "{{ minio_out_dir }}"
+    - "{{ minio_policy_dir }}"
+    - "{{ minio_lifecycle_dir }}"
+    - "{{ minio_creds_dir }}"
+    - "{{ minio_k8s_secret_dir }}"
+
+- name: Ensure mc binary is installed
+  ansible.builtin.command: mc --version
+  register: mc_version
+  changed_when: false
+
+- name: List configured mc aliases in JSON format
+  ansible.builtin.command: mc alias ls --json
+  register: minio_aliases
+  changed_when: false
+  failed_when: false
+
+- name: Determine whether target alias must be updated
+  ansible.builtin.set_fact:
+    minio_alias_record: >-
+      {{
+        (
+          minio_aliases.stdout_lines
+          | default([])
+          | map('from_json')
+          | selectattr('alias', 'equalto', minio_target_cfg.alias)
+          | list
+          | first
+        ) | default({})
+      }}
+    minio_alias_needs_update: >-
+      {{
+        (minio_alias_record == {})
+        or (minio_alias_record.URL | default('') != minio_target_cfg.endpoint)
+      }}
+
+- name: Configure mc alias for active target
+  ansible.builtin.command: >-
+    mc alias set {{ minio_target_cfg.alias }} {{ minio_target_cfg.endpoint }}
+    {{ minio_admin_access_key }} {{ minio_admin_secret_key }} --api S3v4
+  no_log: true
+  when: minio_alias_needs_update

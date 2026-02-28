@@ -1,0 +1,6 @@
+apiVersion: v2
+name: example-local-chart
+description: Minimal wrapper chart for local-only templates when upstream helm packaging is missing.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

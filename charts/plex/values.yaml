@@ -1,0 +1,14 @@
+enabled: false
+namespace: plex
+image: plexinc/pms-docker:1.41.4.9463-630c9f557
+service:
+  type: LoadBalancer
+  port: 32400
+plexClaimToken: TODO_PLEX_CLAIM_TOKEN
+storage:
+  config:
+    storageClassName: longhorn
+    size: 20Gi
+  media:
+    storageClassName: "" # EDIT THIS: NFS/CSI class for NAS media
+    size: 1Ti

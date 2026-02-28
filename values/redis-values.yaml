@@ -1,0 +1,9 @@
+redisStandalone:
+  enabled: true
+redisReplication:
+  enabled: false
+master:
+  persistence:
+    enabled: true
+    storageClass: longhorn
+    size: 8Gi

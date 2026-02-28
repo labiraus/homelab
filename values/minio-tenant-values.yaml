@@ -1,0 +1,7 @@
+tenant:
+  name: homelab
+  pools:
+    - servers: 4
+      volumesPerServer: 2
+      size: 100Gi
+      storageClassName: longhorn

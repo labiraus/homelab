@@ -1,0 +1,12 @@
+email: admin@labiraus.com # EDIT THIS
+http01IngressClass: istio
+certificate:
+  namespace: istio-ingress
+  name: mcp-labiraus-com
+  secretName: mcp-labiraus-com-tls
+  dnsNames:
+    - mcp.labiraus.com # EDIT THIS
+namecheap:
+  enabled: true
+  groupName: acme.labiraus.com # EDIT THIS
+  apiSecretName: namecheap-api-credentials

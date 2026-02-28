@@ -1,0 +1,48 @@
+---
+- name: Write policy JSON documents
+  ansible.builtin.copy:
+    dest: "{{ minio_policy_dir }}/{{ item.name }}.json"
+    mode: "0640"
+    content: "{{ item.document | to_nice_json }}"
+  loop: "{{ minio_policies }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Check whether policies already exist
+  ansible.builtin.command: "mc admin policy info {{ minio_target_cfg.alias }} {{ item.name }} --json"
+  register: policy_info
+  changed_when: false
+  failed_when: false
+  loop: "{{ minio_policies }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create missing policies
+  ansible.builtin.command: >-
+    mc admin policy create {{ minio_target_cfg.alias }} {{ item.item.name }}
+    {{ minio_policy_dir }}/{{ item.item.name }}.json
+  loop: "{{ policy_info.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when: item.rc != 0
+
+- name: Reconcile existing policies when force flag is enabled
+  ansible.builtin.shell: >-
+    mc admin policy rm {{ minio_target_cfg.alias }} {{ item.item.name }} &&
+    mc admin policy create {{ minio_target_cfg.alias }} {{ item.item.name }} {{ minio_policy_dir }}/{{ item.item.name }}.json
+  args:
+    executable: /bin/sh
+  loop: "{{ policy_info.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when:
+    - item.rc == 0
+    - minio_force_recreate_policies | bool
+
+- name: Configure static site anonymous download when enabled
+  ansible.builtin.command: >-
+    mc anonymous set download {{ minio_target_cfg.alias }}/{{ item.bucket }}
+  loop: "{{ static_sites }}"
+  loop_control:
+    label: "{{ item.bucket }}"
+  when: static_site_public_download | bool

@@ -1,0 +1,16 @@
+service:
+  type: LoadBalancer
+  ports:
+    - name: status-port
+      port: 15021
+      targetPort: 15021
+    - name: http2
+      port: 80
+      targetPort: 8080
+    - name: https
+      port: 443
+      targetPort: 8443
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3

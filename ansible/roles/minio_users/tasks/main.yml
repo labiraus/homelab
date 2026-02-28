@@ -1,0 +1,95 @@
+---
+- name: Validate required user credential environment variables
+  ansible.builtin.assert:
+    that:
+      - lookup('ansible.builtin.env', item.access_key_env) | length > 0
+      - lookup('ansible.builtin.env', item.secret_key_env) | length > 0
+    fail_msg: >-
+      Missing env credentials for {{ item.name }}.
+      Required: {{ item.access_key_env }} and {{ item.secret_key_env }}
+  loop: "{{ minio_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Ensure MinIO users exist
+  ansible.builtin.shell: >-
+    if mc admin user info {{ minio_target_cfg.alias }} {{ item.name }} >/dev/null 2>&1; then
+      echo unchanged;
+    else
+      mc admin user add {{ minio_target_cfg.alias }} {{ item.name }} "$MINIO_USER_ACCESS_KEY" "$MINIO_USER_SECRET_KEY" >/dev/null;
+      echo created;
+    fi
+  args:
+    executable: /bin/sh
+  environment:
+    MINIO_USER_ACCESS_KEY: "{{ lookup('ansible.builtin.env', item.access_key_env) }}"
+    MINIO_USER_SECRET_KEY: "{{ lookup('ansible.builtin.env', item.secret_key_env) }}"
+  no_log: true
+  register: user_create
+  changed_when: "'created' in user_create.stdout"
+  loop: "{{ minio_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Attach policies to MinIO users
+  ansible.builtin.command: >-
+    mc admin policy attach {{ minio_target_cfg.alias }} {{ item.policy }} --user {{ item.name }}
+  changed_when: false
+  loop: "{{ minio_users }}"
+  loop_control:
+    label: "{{ item.name }} -> {{ item.policy }}"
+
+- name: Write user credentials artifact files
+  ansible.builtin.copy:
+    dest: "{{ minio_creds_dir }}/{{ item.name }}.env"
+    mode: "0600"
+    content: |
+      MINIO_USER={{ item.name }}
+      MINIO_ACCESS_KEY={{ lookup('ansible.builtin.env', item.access_key_env) }}
+      MINIO_SECRET_KEY={{ lookup('ansible.builtin.env', item.secret_key_env) }}
+  no_log: true
+  loop: "{{ minio_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Render Kubernetes secret manifests for access/secret format
+  ansible.builtin.template:
+    src: secret-access-secret.yaml.j2
+    dest: "{{ minio_k8s_secret_dir }}/{{ item.k8s_secret.name }}.yaml"
+    mode: "0600"
+  vars:
+    secret_name: "{{ item.k8s_secret.name }}"
+    secret_namespace: "{{ item.k8s_secret.namespace }}"
+    access_key: "{{ lookup('ansible.builtin.env', item.access_key_env) }}"
+    secret_key: "{{ lookup('ansible.builtin.env', item.secret_key_env) }}"
+  no_log: true
+  loop: "{{ minio_users }}"
+  loop_control:
+    label: "{{ item.k8s_secret.name | default(item.name) }}"
+  when:
+    - item.k8s_secret is defined
+    - item.k8s_secret.format == 'access_secret_pair'
+
+- name: Render Kubernetes secret manifests for Velero cloud format
+  ansible.builtin.template:
+    src: secret-velero-cloud.yaml.j2
+    dest: "{{ minio_k8s_secret_dir }}/{{ item.k8s_secret.name }}.yaml"
+    mode: "0600"
+  vars:
+    secret_name: "{{ item.k8s_secret.name }}"
+    secret_namespace: "{{ item.k8s_secret.namespace }}"
+    access_key: "{{ lookup('ansible.builtin.env', item.access_key_env) }}"
+    secret_key: "{{ lookup('ansible.builtin.env', item.secret_key_env) }}"
+  no_log: true
+  loop: "{{ minio_users }}"
+  loop_control:
+    label: "{{ item.k8s_secret.name | default(item.name) }}"
+  when:
+    - item.k8s_secret is defined
+    - item.k8s_secret.format == 'velero_cloud'
+
+- name: Print commands to apply generated Kubernetes secrets
+  ansible.builtin.debug:
+    msg:
+      - "Generated secret manifests under {{ minio_k8s_secret_dir }}"
+      - "Apply with: kubectl apply -f {{ minio_k8s_secret_dir }}/"

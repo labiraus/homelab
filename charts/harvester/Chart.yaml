@@ -1,0 +1,6 @@
+apiVersion: v2
+name: harvester
+description: Optional Harvester/KubeVirt baseline metadata
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

@@ -1,0 +1,151 @@
+base_domain: labiraus.com
+
+minio_incluster_endpoint: "https://minio.{{ base_domain }}"
+minio_external_endpoint: "https://minio-pi.{{ base_domain }}"
+
+minio_targets:
+  minio_incluster:
+    alias: minio_incluster
+    endpoint: "{{ minio_incluster_endpoint }}"
+    access_key_env: MINIO_INCLUSTER_ADMIN_ACCESS_KEY
+    secret_key_env: MINIO_INCLUSTER_ADMIN_SECRET_KEY
+  minio_external:
+    alias: minio_external
+    endpoint: "{{ minio_external_endpoint }}"
+    access_key_env: MINIO_EXTERNAL_ADMIN_ACCESS_KEY
+    secret_key_env: MINIO_EXTERNAL_ADMIN_SECRET_KEY
+
+minio_out_dir: "{{ playbook_dir }}/../out"
+minio_policy_dir: "{{ minio_out_dir }}/policies"
+minio_lifecycle_dir: "{{ minio_out_dir }}/lifecycle"
+minio_creds_dir: "{{ minio_out_dir }}/credentials"
+minio_k8s_secret_dir: "{{ minio_out_dir }}/k8s-secrets"
+
+minio_force_recreate_policies: false
+static_site_public_download: false
+
+static_sites:
+  - name: site1
+    bucket: static-sites-site1
+    uploader_user: static-site-uploader-site1
+
+minio_buckets:
+  - name: velero
+    lifecycle_days: 90
+  - name: cnpg-backups
+    lifecycle_days: 90
+  - name: minecraft-backups
+    lifecycle_days: 30
+  - name: static-sites-site1
+    lifecycle_days: 0
+
+minio_policies:
+  - name: velero-rw
+    document:
+      Version: "2012-10-17"
+      Statement:
+        - Effect: Allow
+          Action:
+            - s3:ListBucket
+          Resource:
+            - arn:aws:s3:::velero
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:DeleteObject
+            - s3:AbortMultipartUpload
+            - s3:ListBucketMultipartUploads
+          Resource:
+            - arn:aws:s3:::velero/*
+  - name: cnpg-rw
+    document:
+      Version: "2012-10-17"
+      Statement:
+        - Effect: Allow
+          Action:
+            - s3:ListBucket
+          Resource:
+            - arn:aws:s3:::cnpg-backups
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:DeleteObject
+            - s3:AbortMultipartUpload
+          Resource:
+            - arn:aws:s3:::cnpg-backups/*
+  - name: minecraft-rw
+    document:
+      Version: "2012-10-17"
+      Statement:
+        - Effect: Allow
+          Action:
+            - s3:ListBucket
+          Resource:
+            - arn:aws:s3:::minecraft-backups
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:DeleteObject
+            - s3:AbortMultipartUpload
+          Resource:
+            - arn:aws:s3:::minecraft-backups/*
+  - name: static-site-site1-upload
+    document:
+      Version: "2012-10-17"
+      Statement:
+        - Effect: Allow
+          Action:
+            - s3:ListBucket
+          Resource:
+            - arn:aws:s3:::static-sites-site1
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:DeleteObject
+            - s3:GetObject
+          Resource:
+            - arn:aws:s3:::static-sites-site1/*
+
+minio_users:
+  - name: velero
+    access_key_env: MINIO_VELERO_ACCESS_KEY
+    secret_key_env: MINIO_VELERO_SECRET_KEY
+    policy: velero-rw
+    k8s_secret:
+      namespace: velero
+      name: velero-minio-credentials
+      format: velero_cloud
+  - name: cnpg
+    access_key_env: MINIO_CNPG_ACCESS_KEY
+    secret_key_env: MINIO_CNPG_SECRET_KEY
+    policy: cnpg-rw
+    k8s_secret:
+      namespace: data
+      name: cnpg-backup-s3
+      format: access_secret_pair
+  - name: minecraft
+    access_key_env: MINIO_MINECRAFT_ACCESS_KEY
+    secret_key_env: MINIO_MINECRAFT_SECRET_KEY
+    policy: minecraft-rw
+    k8s_secret:
+      namespace: minecraft
+      name: minecraft-backup-minio
+      format: access_secret_pair
+  - name: static-site-uploader-site1
+    access_key_env: MINIO_SITE1_UPLOADER_ACCESS_KEY
+    secret_key_env: MINIO_SITE1_UPLOADER_SECRET_KEY
+    policy: static-site-site1-upload
+
+minio_replication:
+  enabled: false
+  source_alias: minio_incluster
+  target_alias: minio_external
+  mode: mirror
+  dry_run: true
+  buckets:
+    - velero
+    - cnpg-backups
+    - minecraft-backups

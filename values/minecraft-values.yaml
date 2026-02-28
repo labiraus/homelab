@@ -1,0 +1,14 @@
+minecraftServer:
+  eula: "TRUE"
+  type: FORGE
+  version: "1.20.1"
+  extraEnv:
+    CF_API_KEY: ""
+    CURSEFORGE_FILES: ""
+    CF_PAGE_URL: "https://www.curseforge.com/minecraft/modpacks/your-pack" # EDIT THIS
+persistence:
+  dataDir:
+    enabled: true
+    Size: 50Gi
+    storageClass: longhorn
+serviceType: LoadBalancer

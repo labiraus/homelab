@@ -1,0 +1,20 @@
+---
+- name: Replication skeleton (disabled by default)
+  ansible.builtin.debug:
+    msg:
+      - "minio_replication.enabled=false; skipping replication tasks"
+      - "To enable mirroring set minio_replication.enabled=true and configure source/target aliases"
+  when: not (minio_replication.enabled | bool)
+
+- name: Mirror buckets from source to target (dry-run capable)
+  ansible.builtin.command: >-
+    mc mirror
+    {{ '--dry-run' if (minio_replication.dry_run | bool) else '' }}
+    --overwrite
+    {{ minio_replication.source_alias }}/{{ item }}
+    {{ minio_replication.target_alias }}/{{ item }}
+  changed_when: not (minio_replication.dry_run | bool)
+  loop: "{{ minio_replication.buckets }}"
+  loop_control:
+    label: "{{ item }}"
+  when: minio_replication.enabled | bool

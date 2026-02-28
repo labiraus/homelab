@@ -1,0 +1,10 @@
+---
+- name: Configure external MinIO on Raspberry Pi (placeholder)
+  hosts: minio_external_pi
+  gather_facts: false
+  roles:
+    - role: minio_bootstrap
+    - role: minio_buckets
+    - role: minio_policies
+    - role: minio_users
+    - role: minio_replication

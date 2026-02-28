@@ -1,0 +1,32 @@
+apiVersion: mongodbcommunity.mongodb.com/v1
+kind: MongoDBCommunity
+metadata:
+  name: {{ .Values.cluster.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  members: {{ .Values.cluster.members }}
+  type: ReplicaSet
+  version: {{ .Values.cluster.version | quote }}
+  security:
+    authentication:
+      modes: ["SCRAM"]
+  users:
+    - name: {{ .Values.cluster.appUser }}
+      db: admin
+      passwordSecretRef:
+        name: {{ .Values.cluster.passwordSecretName }}
+      roles:
+        - name: readWrite
+          db: {{ .Values.cluster.appDatabase }}
+      scramCredentialsSecretName: {{ .Values.cluster.scramSecretName }}
+  statefulSet:
+    spec:
+      volumeClaimTemplates:
+        - metadata:
+            name: data-volume
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            storageClassName: {{ .Values.cluster.storageClassName }}
+            resources:
+              requests:
+                storage: {{ .Values.cluster.storageSize }}

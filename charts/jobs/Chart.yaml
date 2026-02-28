@@ -1,0 +1,6 @@
+apiVersion: v2
+name: jobs
+description: Suspended operational CronJobs for manual one-shot runs
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

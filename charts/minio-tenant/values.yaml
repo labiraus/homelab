@@ -1,0 +1,12 @@
+namespace: minio
+tenant:
+  name: homelab
+  image: quay.io/minio/minio:RELEASE.2025-10-15T17-29-55Z
+  rootUser: TODO_MINIO_ROOT_USER
+  rootPassword: TODO_MINIO_ROOT_PASSWORD
+  pools:
+    servers: 4
+    volumesPerServer: 2
+    storage: 100Gi
+    storageClassName: longhorn
+  browserRedirectURL: https://minio-console.labiraus.com # EDIT THIS

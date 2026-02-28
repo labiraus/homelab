@@ -1,0 +1,13 @@
+namespace: istio-ingress
+gateway:
+  name: public-gateway
+  selector:
+    istio: ingressgateway
+  hosts:
+    - "*.labiraus.com" # EDIT THIS
+defaultVirtualService:
+  name: default-http-catchall
+  hosts:
+    - "example.labiraus.com" # EDIT THIS
+  destinationHost: istio-ingressgateway.istio-ingress.svc.cluster.local
+  destinationPort: 80

@@ -1,0 +1,32 @@
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.gateway.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+{{- toYaml .Values.gateway.selector | nindent 4 }}
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+{{- toYaml .Values.gateway.hosts | nindent 8 }}
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: {{ .Values.defaultVirtualService.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  hosts:
+{{- toYaml .Values.defaultVirtualService.hosts | nindent 4 }}
+  gateways:
+    - {{ .Values.gateway.name }}
+  http:
+    - route:
+        - destination:
+            host: {{ .Values.defaultVirtualService.destinationHost }}
+            port:
+              number: {{ .Values.defaultVirtualService.destinationPort }}

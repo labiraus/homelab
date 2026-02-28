@@ -1,0 +1,178 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: data-minio-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  project: default
+  source:
+    repoURL: https://operator.min.io
+    chart: operator
+    targetRevision: 7.1.1
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: minio-operator
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: data-minio-tenant
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "21"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/platform-gitops.git # EDIT THIS
+    targetRevision: main
+    path: charts/minio-tenant
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: minio
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: data-cnpg-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "22"
+spec:
+  project: default
+  sources:
+    - repoURL: https://cloudnative-pg.github.io/charts
+      chart: cloudnative-pg
+      targetRevision: 0.26.1
+      helm:
+        valueFiles:
+          - $values/values/cnpg-values.yaml
+    - repoURL: https://github.com/your-org/platform-gitops.git # EDIT THIS
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cnpg-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: data-cnpg-cluster
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "23"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/platform-gitops.git # EDIT THIS
+    targetRevision: main
+    path: charts/cnpg-cluster
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: data
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: data-mongo-cluster
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "26"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/platform-gitops.git # EDIT THIS
+    targetRevision: main
+    path: charts/mongo-cluster
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mongodb
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: data-redis
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "24"
+spec:
+  project: default
+  sources:
+    - repoURL: https://ot-container-kit.github.io/helm-charts
+      chart: redis
+      targetRevision: 0.19.0
+      helm:
+        valueFiles:
+          - $values/values/redis-values.yaml
+    - repoURL: https://github.com/your-org/platform-gitops.git # EDIT THIS
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: data
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: data-mongo
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "25"
+spec:
+  project: default
+  sources:
+    - repoURL: https://mongodb.github.io/helm-charts
+      chart: community-operator
+      targetRevision: 0.12.0
+      helm:
+        valueFiles:
+          - $values/values/mongo-values.yaml
+    - repoURL: https://github.com/your-org/platform-gitops.git # EDIT THIS
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mongodb
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

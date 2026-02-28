@@ -1,0 +1,71 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-migrate
+  namespace: {{ .Values.namespace }}
+spec:
+  schedule: {{ .Values.migrate.schedule | quote }}
+  suspend: {{ .Values.migrate.suspend }}
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: migrate
+              image: {{ .Values.image }}
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: DB_HOST
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.connectionSecretName }}
+                      key: host
+                - name: DB_PORT
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.connectionSecretName }}
+                      key: port
+                - name: DB_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.connectionSecretName }}
+                      key: user
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.connectionSecretName }}
+                      key: password
+              command: ["/bin/sh", "-ec"]
+              args:
+                - ./migrate up
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-rebuild
+  namespace: {{ .Values.namespace }}
+spec:
+  schedule: {{ .Values.rebuild.schedule | quote }}
+  suspend: {{ .Values.rebuild.suspend }}
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: rebuild
+              image: {{ .Values.image }}
+              imagePullPolicy: IfNotPresent
+              envFrom:
+                - secretRef:
+                    name: {{ .Values.connectionSecretName }}
+              command: ["/bin/sh", "-ec"]
+              args:
+                - ./scripts/rebuild-db.sh
