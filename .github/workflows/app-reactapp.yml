@@ -88,5 +88,5 @@ jobs:
           context: ./apps/reactapp
           aws-region: ${{ vars.AWS_REGION}}
           role-to-assume: ${{ vars.OIDC_BUILD_ROLE}}
-          registry: k8s-quickstart-ecr/reactapp
+          registry: homelab-ecr/reactapp
           tag: uat

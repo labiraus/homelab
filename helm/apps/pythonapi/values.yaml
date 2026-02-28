@@ -52,7 +52,7 @@ ingress:
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
   hosts:
-    - host: local.k8s-quickstart.com
+    - host: local.homelab.com
       paths:
         - path: /python
           pathType: PathPrefix

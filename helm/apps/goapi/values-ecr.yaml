@@ -10,7 +10,7 @@ ingress:
  className: ""
  annotations: {}
  hosts:
-  - host: uat.k8s-quickstart.com
+  - host: uat.homelab.com
     paths:
      - path: /go
        pathType: PathPrefix

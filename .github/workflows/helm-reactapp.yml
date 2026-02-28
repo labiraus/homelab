@@ -93,7 +93,7 @@ jobs:
           chart: apps/pythonapi
           aws-region: ${{ vars.AWS_REGION}}
           role-to-assume: ${{ vars.OIDC_BUILD_ROLE}}
-          registry: k8s-quickstart-ecr/helm-reactapp
-          image_repository: k8s-quickstart-ecr/reactapp
+          registry: homelab-ecr/helm-reactapp
+          image_repository: homelab-ecr/reactapp
           values: values-ecr.yaml
           tag: uat

@@ -1,5 +1,5 @@
 ingress:
-  hostname: "uat.k8s-quickstart.com"
+  hostname: "uat.homelab.com"
 
 tls: true
 certManager: true
@@ -12,9 +12,9 @@ clusterIssuer:
   email: oliver@labiraus.com
 
 certificate:
-  name: uat-k8s-quickstart-com-cert
+  name: uat-homelab-com-cert
   namespace: ingress
-  secretName: uat-k8s-quickstart-com-tls
-  commonName: uat.k8s-quickstart.com
+  secretName: uat-homelab-com-tls
+  commonName: uat.homelab.com
   dnsNames:
-    - uat.k8s-quickstart.com
+    - uat.homelab.com

@@ -90,6 +90,6 @@ jobs:
           chart: infra/namespace
           aws-region: ${{ vars.AWS_REGION}}
           role-to-assume: ${{ vars.OIDC_BUILD_ROLE}}
-          registry: k8s-quickstart-ecr/helm-namespace
+          registry: homelab-ecr/helm-namespace
           values: values-ecr.yaml
           tag: uat

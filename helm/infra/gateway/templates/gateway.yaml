@@ -25,7 +25,7 @@ spec:
   - name: https
     port: 443
     protocol: HTTPS
-    hostname: uat.k8s-quickstart.com
+    hostname: uat.homelab.com
     allowedRoutes:
       namespaces:
         from: All
@@ -33,5 +33,5 @@ spec:
       mode: Terminate
       certificateRefs:
       - kind: Secret
-        name: uat-k8s-quickstart-com-tls
+        name: uat-homelab-com-tls
 {{- end }}

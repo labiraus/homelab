@@ -90,6 +90,6 @@ jobs:
           chart: infra/flux-flagger
           aws-region: ${{ vars.AWS_REGION}}
           role-to-assume: ${{ vars.OIDC_BUILD_ROLE}}
-          registry: k8s-quickstart-ecr/helm-flux-flagger
+          registry: homelab-ecr/helm-flux-flagger
           values: values-ecr.yaml
           tag: uat

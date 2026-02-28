@@ -90,7 +90,7 @@ jobs:
           chart: infra/flux-bootstrap
           aws-region: ${{ vars.AWS_REGION}}
           role-to-assume: ${{ vars.OIDC_BUILD_ROLE}}
-          registry: k8s-quickstart-ecr/helm-flux-bootstrap
-          image_repository: k8s-quickstart-ecr
+          registry: homelab-ecr/helm-flux-bootstrap
+          image_repository: homelab-ecr
           values: values-ecr.yaml
           tag: uat

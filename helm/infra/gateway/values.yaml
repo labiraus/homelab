@@ -1,6 +1,6 @@
 ingress:
   namespace: ingress
-  hostname: "*.k8s-quickstart.com"
+  hostname: "*.homelab.com"
 tls: false
 acm:
   certificateArn: 

@@ -91,5 +91,5 @@ jobs:
           context: ./apps
           aws-region: ${{ vars.AWS_REGION}}
           role-to-assume: ${{ vars.OIDC_BUILD_ROLE}}
-          registry: k8s-quickstart-ecr/goapi
+          registry: homelab-ecr/goapi
           tag: uat
