@@ -71,7 +71,7 @@ jobs:
     name: "GoApi Build to ECR"
     runs-on: ubuntu-latest
     environment: uat
-    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci')
+    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci') && vars.USE_ECR != 'false'
 
     steps:
       -

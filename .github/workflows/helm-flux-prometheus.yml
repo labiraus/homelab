@@ -18,7 +18,6 @@ jobs:
     name: "Prometheus Helm Test Default"
     runs-on: ubuntu-latest
     if: github.ref != 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci')
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.1.1
@@ -33,7 +32,6 @@ jobs:
     name: "Prometheus Helm Test GHCR"
     runs-on: ubuntu-latest
     if: github.ref != 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci')
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.1.1
@@ -47,8 +45,7 @@ jobs:
   test-ecr:
     name: "Prometheus Helm Test ECR"
     runs-on: ubuntu-latest
-    if: github.ref != 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci')
-
+    if: github.ref != 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci') && vars.USE_ECR != 'false'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.1.1
@@ -81,8 +78,7 @@ jobs:
     name: "Prometheus Helm Build to ECR"
     runs-on: ubuntu-latest
     environment: uat
-    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci')
-
+    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci') && vars.USE_ECR != 'false'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.1.1
