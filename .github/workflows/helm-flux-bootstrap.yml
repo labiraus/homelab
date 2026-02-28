@@ -42,21 +42,6 @@ jobs:
           chart: infra/flux-bootstrap
           values: values-ghcr.yaml
 
-  test-ecr:
-    name: "Flux Bootstrap Helm Test ECR"
-    runs-on: ubuntu-latest
-    environment: uat
-    if: github.ref != 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci') && (vars.USE_ECR == 'true' || vars.USE_ECR == '')
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4.1.1
-    
-      - name: Test ECR
-        uses: ./.github/actions/helm/test
-        with:
-          chart: infra/flux-bootstrap
-          values: values-ecr.yaml
-
   ghcr:
     name: "Flux Bootstrap Helm Build to GHCR"
     runs-on: ubuntu-latest
@@ -73,24 +58,4 @@ jobs:
           chart: infra/flux-bootstrap
           token: ${{ secrets.GITHUB_TOKEN }}
           values: values-ghcr.yaml
-          tag: uat
-
-  ecr:
-    name: "Flux Bootstrap Helm Build to ECR"
-    runs-on: ubuntu-latest
-    environment: uat
-    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci') && (vars.USE_ECR == 'true' || vars.USE_ECR == '')
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4.1.1
-    
-      - name: Build to ECR
-        uses: ./.github/actions/helm/ecr
-        with:
-          chart: infra/flux-bootstrap
-          aws-region: ${{ vars.AWS_REGION}}
-          role-to-assume: ${{ vars.OIDC_BUILD_ROLE}}
-          registry: homelab-ecr/helm-flux-bootstrap
-          image_repository: homelab-ecr
-          values: values-ecr.yaml
           tag: uat

@@ -28,11 +28,6 @@ jobs:
         name: Checkout
         uses: actions/checkout@v4.1.1
 
-      - name: Debug USE_ECR
-        run: |
-          echo "vars.USE_ECR='${{ vars.USE_ECR }}'"
-          echo "ECR enabled? ${{ vars.USE_ECR == 'true' }}"
-
       - 
         name: Set up Go
         uses: actions/setup-go@v3
@@ -71,25 +66,3 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           registry: goapi
           tag: latest
-
-  ecr:
-    name: "GoApi Build to ECR"
-    runs-on: ubuntu-latest
-    environment: uat
-    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci') && (vars.USE_ECR == 'true' || vars.USE_ECR == '')
-
-    steps:
-      -
-        name: Checkout
-        uses: actions/checkout@v4.1.1
-    
-      - name: Build to ECR
-        if: vars.USE_ECR == 'true'
-        uses: ./.github/actions/docker/ecr
-        with:
-          dockerfile: ./apps/goapi/dockerfile
-          context: ./apps
-          aws-region: ${{ vars.AWS_REGION}}
-          role-to-assume: ${{ vars.OIDC_BUILD_ROLE}}
-          registry: homelab-ecr/goapi
-          tag: uat

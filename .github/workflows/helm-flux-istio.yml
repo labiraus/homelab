@@ -42,21 +42,6 @@ jobs:
           chart: infra/flux-istio
           values: values-ghcr.yaml
 
-  test-ecr:
-    name: "Istio Helm Test ECR"
-    runs-on: ubuntu-latest
-    environment: uat
-    if: github.ref != 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci') && (vars.USE_ECR == 'true' || vars.USE_ECR == '')
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4.1.1
-    
-      - name: Test ECR
-        uses: ./.github/actions/helm/test
-        with:
-          chart: infra/flux-istio
-          values: values-ecr.yaml
-
   ghcr:
     name: "Istio Helm Build to GHCR"
     runs-on: ubuntu-latest
@@ -73,23 +58,4 @@ jobs:
           chart: infra/flux-istio
           token: ${{ secrets.GITHUB_TOKEN }}
           values: values-ghcr.yaml
-          tag: uat
-
-  ecr:
-    name: "Istio Helm Build to ECR"
-    runs-on: ubuntu-latest
-    environment: uat
-    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci') && (vars.USE_ECR == 'true' || vars.USE_ECR == '')
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4.1.1
-    
-      - name: Build to ECR
-        uses: ./.github/actions/helm/ecr
-        with:
-          chart: infra/flux-istio
-          aws-region: ${{ vars.AWS_REGION}}
-          role-to-assume: ${{ vars.OIDC_BUILD_ROLE}}
-          registry: homelab-ecr/helm-flux-istio
-          values: values-ecr.yaml
           tag: uat

@@ -70,23 +70,3 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           registry: reactapp
           tag: latest
-
-  ecr:
-    name: "ReactApp Build to ECR"
-    runs-on: ubuntu-latest
-    environment: uat
-    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci') && (vars.USE_ECR == 'true' || vars.USE_ECR == '')
-    steps:
-      -
-        name: Checkout
-        uses: actions/checkout@v4.1.1
-    
-      - name: Build to ECR
-        uses: ./.github/actions/docker/ecr
-        with:
-          dockerfile: ./apps/reactapp/dockerfile
-          context: ./apps/reactapp
-          aws-region: ${{ vars.AWS_REGION}}
-          role-to-assume: ${{ vars.OIDC_BUILD_ROLE}}
-          registry: homelab-ecr/reactapp
-          tag: uat
