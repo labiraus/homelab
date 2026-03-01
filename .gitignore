@@ -22,3 +22,7 @@ ansible/k8s-secrets/
 ansible/.env
 ansible/*.vault.yml
 k8s/generated-secrets/
+
+# Devcontainer local config/secrets
+.devcontainer/.env
+.devcontainer/kubeconfig

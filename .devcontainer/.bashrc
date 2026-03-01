@@ -34,5 +34,11 @@ if [ -n "${PS1:-}" ]; then
   fi
 fi
 
+[[ $PS1 && -f /usr/share/bash-completion/bash_completion ]] && . /usr/share/bash-completion/bash_completion
+
 alias k='kubectl'
+source <(kubectl completion bash)
+complete -o default -F __start_kubectl k
 alias pvesm='ssh "${PROXMOX_PVESM_HOST:-proxmox-node1}" pvesm'
+
+source <(flux completion bash)

@@ -10,6 +10,7 @@ RUN apt-get update \
     openssh-client \
     sudo \
     unzip \
+    bash-completion \
     && rm -rf /var/lib/apt/lists/*
 
 COPY zscaler-ca.crt /usr/local/share/ca-certificates/zscaler-ca.crt
