@@ -1,0 +1,22 @@
+namespace: data
+
+redis:
+  name: redis
+  image: redis:7.2.6-alpine
+  replicas: 1
+  port: 6379
+  serviceType: ClusterIP
+  auth:
+    enabled: false
+    password: ""
+  persistence:
+    enabled: true
+    storageClassName: longhorn
+    size: 8Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

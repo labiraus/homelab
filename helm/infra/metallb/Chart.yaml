@@ -1,5 +1,5 @@
 apiVersion: v2
-name: metallb-config
+name: metallb
 description: MetalLB address pool and L2 advertisement
 type: application
 version: 0.1.0

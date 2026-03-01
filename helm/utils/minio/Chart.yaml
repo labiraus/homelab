@@ -1,5 +1,5 @@
 apiVersion: v2
-name: minio-tenant
+name: minio
 description: MinIO Tenant custom resource and bootstrap secret
 type: application
 version: 0.1.0

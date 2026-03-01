@@ -8,9 +8,9 @@ min_version: 0.0.0-0
 charts:
   [
     cert-issuers,
-    flux-flagger,
-    flux-istio,
-    flux-prometheus,
+    flagger,
+    istio,
+    prometheus,
     gateway,
     jaeger,
     kiali,
@@ -20,4 +20,10 @@ charts:
     goapi,
     pythonapi,
     reactapp,
+    harvester,
+    kafka,
+    minio,
+    mongo,
+    plex,
+    postgres,
   ]

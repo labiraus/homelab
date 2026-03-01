@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.namespace }}
+---
+{{- if .Values.redis.auth.enabled }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.redis.name }}-auth
+  namespace: {{ .Values.namespace }}
+type: Opaque
+stringData:
+  password: {{ .Values.redis.auth.password | quote }}
+---
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.redis.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  type: {{ .Values.redis.serviceType }}
+  ports:
+    - name: redis
+      port: {{ .Values.redis.port }}
+      targetPort: redis
+  selector:
+    app.kubernetes.io/name: {{ .Values.redis.name }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.redis.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  serviceName: {{ .Values.redis.name }}
+  replicas: {{ .Values.redis.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.redis.name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Values.redis.name }}
+    spec:
+      containers:
+        - name: redis
+          image: {{ .Values.redis.image }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              if [ -n "$REDIS_PASSWORD" ]; then
+                exec redis-server --appendonly yes --requirepass "$REDIS_PASSWORD"
+              fi
+              exec redis-server --appendonly yes
+          ports:
+            - name: redis
+              containerPort: {{ .Values.redis.port }}
+          env:
+            {{- if .Values.redis.auth.enabled }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.redis.name }}-auth
+                  key: password
+            {{- else }}
+            - name: REDIS_PASSWORD
+              value: ""
+            {{- end }}
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+  {{- if .Values.redis.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ .Values.redis.persistence.storageClassName }}
+        resources:
+          requests:
+            storage: {{ .Values.redis.persistence.size }}
+  {{- else }}
+      volumes:
+        - name: redis-data
+          emptyDir: {}
+  {{- end }}
