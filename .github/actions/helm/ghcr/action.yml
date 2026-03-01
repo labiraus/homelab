@@ -30,6 +30,7 @@ runs:
       run: |
         echo "CHART_DIR=${{ github.workspace }}/helm/${{ inputs.chart }}" >> $GITHUB_ENV
         echo "CHART_NAME=$(basename '${{ inputs.chart }}')" >> $GITHUB_ENV
+        echo "SHOULD_PUSH=true" >> $GITHUB_ENV
 
     - name: Get chart dependencies
       shell: bash
@@ -77,6 +78,7 @@ runs:
         TAG="${{ inputs.tag }}"
         GIT_SHA="$(git rev-parse --short HEAD)"
         RUN_NUMBER="${{ github.run_number }}"
+        SERIES_PREFIX=""
 
         # If TAG looks like semver (very basic check), keep it; else convert to prerelease.
         if [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+].*)?$ ]]; then
@@ -86,26 +88,102 @@ runs:
           SAFE_TAG="$(echo "$TAG" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^0-9a-z.-]+/-/g; s/^[.-]+//; s/[.-]+$//')"
           [[ -z "$SAFE_TAG" ]] && SAFE_TAG="build"
           CHART_VER="0.0.0-${SAFE_TAG}.${RUN_NUMBER}"
+          SERIES_PREFIX="0.0.0-${SAFE_TAG}."
         fi
 
         yq -i ".version = \"${CHART_VER}\"" "${CHART_DIR}/Chart.yaml"
         yq -i ".appVersion = \"${GIT_SHA}\"" "${CHART_DIR}/Chart.yaml"
         echo "CHART_VER=${CHART_VER}" >> $GITHUB_ENV
+        echo "GIT_SHA=${GIT_SHA}" >> $GITHUB_ENV
+        echo "SERIES_PREFIX=${SERIES_PREFIX}" >> $GITHUB_ENV
         echo "Chart version set to: $CHART_VER"
 
+    - name: Check latest GHCR chart SHA
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        SHOULD_PUSH="true"
+        CHART_REF="oci://ghcr.io/${{ github.repository }}/charts/${CHART_NAME}"
+        TAGS_URL="https://ghcr.io/v2/${{ github.repository }}/charts/${CHART_NAME}/tags/list"
+
+        TAGS="$(
+          curl -fsSL -u "${{ github.actor }}:${{ inputs.token }}" "$TAGS_URL" \
+            | jq -r '.tags[]?' || true
+        )"
+
+        if [[ -n "${SERIES_PREFIX}" ]]; then
+          TAGS="$(printf '%s\n' "$TAGS" | awk -v p="$SERIES_PREFIX" 'index($0,p)==1')"
+        fi
+
+        LATEST_TAG="$(printf '%s\n' "$TAGS" | sed '/^$/d' | sort -V | tail -n1)"
+        if [[ -n "$LATEST_TAG" ]]; then
+          LATEST_APP_VERSION="$(
+            helm show chart "$CHART_REF" --version "$LATEST_TAG" \
+              | awk -F': ' '/^appVersion:/{print $2; exit}' \
+              | tr -d '"' || true
+          )"
+
+          echo "Latest tag in GHCR: ${LATEST_TAG}"
+          echo "Latest chart appVersion: ${LATEST_APP_VERSION}"
+          echo "Current git SHA: ${GIT_SHA}"
+          if [[ -n "$LATEST_APP_VERSION" && "$LATEST_APP_VERSION" == "$GIT_SHA" ]]; then
+            SHOULD_PUSH="false"
+          fi
+        else
+          echo "No existing tag found in GHCR for this chart series."
+        fi
+
+        echo "SHOULD_PUSH=${SHOULD_PUSH}" >> "$GITHUB_ENV"
+        if [[ "$SHOULD_PUSH" == "true" ]]; then
+          echo "Chart SHA changed, continuing publish flow."
+        else
+          echo "Latest GHCR chart already matches current SHA, publish will be skipped."
+        fi
+
     - name: Package chart
+      if: env.SHOULD_PUSH == 'true'
       shell: bash
       run: |
         mkdir -p "${{ github.workspace }}/dist"
         helm package "${CHART_DIR}" --destination "${{ github.workspace }}/dist"
 
+    - name: Check if chart tag already exists in GHCR
+      if: env.SHOULD_PUSH == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        CHART_REF="oci://ghcr.io/${{ github.repository }}/charts/${CHART_NAME}"
+        if helm show chart "$CHART_REF" --version "${CHART_VER}" >/dev/null 2>&1; then
+          echo "CHART_ALREADY_EXISTS=true" >> "$GITHUB_ENV"
+          echo "Chart already exists in GHCR, skipping push: ${CHART_REF}:${CHART_VER}"
+        else
+          echo "CHART_ALREADY_EXISTS=false" >> "$GITHUB_ENV"
+          echo "Chart tag not found in GHCR, will push: ${CHART_REF}:${CHART_VER}"
+        fi
+
     - name: Push chart to GHCR OCI
+      if: env.SHOULD_PUSH == 'true' && env.CHART_ALREADY_EXISTS != 'true'
       shell: bash
       run: |
         # Convention: publish to ghcr.io/<owner>/<repo>/charts
         helm push "${{ github.workspace }}/dist/"*.tgz "oci://ghcr.io/${{ github.repository }}/charts"
 
     - name: Print pushed chart reference
+      if: env.SHOULD_PUSH == 'true' && env.CHART_ALREADY_EXISTS != 'true'
       shell: bash
       run: |
         echo "Pushed: oci://ghcr.io/${{ github.repository }}/charts/${CHART_NAME}:${CHART_VER}"
+
+    - name: Report existing chart tag
+      if: env.SHOULD_PUSH == 'true' && env.CHART_ALREADY_EXISTS == 'true'
+      shell: bash
+      run: |
+        echo "Skipped publish for ${CHART_NAME}: tag already exists oci://ghcr.io/${{ github.repository }}/charts/${CHART_NAME}:${CHART_VER}"
+
+    - name: Report skipped chart publish
+      if: env.SHOULD_PUSH != 'true'
+      shell: bash
+      run: |
+        echo "Skipped publish for ${CHART_NAME}: latest GHCR chart already matches commit SHA ${GIT_SHA}"

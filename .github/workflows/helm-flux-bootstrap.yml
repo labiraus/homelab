@@ -2,11 +2,11 @@ name: Helm Flux Bootstrap CI/CD
 on:
   repository_dispatch:
     types: [helm-build]
-  push:
-    paths:
-      - helm/infra/flux-bootstrap/**/*
-      - ".github/actions/helm/**"
-      - ".github/workflows/helm-flux-bootstrap.yml"
+  # push:
+  #   paths:
+  #     - helm/infra/flux-bootstrap/**/*
+  #     - ".github/actions/helm/**"
+  #     - ".github/workflows/helm-flux-bootstrap.yml"
 
 permissions:
   contents: read
