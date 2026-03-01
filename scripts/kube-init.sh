@@ -15,7 +15,8 @@ flux create secret oci ghcr-creds \
 flux create source oci flux-bootstrap \
   --namespace=flux-system \
   --url=oci://ghcr.io/labiraus/homelab/charts/flux-bootstrap \
-  --tag=uat \
+  --semver=">=0.0.0-0" \
+  --semverfilter="uat" \
   --secret-ref=ghcr-creds \
   --interval=10m \
   --export | kubectl apply -f -

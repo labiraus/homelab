@@ -81,7 +81,7 @@ runs:
         if [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+].*)?$ ]]; then
           CHART_VER="$TAG"
         else
-          CHART_VER="0.0.0-${TAG}+${GIT_SHA}"
+          CHART_VER="0.0.0-${TAG}-${GIT_SHA}"
         fi
 
         yq -i ".version = \"${CHART_VER}\"" "${CHART_DIR}/Chart.yaml"
