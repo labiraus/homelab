@@ -4,6 +4,7 @@ tag: uat
 secret: true
 image:
   repository:
+min_version: 0.0.0-0
 charts:
   [
     cert-issuers,

@@ -14,7 +14,7 @@ flux create secret oci ghcr-creds \
   # If recreating source:
 flux create source oci flux-bootstrap \
   --namespace=flux-system \
-  --url=oci://ghcr.io/labiraus/homelab/helm/flux-bootstrap \
+  --url=oci://ghcr.io/labiraus/homelab/charts/flux-bootstrap \
   --tag=uat \
   --secret-ref=ghcr-creds \
   --interval=10m \

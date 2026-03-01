@@ -7,13 +7,14 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1m
-  url: oci://{{ $root.Values.image.repository }}/helm-{{ $chart }}
+  url: oci://{{ $root.Values.image.repository }}/charts/{{ $chart }}
   provider: {{ $root.Values.provider }}
   {{- if $root.Values.secret }}
   secretRef:
-    name: registry-key
+    name: ghcr-creds
   {{- end }}
   ref:
-    tag: {{ $root.Values.tag }}
+    semver: ">={{ $root.Values.min_version }}"
+    semverFilter: {{ $root.Values.tag }}
 ---
 {{- end }}
