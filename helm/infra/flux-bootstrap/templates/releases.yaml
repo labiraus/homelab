@@ -1,6 +1,6 @@
 {{- $root := . -}}
 {{- range $chart := .Values.charts }}
-apiVersion: kustomize.toolkit.fluxcd.io/v1
+apiVersion: helm.toolkit.fluxcd.io/v1
 kind: HelmRelease
 metadata:
   name: {{ $chart }}
