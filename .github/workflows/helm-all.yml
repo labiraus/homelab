@@ -33,10 +33,15 @@ jobs:
           while IFS= read -r chart_yaml; do
             chart_dir="${chart_yaml%/Chart.yaml}"
             chart_rel="${chart_dir#helm/}"
-            chart_type="$(awk -F': ' '/^type:/{print $2}' "$chart_yaml" || true)"
+            chart_type="$(
+              awk -F': ' '/^type:/{print $2; exit}' "$chart_yaml" \
+                | tr -d '\r' \
+                | tr '[:upper:]' '[:lower:]' \
+                | xargs || true
+            )"
 
             # Skip non-installable library charts.
-            if [[ "$chart_type" == "library" ]]; then
+            if [[ "$chart_rel" == libraries/* || "$chart_type" == "library" ]]; then
               continue
             fi
 
