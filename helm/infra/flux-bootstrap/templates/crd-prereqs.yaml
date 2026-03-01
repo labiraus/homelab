@@ -1,0 +1,43 @@
+{{- $root := . -}}
+{{- range $r := .Values.crdReleases }}
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: {{ $r.repository.name }}
+  namespace: flux-system
+spec:
+  interval: {{ $r.interval | default "1h" }}
+  url: {{ $r.repository.url }}
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: {{ $r.name }}
+  namespace: flux-system
+spec:
+  interval: {{ $r.interval | default "1h" }}
+  targetNamespace: {{ $r.targetNamespace | default $r.name }}
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  chart:
+    spec:
+      chart: {{ $r.chart }}
+      sourceRef:
+        kind: HelmRepository
+        name: {{ $r.repository.name }}
+        namespace: flux-system
+      {{- if $r.version }}
+      version: {{ $r.version | quote }}
+      {{- end }}
+  {{- with $r.values }}
+  values:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+---
+{{- end }}

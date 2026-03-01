@@ -1,5 +1,6 @@
 {{- $root := . -}}
 {{- range $chart := .Values.charts }}
+{{- $deps := (index $root.Values.chartDependencies $chart) | default (list) }}
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -7,6 +8,19 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1m
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  {{- if gt (len $deps) 0 }}
+  dependsOn:
+    {{- range $dep := $deps }}
+    - name: {{ $dep }}
+      namespace: flux-system
+    {{- end }}
+  {{- end }}
   chartRef:
     kind: OCIRepository
     name: {{ $chart }}

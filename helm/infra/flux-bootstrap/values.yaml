@@ -28,3 +28,70 @@ charts:
     postgres,
     redis,
   ]
+
+crdReleases:
+  - name: cert-manager
+    interval: 1h
+    repository:
+      name: jetstack
+      url: https://charts.jetstack.io
+    chart: cert-manager
+    version: 1.18.x
+    targetNamespace: cert-manager
+    values:
+      crds:
+        enabled: true
+  - name: metallb-system
+    interval: 1h
+    repository:
+      name: metallb
+      url: https://metallb.github.io/metallb
+    chart: metallb
+    version: 0.15.x
+    targetNamespace: metallb-system
+  - name: cnpg-system
+    interval: 1h
+    repository:
+      name: cnpg
+      url: https://cloudnative-pg.github.io/charts
+    chart: cloudnative-pg
+    version: 0.23.x
+    targetNamespace: cnpg-system
+  - name: minio-operator
+    interval: 1h
+    repository:
+      name: minio-operator
+      url: https://operator.min.io/
+    chart: operator
+    targetNamespace: minio-operator
+  - name: mongodb-operator
+    interval: 1h
+    repository:
+      name: mongodb
+      url: https://mongodb.github.io/helm-charts
+    chart: community-operator
+    version: 0.19.x
+    targetNamespace: mongodb
+  - name: strimzi-kafka-operator
+    interval: 1h
+    repository:
+      name: strimzi
+      url: https://strimzi.io/charts/
+    chart: strimzi-kafka-operator
+    targetNamespace: kafka
+
+chartDependencies:
+  cert-issuers:
+    - cert-manager
+  gateway:
+    - cert-manager
+  metallb:
+    - metallb-system
+  postgres:
+    - cnpg-system
+  minio:
+    - minio-operator
+  mongo:
+    - mongodb-operator
+  kafka:
+    - strimzi-kafka-operator
