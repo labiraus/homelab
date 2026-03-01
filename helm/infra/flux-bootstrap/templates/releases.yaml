@@ -6,14 +6,13 @@ metadata:
   name: {{ $chart }}
   namespace: flux-system
 spec:
-  prune: true
   interval: 1m
   dependsOn: 
     - name: gateway-api
       namespace: flux-system
-  sourceRef:
+  chartRef:
     kind: OCIRepository
     name: {{ $chart }}
-  path: ./
+    namespace: flux-system
 ---
 {{- end }}
