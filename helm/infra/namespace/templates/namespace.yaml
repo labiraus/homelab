@@ -1,7 +1,8 @@
+{{- $ns := .Values.namespace | default .Release.Name -}}
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: {{ .Values.namespace }}
+  name: {{ $ns }}
   labels: 
     istio-injection: "enabled"
   annotations:
