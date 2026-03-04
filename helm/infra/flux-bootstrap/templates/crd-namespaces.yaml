@@ -1,0 +1,7 @@
+{{- range $r := .Values.crdReleases }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $r.targetNamespace | default $r.name }}
+---
+{{- end }}

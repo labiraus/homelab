@@ -25,6 +25,7 @@ spec:
   upgrade:
     crds: CreateReplace
     remediation:
+      strategy: uninstall
       retries: 3
   chart:
     spec:
