@@ -8,11 +8,13 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1m
+  timeout: 10m
   install:
     remediation:
       retries: 3
   upgrade:
     remediation:
+      strategy: uninstall
       retries: 3
   {{- if gt (len $deps) 0 }}
   dependsOn:

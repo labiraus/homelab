@@ -1,11 +1,14 @@
+{{- $ingress := .Values.ingress | default (dict) -}}
+{{- $ingressNamespace := (index $ingress "namespace") | default "ingress" -}}
+{{- $ingressHostname := (index $ingress "hostname") | default "*.homelab.com" -}}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway
-  namespace: {{ .Values.ingress.namespace }}
+  namespace: {{ $ingressNamespace }}
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
-    external-dns.alpha.kubernetes.io/hostname: "{{ .Values.ingress.hostname }}"
+    external-dns.alpha.kubernetes.io/hostname: "{{ $ingressHostname }}"
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
     {{- if .Values.tls }}
     # service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "{{ .Values.acm.certificateArn }}"
@@ -15,7 +18,7 @@ spec:
   gatewayClassName: istio
   listeners:
   - name: default
-    hostname: {{ .Values.ingress.hostname | quote }}
+    hostname: {{ $ingressHostname | quote }}
     port: 80
     protocol: HTTP
     allowedRoutes:
