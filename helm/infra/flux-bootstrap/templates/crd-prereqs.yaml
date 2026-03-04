@@ -18,6 +18,7 @@ spec:
   interval: {{ $r.interval | default "1h" }}
   targetNamespace: {{ $r.targetNamespace | default $r.name }}
   install:
+    createNamespace: true
     crds: CreateReplace
     remediation:
       retries: 3
