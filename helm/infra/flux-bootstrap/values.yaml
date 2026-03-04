@@ -64,8 +64,18 @@ crdReleases:
       url: https://operator.min.io/
     chart: operator
     targetNamespace: minio-operator
+  - name: mongodb-operator-crds
+    interval: 1h
+    repository:
+      name: mongodb
+      url: https://mongodb.github.io/helm-charts
+    chart: community-operator-crds
+    version: 0.19.x
+    targetNamespace: mongodb
   - name: mongodb-operator
     interval: 1h
+    dependsOn:
+      - mongodb-operator-crds
     repository:
       name: mongodb
       url: https://mongodb.github.io/helm-charts

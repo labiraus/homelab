@@ -16,6 +16,13 @@ metadata:
   namespace: flux-system
 spec:
   interval: {{ $r.interval | default "1h" }}
+  {{- with $r.dependsOn }}
+  dependsOn:
+    {{- range $dep := . }}
+    - name: {{ $dep }}
+      namespace: flux-system
+    {{- end }}
+  {{- end }}
   targetNamespace: {{ $r.targetNamespace | default $r.name }}
   install:
     createNamespace: true
