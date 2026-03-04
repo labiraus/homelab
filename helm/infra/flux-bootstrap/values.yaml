@@ -39,7 +39,6 @@ crdReleases:
     version: 1.18.x
     targetNamespace: cert-manager
     values:
-      installCRDs: true
       crds:
         enabled: true
   - name: metallb-system
