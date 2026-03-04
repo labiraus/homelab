@@ -70,7 +70,6 @@ crdReleases:
       name: mongodb
       url: https://mongodb.github.io/helm-charts
     chart: community-operator-crds
-    version: 0.19.x
     targetNamespace: mongodb
   - name: mongodb-operator
     interval: 1h
@@ -80,7 +79,6 @@ crdReleases:
       name: mongodb
       url: https://mongodb.github.io/helm-charts
     chart: community-operator
-    version: 0.19.x
     targetNamespace: mongodb
   - name: strimzi-kafka-operator
     interval: 1h
