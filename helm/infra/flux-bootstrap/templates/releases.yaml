@@ -11,10 +11,12 @@ spec:
   timeout: 10m
   install:
     remediation:
+      remediateLastFailure: true
       retries: 3
   upgrade:
     remediation:
       strategy: uninstall
+      remediateLastFailure: true
       retries: 3
   {{- if gt (len $deps) 0 }}
   dependsOn:

@@ -33,11 +33,13 @@ spec:
     createNamespace: true
     crds: CreateReplace
     remediation:
+      remediateLastFailure: true
       retries: 3
   upgrade:
     crds: CreateReplace
     remediation:
       strategy: uninstall
+      remediateLastFailure: true
       retries: 3
   chart:
     spec:
