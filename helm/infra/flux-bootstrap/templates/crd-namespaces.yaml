@@ -1,7 +1,12 @@
+{{- $seen := dict -}}
 {{- range $r := .Values.crdReleases }}
+{{- $ns := $r.targetNamespace | default $r.name -}}
+{{- if not (hasKey $seen $ns) -}}
+{{- $_ := set $seen $ns true -}}
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: {{ $r.targetNamespace | default $r.name }}
+  name: {{ $ns }}
 ---
+{{- end -}}
 {{- end }}
