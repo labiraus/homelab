@@ -5,6 +5,7 @@ tenant:
   rootUser: TODO_MINIO_ROOT_USER
   rootPassword: TODO_MINIO_ROOT_PASSWORD
   pools:
+    name: pool-0
     servers: 4
     volumesPerServer: 2
     storage: 100Gi

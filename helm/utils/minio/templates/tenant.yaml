@@ -22,7 +22,8 @@ metadata:
 spec:
   image: {{ .Values.tenant.image }}
   pools:
-    - servers: {{ .Values.tenant.pools.servers }}
+    - name: {{ .Values.tenant.pools.name | quote }}
+      servers: {{ .Values.tenant.pools.servers }}
       volumesPerServer: {{ .Values.tenant.pools.volumesPerServer }}
       volumeClaimTemplate:
         metadata: {}
