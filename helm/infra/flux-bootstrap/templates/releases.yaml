@@ -22,6 +22,7 @@ spec:
   targetNamespace: {{ $r.targetNamespace | default $r.name }}
   install:
     createNamespace: true
+    replace: true
     {{- if eq $r.type "helm" }}
     crds: CreateReplace
     {{- end }}
@@ -29,6 +30,7 @@ spec:
       remediateLastFailure: true
       retries: 3
   upgrade:
+    cleanupOnFail: true
     {{- if eq $r.type "helm" }}
     crds: CreateReplace
     {{- end }}
