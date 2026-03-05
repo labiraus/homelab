@@ -56,6 +56,15 @@ releases:
         version: 0.15.x
         targetNamespace: metallb-system
 
+  - name: longhorn-system
+    type: helm
+    interval: 1h
+    repository:
+      name: longhorn
+      url: https://charts.longhorn.io
+    chart: longhorn
+    targetNamespace: longhorn-system
+
   - name: namespace
     type: oci
 
@@ -122,6 +131,8 @@ releases:
 
   - name: postgres
     type: oci
+    dependsOn:
+      - longhorn-system
     dependencies:
       - name: cnpg-system
         type: helm
@@ -135,3 +146,5 @@ releases:
 
   - name: redis
     type: oci
+    dependsOn:
+      - longhorn-system
