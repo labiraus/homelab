@@ -36,8 +36,8 @@ metadata:
 spec:
   secretName: {{ .Values.certificate.secretName }}
   issuerRef:
-    name: letsencrypt-staging
-    kind: ClusterIssuer
+    name: {{ .Values.certificate.issuerName | default (ternary "letsencrypt-namecheap-dns01" "letsencrypt-staging" .Values.namecheap.enabled) }}
+    kind: {{ .Values.certificate.issuerKind | default "ClusterIssuer" }}
   dnsNames:
 {{- toYaml .Values.certificate.dnsNames | nindent 4 }}
 {{- if .Values.namecheap.enabled }}

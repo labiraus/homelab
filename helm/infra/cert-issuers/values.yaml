@@ -4,6 +4,8 @@ certificate:
   namespace: istio-ingress
   name: mcp-labiraus-com
   secretName: mcp-labiraus-com-tls
+  issuerName: letsencrypt-namecheap-dns01
+  issuerKind: ClusterIssuer
   dnsNames:
     - mcp.labiraus.com # EDIT THIS
 namecheap:
