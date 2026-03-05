@@ -1,12 +1,15 @@
 {{- $seen := dict -}}
-{{- range $r := .Values.crdReleases }}
+{{- $all := (include "flux-bootstrap.allReleases" . | fromYamlArray) -}}
+{{- range $r := $all }}
+{{- if eq $r.type "helm" }}
 {{- $ns := $r.targetNamespace | default $r.name -}}
 {{- if not (hasKey $seen $ns) -}}
-{{- $_ := set $seen $ns true -}}
+{{ $_ := set $seen $ns true }}
 apiVersion: v1
 kind: Namespace
 metadata:
   name: {{ $ns }}
 ---
+{{- end }}
 {{- end }}
 {{- end }}

@@ -5,101 +5,133 @@ secret: true
 image:
   repository:
 min_version: 0.0.0-0
-charts:
-  [
-    cert-issuers,
-    flagger,
-    istio,
-    prometheus,
-    gateway,
-    jaeger,
-    kiali,
-    kubecost,
-    metallb,
-    namespace,
-    goapi,
-    pythonapi,
-    reactapp,
-    harvester,
-    kafka,
-    minio,
-    mongo,
-    plex,
-    postgres,
-    redis,
-  ]
+releases:
+  - name: cert-issuers
+    type: oci
+    dependencies:
+      - name: cert-manager
+        type: helm
+        interval: 1h
+        repository:
+          name: jetstack
+          url: https://charts.jetstack.io
+        chart: cert-manager
+        version: 1.18.x
+        targetNamespace: cert-manager
+        values:
+          crds:
+            enabled: true
 
-crdReleases:
-  - name: cert-manager
-    interval: 1h
-    repository:
-      name: jetstack
-      url: https://charts.jetstack.io
-    chart: cert-manager
-    version: 1.18.x
-    targetNamespace: cert-manager
-    values:
-      crds:
-        enabled: true
-  - name: metallb-system
-    interval: 1h
-    repository:
-      name: metallb
-      url: https://metallb.github.io/metallb
-    chart: metallb
-    version: 0.15.x
-    targetNamespace: metallb-system
-  - name: cnpg-system
-    interval: 1h
-    repository:
-      name: cnpg
-      url: https://cloudnative-pg.github.io/charts
-    chart: cloudnative-pg
-    version: 0.23.x
-    targetNamespace: cnpg-system
-  - name: minio-operator
-    interval: 1h
-    repository:
-      name: minio-operator
-      url: https://operator.min.io/
-    chart: operator
-    targetNamespace: minio-operator
-  - name: mongodb-operator-crds
-    interval: 1h
-    repository:
-      name: mongodb
-      url: https://mongodb.github.io/helm-charts
-    chart: community-operator-crds
-    targetNamespace: mongodb
-  - name: mongodb-operator
-    interval: 1h
-    dependsOn:
-      - mongodb-operator-crds
-    repository:
-      name: mongodb
-      url: https://mongodb.github.io/helm-charts
-    chart: community-operator
-    targetNamespace: mongodb
-  - name: strimzi-kafka-operator
-    interval: 1h
-    repository:
-      name: strimzi
-      url: https://strimzi.io/charts/
-    chart: strimzi-kafka-operator
-    targetNamespace: kafka
+  - name: flagger
+    type: oci
 
-chartDependencies:
-  cert-issuers:
-    - cert-manager
-  gateway:
-    - cert-manager
-  metallb:
-    - metallb-system
-  postgres:
-    - cnpg-system
-  minio:
-    - minio-operator
-  mongo:
-    - mongodb-operator
-  kafka:
-    - strimzi-kafka-operator
+  - name: istio
+    type: oci
+
+  - name: prometheus
+    type: oci
+
+  - name: gateway
+    type: oci
+
+  - name: jaeger
+    type: oci
+
+  - name: kiali
+    type: oci
+
+  - name: kubecost
+    type: oci
+
+  - name: metallb
+    type: oci
+    dependencies:
+      - name: metallb-system
+        type: helm
+        interval: 1h
+        repository:
+          name: metallb
+          url: https://metallb.github.io/metallb
+        chart: metallb
+        version: 0.15.x
+        targetNamespace: metallb-system
+
+  - name: namespace
+    type: oci
+
+  - name: goapi
+    type: oci
+
+  - name: pythonapi
+    type: oci
+
+  - name: reactapp
+    type: oci
+
+  - name: harvester
+    type: oci
+
+  - name: kafka
+    type: oci
+    dependencies:
+      - name: strimzi-kafka-operator
+        type: helm
+        interval: 1h
+        repository:
+          name: strimzi
+          url: https://strimzi.io/charts/
+        chart: strimzi-kafka-operator
+        targetNamespace: kafka
+
+  - name: minio
+    type: oci
+    dependencies:
+      - name: minio-operator
+        type: helm
+        interval: 1h
+        repository:
+          name: minio-operator
+          url: https://operator.min.io/
+        chart: operator
+        targetNamespace: minio-operator
+
+  - name: mongo
+    type: oci
+    dependencies:
+      - name: mongodb-operator-crds
+        type: helm
+        interval: 1h
+        repository:
+          name: mongodb
+          url: https://mongodb.github.io/helm-charts
+        chart: community-operator-crds
+        targetNamespace: mongodb
+      - name: mongodb-operator
+        type: helm
+        interval: 1h
+        dependsOn:
+          - mongodb-operator-crds
+        repository:
+          name: mongodb
+          url: https://mongodb.github.io/helm-charts
+        chart: community-operator
+        targetNamespace: mongodb
+
+  - name: plex
+    type: oci
+
+  - name: postgres
+    type: oci
+    dependencies:
+      - name: cnpg-system
+        type: helm
+        interval: 1h
+        repository:
+          name: cnpg
+          url: https://cloudnative-pg.github.io/charts
+        chart: cloudnative-pg
+        version: 0.23.x
+        targetNamespace: cnpg-system
+
+  - name: redis
+    type: oci

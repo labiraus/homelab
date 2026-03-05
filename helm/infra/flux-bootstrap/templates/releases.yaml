@@ -1,33 +1,70 @@
-{{- $root := . -}}
-{{- range $chart := .Values.charts }}
-{{- $deps := (index $root.Values.chartDependencies $chart) | default (list) }}
+{{- $all := (include "flux-bootstrap.allReleases" . | fromYamlArray) -}}
+{{- range $r := $all }}
+{{- $depNames := list -}}
+{{- with $r.dependsOn }}
+{{- range $dep := . }}
+{{- $depNames = append $depNames $dep -}}
+{{- end }}
+{{- end }}
+{{- with $r.dependencies }}
+{{- range $dep := . }}
+{{- $depNames = append $depNames $dep.name -}}
+{{- end }}
+{{- end }}
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: {{ $chart }}
+  name: {{ $r.name }}
   namespace: flux-system
 spec:
-  interval: 1m
+  interval: {{ $r.interval | default (ternary "1m" "1h" (eq $r.type "oci")) }}
   timeout: 10m
+  {{- if eq $r.type "helm" }}
+  targetNamespace: {{ $r.targetNamespace | default $r.name }}
+  {{- end }}
   install:
+    {{- if eq $r.type "helm" }}
+    createNamespace: true
+    crds: CreateReplace
+    {{- end }}
     remediation:
       remediateLastFailure: true
       retries: 3
   upgrade:
+    {{- if eq $r.type "helm" }}
+    crds: CreateReplace
+    {{- end }}
     remediation:
       strategy: uninstall
       remediateLastFailure: true
       retries: 3
-  {{- if gt (len $deps) 0 }}
+  {{- if gt (len $depNames) 0 }}
   dependsOn:
-    {{- range $dep := $deps }}
+    {{- range $dep := uniq $depNames }}
     - name: {{ $dep }}
       namespace: flux-system
     {{- end }}
   {{- end }}
+  {{- if eq $r.type "oci" }}
   chartRef:
     kind: OCIRepository
-    name: {{ $chart }}
+    name: {{ $r.name }}
     namespace: flux-system
+  {{- else if eq $r.type "helm" }}
+  chart:
+    spec:
+      chart: {{ $r.chart }}
+      sourceRef:
+        kind: HelmRepository
+        name: {{ $r.repository.name }}
+        namespace: flux-system
+      {{- if $r.version }}
+      version: {{ $r.version | quote }}
+      {{- end }}
+  {{- end }}
+  {{- with $r.values }}
+  values:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 ---
 {{- end }}

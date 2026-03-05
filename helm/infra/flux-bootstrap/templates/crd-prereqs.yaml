@@ -1,9 +1,10 @@
-{{- $root := . -}}
 {{- $seenRepos := dict -}}
-{{- range $r := .Values.crdReleases }}
+{{- $all := (include "flux-bootstrap.allReleases" . | fromYamlArray) -}}
+{{- range $r := $all }}
+{{- if and (eq $r.type "helm") $r.repository }}
 {{- $repoName := $r.repository.name -}}
 {{- if not (hasKey $seenRepos $repoName) -}}
-{{- $_ := set $seenRepos $repoName true -}}
+{{ $_ := set $seenRepos $repoName true }}
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
@@ -14,46 +15,5 @@ spec:
   url: {{ $r.repository.url }}
 ---
 {{- end }}
-apiVersion: helm.toolkit.fluxcd.io/v2
-kind: HelmRelease
-metadata:
-  name: {{ $r.name }}
-  namespace: flux-system
-spec:
-  interval: {{ $r.interval | default "1h" }}
-  {{- with $r.dependsOn }}
-  dependsOn:
-    {{- range $dep := . }}
-    - name: {{ $dep }}
-      namespace: flux-system
-    {{- end }}
-  {{- end }}
-  targetNamespace: {{ $r.targetNamespace | default $r.name }}
-  install:
-    createNamespace: true
-    crds: CreateReplace
-    remediation:
-      remediateLastFailure: true
-      retries: 3
-  upgrade:
-    crds: CreateReplace
-    remediation:
-      strategy: uninstall
-      remediateLastFailure: true
-      retries: 3
-  chart:
-    spec:
-      chart: {{ $r.chart }}
-      sourceRef:
-        kind: HelmRepository
-        name: {{ $r.repository.name }}
-        namespace: flux-system
-      {{- if $r.version }}
-      version: {{ $r.version | quote }}
-      {{- end }}
-  {{- with $r.values }}
-  values:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
----
+{{- end }}
 {{- end }}
