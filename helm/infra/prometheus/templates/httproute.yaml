@@ -1,6 +1,7 @@
-{{- if .Values.ingress.enabled -}}
 {{- $root := . -}}
-{{- range $host := .Values.ingress.hosts }}
+{{- $ingress := .Values.ingress | default dict -}}
+{{- if (get $ingress "enabled" | default false) -}}
+{{- range $host := (get $ingress "hosts" | default list) }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:

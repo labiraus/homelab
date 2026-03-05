@@ -1,4 +1,7 @@
 {{- $root := . -}}
+{{- $ingress := .Values.ingress | default dict -}}
+{{- $hosts := get $ingress "hosts" | default list -}}
+{{- $ingressTLS := get $ingress "tls" | default list -}}
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -17,13 +20,13 @@ spec:
         kind: HelmRepository
         name: prometheus
   values:
-    {{- with (first .Values.ingress.hosts) }}
+    {{- with (first $hosts) }}
     {{- $host := .host -}}
     {{- with (first .paths) }}
     grafana:
       grafana.ini:
         server:
-          root_url: "{{ if empty $root.Values.tls }}http{{ else }}https{{ end }}://{{ $host }}{{ .path }}"
+          root_url: "{{ if empty $ingressTLS }}http{{ else }}https{{ end }}://{{ $host }}{{ .path }}"
           serve_from_sub_path: true 
     {{- end }}
     {{- end }}
