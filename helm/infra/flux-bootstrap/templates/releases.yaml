@@ -19,12 +19,10 @@ metadata:
 spec:
   interval: {{ $r.interval | default (ternary "1m" "1h" (eq $r.type "oci")) }}
   timeout: 10m
-  {{- if eq $r.type "helm" }}
   targetNamespace: {{ $r.targetNamespace | default $r.name }}
-  {{- end }}
   install:
-    {{- if eq $r.type "helm" }}
     createNamespace: true
+    {{- if eq $r.type "helm" }}
     crds: CreateReplace
     {{- end }}
     remediation:
