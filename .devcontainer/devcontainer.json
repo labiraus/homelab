@@ -55,6 +55,7 @@
         "golang.go",
         "hashicorp.terraform",
         "openai.chatgpt",
+        "GitHub.copilot-chat",
         "ms-vscode.makefile-tools",
         "ms-kubernetes-tools.vscode-kubernetes-tools",
         "tim-koehler.helm-intellisense",

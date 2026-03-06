@@ -81,6 +81,7 @@ Initialize the devcontainer kubeconfig from `yggdrasil`:
 
 ```bash
 ssh yggdrasil 'cat ~/.kube/config' > .devcontainer/kubeconfig
+git update-index --skip-worktree .devcontainer/kubeconfig
 ```
 
 This file contains cluster credentials and private key material. Keep it out of git and treat it as a secret.
