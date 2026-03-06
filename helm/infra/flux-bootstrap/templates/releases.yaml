@@ -18,7 +18,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: {{ $r.interval | default (ternary "1m" "1h" (eq $r.type "oci")) }}
-  timeout: 10m
+  timeout: {{ $r.timeout | default "10m" }}
   targetNamespace: {{ $r.targetNamespace | default $r.name }}
   install:
     createNamespace: true

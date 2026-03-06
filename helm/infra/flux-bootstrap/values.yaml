@@ -42,6 +42,7 @@ releases:
 
   - name: kubecost
     type: oci
+    timeout: 20m
 
   - name: metallb
     type: oci
@@ -86,6 +87,7 @@ releases:
       - name: strimzi-kafka-operator
         type: helm
         interval: 1h
+        timeout: 20m
         repository:
           name: strimzi
           url: https://strimzi.io/charts/
