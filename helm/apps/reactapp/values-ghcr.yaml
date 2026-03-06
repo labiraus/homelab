@@ -1,0 +1,11 @@
+imagePullSecrets:
+ - name: registry-key
+
+image:
+  repository: ghcr.io/bjss/k8s-quickstart/reactapp
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "latest"
+
+env:
+    configValue: "ghcr"

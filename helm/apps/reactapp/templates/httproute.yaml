@@ -1,0 +1,27 @@
+{{- if .Values.ingress.enabled -}}
+{{- $root := . -}}
+{{- range $host := .Values.ingress.hosts }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "reactapp.fullname" $root }}
+  namespace: {{ $root.Values.namespace }}
+spec:
+  hostnames: [{{ $host.host }}]
+  parentRefs:
+  - name: gateway
+    namespace: ingress
+  rules:
+  {{- range $path := $host.paths }}
+  - matches:
+    - path:
+        type: {{ $path.pathType }}
+        value: {{ $path.path }}
+    backendRefs:
+    - name: {{ include "reactapp.fullname" $root }}
+      kind: Service
+      port: 8000
+  {{- end }}
+---
+{{- end }}
+{{- end }}
