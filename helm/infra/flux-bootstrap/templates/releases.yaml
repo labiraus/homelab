@@ -23,6 +23,9 @@ spec:
   install:
     createNamespace: true
     replace: true
+    {{- if hasKey $r "installDisableWait" }}
+    disableWait: {{ $r.installDisableWait }}
+    {{- end }}
     {{- if eq $r.type "helm" }}
     crds: CreateReplace
     {{- end }}
@@ -31,6 +34,9 @@ spec:
       retries: 3
   upgrade:
     cleanupOnFail: true
+    {{- if hasKey $r "upgradeDisableWait" }}
+    disableWait: {{ $r.upgradeDisableWait }}
+    {{- end }}
     {{- if eq $r.type "helm" }}
     crds: CreateReplace
     {{- end }}

@@ -8,6 +8,9 @@ min_version: 0.0.0-0
 releases:
   - name: cert-issuers
     type: oci
+    timeout: 30m
+    installDisableWait: true
+    upgradeDisableWait: true
     dependencies:
       - name: cert-manager
         type: helm
