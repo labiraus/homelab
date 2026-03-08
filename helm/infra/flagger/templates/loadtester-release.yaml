@@ -8,7 +8,7 @@ spec:
   interval: 6h
   wait: true
   timeout: 5m
-  targetNamespace: {{ .Values.namespace }}
+  targetNamespace: {{ .Values.namespace | default "flagger-system" | quote }}
   sourceRef:
     kind: OCIRepository
     name: flagger-loadtester

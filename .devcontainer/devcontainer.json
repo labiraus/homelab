@@ -62,7 +62,8 @@
         "ms-vscode.makefile-tools",
         "ms-kubernetes-tools.vscode-kubernetes-tools",
         "tim-koehler.helm-intellisense",
-        "redhat.vscode-yaml"
+        "redhat.vscode-yaml",
+        "fluxcd.flux",
       ]
     }
   },

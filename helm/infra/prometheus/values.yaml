@@ -8,11 +8,11 @@ ingress:
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
   hosts:
-    - host: local.homelab.com
+    - host: mcp.labiraus.com
       paths:
         - path: /grafana
           pathType: PathPrefix
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:
-  #      - local.homelab.com
+  #      - mcp.labiraus.com

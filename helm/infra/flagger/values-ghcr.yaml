@@ -1,0 +1,7 @@
+namespace: homelab
+ingress:
+  hosts:
+    - host: mcp.labiraus.com
+      paths:
+        - path: /flagger
+          pathType: PathPrefix

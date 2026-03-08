@@ -1,3 +1,4 @@
+namespace: homelab
 ingress:
   hosts:
     - host: uat.homelab.com
