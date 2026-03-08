@@ -1,0 +1,8 @@
+[Unit]
+Description=Recover Proxmox uplink if carrier or gateway checks fail
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/network-watch.sh

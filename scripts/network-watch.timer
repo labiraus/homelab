@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the Proxmox uplink watchdog every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+Unit=network-watch.service
+
+[Install]
+WantedBy=timers.target
