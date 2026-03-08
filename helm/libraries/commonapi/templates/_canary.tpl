@@ -1,5 +1,5 @@
 {{ define "commonapi.canary" }}
-{{- if and ( .Values.canary ) ( .Values.canary.enabled ) }}
+{{- if and ( .Values.canary ) ( .Values.canary.enabled ) ( .Capabilities.APIVersions.Has "flagger.app/v1beta1/Canary" ) }}
 apiVersion: flagger.app/v1beta1
 kind: Canary
 metadata:
