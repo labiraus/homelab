@@ -52,7 +52,7 @@ ingress:
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
   hosts:
-    - host: local.homelab.com
+    - host: mcp.labiraus.com
       paths:
         - path: /python
           pathType: PathPrefix

@@ -37,7 +37,7 @@ type Topic struct {
 	MaxOutstandingMessages int    `yaml:"maxOutstandingMessages"`
 }
 
-func Init(ctx context.Context, c PubsubConfig) error {
+func Start(ctx context.Context, c PubsubConfig) error {
 	config = c
 	var err error
 	slog.Info("initializing pubsub", "config", config)

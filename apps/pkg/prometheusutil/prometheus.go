@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"go-common/base"
+	"pkg/base"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -25,7 +25,7 @@ func OpDuration(method string, duration time.Duration) {
 	opDuration.WithLabelValues(method).Observe(duration.Seconds())
 }
 
-func Init() {
+func Start(mux *http.ServeMux) {
 	opDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    base.ServiceName + "_processing_duration_seconds",
 		Help:    "The duration of the processing of the events",
@@ -46,7 +46,7 @@ func Init() {
 	)
 
 	// Expose /metrics HTTP endpoint using the created custom registry.
-	http.Handle(
+	mux.Handle(
 		"/metrics", promhttp.HandlerFor(
 			registry,
 			promhttp.HandlerOpts{

@@ -4,7 +4,7 @@ This is a simple golang api designed to be run in a kuberenetes cluster.
 
 ## Dependencies
 
-[go-common/api](/apps/go-common/api) provides `/readiness` and `/liveness` endpoints, as well as graceful shutdown
+[pkg/api](/apps/pkg/api) provides `/readiness` and `/liveness` endpoints, as well as graceful shutdown
 
 ## Endpoints
 

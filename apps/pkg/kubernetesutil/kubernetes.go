@@ -18,7 +18,7 @@ var (
 	clientset *kubernetes.Clientset
 )
 
-func Init() (bool, error) {
+func Start() (bool, error) {
 	namespace = os.Getenv("namespace")
 	if namespace == "" {
 		return false, nil

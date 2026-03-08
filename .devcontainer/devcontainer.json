@@ -15,6 +15,9 @@
     "ghcr.io/rio/features/skaffold:2": {},
     "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
       "minikube": "none"
+    },
+    "ghcr.io/devcontainers/features/node": {
+      "version": "24"
     }
   },
   "mounts": [

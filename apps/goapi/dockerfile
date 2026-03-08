@@ -26,7 +26,7 @@ RUN adduser \
 
 # Copy source code from local directories
 WORKDIR $GOPATH/src/
-COPY ./go-common/ ./go-common/
+COPY ./pkg/ ./pkg/
 
 # Downloading the go modules in advance takes advantage of docker's caching
 WORKDIR $GOPATH/src/$APP_NAME/

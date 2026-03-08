@@ -1,6 +1,6 @@
-module go-common/kubernetesutil
+module pkg/kubernetesutil
 
-go 1.22.4
+go 1.25.6
 
 require (
 	k8s.io/api v0.30.2
@@ -45,4 +45,4 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace go-common/base => ../base
+replace pkg/base => ../base

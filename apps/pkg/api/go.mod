@@ -1,7 +1,9 @@
-module go-common/api
+module pkg/api
 
-go 1.22.4
+go 1.25.6
 
-require go-common/base v0.0.0
+require pkg/base v0.0.0
 
-replace go-common/base => ../base
+require github.com/google/uuid v1.6.0 // indirect
+
+replace pkg/base => ../base

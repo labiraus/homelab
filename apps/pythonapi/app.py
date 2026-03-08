@@ -1,59 +1,70 @@
-import json
-import os
-import sys
 import logging
+import os
 import random
 import time
 
 import requests
-from flask import Flask
+from flask import Flask, jsonify
+
 from UserResponse import UserResponse
 
-# Set up logging
-logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-
-# Set up flask
-app = Flask(__name__)
-
-@app.route("/hello", methods=["POST"])
-def hello_python():
-    logging.info("hello_python() called")
-
-    api_url = "http://userapi/user"
-    request = {"userid": 1}
-
-    response = requests.post(api_url, json=request)
-    if not response.ok:
-        logging.warning(f"A non-success response code: {response.status_code} was returned. ")
-
-    loaded_json = json.loads(response.text)
-    user = UserResponse(**loaded_json)
-    to_return = {"data": "Hello " + user.username + " (called via Python 🐍)!"}
-
-    return to_return
-
-@app.route("/python/benchmarking", methods=["GET"])
-def benchmarking():
-    min_ms = 100 # 0.1 seconds
-    max_ms = 1000 # 1 second
-    random_ms = random.randint(min_ms, max_ms)
-    time.sleep(random_ms / 1000.0)
-    to_return = {"data": "benchmarking test!"}
-
-    return to_return
+DEFAULT_PORT = 8080
+DEFAULT_USER_API_URL = "http://userapi/user"
+DEFAULT_REQUEST_TIMEOUT_SECONDS = 5
+BENCHMARK_MIN_MS = 100
+BENCHMARK_MAX_MS = 1000
 
 
-@app.route("/liveness")
-def healthx():
-    return "", 200
+def configure_logging() -> None:
+    logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 
 
-@app.route("/readiness")
-def healthz():
-    return "", 200
+def create_app() -> Flask:
+    app = Flask(__name__)
+    app.config["USER_API_URL"] = os.getenv("USER_API_URL", DEFAULT_USER_API_URL)
+    app.config["USER_API_TIMEOUT_SECONDS"] = float(
+        os.getenv("USER_API_TIMEOUT_SECONDS", DEFAULT_REQUEST_TIMEOUT_SECONDS)
+    )
+
+    session = requests.Session()
+
+    @app.post("/hello")
+    def hello_python():
+        app.logger.info("hello_python called")
+
+        response = session.post(
+            app.config["USER_API_URL"],
+            json={"userid": 1},
+            timeout=app.config["USER_API_TIMEOUT_SECONDS"],
+        )
+        response.raise_for_status()
+
+        loaded_json = response.json()
+        user = UserResponse(**loaded_json)
+
+        return jsonify({"data": f"Hello {user.username} (called via Python)!"})
+
+    @app.get("/python/benchmarking")
+    def benchmarking():
+        random_ms = random.randint(BENCHMARK_MIN_MS, BENCHMARK_MAX_MS)
+        time.sleep(random_ms / 1000.0)
+        return jsonify({"data": "benchmarking test!"})
+
+    @app.get("/liveness")
+    def healthx():
+        return "", 200
+
+    @app.get("/readiness")
+    def healthz():
+        return "", 200
+
+    return app
+
+
+configure_logging()
+app = create_app()
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    print(f"Port: {port}")
+    port = int(os.getenv("PORT", DEFAULT_PORT))
     app.run(host="0.0.0.0", port=port)

@@ -3,32 +3,65 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"log/slog"
 	"math/rand"
 	"net/http"
 	"time"
 
-	"go-common/api"
-	"go-common/base"
-	"go-common/prometheusutil"
+	"pkg/api"
+	"pkg/base"
+	"pkg/kubernetesutil"
+	"pkg/prometheusutil"
+
+	"github.com/patrickmn/go-cache"
 )
 
 const (
 	helloHandlerLabel = "helloHandler"
 )
 
+var (
+	c          = cache.New(5*time.Minute, 10*time.Minute)
+	kubeAccess = false
+)
+
 var configValue string
 
 func main() {
-	ctx := base.Init("goapi")
-	done := api.Init(ctx)
-	prometheusutil.Init()
+	var err error
+	ctx := base.Start("goapi")
+	defer func() {
+		p := recover()
+		if p != nil {
+			err = fmt.Errorf("panic: %v", p)
+		}
+		if err != nil {
+			slog.ErrorContext(ctx, err.Error())
+			log.Fatal("Code terminated unexpectedly")
+		}
+	}()
 	configValue = base.GetEnv("configValue", "unknown")
-	http.HandleFunc("/hello", helloHandler)
+
+	mux := http.NewServeMux()
+	prometheusutil.Start(mux)
+	mux.HandleFunc("/hello", helloHandler)
+	mux.HandleFunc("/go/benchmarking", benchmarking)
+
+	done := api.Start(ctx, mux, 8080)
+
+	kubeAccess, err = kubernetesutil.Start()
+	if err != nil {
+		return
+	}
+	if !kubeAccess {
+		slog.InfoContext(ctx, "kubernetes access not available")
+	}
+
 	close(base.Ready)
-	http.HandleFunc("/go/benchmarking", benchmarking)
 	<-done
-	slog.Info("finishing")
+	slog.InfoContext(ctx, "finishing")
 }
 
 // Endpoint for benchmarking example
@@ -47,32 +80,61 @@ func benchmarking(w http.ResponseWriter, r *http.Request) {
 
 func helloHandler(w http.ResponseWriter, r *http.Request) {
 	var err error
+	var user string
+	args := []any{"user", user}
 	startTime := time.Now() // Capture the start time
 	prometheusutil.IncrementProcessed(helloHandlerLabel, "call")
 	defer func() {
-		r := recover()
-		if r != nil {
-			err = fmt.Errorf("panic: %v", r)
+		p := recover()
+		if p != nil {
+			err = fmt.Errorf("panic: %v", p)
 		}
 		if err != nil {
-			slog.Error(err.Error())
+			slog.ErrorContext(r.Context(), err.Error(), args...)
 			prometheusutil.IncrementProcessed(helloHandlerLabel, "error")
 		}
 		prometheusutil.OpDuration(helloHandlerLabel, time.Since(startTime))
 	}()
 
-	slog.Info("helloHandler called")
+	slog.InfoContext(r.Context(), helloHandlerLabel+"called")
 
-	user, err := GetUser(1)
+	var request = UserRequest{}
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	response := HelloResponse{Data: fmt.Sprintf("Hello %v! (called via golang), using %v", user.Username, configValue)}
+	err = json.Unmarshal(body, &request)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if request.UserID == 0 {
+		request.UserID = 1
+	}
+
+	secretValue, ok := c.Get("secretValue")
+	if !ok {
+		slog.DebugContext(r.Context(), "reloading secret configValue")
+		if !kubeAccess {
+			secretValue = "no secret"
+		} else {
+			secretValue = base.GetEnv("SECRETVALUE", "no secret")
+		}
+		c.Set("secretValue", secretValue, cache.DefaultExpiration)
+	}
+
+	response := UserResponse{
+		UserID:   request.UserID,
+		Username: secretValue.(string),
+		Email:    "something@somewhere.com",
+	}
 
 	data, err := json.Marshal(response)
 	if err != nil {
+		err = fmt.Errorf("error marshalling json response: %v", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
