@@ -1,0 +1,20 @@
+namespace: homelab
+provider: generic
+tag: uat
+secret: true
+image:
+  repository:
+min_version: 0.0.0-0
+releases:
+  - name: goapi
+    type: oci
+    dependsOn:
+      - flagger
+
+  - name: pythonapi
+    type: oci
+    dependsOn:
+      - flagger
+
+  - name: reactapp
+    type: oci

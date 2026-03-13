@@ -6,6 +6,14 @@ image:
   repository:
 min_version: 0.0.0-0
 releases:
+  - name: flux-apps
+    type: oci
+    targetNamespace: flux-system
+
+  - name: flux-utils
+    type: oci
+    targetNamespace: flux-system
+
   - name: cert-issuers
     type: oci
     timeout: 30m
@@ -71,90 +79,3 @@ releases:
 
   - name: namespace
     type: oci
-
-  - name: goapi
-    type: oci
-    dependsOn:
-      - flagger
-
-  - name: pythonapi
-    type: oci
-    dependsOn:
-      - flagger
-
-  - name: reactapp
-    type: oci
-
-  - name: harvester
-    type: oci
-
-  - name: kafka
-    type: oci
-    dependencies:
-      - name: strimzi-kafka-operator
-        type: helm
-        interval: 1h
-        timeout: 20m
-        repository:
-          name: strimzi
-          url: https://strimzi.io/charts/
-        chart: strimzi-kafka-operator
-        targetNamespace: kafka
-
-  - name: minio
-    type: oci
-    dependencies:
-      - name: minio-operator
-        type: helm
-        interval: 1h
-        repository:
-          name: minio-operator
-          url: https://operator.min.io/
-        chart: operator
-        targetNamespace: minio-operator
-
-  - name: mongo
-    type: oci
-    dependencies:
-      - name: mongodb-operator-crds
-        type: helm
-        interval: 1h
-        repository:
-          name: mongodb
-          url: https://mongodb.github.io/helm-charts
-        chart: community-operator-crds
-        targetNamespace: mongodb
-      - name: mongodb-operator
-        type: helm
-        interval: 1h
-        dependsOn:
-          - mongodb-operator-crds
-        repository:
-          name: mongodb
-          url: https://mongodb.github.io/helm-charts
-        chart: community-operator
-        targetNamespace: mongodb
-
-  - name: plex
-    type: oci
-
-  - name: postgres
-    type: oci
-    timeout: 30m
-    dependsOn:
-      - longhorn-system
-    dependencies:
-      - name: cnpg-system
-        type: helm
-        interval: 1h
-        repository:
-          name: cnpg
-          url: https://cloudnative-pg.github.io/charts
-        chart: cloudnative-pg
-        version: 0.23.x
-        targetNamespace: cnpg-system
-
-  - name: redis
-    type: oci
-    dependsOn:
-      - longhorn-system
