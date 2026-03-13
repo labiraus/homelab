@@ -140,6 +140,9 @@ releases:
 
   - name: postgres
     type: oci
+    timeout: 30m
+    installDisableWait: true
+    upgradeDisableWait: true
     dependsOn:
       - longhorn-system
     dependencies:
