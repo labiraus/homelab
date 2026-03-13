@@ -1,14 +1,19 @@
-email: admin@labiraus.com # EDIT THIS
+email: oliver@labiraus.com # EDIT THIS
 http01IngressClass: istio
 certificate:
-  namespace: istio-ingress
+  namespace: ingress
   name: mcp-labiraus-com
   secretName: mcp-labiraus-com-tls
-  issuerName: letsencrypt-staging
+  issuerName: letsencrypt-prod
   issuerKind: ClusterIssuer
   dnsNames:
-    - mcp.labiraus.com # EDIT THIS
+    - mcp.labiraus.com
 namecheap:
   enabled: false
-  groupName: acme.labiraus.com # EDIT THIS
+  groupName: acme.labiraus.com # must match the installed cert-manager DNS webhook groupName
+  webhookNamespace: cert-manager
   apiSecretName: namecheap-api-credentials
+  manageApiSecret: false
+  apiUser: "" # FILL IN WHEN YOU HAVE NAMECHEAP API ACCESS
+  apiKey: "" # FILL IN WHEN YOU HAVE NAMECHEAP API ACCESS
+  clientIp: "" # FILL IN WHEN YOU HAVE NAMECHEAP API ACCESS
