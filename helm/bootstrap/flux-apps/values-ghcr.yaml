@@ -3,3 +3,6 @@ image:
 imagePullSecret:
   enabled: true
   name: registry-key
+  sourceSecret:
+    namespace: flux-system
+    name: ghcr-creds
