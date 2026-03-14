@@ -1,6 +1,6 @@
 {{- $ingress := .Values.ingress | default (dict) -}}
 {{- $ingressNamespace := (index $ingress "namespace") | default "ingress" -}}
-{{- $ingressHostname := (index $ingress "hostname") | default "*.homelab.com" -}}
+{{- $ingressHostname := (index $ingress "hostname") | default "*.labiraus.com" -}}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -28,7 +28,7 @@ spec:
   - name: https
     port: 443
     protocol: HTTPS
-    hostname: uat.homelab.com
+    hostname: uat.labiraus.com
     allowedRoutes:
       namespaces:
         from: All
@@ -36,5 +36,5 @@ spec:
       mode: Terminate
       certificateRefs:
       - kind: Secret
-        name: uat-homelab-com-tls
+        name: uat-labiraus-com-tls
 {{- end }}

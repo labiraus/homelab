@@ -1,5 +1,5 @@
 ingress:
-  hostname: "uat.homelab.com"
+  hostname: "uat.labiraus.com"
 
 tls: true
 certManager: true
@@ -12,9 +12,9 @@ clusterIssuer:
   email: oliver@labiraus.com
 
 certificate:
-  name: uat-homelab-com-cert
+  name: uat-labiraus-com-cert
   namespace: ingress
-  secretName: uat-homelab-com-tls
-  commonName: uat.homelab.com
+  secretName: uat-labiraus-com-tls
+  commonName: uat.labiraus.com
   dnsNames:
-    - uat.homelab.com
+    - uat.labiraus.com
