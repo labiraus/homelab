@@ -4,8 +4,14 @@ USER root
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-    ca-certificates \
+    xz-utils \
     curl \
+    tar \
+    socat \
+    iputils-ping \
+    netcat-openbsd \
+    protobuf-compiler \
+    ca-certificates \
     git \
     openssh-client \
     sudo \
@@ -16,6 +22,8 @@ RUN apt-get update \
 
 COPY zscaler-ca.crt /usr/local/share/ca-certificates/zscaler-ca.crt
 RUN update-ca-certificates
+ENV AWS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/zscaler-ca.crt
 
 # Install terraform-docs
 RUN curl -sSLo /tmp/terraform-docs.tar.gz https://terraform-docs.io/dl/v0.16.0/terraform-docs-v0.16.0-$(uname)-amd64.tar.gz \
