@@ -33,7 +33,7 @@ spec:
       remediateLastFailure: true
       retries: 3
   upgrade:
-    cleanupOnFail: true
+    cleanupOnFail: {{ $r.cleanupOnFail | default true }}
     {{- if hasKey $r "upgradeDisableWait" }}
     disableWait: {{ $r.upgradeDisableWait }}
     {{- end }}

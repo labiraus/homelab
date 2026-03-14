@@ -90,3 +90,4 @@ releases:
 
   - name: namespace
     type: oci
+    cleanupOnFail: false
