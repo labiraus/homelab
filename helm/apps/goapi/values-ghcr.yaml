@@ -7,9 +7,5 @@ image:
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"
 
-canary:
-  enabled: true
-  path: "hello"
-
 env:
   configValue: "ghcr"

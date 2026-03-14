@@ -6,7 +6,10 @@ metadata:
   labels:
     {{- include "reactapp.labels" . | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    {{- toYaml .Values.strategy | nindent 4 }}
+  minReadySeconds: {{ .Values.minReadySeconds }}
   selector:
     matchLabels:
       {{- include "reactapp.selectorLabels" . | nindent 6 }}
@@ -23,14 +26,24 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "reactapp.serviceAccountName" . }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       tolerations:
         {{- toYaml .Values.tolerations | nindent 8 }}
       containers:
       - name: {{ .Chart.Name }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:
         - containerPort: 80
+        readinessProbe:
+          {{- toYaml .Values.readinessProbe | nindent 10 }}
+        livenessProbe:
+          {{- toYaml .Values.livenessProbe | nindent 10 }}
+        {{- with .Values.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        lifecycle:
+          {{- toYaml .Values.lifecycle | nindent 10 }}
         resources:
-          limits:
-            memory: "128Mi"
-            cpu: "200m"
+          {{- toYaml .Values.resources | nindent 10 }}

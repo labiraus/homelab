@@ -1,7 +1,0 @@
-namespace: homelab
-ingress:
-  hosts:
-    - host: uat.homelab.com
-      paths:
-        - path: /flagger
-          pathType: PathPrefix

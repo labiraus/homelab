@@ -1,5 +1,4 @@
 {{ define "commonapi.service" }}
-{{- if not (and ( .Values.canary ) ( .Values.canary.enabled )) }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -17,5 +16,4 @@ spec:
   selector:
     {{- include "commonapi.selectorLabels" . | nindent 4 }}
 ---
-{{- end -}}
 {{- end }}

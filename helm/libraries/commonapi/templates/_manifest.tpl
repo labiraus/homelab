@@ -8,5 +8,4 @@
 {{- include "commonapi.poddisruptionbudget" . }}
 {{- include "commonapi.hpa" . }}
 {{- include "commonapi.httproute" .}}
-{{- include "commonapi.canary" .}}
 {{- end}}

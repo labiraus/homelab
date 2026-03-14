@@ -37,9 +37,6 @@ releases:
           crds:
             enabled: true
 
-  - name: flagger
-    type: oci
-
   - name: istio
     type: oci
 

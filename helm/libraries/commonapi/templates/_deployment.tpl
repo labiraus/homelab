@@ -12,6 +12,11 @@ spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
+  {{- with .Values.strategy }}
+  strategy:
+{{ toYaml . | nindent 4 }}
+  {{- end }}
+  minReadySeconds: {{ .Values.minReadySeconds | default 5 }}
   selector:
     matchLabels:
       {{- include "commonapi.selectorLabels" . | nindent 6 }}
@@ -34,6 +39,7 @@ spec:
       serviceAccountName: {{ include "commonapi.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds | default 30 }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -44,14 +50,18 @@ spec:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
+          {{- with .Values.startupProbe }}
+          startupProbe:
+{{ toYaml . | nindent 12 }}
+          {{- end }}
           livenessProbe:
-            httpGet:
-              path: /liveness
-              port: {{ .Values.service.port }}
+{{ toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:
-            httpGet:
-              path: /readiness
-              port: {{ .Values.service.port }}
+{{ toYaml .Values.readinessProbe | nindent 12 }}
+          {{- with .Values.lifecycle }}
+          lifecycle:
+{{ toYaml . | nindent 12 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           env:
