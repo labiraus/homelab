@@ -9,10 +9,14 @@ releases:
   - name: flux-apps
     type: oci
     targetNamespace: flux-system
+    installDisableWait: true
+    upgradeDisableWait: true
 
   - name: flux-utils
     type: oci
     targetNamespace: flux-system
+    installDisableWait: true
+    upgradeDisableWait: true
 
   - name: cert-issuers
     type: oci

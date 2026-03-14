@@ -25,3 +25,6 @@ flux create helmrelease flux-bootstrap \
   --chart-ref=OCIRepository/flux-bootstrap.flux-system \
   --interval=10m \
   --export | kubectl apply -f -
+
+kubectl -n flux-system patch helmrelease flux-bootstrap --type merge -p \
+  '{"spec":{"install":{"disableWait":true},"upgrade":{"disableWait":true}}}'
