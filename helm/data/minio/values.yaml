@@ -6,8 +6,8 @@ tenant:
   rootPassword: TODO_MINIO_ROOT_PASSWORD
   pools:
     name: pool-0
-    servers: 4
+    servers: 2
     volumesPerServer: 2
-    storage: 100Gi
+    storage: 10Gi
     storageClassName: longhorn
   browserRedirectURL: https://minio-console.labiraus.com # EDIT THIS
