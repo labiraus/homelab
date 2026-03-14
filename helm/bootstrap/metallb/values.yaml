@@ -2,6 +2,6 @@ namespace: metallb-system
 ipAddressPool:
   name: homelab-pool
   addresses:
-    - 192.168.1.240-192.168.1.250 # EDIT THIS
+    - 192.168.8.240-192.168.8.250
 l2Advertisement:
   name: homelab-l2
