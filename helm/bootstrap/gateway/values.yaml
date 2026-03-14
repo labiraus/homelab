@@ -1,6 +1,6 @@
 ingress:
   namespace: ingress
-  hostname: "*.homelab.com"
+  hostname: "*.labiarus.com"
 tls: false
 acm:
   certificateArn: 
