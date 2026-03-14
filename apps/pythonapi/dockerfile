@@ -25,12 +25,12 @@ RUN groupadd --gid "${GID}" appuser \
     --no-create-home \
     appuser
 
-COPY requirements.txt ./
+COPY pythonapi/requirements.txt ./requirements.txt
 
 RUN --mount=type=cache,target=/root/.cache/pip \
     python -m pip install --requirement requirements.txt
 
-COPY --chown=appuser:appuser . .
+COPY --chown=appuser:appuser pythonapi/ ./
 
 # Expose the port that the application listens on.
 EXPOSE 8080
