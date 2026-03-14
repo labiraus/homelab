@@ -87,7 +87,3 @@ releases:
         defaultClass: true
         defaultClassReplicaCount: 2
         reclaimPolicy: Delete
-
-  - name: namespace
-    type: oci
-    cleanupOnFail: false

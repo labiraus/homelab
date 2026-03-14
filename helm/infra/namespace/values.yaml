@@ -1,4 +1,0 @@
-namespaces:
-  - name: homelab
-    labels:
-      istio-injection: "enabled"

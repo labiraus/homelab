@@ -19,7 +19,7 @@ metadata:
 spec:
   interval: {{ $r.interval | default (ternary "1m" "1h" (eq $r.type "oci")) }}
   timeout: {{ $r.timeout | default "10m" }}
-  targetNamespace: {{ $r.targetNamespace | default $r.name }}
+  targetNamespace: {{ $r.targetNamespace | default $r.namespace | default $r.name }}
   install:
     createNamespace: true
     replace: true

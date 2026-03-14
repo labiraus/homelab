@@ -1,8 +1,0 @@
-apiVersion: v2
-name: namespace
-description: A Helm chart for all non application infrastructure
-version: 0.1.0
-
-# This is the source repo of the chart for the purpose of linking the packaged chart in a container registry to the source repo.
-sources:
-  - "https://github.com/labiraus/homelab"
