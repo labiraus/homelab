@@ -80,6 +80,13 @@ releases:
       url: https://charts.longhorn.io
     chart: longhorn
     targetNamespace: longhorn-system
+    values:
+      defaultSettings:
+        defaultReplicaCount: 2
+      persistence:
+        defaultClass: true
+        defaultClassReplicaCount: 2
+        reclaimPolicy: Delete
 
   - name: namespace
     type: oci
