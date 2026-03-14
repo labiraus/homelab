@@ -4,7 +4,7 @@ on:
     types: [helm-build]
   # push:
   #   paths:
-  #     - helm/infra/flux-bootstrap/**/*
+  #     - helm/bootstrap/flux-bootstrap/**/*
   #     - ".github/actions/helm/**"
   #     - ".github/workflows/helm-flux-bootstrap.yml"
 
@@ -25,7 +25,7 @@ jobs:
       - name: Test Default
         uses: ./.github/actions/helm/test
         with:
-          chart: infra/flux-bootstrap
+          chart: bootstrap/flux-bootstrap
           values: values.yaml
 
   test-ghcr:
@@ -39,7 +39,7 @@ jobs:
       - name: Test GHCR
         uses: ./.github/actions/helm/test
         with:
-          chart: infra/flux-bootstrap
+          chart: bootstrap/flux-bootstrap
           values: values-ghcr.yaml
 
   ghcr:
@@ -55,7 +55,7 @@ jobs:
       - name: Build to GHCR
         uses: ./.github/actions/helm/ghcr
         with:
-          chart: infra/flux-bootstrap
+          chart: bootstrap/flux-bootstrap
           token: ${{ secrets.GITHUB_TOKEN }}
           values: values-ghcr.yaml
           tag: uat

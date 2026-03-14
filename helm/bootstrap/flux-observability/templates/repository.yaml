@@ -1,5 +1,5 @@
 {{- $root := . -}}
-{{- $all := (include "flux-utils.allReleases" . | fromYamlArray) -}}
+{{- $all := (include "flux-observability.allReleases" . | fromYamlArray) -}}
 {{- range $r := $all }}
 {{- if eq $r.type "oci" }}
 apiVersion: source.toolkit.fluxcd.io/v1

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: flux-observability
+description: A Helm chart for Flux-managed observability releases
+type: application
+version: 0.1.0
+appVersion: "1.16.0"

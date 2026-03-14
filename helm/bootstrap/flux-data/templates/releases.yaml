@@ -1,4 +1,4 @@
-{{- $all := (include "flux-utils.allReleases" . | fromYamlArray) -}}
+{{- $all := (include "flux-data.allReleases" . | fromYamlArray) -}}
 {{- range $r := $all }}
 {{- $depNames := list -}}
 {{- with $r.dependsOn }}

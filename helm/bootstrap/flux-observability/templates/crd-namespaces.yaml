@@ -1,5 +1,5 @@
 {{- $seen := dict -}}
-{{- $all := (include "flux-utils.allReleases" . | fromYamlArray) -}}
+{{- $all := (include "flux-observability.allReleases" . | fromYamlArray) -}}
 {{- $namespaces := list -}}
 {{- range $r := $all -}}
   {{- if eq $r.type "helm" -}}

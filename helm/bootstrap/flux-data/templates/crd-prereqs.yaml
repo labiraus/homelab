@@ -1,0 +1,19 @@
+{{- $seenRepos := dict -}}
+{{- $all := (include "flux-data.allReleases" . | fromYamlArray) -}}
+{{- range $r := $all }}
+{{- if and (eq $r.type "helm") $r.repository }}
+{{- $repoName := $r.repository.name -}}
+{{- if not (hasKey $seenRepos $repoName) -}}
+{{ $_ := set $seenRepos $repoName true }}
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: {{ $repoName }}
+  namespace: flux-system
+spec:
+  interval: {{ $r.interval | default "1h" }}
+  url: {{ $r.repository.url }}
+---
+{{- end }}
+{{- end }}
+{{- end }}

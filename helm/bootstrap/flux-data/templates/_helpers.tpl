@@ -1,4 +1,4 @@
-{{- define "flux-utils.allReleases" -}}
+{{- define "flux-data.allReleases" -}}
 {{- $all := list -}}
 {{- range $r := .Values.releases }}
 {{- $all = append $all $r -}}

@@ -12,7 +12,13 @@ releases:
     installDisableWait: true
     upgradeDisableWait: true
 
-  - name: flux-utils
+  - name: flux-observability
+    type: oci
+    targetNamespace: flux-system
+    installDisableWait: true
+    upgradeDisableWait: true
+
+  - name: flux-data
     type: oci
     targetNamespace: flux-system
     installDisableWait: true
@@ -37,24 +43,11 @@ releases:
           crds:
             enabled: true
 
-  - name: istio
-    type: oci
-
-  - name: prometheus
-    type: oci
-
   - name: gateway
     type: oci
 
-  - name: jaeger
+  - name: istio
     type: oci
-
-  - name: kiali
-    type: oci
-
-  - name: kubecost
-    type: oci
-    timeout: 20m
 
   - name: metallb
     type: oci
