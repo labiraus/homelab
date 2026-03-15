@@ -4,6 +4,7 @@ metadata:
   name: {{ .Values.namespace }}
 ---
 {{- if .Values.redis.auth.enabled }}
+{{- $existing := lookup "v1" "Secret" .Values.namespace (printf "%s-auth" .Values.redis.name) }}
 apiVersion: v1
 kind: Secret
 metadata:
@@ -11,7 +12,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 type: Opaque
 stringData:
-  password: {{ .Values.redis.auth.password | quote }}
+  password: {{- if $existing }} {{ index $existing.data "password" | b64dec | quote }} {{- else if .Values.redis.auth.password }} {{ .Values.redis.auth.password | quote }} {{- else }} {{ randAlphaNum 32 | quote }} {{- end }}
 ---
 {{- end }}
 apiVersion: v1
@@ -90,3 +91,29 @@ spec:
         - name: redis-data
           emptyDir: {}
   {{- end }}
+---
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Values.redis.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.redis.name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+{{- range .Values.networkPolicy.allowedClients }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .namespace | quote }}
+          podSelector:
+{{ toYaml .podSelector | nindent 12 }}
+{{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.redis.port }}
+{{- end }}

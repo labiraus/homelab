@@ -20,10 +20,18 @@ releases:
   - name: goapi
     type: oci
     namespace: homelab
+    dependsOn:
+      - postgres
+      - mongo
+      - redis
 
   - name: pythonapi
     type: oci
     namespace: homelab
+    dependsOn:
+      - postgres
+      - mongo
+      - redis
 
   - name: reactapp
     type: oci

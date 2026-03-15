@@ -9,3 +9,14 @@ cluster:
   appDatabase: app
   passwordSecretName: mongo-app-user-password
   scramSecretName: mongo-app-scram
+networkPolicy:
+  enabled: true
+  allowedClients:
+    - namespace: homelab
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/instance: homelab-goapi
+    - namespace: homelab
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/instance: homelab-pythonapi

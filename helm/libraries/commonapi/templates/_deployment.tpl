@@ -69,6 +69,13 @@ spec:
               value: {{ default "Config Default" .Values.env.configValue }}
             - name: namespace
               value: {{ .Values.namespace }}
+          {{- with .Values.envFromSecrets }}
+          envFrom:
+            {{- range . }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
+          {{- end }}
       {{- if and ( .Values.secret ) ( .Values.secret.enabled ) }}
             {{- range $key, $value := .Values.secret.data }}
             - name: {{ $key | upper }}

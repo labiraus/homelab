@@ -60,3 +60,26 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Resolve a generated secret value from either a literal or an existing in-cluster Secret.
+*/}}
+{{- define "commonapi.generatedSecretValue" -}}
+{{- $spec := . -}}
+{{- if hasKey $spec "value" -}}
+{{- $spec.value -}}
+{{- else if hasKey $spec "fromSecretRef" -}}
+{{- $ref := $spec.fromSecretRef -}}
+{{- $secret := lookup "v1" "Secret" $ref.namespace $ref.name -}}
+{{- if not $secret -}}
+{{- fail (printf "generated secret source Secret %s/%s not found" $ref.namespace $ref.name) -}}
+{{- end -}}
+{{- $value := index $secret.data $ref.key -}}
+{{- if not $value -}}
+{{- fail (printf "generated secret source key %s missing in Secret %s/%s" $ref.key $ref.namespace $ref.name) -}}
+{{- end -}}
+{{- $value | b64dec -}}
+{{- else -}}
+{{- fail "generated secret entries must define either value or fromSecretRef" -}}
+{{- end -}}
+{{- end -}}

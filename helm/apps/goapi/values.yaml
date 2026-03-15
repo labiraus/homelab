@@ -61,6 +61,133 @@ serviceAccount:
   # If not set and create is true, a name is generated using the fullname template
   name: ""
 
+envFromSecrets:
+  - goapi-data-connections
+
+generatedSecrets:
+  - name: goapi-data-connections
+    stringData:
+      POSTGRES_HOST:
+        value: app-db-rw.data.svc.cluster.local
+      POSTGRES_PORT:
+        value: "5432"
+      POSTGRES_DATABASE:
+        value: app
+      POSTGRES_USER:
+        fromSecretRef:
+          namespace: data
+          name: app-db-bootstrap
+          key: username
+      POSTGRES_PASSWORD:
+        fromSecretRef:
+          namespace: data
+          name: app-db-bootstrap
+          key: password
+      MONGO_HOST:
+        value: mongo-single-svc.mongodb.svc.cluster.local
+      MONGO_PORT:
+        value: "27017"
+      MONGO_DATABASE:
+        value: app
+      MONGO_USER:
+        value: app
+      MONGO_PASSWORD:
+        fromSecretRef:
+          namespace: mongodb
+          name: mongo-app-user-password
+          key: password
+      REDIS_HOST:
+        value: redis.data.svc.cluster.local
+      REDIS_PORT:
+        value: "6379"
+      REDIS_PASSWORD:
+        fromSecretRef:
+          namespace: data
+          name: redis-auth
+          key: password
+
+security:
+  istio:
+    peerAuthentication:
+      enabled: true
+      mode: STRICT
+    authorizationPolicy:
+      enabled: true
+      action: ALLOW
+      rules:
+        - from:
+            - source:
+                principals:
+                  - cluster.local/ns/ingress/sa/gateway-istio
+          to:
+            - operation:
+                ports: ["8080"]
+  networkPolicy:
+    enabled: true
+    defaultDenyIngress: true
+    defaultDenyEgress: true
+    ingress:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: ingress
+        ports:
+          - protocol: TCP
+            port: 8080
+    egress:
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: kube-system
+            podSelector:
+              matchLabels:
+                k8s-app: kube-dns
+        ports:
+          - protocol: UDP
+            port: 53
+          - protocol: TCP
+            port: 53
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: istio-system
+            podSelector:
+              matchLabels:
+                app: istiod
+        ports:
+          - protocol: TCP
+            port: 15012
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: data
+            podSelector:
+              matchLabels:
+                cnpg.io/cluster: app-db
+        ports:
+          - protocol: TCP
+            port: 5432
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: data
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/name: redis
+        ports:
+          - protocol: TCP
+            port: 6379
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: mongodb
+            podSelector:
+              matchLabels:
+                app: mongo-single-svc
+        ports:
+          - protocol: TCP
+            port: 27017
+
 podAnnotations: {}
 podLabels: { testing_label_key: goapi }
 
