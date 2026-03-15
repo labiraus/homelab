@@ -45,6 +45,9 @@ releases:
 
   - name: gateway
     type: oci
+    dependsOn:
+      - cert-issuers
+      - istio
 
   - name: istio
     type: oci
