@@ -1,5 +1,7 @@
 {{- $internal := .Values.internalGateway | default (dict) -}}
 {{- $listeners := (index $internal "listeners") | default list -}}
+{{- $aws := .Values.aws | default (dict) -}}
+{{- $awsEnabled := (index $aws "enabled") | default false -}}
 {{- if gt (len $listeners) 0 -}}
 {{- $namespace := (index $internal "namespace") -}}
 {{- $name := (index $internal "name") -}}
@@ -9,9 +11,11 @@ kind: Gateway
 metadata:
   name: {{ $name }}
   namespace: {{ $namespace }}
+  {{- if $awsEnabled }}
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-scheme: {{ $scheme | quote }}
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+  {{- end }}
 spec:
   gatewayClassName: istio
   listeners:

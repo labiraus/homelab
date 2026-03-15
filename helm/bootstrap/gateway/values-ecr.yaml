@@ -1,6 +1,9 @@
 ingress:
   hostname: "uat.labiraus.com"
 
+aws:
+  enabled: true
+
 tls: true
 certManager: true
 acm:

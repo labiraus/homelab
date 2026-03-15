@@ -1,4 +1,6 @@
-{{- if .Values.certManager }}
+{{- $aws := .Values.aws | default (dict) -}}
+{{- $awsEnabled := (index $aws "enabled") | default false -}}
+{{- if and .Values.certManager $awsEnabled }}
 ---
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer

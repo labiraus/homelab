@@ -3,18 +3,26 @@
 {{- $ingressHostname := (index $ingress "hostname") | default "*.labiraus.com" -}}
 {{- $certificate := .Values.certificate | default (dict) -}}
 {{- $tlsSecretName := (index $certificate "secretName") | default "" -}}
+{{- $acm := .Values.acm | default (dict) -}}
+{{- $acmCertificateArn := (index $acm "certificateArn") | default "" -}}
+{{- $aws := .Values.aws | default (dict) -}}
+{{- $awsEnabled := (index $aws "enabled") | default false -}}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway
   namespace: {{ $ingressNamespace }}
   annotations:
-    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
     external-dns.alpha.kubernetes.io/hostname: "{{ $ingressHostname }}"
+    {{- if $awsEnabled }}
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
     {{- if .Values.tls }}
-    # service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "{{ .Values.acm.certificateArn }}"
+    {{- if $acmCertificateArn }}
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "{{ $acmCertificateArn }}"
+    {{- end }}
     service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+    {{- end }}
     {{- end }}
 spec:
   gatewayClassName: istio

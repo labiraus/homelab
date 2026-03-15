@@ -1,6 +1,8 @@
 ingress:
   namespace: ingress
   hostname: "mcp.labiraus.com"
+aws:
+  enabled: false
 tls: true
 certificate:
   secretName: mcp-labiraus-com-tls
