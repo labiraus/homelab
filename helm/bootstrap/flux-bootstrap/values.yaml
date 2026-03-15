@@ -55,6 +55,14 @@ releases:
       tls: true
       certificate:
         secretName: mcp-labiraus-com-tls
+      internalGateway:
+        namespace: ingress
+        name: internal-gateway
+        loadBalancerScheme: internal
+        listeners:
+          - name: postgres
+            port: 5432
+            protocol: TCP
 
   - name: istio
     type: oci

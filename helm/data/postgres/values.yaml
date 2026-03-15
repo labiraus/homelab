@@ -23,3 +23,11 @@ networkPolicy:
       podSelector:
         matchLabels:
           app.kubernetes.io/instance: homelab-pythonapi
+exposure:
+  internalGateway:
+    enabled: true
+    gatewayName: internal-gateway
+    gatewayNamespace: ingress
+    sectionName: postgres
+    serviceName: app-db-rw
+    servicePort: 5432

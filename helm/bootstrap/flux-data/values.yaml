@@ -64,6 +64,7 @@ releases:
     timeout: 30m
     dependsOn:
       - longhorn-system
+      - gateway
     dependencies:
       - name: cnpg-system
         type: helm

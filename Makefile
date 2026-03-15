@@ -4,7 +4,7 @@ LAYER ?=
 OVERLAYS ?=
 TF_ARGS ?=
 
-.PHONY: plan apply destroy plan-destroy refresh-join-token
+.PHONY: plan apply destroy plan-destroy refresh-join-token refresh-postgres-env
 
 check-vars:
 	@if [ -z "$(COMPONENT)" ] || [ -z "$(LAYER)" ]; then \
@@ -40,3 +40,37 @@ refresh-join-token:
 	fi; \
 	echo "Updated $$env_file with TF_VAR_kubeadm_join_token=$$token"; \
 	echo "Run: source /home/vscode/.env"
+
+refresh-postgres-env:
+	@set -e; \
+	env_file=".devcontainer/.env"; \
+	secret_name="app-db-bootstrap"; \
+	secret_namespace="data"; \
+	pg_host="app-db-rw.data.svc.cluster.local"; \
+	pg_port="5432"; \
+	pg_db="app"; \
+	pg_user="$$(kubectl -n "$$secret_namespace" get secret "$$secret_name" -o jsonpath='{.data.username}' | base64 -d)"; \
+	pg_pass="$$(kubectl -n "$$secret_namespace" get secret "$$secret_name" -o jsonpath='{.data.password}' | base64 -d)"; \
+	if [ -z "$$pg_user" ] || [ -z "$$pg_pass" ]; then \
+		echo "Error: failed to load postgres credentials from $$secret_namespace/$$secret_name" >&2; \
+		exit 1; \
+	fi; \
+	upsert_env() { \
+		key="$$1"; \
+		value="$$2"; \
+		if grep -q "^$${key}=" "$$env_file"; then \
+			sed -i "s|^$${key}=.*|$${key}='$${value}'|" "$$env_file"; \
+		else \
+			printf "%s='%s'\n" "$$key" "$$value" >> "$$env_file"; \
+		fi; \
+	}; \
+	upsert_env DB_HOST "$$pg_host"; \
+	upsert_env DB_PORT "$$pg_port"; \
+	upsert_env DB_NAME "$$pg_db"; \
+	upsert_env DB_USER "$$pg_user"; \
+	upsert_env DB_PASS "$$pg_pass"; \
+	echo "Updated $$env_file with Postgres connection details for $$pg_host:$$pg_port/$$pg_db"; \
+	echo "Run: source /home/vscode/.env"
+
+postgres:
+	kubectl -n data port-forward svc/app-db-rw 5432:5432

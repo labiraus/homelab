@@ -63,7 +63,8 @@
         "ms-kubernetes-tools.vscode-kubernetes-tools",
         "tim-koehler.helm-intellisense",
         "redhat.vscode-yaml",
-        "fluxcd.flux"
+        "fluxcd.flux",
+        "ckolkman.vscode-postgres"
       ]
     }
   },

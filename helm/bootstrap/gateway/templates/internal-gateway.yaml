@@ -1,0 +1,26 @@
+{{- $internal := .Values.internalGateway | default (dict) -}}
+{{- $listeners := (index $internal "listeners") | default list -}}
+{{- if gt (len $listeners) 0 -}}
+{{- $namespace := (index $internal "namespace") -}}
+{{- $name := (index $internal "name") -}}
+{{- $scheme := (index $internal "loadBalancerScheme") -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ $name }}
+  namespace: {{ $namespace }}
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-scheme: {{ $scheme | quote }}
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+spec:
+  gatewayClassName: istio
+  listeners:
+  {{- range $listener := $listeners }}
+  - name: {{ $listener.name }}
+    port: {{ $listener.port }}
+    protocol: {{ $listener.protocol }}
+    allowedRoutes:
+      namespaces:
+        from: All
+  {{- end }}
+{{- end }}
