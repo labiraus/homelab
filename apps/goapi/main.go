@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 
 	"pkg/api"
@@ -105,10 +106,12 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = json.Unmarshal(body, &request)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+	if len(strings.TrimSpace(string(body))) > 0 {
+		err = json.Unmarshal(body, &request)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	}
 
 	if request.UserID == 0 {
@@ -126,10 +129,14 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 		c.Set("secretValue", secretValue, cache.DefaultExpiration)
 	}
 
-	response := UserResponse{
+	userResponse := UserResponse{
 		UserID:   request.UserID,
 		Username: secretValue.(string),
 		Email:    "something@somewhere.com",
+	}
+
+	response := HelloResponse{
+		Data: fmt.Sprintf("Hello %s (called via Go)!", userResponse.Username),
 	}
 
 	data, err := json.Marshal(response)
@@ -139,6 +146,7 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	_, err = w.Write(data)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
