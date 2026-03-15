@@ -1,6 +1,10 @@
 {{ define "commonapi.httproute" }}
 {{- if .Values.ingress.enabled -}}
 {{- $root := . -}}
+{{- $ingress := .Values.ingress | default dict -}}
+{{- $httpsRedirect := (get $ingress "httpsRedirect" | default false) -}}
+{{- $httpListenerName := (get $ingress "httpListenerName" | default "default") -}}
+{{- $httpsListenerName := (get $ingress "httpsListenerName" | default "https") -}}
 {{- range $host := .Values.ingress.hosts }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -12,6 +16,9 @@ spec:
   parentRefs:
   - name: gateway
     namespace: ingress
+    {{- if $httpsRedirect }}
+    sectionName: {{ $httpsListenerName }}
+    {{- end }}
   rules:
   {{- range $path := $host.paths }}
   - matches:
@@ -30,6 +37,32 @@ spec:
       port: 80
   {{- end }}
 ---
+{{- if $httpsRedirect }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "commonapi.fullname" $root }}-http-redirect
+  namespace: {{ $root.Values.namespace }}
+spec:
+  hostnames: [{{ $host.host }}]
+  parentRefs:
+  - name: gateway
+    namespace: ingress
+    sectionName: {{ $httpListenerName }}
+  rules:
+  {{- range $path := $host.paths }}
+  - matches:
+    - path:
+        type: {{ $path.pathType }}
+        value: {{ $path.path }}
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        scheme: https
+        statusCode: 301
+  {{- end }}
+---
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end -}}
