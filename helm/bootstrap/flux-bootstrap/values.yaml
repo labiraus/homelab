@@ -48,6 +48,13 @@ releases:
     dependsOn:
       - cert-issuers
       - istio
+    values:
+      ingress:
+        namespace: ingress
+        hostname: mcp.labiraus.com
+      tls: true
+      certificate:
+        secretName: mcp-labiraus-com-tls
 
   - name: istio
     type: oci

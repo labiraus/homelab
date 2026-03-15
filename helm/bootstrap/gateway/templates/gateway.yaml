@@ -1,7 +1,8 @@
 {{- $ingress := .Values.ingress | default (dict) -}}
 {{- $ingressNamespace := (index $ingress "namespace") | default "ingress" -}}
 {{- $ingressHostname := (index $ingress "hostname") | default "*.labiraus.com" -}}
-{{- $tlsSecretName := .Values.certificate.secretName | default "" -}}
+{{- $certificate := .Values.certificate | default (dict) -}}
+{{- $tlsSecretName := (index $certificate "secretName") | default "" -}}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
