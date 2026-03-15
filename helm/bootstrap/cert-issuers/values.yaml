@@ -1,5 +1,8 @@
 email: oliver@labiraus.com # EDIT THIS
-http01IngressClass: istio
+http01GatewayParentRefs:
+  - name: gateway
+    namespace: ingress
+    kind: Gateway
 certificate:
   namespace: ingress
   name: mcp-labiraus-com

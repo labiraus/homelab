@@ -42,6 +42,8 @@ releases:
         values:
           crds:
             enabled: true
+          config:
+            enableGatewayAPI: true
 
   - name: gateway
     type: oci
