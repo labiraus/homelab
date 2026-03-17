@@ -5,9 +5,9 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1h
-  url: https://github.com/kubernetes-sigs/gateway-api # replace with the URL of your Git repository
+  url: https://github.com/kubernetes-sigs/gateway-api
   ref:
-    tag: "v1.4.1" # replace with the tag or branch you want to use
+    tag: "v1.5.1"
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -17,8 +17,10 @@ metadata:
 spec:
   prune: true
   interval: 1h
+  wait: true
+  timeout: 10m
   sourceRef:
     kind: GitRepository
     name: gateway-api
     namespace: flux-system
-  path: "./config/crd"
+  path: "./config/crd/experimental"
