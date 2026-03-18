@@ -79,7 +79,8 @@
     "git": "git config --global --add safe.directory /workspaces/homelab",
     "scripts": "find . -type d -name node_modules -prune -o -type f -path '*/scripts/*.sh' -exec chmod +x {} + || true",
     "terraform.sh": "chmod +x ./bin/tf",
-    "ssh": "[ -d /home/vscode/.ssh ] && (sudo chown -R vscode:vscode /home/vscode/.ssh 2>/dev/null || true) && chmod 700 /home/vscode/.ssh && find /home/vscode/.ssh -maxdepth 1 -type f -exec chmod 600 {} + 2>/dev/null || true"
+    "ssh": "[ -d /home/vscode/.ssh ] && (sudo chown -R vscode:vscode /home/vscode/.ssh 2>/dev/null || true) && chmod 700 /home/vscode/.ssh && find /home/vscode/.ssh -maxdepth 1 -type f -exec chmod 600 {} + 2>/dev/null || true",
+    "reactapp-deps": "cd /workspaces/homelab/apps/reactapp && npm install"
   },
   "remoteUser": "vscode",
   "updateRemoteUserUID": true

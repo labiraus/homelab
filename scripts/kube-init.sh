@@ -11,7 +11,7 @@ flux create secret oci ghcr-creds \
   --username=$GITHUB_USERNAME \
   --password=$GITHUB_TOKEN
 
-  # If recreating source:
+# If recreating source:
 flux create source oci flux-bootstrap \
   --namespace=flux-system \
   --url=oci://ghcr.io/labiraus/homelab/charts/flux-bootstrap \
