@@ -4,6 +4,10 @@ type HelloResponse struct {
 	Data string `json:"data"`
 }
 
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
 type UserRequest struct {
 	UserID int `json:"userid"`
 }

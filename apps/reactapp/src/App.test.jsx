@@ -9,7 +9,7 @@ describe("App", () => {
 		render(<App />);
 
 		expect(screen.getByRole("heading", { name: /verify backend routes/i })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /call go api/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /count users via go api/i })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /call python api/i })).toBeInTheDocument();
 	});
 
@@ -21,7 +21,7 @@ describe("App", () => {
 		});
 
 		render(<App />);
-		await user.click(screen.getByRole("button", { name: /call go api/i }));
+		await user.click(screen.getByRole("button", { name: /count users via go api/i }));
 
 		expect(await screen.findByText("Hello from Go")).toBeInTheDocument();
 	});

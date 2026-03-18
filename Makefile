@@ -78,8 +78,6 @@ refresh-postgres-env:
 	echo "Updated $$env_file with Postgres connection details for $$pg_host:$$pg_port/$$pg_db"; \
 	echo "Run: . /home/vscode/.env"
 
-postgres-refresh: refresh-postgres-env
-
 postgres:
 	@set -e; \
 	. /home/vscode/.env; \
