@@ -38,6 +38,10 @@ runs:
     - name: Resolve chart and app versions
       shell: bash
       run: |
+        trim_value() {
+          printf '%s' "$1" | tr -d '\r' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//'
+        }
+
         TAG="${{ inputs.tag }}"
         RUN_ID="${{ github.run_id }}"
         SERIES_PREFIX=""
@@ -55,6 +59,7 @@ runs:
           awk -F': ' '/^appVersion:/{print $2; exit}' "${CHART_DIR}/Chart.yaml" \
             | tr -d '"' || true
         )"
+        CURRENT_APP_VERSION="$(trim_value "${CURRENT_APP_VERSION}")"
 
         TAGS_URL="https://ghcr.io/v2/${{ github.repository }}/charts/${CHART_NAME}/tags/list"
         TAGS="$(
@@ -74,9 +79,10 @@ runs:
               | awk -F': ' '/^appVersion:/{print $2; exit}' \
               | tr -d '"' || true
           )"
+          LATEST_APP_VERSION="$(trim_value "${LATEST_APP_VERSION}")"
         fi
 
-        APP_VERSION_INPUT="${{ inputs.app-version }}"
+        APP_VERSION_INPUT="$(trim_value "${{ inputs.app-version }}")"
         APP_VERSION="$APP_VERSION_INPUT"
         if [[ -z "$APP_VERSION" ]]; then
           APP_VERSION="$LATEST_APP_VERSION"
@@ -84,6 +90,7 @@ runs:
         if [[ -z "$APP_VERSION" ]]; then
           APP_VERSION="$CURRENT_APP_VERSION"
         fi
+        APP_VERSION="$(trim_value "${APP_VERSION}")"
 
         echo "CHART_VER=${CHART_VER}" >> "$GITHUB_ENV"
         echo "APP_VERSION=${APP_VERSION}" >> "$GITHUB_ENV"
