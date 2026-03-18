@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
+const THEME_STORAGE_KEY = "homelab-theme";
 
 const actions = [
 	{
@@ -49,6 +50,23 @@ function App() {
 	const [activeRequest, setActiveRequest] = useState(null);
 	const [message, setMessage] = useState("Choose a service call to verify routing.");
 	const [error, setError] = useState("");
+	const [theme, setTheme] = useState(() => {
+		if (typeof window === "undefined") {
+			return "light";
+		}
+
+		const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+		if (storedTheme === "light" || storedTheme === "dark") {
+			return storedTheme;
+		}
+
+		return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+	});
+
+	useEffect(() => {
+		document.documentElement.dataset.theme = theme;
+		window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+	}, [theme]);
 
 	const handleAction = async (action) => {
 		setActiveRequest(action.id);
@@ -68,7 +86,17 @@ function App() {
 		<main className="app-shell">
 			<section className="hero">
 				<p className="eyebrow">Homelab UI</p>
-				<h1>Verify backend routes from one place.</h1>
+				<div className="hero-heading">
+					<h1>Verify backend routes from one place.</h1>
+					<button
+						type="button"
+						className="theme-toggle"
+						onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+						aria-pressed={theme === "dark"}
+					>
+						{theme === "dark" ? "Use Light Mode" : "Use Dark Mode"}
+					</button>
+				</div>
 				<p className="intro">
 					This frontend is intentionally small: it exposes the health of the integration
 					points between the browser, the Go API, and the Python API.

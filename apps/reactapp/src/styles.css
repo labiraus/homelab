@@ -18,6 +18,24 @@
 		linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
 }
 
+:root[data-theme="dark"] {
+	--bg-top: #0e1623;
+	--bg-bottom: #19283a;
+	--ink: #edf3fb;
+	--muted: #b2c0d0;
+	--panel: rgba(9, 18, 30, 0.76);
+	--line: rgba(192, 217, 242, 0.14);
+	--shadow: 0 24px 80px rgba(0, 0, 0, 0.36);
+	--accent: #ff8f5c;
+	--accent-strong: #ffc6a8;
+	--success: #7bd2b6;
+	--error: #ff9d9d;
+	background:
+		radial-gradient(circle at top left, rgba(255, 143, 92, 0.18), transparent 28%),
+		radial-gradient(circle at top right, rgba(96, 168, 219, 0.18), transparent 30%),
+		linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+}
+
 * {
 	box-sizing: border-box;
 }
@@ -61,6 +79,13 @@ select {
 	padding: 2rem;
 }
 
+.hero-heading {
+	display: flex;
+	gap: 1rem;
+	align-items: flex-start;
+	justify-content: space-between;
+}
+
 .eyebrow {
 	margin: 0 0 0.75rem;
 	color: var(--accent-strong);
@@ -76,6 +101,29 @@ select {
 	font-family: "IBM Plex Serif", Georgia, serif;
 	font-size: clamp(2.8rem, 8vw, 5.8rem);
 	line-height: 0.95;
+}
+
+.theme-toggle {
+	flex-shrink: 0;
+	padding: 0.75rem 1rem;
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.28);
+	color: var(--ink);
+	cursor: pointer;
+	transition:
+		transform 160ms ease,
+		background 160ms ease,
+		border-color 160ms ease;
+}
+
+:root[data-theme="dark"] .theme-toggle {
+	background: rgba(10, 20, 34, 0.8);
+}
+
+.theme-toggle:hover {
+	transform: translateY(-1px);
+	border-color: rgba(196, 90, 44, 0.4);
 }
 
 .intro {
@@ -141,6 +189,11 @@ select {
 		border-color 160ms ease;
 }
 
+:root[data-theme="dark"] .action-card {
+	border-color: rgba(255, 143, 92, 0.2);
+	background: linear-gradient(180deg, rgba(21, 34, 50, 0.94), rgba(12, 21, 33, 0.86));
+}
+
 .action-card:hover:not(:disabled) {
 	transform: translateY(-2px);
 	box-shadow: 0 12px 36px rgba(141, 52, 20, 0.16);
@@ -168,6 +221,11 @@ select {
 	border-radius: 22px;
 	background: rgba(16, 32, 51, 0.95);
 	color: #f4efe4;
+}
+
+:root[data-theme="dark"] .response-card {
+	background: rgba(4, 10, 18, 0.96);
+	color: #edf3fb;
 }
 
 .response-label {
@@ -201,6 +259,10 @@ select {
 
 	.hero {
 		padding: 1.5rem;
+	}
+
+	.hero-heading {
+		flex-direction: column;
 	}
 
 	.panel {

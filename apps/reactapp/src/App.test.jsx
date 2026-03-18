@@ -9,8 +9,9 @@ describe("App", () => {
 		render(<App />);
 
 		expect(screen.getByRole("heading", { name: /verify backend routes/i })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /count users via go api/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /user count via go api/i })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /call python api/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /use dark mode/i })).toBeInTheDocument();
 	});
 
 	test("shows API response after a successful request", async () => {
@@ -21,8 +22,19 @@ describe("App", () => {
 		});
 
 		render(<App />);
-		await user.click(screen.getByRole("button", { name: /count users via go api/i }));
+		await user.click(screen.getByRole("button", { name: /user count via go api/i }));
 
 		expect(await screen.findByText("Hello from Go")).toBeInTheDocument();
+	});
+
+	test("toggles dark mode", async () => {
+		const user = userEvent.setup();
+		render(<App />);
+
+		const toggle = screen.getByRole("button", { name: /use dark mode/i });
+		await user.click(toggle);
+
+		expect(document.documentElement.dataset.theme).toBe("dark");
+		expect(screen.getByRole("button", { name: /use light mode/i })).toBeInTheDocument();
 	});
 });
