@@ -76,7 +76,6 @@ runs:
 
         CHART_YAML="${CHART_DIR}/Chart.yaml"
         TAG="${{ inputs.tag }}"
-        GIT_SHA="$(git rev-parse --short HEAD)"
         RUN_NUMBER="${{ github.run_number }}"
         SERIES_PREFIX=""
 
@@ -91,14 +90,16 @@ runs:
           SERIES_PREFIX="0.0.0-${SAFE_TAG}."
         fi
 
+        APP_VERSION="${CHART_VER}"
         yq -i ".version = \"${CHART_VER}\"" "${CHART_DIR}/Chart.yaml"
-        yq -i ".appVersion = \"${GIT_SHA}\"" "${CHART_DIR}/Chart.yaml"
+        yq -i ".appVersion = \"${APP_VERSION}\"" "${CHART_DIR}/Chart.yaml"
         echo "CHART_VER=${CHART_VER}" >> $GITHUB_ENV
-        echo "GIT_SHA=${GIT_SHA}" >> $GITHUB_ENV
+        echo "APP_VERSION=${APP_VERSION}" >> $GITHUB_ENV
         echo "SERIES_PREFIX=${SERIES_PREFIX}" >> $GITHUB_ENV
         echo "Chart version set to: $CHART_VER"
+        echo "Chart appVersion set to: $APP_VERSION"
 
-    - name: Check latest GHCR chart SHA
+    - name: Check latest GHCR chart app version
       shell: bash
       run: |
         set -euo pipefail
@@ -126,8 +127,8 @@ runs:
 
           echo "Latest tag in GHCR: ${LATEST_TAG}"
           echo "Latest chart appVersion: ${LATEST_APP_VERSION}"
-          echo "Current git SHA: ${GIT_SHA}"
-          if [[ -n "$LATEST_APP_VERSION" && "$LATEST_APP_VERSION" == "$GIT_SHA" ]]; then
+          echo "Desired chart appVersion: ${APP_VERSION}"
+          if [[ -n "$LATEST_APP_VERSION" && "$LATEST_APP_VERSION" == "$APP_VERSION" ]]; then
             SHOULD_PUSH="false"
           fi
         else
@@ -138,7 +139,7 @@ runs:
         if [[ "$SHOULD_PUSH" == "true" ]]; then
           echo "Chart SHA changed, continuing publish flow."
         else
-          echo "Latest GHCR chart already matches current SHA, publish will be skipped."
+          echo "Latest GHCR chart already matches desired appVersion, publish will be skipped."
         fi
 
     - name: Package chart
@@ -186,4 +187,4 @@ runs:
       if: env.SHOULD_PUSH != 'true'
       shell: bash
       run: |
-        echo "Skipped publish for ${CHART_NAME}: latest GHCR chart already matches commit SHA ${GIT_SHA}"
+        echo "Skipped publish for ${CHART_NAME}: latest GHCR chart already matches appVersion ${APP_VERSION}"

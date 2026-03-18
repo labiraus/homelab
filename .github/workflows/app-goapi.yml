@@ -65,4 +65,12 @@ jobs:
           context: ./apps
           token: ${{ secrets.GITHUB_TOKEN }}
           registry: goapi
-          tag: latest
+          tag: uat
+
+      - name: Publish Helm chart to GHCR
+        uses: ./.github/actions/helm/ghcr
+        with:
+          chart: apps/goapi
+          token: ${{ secrets.GITHUB_TOKEN }}
+          values: values-ghcr.yaml
+          tag: uat

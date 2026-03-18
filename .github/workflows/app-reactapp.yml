@@ -69,4 +69,12 @@ jobs:
           context: ./apps/reactapp
           token: ${{ secrets.GITHUB_TOKEN }}
           registry: reactapp
-          tag: latest
+          tag: uat
+
+      - name: Publish Helm chart to GHCR
+        uses: ./.github/actions/helm/ghcr
+        with:
+          chart: apps/reactapp
+          token: ${{ secrets.GITHUB_TOKEN }}
+          values: values-ghcr.yaml
+          tag: uat

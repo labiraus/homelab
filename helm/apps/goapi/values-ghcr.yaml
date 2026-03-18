@@ -4,8 +4,6 @@ imagePullSecrets:
 image:
   repository: ghcr.io/labiraus/homelab/goapi
   pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: "latest"
 
 env:
   configValue: "ghcr"
