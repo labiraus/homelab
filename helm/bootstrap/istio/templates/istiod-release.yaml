@@ -6,6 +6,7 @@ metadata:
 spec:
   interval: 1h
   targetNamespace: istio-system
+  releaseName: istiod
   install:
     crds: CreateReplace
   upgrade:
@@ -16,6 +17,8 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: istio
+  values:
+{{ toYaml .Values | nindent 4 }}
   dependsOn:
     - name: istio-base
       namespace: flux-system

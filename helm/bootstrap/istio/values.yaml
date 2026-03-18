@@ -1,0 +1,8 @@
+meshConfig:
+  accessLogFile: /dev/stdout
+pilot:
+  autoscaleEnabled: true
+  autoscaleMin: 1
+  autoscaleMax: 3
+  env:
+    PILOT_ENABLE_ALPHA_GATEWAY_API: "true"

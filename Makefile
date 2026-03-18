@@ -71,6 +71,3 @@ refresh-postgres-env:
 	upsert_env DB_PASS "$$pg_pass"; \
 	echo "Updated $$env_file with Postgres connection details for $$pg_host:$$pg_port/$$pg_db"; \
 	echo "Run: source /home/vscode/.env"
-
-postgres:
-	kubectl -n data port-forward svc/app-db-rw 5432:5432

@@ -23,6 +23,10 @@ networkPolicy:
       podSelector:
         matchLabels:
           app.kubernetes.io/instance: homelab-pythonapi
+    - namespace: ingress
+      podSelector:
+        matchLabels:
+          gateway.networking.k8s.io/gateway-name: internal-gateway
 exposure:
   internalGateway:
     enabled: true
