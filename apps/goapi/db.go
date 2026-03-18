@@ -15,7 +15,7 @@ func getUserCount(ctx context.Context) (int, error) {
 	}
 
 	var count int
-	if err := postgresutil.QueryRow(ctx, "CALL auth.get_user_count()").Scan(&count); err != nil {
+	if err := postgresutil.QueryRow(ctx, "CALL auth.get_user_count(NULL)").Scan(&count); err != nil {
 		return 0, err
 	}
 

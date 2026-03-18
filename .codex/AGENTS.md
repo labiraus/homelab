@@ -11,6 +11,11 @@ If the same issue or class of issue happens more than once, add a permanent rule
 
 If Codex makes an incorrect assumption about this repo, correct it in `AGENTS.md` so the fix persists for future sessions.
 
+For Postgres troubleshooting in this repo, prefer the devcontainer `psql` workflow over `kubectl exec` into the database pod:
+- use `make postgres` when an interactive session is appropriate
+- use the connection details populated by `make refresh-postgres-env` / `.devcontainer/.env` for scripted `psql` checks
+- only fall back to in-cluster execution if the local `psql` path is unavailable or explicitly requested
+
 ## Documentation upkeep
 
 When Codex changes code, config, workflows, or repository structure, update the relevant human documentation in the same task.
