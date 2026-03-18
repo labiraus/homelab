@@ -5,7 +5,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 const actions = [
 	{
 		id: "go",
-		label: "Count Users via Go API",
+		label: "User Count via Go API",
 		method: "GET",
 		path: "/go/users/count",
 		description: "Fetches the total number of users from Postgres through the Go service.",
