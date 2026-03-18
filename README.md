@@ -1,103 +1,114 @@
-# Homelab Terraform: Proxmox + kubeadm Workers
+# Homelab
 
-This repository provisions Kubernetes worker VMs on Proxmox VE using Terraform, layered `tfvars`, and Terraform Cloud (HCP Terraform) for state.
+This repository combines four related areas:
+
+- Terraform for provisioning Kubernetes worker VMs on Proxmox
+- Helm charts for cluster bootstrap and workloads
+- Small application services used inside the cluster
+- Ansible for MinIO service state that is managed outside Kubernetes manifests
 
 ## Repository Layout
 
 ```text
 .
-├── .devcontainer/
-│   ├── Dockerfile
-│   ├── devcontainer.json
-│   ├── .bashrc
-│   ├── .env
-│   ├── hosts
-│   ├── kubeconfig
-│   └── ssh/
-│       └── config
+├── .codex/                 # Codex instructions and repo map
+├── .devcontainer/          # Preferred local operator environment
+├── .github/workflows/      # CI for apps and Helm charts
+├── ansible/                # MinIO buckets/users/policies management
+├── apps/
+│   ├── goapi/              # Go HTTP service
+│   ├── pythonapi/          # Python Flask HTTP service
+│   ├── reactapp/           # Vite/React frontend
+│   └── pkg/                # Shared Go modules used by goapi
 ├── bin/
-│   └── tf
+│   └── tf                  # Terraform wrapper script
 ├── components/
-│   └── kubernetes/
-├── modules/
-│   └── proxmox-ubuntu-vm/
+│   └── kubernetes/         # Terraform component entry point
+├── docs/                   # Setup and notes
 ├── etc/
-│   ├── env/
-│   │   └── lab.tfvars
-│   ├── nodes/
-│   │   ├── node1.tfvars
-│   │   ├── node2.tfvars
-│   │   ├── node3.tfvars
-│   │   └── node4.tfvars
-├── Makefile
-└── README.md
+│   ├── env/                # Environment tfvars
+│   └── nodes/              # Per-node tfvars
+├── helm/
+│   ├── apps/               # App charts
+│   ├── bootstrap/          # Flux/bootstrap charts
+│   ├── data/               # Stateful platform charts
+│   ├── infra/              # Infrastructure charts
+│   ├── libraries/          # Shared chart templates
+│   └── observability/      # Monitoring and tracing charts
+├── modules/
+│   └── proxmox-ubuntu-vm/  # Reusable Terraform module
+├── scripts/                # Helper scripts
+├── sql/                    # SQL bootstrap/auth snippets
+└── values/                 # Values files for upstream charts
 ```
 
-## Prerequisites
+## Main Areas
 
-1. HCP Terraform organization exists and `TFC_ORG` is set.
-2. Proxmox API and snippet upload access configured with environment variables:
-   - `PROXMOX_VE_ENDPOINT` (example: `https://proxmox-node1:8006/`)
-   - `PROXMOX_VE_API_TOKEN` (format is `full-tokenid=value`, for example `root@pam!homelab=<token-secret>`)
-   - SSH agent forwarding enabled or provide `proxmox_ve_ssh_private_key_path` via tfvars.
-3. Proxmox storage requirements:
-   - Snippet target datastore must allow `snippets` content type.
-   - Image datastore must allow image import/download (`iso`/import-capable content).
+### Terraform and Proxmox
 
-One-line Proxmox API token creation (run on a Proxmox host):
-- `pveum user token add root@pam homelab --privsep 0`
+Terraform provisions Kubernetes worker VMs on Proxmox VE using layered `tfvars` and Terraform Cloud for state.
 
-## Devcontainer Setup And Customization
+Key files:
 
-`devcontainer.json` mounts repo-managed files into the container so you can customize runtime behavior without rebuilding Terraform code.
+- `bin/tf`
+- `components/kubernetes/`
+- `modules/proxmox-ubuntu-vm/`
+- `etc/env/lab.tfvars`
+- `etc/nodes/node*.tfvars`
 
-Mounted files:
+### Kubernetes and Helm
+
+Helm charts in `helm/` define cluster bootstrap, app deployment, data services, and observability components. The repo currently contains Helm charts and CI for chart validation and packaging. It does not currently contain the `infra/argocd/` application manifests referenced by older documentation.
+
+### Application Code
+
+The app stack under `apps/` is intentionally small:
+
+- `apps/goapi`: Go service exposing readiness/liveness, metrics, `/hello`, and `/go/benchmarking`
+- `apps/pythonapi`: Flask service exposing readiness/liveness, `/hello`, and `/python/benchmarking`
+- `apps/reactapp`: Vite frontend used to hit the Go and Python routes from one UI
+- `apps/pkg/*`: shared Go packages for HTTP server startup, logging, metrics, and integrations
+
+### Ansible
+
+`ansible/` manages MinIO state such as buckets, users, policies, lifecycle rules, and optional replication. Kubernetes remains Helm-managed; MinIO service state is handled separately.
+
+## Devcontainer
+
+The devcontainer is the preferred local working environment.
+
+Mounted repo-managed files:
+
 - `.devcontainer/.bashrc` -> `/home/vscode/.bashrc.devcontainer`
 - `.devcontainer/.env` -> `/home/vscode/.env`
 - `.devcontainer/hosts` -> `/etc/hosts`
 - `.devcontainer/ssh/` -> `/home/vscode/.ssh`
 - `.devcontainer/kubeconfig` -> `/home/vscode/.kube/config`
+- `plugin-cache/` -> `/home/vscode/terraform-plugin-cache`
 
-How to customize:
-1. Edit `.devcontainer/.env` for non-secret environment defaults (for example `ENV=lab`, `TFC_ORG=<org>`).  
-2. Edit `.devcontainer/.bashrc` for shell aliases and auto-loading `/home/vscode/.env`.
-3. Edit `.devcontainer/hosts` to override container DNS resolution for homelab hostnames.
-4. Edit `.devcontainer/ssh/config` to define SSH host aliases, usernames, and key behavior.
+Included tooling:
 
-Notes:
-- Reopen/rebuild container after mount/layout changes in `devcontainer.json`.
-- Terraform is already installed in this devcontainer via features; no host install is required.
-- Keep real secrets out of committed files. Prefer local overrides or Terraform Cloud variables for sensitive values.
+- Docker outside Docker
+- Terraform
+- Flux
+- kubectl and Helm
+- k9s
+- cilium CLI
+- skaffold
+- Node.js 24
 
-## Terraform Cloud Account Setup
+Customize the container by editing `.devcontainer/.env`, `.devcontainer/.bashrc`, `.devcontainer/hosts`, and `.devcontainer/ssh/config`, then rebuild or reopen the devcontainer if needed.
+
+## Terraform Workflow
 
 `bin/tf` creates a temporary `cloud.auto.tf` and targets workspaces named:
 
 `<ENV>-<COMPONENT>-<PRIMARY_LAYER>`
 
 Example workspace names:
+
 - `lab-kubernetes-node1`
 - `lab-kubernetes-node2`
-
-Required one-time setup in Terraform Cloud:
-1. Create your organization (and optional project).
-2. Create workspaces or let Terraform create them on first init.
-3. Set each workspace execution mode to `Local`.
-
-Why `Local` mode is required:
-- This repo uses local module sources such as `../../modules/proxmox-ubuntu-vm`.
-- In `Remote` mode, Terraform Cloud uploads only the working directory (`components/kubernetes`), so parent `../../modules` paths are unavailable.
-
-Authentication:
-1. Run `terraform login` (or `terraform login <hostname>` if using `TFC_HOSTNAME`).
-2. Token is stored in `~/.terraform.d/credentials.tfrc.json`.
-3. `bin/tf` checks for credentials and prompts login if missing (interactive shells only).
-
-Optional Terraform Cloud settings:
-- `TFC_PROJECT` to include `project = "..."` in generated cloud config.
-- `TFC_HOSTNAME` if you are using Terraform Enterprise instead of `app.terraform.io`.
-
-## Wrapper Script
 
 Command format:
 
@@ -107,40 +118,21 @@ bin/tf <action> <component> <primary_layer> [overlay_layer ...] [-- <extra terra
 
 - `action`: `plan`, `apply`, `destroy`
 - `component`: currently `kubernetes`
-- `primary_layer`: first node layer (`node1`, `node2`, ...)
-- overlay layers: from `etc/<layer>.tfvars` when needed
-- extra Terraform flags can be passed after `--`
+- `primary_layer`: first node layer such as `node1`
+- overlay layers: loaded from `etc/<overlay>.tfvars` or `etc/overlays/<overlay>.tfvars`
 
-The script:
-1. Resolves repo root from script location.
-2. Builds var-file order:
-   - `etc/env/${ENV:-lab}.tfvars`
-   - `etc/nodes/<primary_layer>.tfvars`
-   - each overlay as `etc/<overlay>.tfvars` or `etc/overlays/<overlay>.tfvars`
-3. Verifies tfvars and Terraform Cloud credentials.
-4. Exports `TF_IN_AUTOMATION=1`.
-5. Uses `plugin-cache/` for plugin cache.
-6. Uses `.tfdata/<ENV>/<component>/<workspace>/` for `TF_DATA_DIR`.
-7. Generates `components/<component>/cloud.auto.tf` using `TFC_ORG` (plus optional `TFC_PROJECT` and `TFC_HOSTNAME`).
-8. Runs:
-   - `terraform init -upgrade`
-   - `terraform <action> -input=false -lock-timeout=5m ...`
-9. Removes generated `cloud.auto.tf` on exit.
+The wrapper script:
 
-## Example Commands
-
-```bash
-ENV=lab TFC_ORG=my-org bin/tf plan kubernetes node1
-ENV=lab TFC_ORG=my-org bin/tf apply kubernetes node1
-ENV=lab TFC_ORG=my-org bin/tf apply kubernetes node2
-ENV=lab TFC_ORG=my-org bin/tf destroy kubernetes node2
-```
-
-Pass extra Terraform flags:
-
-```bash
-ENV=lab TFC_ORG=my-org bin/tf apply kubernetes node1 -- -auto-approve
-```
+1. Resolves the repo root
+2. Loads environment and node tfvars in order
+3. Verifies Terraform Cloud credentials
+4. Sets `TF_IN_AUTOMATION=1`
+5. Uses `plugin-cache/` for providers
+6. Uses `.tfdata/<ENV>/<component>/<workspace>/` for `TF_DATA_DIR`
+7. Generates `components/<component>/cloud.auto.tf`
+8. Runs `terraform init -upgrade`
+9. Runs `terraform <action> -input=false -lock-timeout=5m`
+10. Removes generated `cloud.auto.tf` on exit
 
 Makefile shortcuts:
 
@@ -150,114 +142,52 @@ make apply COMPONENT=kubernetes LAYER=node1
 make destroy COMPONENT=kubernetes LAYER=node1
 ```
 
+Useful helper targets:
+
+- `make refresh-join-token`
+- `make refresh-postgres-env`
+- `make postgres`
+
 ## Kubernetes Worker Bootstrap
 
-Cloud-init user-data installs and configures:
+The Terraform cloud-init data installs and configures:
+
 - `containerd` with `SystemdCgroup=true`
-- Kubernetes packages (`kubeadm`, `kubelet`, `kubectl`) using official `pkgs.k8s.io` repository
-- swap disable (`swapoff -a` + `/etc/fstab` update)
-- optional `kubeadm join` when `kubeadm_join_command` is non-empty
+- Kubernetes packages from `pkgs.k8s.io`
+- swap disable
+- optional `kubeadm join`
 
-Idempotency:
-- Join only runs if `/etc/kubernetes/kubelet.conf` does not exist.
+Join is idempotent and only runs if `/etc/kubernetes/kubelet.conf` does not already exist.
 
-## Helm Charts
+## CI and Build Workflows
 
-This repository only provisions worker nodes and joins them to the cluster.
-Install CNI and other Helm charts separately from your cluster operations workflow.
+GitHub Actions currently handle:
 
-## Security Notes
+- `apps/goapi` tests and image build
+- `apps/pythonapi` tests and image build
+- `apps/reactapp` tests and image build
+- Helm chart discovery, templating tests, and GHCR packaging
 
-- Do not commit real secrets.
-- `kubeadm_join_command` is sensitive, but if embedded in cloud-init it will still appear in Terraform state.
-- Keep secret overrides in local files such as `*.secret.tfvars` (already ignored in `.gitignore`).
+Important note: some workflow files may lag behind the runtime choices in the repo. For example, the React app is Vite-based and the devcontainer uses Node 24, so treat workflow definitions as something to verify rather than assume are fully current.
 
-## Node Layer Editing
+## Ansible Workflow
 
-Each `etc/nodes/nodeX.tfvars` defines:
-- `proxmox.node_name`, `proxmox.vm_id`, `proxmox.vm_name`, `proxmox.bridge`, `proxmox.datastore_id`
-- VM sizing (`vm.cpu_cores`, `vm.memory_mb`, `vm.disk_size_gb`)
-- Network (`network.use_dhcp` or static `network.ipv4_address` + `network.ipv4_gateway`)
-- `ssh_authorized_keys`
-- Optional image behavior (`download_ubuntu_image = false` to reuse an existing image file instead of downloading)
-- `kubeadm_join_command` (blank for provision-only)
-
-## Outputs
-
-`components/kubernetes` outputs:
-- `vm_name`
-- `vm_id`
-- `node_ip`
-
-
----
-
-## Kubernetes GitOps Platform (Helm + Argo CD + Ansible)
-
-This repository also includes a Kubernetes GitOps stack (for Kubernetes `>= 1.34`) with this split of responsibilities:
-
-- Kubernetes cluster state (operators/apps/network/storage): Helm + Argo CD
-- MinIO service state (buckets/users/policies/lifecycle/replication): Ansible (`ansible/`)
-
-### GitOps Layout
-
-```text
-.
-├─ infra/
-│  └─ argocd/
-│     ├─ app-of-apps.yaml
-│     └─ applications/{platform.yaml,data.yaml,apps.yaml}
-├─ charts/
-│  ├─ metallb-config/
-│  ├─ istio-routing/
-│  ├─ cert-issuers/
-│  ├─ minio-tenant/
-│  ├─ cnpg-cluster/
-│  ├─ mongo-cluster/
-│  ├─ minecraft-ops/
-│  ├─ jobs/
-│  ├─ static-sites/
-│  ├─ plex/                # optional, disabled by default
-│  ├─ harvester/           # optional, disabled by default
-│  └─ kafka-example/       # optional, disabled by default
-├─ values/                 # values for upstream charts
-├─ ansible/                # MinIO state management (out-of-band)
-├─ ci/
-└─ docs/
-```
-
-### Values Source Of Truth
-
-- All upstream chart overrides are stored in `values/`.
-- Argo CD Applications reference these files via `$values/values/*.yaml`.
-
-### Kubernetes Platform Deployment
-
-1. Set your Git repo URL in Argo Application manifests (`infra/argocd/*.yaml`).
-2. Configure placeholder values:
-- `charts/metallb-config/values.yaml` IP range
-- domain names in `charts/istio-routing/values.yaml` and `charts/cert-issuers/values.yaml`
-3. Install Argo CD and apply root app:
-
-```bash
-kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-kubectl apply -f infra/argocd/app-of-apps.yaml
-```
-
-### MinIO State Management (Ansible)
-
-1. Deploy MinIO Operator + Tenant via Argo (`infra/argocd/applications/data.yaml`).
-2. Configure credentials via environment variables (see `ansible/README.md`).
-3. Run Ansible for in-cluster MinIO:
+Run playbooks from `ansible/` to manage MinIO state:
 
 ```bash
 cd ansible
 ansible-playbook -i inventory/hosts.ini playbooks/minio-incluster.yml
 ```
 
-4. Apply generated Kubernetes Secret manifests:
+Generated Kubernetes Secret manifests are written under `ansible/out/` and can be applied manually.
 
-```bash
-kubectl apply -f ansible/out/k8s-secrets/
-```
+## Setup Notes
+
+See `docs/Setup.md` for workstation setup, SSH certificate setup, kubeconfig bootstrapping, and Proxmox host notes.
+
+## Security Notes
+
+- Do not commit real secrets
+- Keep cluster credentials and kubeconfig material out of git
+- `kubeadm_join_command` remains sensitive and can appear in Terraform state if embedded in cloud-init
+- Prefer local secret overrides or external secret stores for sensitive data
