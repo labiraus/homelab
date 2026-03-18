@@ -39,7 +39,6 @@ runs:
       shell: bash
       run: |
         TAG="${{ inputs.tag }}"
-        RUN_NUMBER="${{ github.run_number }}"
         SERIES_PREFIX=""
 
         if [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+].*)?$ ]]; then
@@ -47,7 +46,6 @@ runs:
         else
           SAFE_TAG="$(echo "$TAG" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^0-9a-z.-]+/-/g; s/^[.-]+//; s/[.-]+$//')"
           [[ -z "$SAFE_TAG" ]] && SAFE_TAG="build"
-          CHART_VER="0.0.0-${SAFE_TAG}.${RUN_NUMBER}"
           SERIES_PREFIX="0.0.0-${SAFE_TAG}."
         fi
 
@@ -74,6 +72,17 @@ runs:
               | awk -F': ' '/^appVersion:/{print $2; exit}' \
               | tr -d '"' || true
           )"
+        fi
+
+        if [[ -z "${CHART_VER:-}" ]]; then
+          NEXT_SUFFIX=1
+          if [[ -n "$LATEST_TAG" ]]; then
+            LATEST_SUFFIX="$(printf '%s' "$LATEST_TAG" | sed -E 's/^.*\.([0-9]+)$/\1/')"
+            if [[ "$LATEST_SUFFIX" =~ ^[0-9]+$ ]]; then
+              NEXT_SUFFIX=$((LATEST_SUFFIX + 1))
+            fi
+          fi
+          CHART_VER="${SERIES_PREFIX}${NEXT_SUFFIX}"
         fi
 
         APP_VERSION_INPUT="${{ inputs.app-version }}"

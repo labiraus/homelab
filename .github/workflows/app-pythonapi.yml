@@ -76,5 +76,5 @@ jobs:
           chart: apps/pythonapi
           token: ${{ secrets.GITHUB_TOKEN }}
           values: values-ghcr.yaml
-          tag: ${{ steps.version.outputs.image_tag }}
+          tag: uat
           app-version: ${{ steps.version.outputs.image_tag }}
