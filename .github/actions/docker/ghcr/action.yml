@@ -20,10 +20,19 @@ inputs:
     description: "Array of build args to be used in the Docker build"
     required: false
 
+outputs:
+  image-tag:
+    description: "The resolved image tag that was pushed"
+    value: ${{ steps.resolve-tags.outputs.image_tag }}
+  git-sha:
+    description: "The short git sha tag that was pushed"
+    value: ${{ steps.resolve-tags.outputs.git_sha }}
+
 runs:
   using: "composite"
   steps:
     - name: Resolve image tags
+      id: resolve-tags
       shell: bash
       run: |
         TAG="${{ inputs.tag }}"
@@ -38,6 +47,8 @@ runs:
           IMAGE_TAG="0.0.0-${SAFE_TAG}.${RUN_NUMBER}"
         fi
 
+        echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+        echo "git_sha=${GIT_SHA}" >> "$GITHUB_OUTPUT"
         echo "IMAGE_TAG=${IMAGE_TAG}" >> "$GITHUB_ENV"
         echo "GIT_SHA=${GIT_SHA}" >> "$GITHUB_ENV"
         echo "Image tag set to: ${IMAGE_TAG}"
