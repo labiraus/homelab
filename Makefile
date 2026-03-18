@@ -4,7 +4,7 @@ LAYER ?=
 OVERLAYS ?=
 TF_ARGS ?=
 
-.PHONY: plan apply destroy plan-destroy refresh-join-token refresh-postgres-env
+.PHONY: plan apply destroy plan-destroy refresh-join-token refresh-postgres-env postgres-refresh postgres
 
 check-vars:
 	@if [ -z "$(COMPONENT)" ] || [ -z "$(LAYER)" ]; then \
@@ -39,16 +39,22 @@ refresh-join-token:
 		printf "TF_VAR_kubeadm_join_token='%s'\n" "$$token" >> "$$env_file"; \
 	fi; \
 	echo "Updated $$env_file with TF_VAR_kubeadm_join_token=$$token"; \
-	echo "Run: source /home/vscode/.env"
+	echo "Run: . /home/vscode/.env"
 
 refresh-postgres-env:
 	@set -e; \
 	env_file=".devcontainer/.env"; \
 	secret_name="app-db-bootstrap"; \
 	secret_namespace="data"; \
-	pg_host="app-db-rw.data.svc.cluster.local"; \
+	gateway_namespace="ingress"; \
+	gateway_service="internal-gateway-istio"; \
+	pg_host="$$(kubectl -n "$$gateway_namespace" get svc "$$gateway_service" -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"; \
 	pg_port="5432"; \
 	pg_db="app"; \
+	if [ -z "$$pg_host" ]; then \
+		echo "Error: failed to load postgres gateway IP from $$gateway_namespace/$$gateway_service" >&2; \
+		exit 1; \
+	fi; \
 	pg_user="$$(kubectl -n "$$secret_namespace" get secret "$$secret_name" -o jsonpath='{.data.username}' | base64 -d)"; \
 	pg_pass="$$(kubectl -n "$$secret_namespace" get secret "$$secret_name" -o jsonpath='{.data.password}' | base64 -d)"; \
 	if [ -z "$$pg_user" ] || [ -z "$$pg_pass" ]; then \
@@ -70,4 +76,23 @@ refresh-postgres-env:
 	upsert_env DB_USER "$$pg_user"; \
 	upsert_env DB_PASS "$$pg_pass"; \
 	echo "Updated $$env_file with Postgres connection details for $$pg_host:$$pg_port/$$pg_db"; \
-	echo "Run: source /home/vscode/.env"
+	echo "Run: . /home/vscode/.env"
+
+postgres-refresh: refresh-postgres-env
+
+postgres:
+	@set -e; \
+	. /home/vscode/.env; \
+	if ! command -v psql >/dev/null 2>&1; then \
+		echo "Error: psql is not installed in the devcontainer. Rebuild the devcontainer to pick up postgresql-client." >&2; \
+		exit 1; \
+	fi; \
+	connect() { \
+		PGPASSWORD="$$DB_PASS" psql -h "$$DB_HOST" -p "$$DB_PORT" -U "$$DB_USER" -d "$$DB_NAME"; \
+	}; \
+	if ! connect; then \
+		echo "Initial connection failed; refreshing Postgres connection details from the cluster and retrying once." >&2; \
+		$(MAKE) refresh-postgres-env; \
+		. /home/vscode/.env; \
+		connect; \
+	fi
