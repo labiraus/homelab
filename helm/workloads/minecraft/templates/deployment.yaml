@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minecraft
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: minecraft
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: minecraft
+    spec:
+      containers:
+        - name: minecraft
+          image: "{{ .Values.server.image.repository }}:{{ .Values.server.image.tag }}"
+          imagePullPolicy: {{ .Values.server.image.pullPolicy }}
+          ports:
+            - name: minecraft
+              containerPort: {{ .Values.server.port }}
+              protocol: TCP
+          env:
+            - name: EULA
+              value: {{ .Values.server.eula | quote }}
+            - name: TYPE
+              value: {{ .Values.server.type | quote }}
+            - name: VERSION
+              value: {{ .Values.server.version | quote }}
+            {{- range $name, $value := .Values.server.extraEnv }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: minecraft-data
+              mountPath: /data
+      volumes:
+        - name: minecraft-data
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.claimName }}

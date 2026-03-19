@@ -64,7 +64,8 @@
         "tim-koehler.helm-intellisense",
         "redhat.vscode-yaml",
         "fluxcd.flux",
-        "ckolkman.vscode-postgres"
+        "ckolkman.vscode-postgres",
+        "bierner.markdown-mermaid"
       ]
     }
   },

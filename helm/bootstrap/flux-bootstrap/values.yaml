@@ -71,6 +71,9 @@ releases:
           - name: postgres
             port: 5432
             protocol: TCP
+          - name: minecraft
+            port: 25565
+            protocol: TCP
 
   - name: istio
     type: oci

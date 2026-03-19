@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.service.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app.kubernetes.io/name: minecraft
+  ports:
+    - name: minecraft
+      port: {{ .Values.server.port }}
+      targetPort: minecraft
+      protocol: TCP

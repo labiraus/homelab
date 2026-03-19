@@ -1,4 +1,28 @@
 namespace: minecraft
+server:
+  image:
+    repository: itzg/minecraft-server
+    tag: java21
+    pullPolicy: IfNotPresent
+  port: 25565
+  eula: "TRUE"
+  type: FORGE
+  version: "1.20.1"
+  extraEnv:
+    CF_API_KEY: ""
+    CURSEFORGE_FILES: ""
+    CF_PAGE_URL: "https://www.curseforge.com/minecraft/modpacks/all-the-mods-10-sky"
+persistence:
+  claimName: minecraft-minecraft
+  storageClass: longhorn
+  size: 10Gi
+service:
+  name: minecraft
+route:
+  enabled: true
+  gatewayName: internal-gateway
+  gatewayNamespace: ingress
+  sectionName: minecraft
 backup:
   schedule: "0 */6 * * *"
   suspend: false
