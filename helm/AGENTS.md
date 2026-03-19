@@ -10,7 +10,7 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 
 ## Working Rules
 
-- Preserve the current top-level split: `apps/`, `bootstrap/`, `data/`, `infra/`, `libraries/`, `observability/`.
+- Preserve the current top-level split: `apps/`, `bootstrap/`, `data/`, `infra/`, `libraries/`, `observability/`, `workloads/`.
 - Prefer reusable templates and consistent values structure over copy-pasted chart logic.
 - When changing chart inputs or outputs, update values files, templates, and operator docs together.
 - Treat Flux-facing bootstrap charts as part of the delivery contract; avoid one-off behavior that breaks repository or secret conventions.
@@ -28,6 +28,7 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 ## Naming And Values Conventions
 
 - Chart names should stay aligned with their directory names and the Flux release names that reference them.
+- Use `helm/workloads/` for miscellaneous or optional workloads that are not part of the core platform/system footprint.
 - OCI charts are published under the repo naming pattern `oci://ghcr.io/labiraus/homelab/charts/<chart-name>`.
 - For GHCR-backed deployment, effective values are a combination of `values.yaml` and `values-ghcr.yaml`.
 - For EKS-style deployment, effective values are a combination of `values.yaml` and `values-ecr.yaml`.
@@ -38,6 +39,7 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 
 - `libraries/commonapi/` is the shared chart template library
 - bootstrap charts define how Flux discovers and deploys workloads
+- `workloads/` is for miscellaneous user workloads that are deployed by Flux but are not considered core platform services
 - values files under `values/` complement this directory and should be checked when chart behavior changes
 - Bootstrap Flux charts create `OCIRepository` and `HelmRelease` resources that point at published chart artifacts, typically using the `ghcr-creds` secret for authenticated GHCR access.
 - The `helm-all.yml` workflow tests charts on non-main branches and publishes them to GHCR on `main` and `dev`.

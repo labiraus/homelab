@@ -1,0 +1,8 @@
+image:
+  repository: ghcr.io/labiraus/homelab
+imagePullSecret:
+  enabled: true
+  name: registry-key
+  sourceSecret:
+    namespace: flux-system
+    name: ghcr-creds

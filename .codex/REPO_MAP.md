@@ -26,6 +26,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - reusable Terraform modules
 - `helm/`
   - installable charts and chart libraries
+  - `workloads/`: misc Flux-managed workloads outside the core platform
 - `scripts/`
   - operational helper scripts
 - `sql/`
@@ -48,6 +49,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
 - App charts: `helm/apps/`
 - Bootstrap charts: `helm/bootstrap/`
 - Stateful/data charts: `helm/data/`
+- Misc workload charts: `helm/workloads/`
 - Shared chart templates: `helm/libraries/commonapi/`
 - Upstream override values: `values/`
 
@@ -106,5 +108,5 @@ Current behavior note:
 
 - The root `README.md` is the main human overview and should stay aligned with the real directory structure.
 - The root `AGENTS.md` is the main repo-wide agent policy; use the nearest directory-level `AGENTS.md` for more specific conventions.
-- Older assumptions about `infra/argocd` and `charts/` are stale; the repo uses `helm/`.
+- Older assumptions about Argo CD, `infra/argocd`, and `charts/` are stale; the current GitOps path is Flux plus `helm/`.
 - If Codex changes behavior, entry points, or layout, update both the human docs and this file in the same task.

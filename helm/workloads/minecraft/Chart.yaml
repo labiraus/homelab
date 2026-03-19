@@ -1,5 +1,5 @@
 apiVersion: v2
-name: minecraft-ops
+name: minecraft
 description: Minecraft operational resources such as backup cronjobs
 type: application
 version: 0.1.0

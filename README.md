@@ -52,7 +52,8 @@ Use the nearest relevant `AGENTS.md` for local conventions, and update it when a
 │   ├── data/               # Stateful platform charts
 │   ├── infra/              # Infrastructure charts
 │   ├── libraries/          # Shared chart templates
-│   └── observability/      # Monitoring and tracing charts
+│   ├── observability/      # Monitoring and tracing charts
+│   └── workloads/          # Misc workloads outside the core platform
 ├── modules/
 │   └── proxmox-ubuntu-vm/  # Reusable Terraform module
 ├── scripts/                # Helper scripts
@@ -76,7 +77,7 @@ Key files:
 
 ### Kubernetes and Helm
 
-Helm charts in `helm/` define cluster bootstrap, app deployment, data services, and observability components. The repo currently contains Helm charts and CI for chart validation and packaging. It does not currently contain the `infra/argocd/` application manifests referenced by older documentation.
+Helm charts in `helm/` define cluster bootstrap, app deployment, data services, observability components, and miscellaneous workloads. The current GitOps flow is Flux-based: charts are packaged as OCI artifacts by GitHub Actions and reconciled in-cluster by Flux from `flux-system`. Older Argo CD references should be treated as stale historical context, not current runtime behavior.
 
 ### Application Code
 

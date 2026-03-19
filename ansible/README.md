@@ -8,7 +8,7 @@ This directory manages MinIO/S3 service state out-of-band from Kubernetes:
 - lifecycle rules
 - optional replication/mirroring skeleton
 
-Kubernetes remains Helm/Argo-managed. MinIO state is Ansible-managed.
+Kubernetes remains Helm/Flux-managed. MinIO state is Ansible-managed.
 
 ## Prerequisites
 

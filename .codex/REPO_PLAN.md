@@ -28,7 +28,7 @@ The repo should converge on a clean homelab platform with:
 ### Cluster Delivery
 
 - Flux should remain the bootstrap and reconciliation mechanism
-- charts under `helm/` should be organized by responsibility: bootstrap, apps, data, infra, observability, libraries
+- charts under `helm/` should be organized by responsibility: bootstrap, apps, data, infra, observability, workloads, libraries
 - chart interfaces should stay consistent enough that future changes can be made without rediscovering conventions
 
 ### App Surface

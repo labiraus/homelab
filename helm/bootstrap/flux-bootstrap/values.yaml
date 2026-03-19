@@ -12,6 +12,12 @@ releases:
     installDisableWait: true
     upgradeDisableWait: true
 
+  - name: flux-workloads
+    type: oci
+    targetNamespace: flux-system
+    installDisableWait: true
+    upgradeDisableWait: true
+
   - name: flux-observability
     type: oci
     targetNamespace: flux-system

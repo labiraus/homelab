@@ -1,0 +1,22 @@
+namespace: homelab
+namespaces:
+  - name: minecraft
+    labels:
+      istio-injection: "disabled"
+provider: generic
+tag: uat
+secret: true
+image:
+  repository:
+imagePullSecret:
+  enabled: false
+  name: registry-key
+  dockerconfigjson: ""
+  sourceSecret:
+    namespace: flux-system
+    name: ghcr-creds
+min_version: 0.0.0-0
+releases:
+  - name: minecraft
+    type: oci
+    namespace: minecraft
