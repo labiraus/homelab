@@ -1,0 +1,26 @@
+## Scope
+
+This file applies to everything under `ansible/`.
+
+## Purpose
+
+`ansible/` manages MinIO service state that is intentionally kept outside the Helm-managed Kubernetes manifests.
+
+Keep this area focused on service-state automation, not general cluster deployment.
+
+## Working Rules
+
+- Preserve the current separation of responsibilities: Kubernetes deployment via Helm/Flux, MinIO state via Ansible.
+- Keep inventory, group vars, playbooks, and roles aligned; update all affected layers when behavior changes.
+- Prefer environment-provided secrets or vault-backed inputs over tracked secret files.
+- If a playbook produces operator-facing outputs or generated manifests, document where they land and how they should be applied.
+- Update `ansible/README.md` when changing role expectations, required env vars, or playbook flow.
+
+## Safety Notes
+
+- Do not commit rendered secrets, vault material, or local environment files.
+- Treat generated output directories as artifacts unless the task explicitly says otherwise.
+
+## Self-Learning Loop
+
+If MinIO automation exposes a repeated operator mistake or assumption, document it here and update `ansible/README.md` when needed.

@@ -5,8 +5,10 @@ Use this file as the first fast pass when you need to locate the relevant code i
 ## Top-Level Map
 
 - `.codex/`
-  - `AGENTS.md`: persistent repo-specific rules for Codex
+  - `AGENTS.md`: reference index for Codex docs in this directory
   - `REPO_MAP.md`: this summary
+  - `REPO_PLAN.md`: repo target state, priorities, and gaps
+- `AGENTS.md`: root repository operating rules
 - `.devcontainer/`
   - Devcontainer config, mounted kubeconfig, SSH config, env file
 - `apps/`
@@ -103,5 +105,6 @@ Current behavior note:
 ## Known Repo Realities
 
 - The root `README.md` is the main human overview and should stay aligned with the real directory structure.
+- The root `AGENTS.md` is the main repo-wide agent policy; use the nearest directory-level `AGENTS.md` for more specific conventions.
 - Older assumptions about `infra/argocd` and `charts/` are stale; the repo uses `helm/`.
 - If Codex changes behavior, entry points, or layout, update both the human docs and this file in the same task.

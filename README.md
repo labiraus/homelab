@@ -7,11 +7,29 @@ This repository combines four related areas:
 - Small application services used inside the cluster
 - Ansible for MinIO service state that is managed outside Kubernetes manifests
 
+## Repo Guidance For Humans And Agents
+
+The repository includes repo-local guidance for both navigation and working conventions.
+
+- `AGENTS.md`: root operating rules for work in this repo
+- `.codex/REPO_MAP.md`: fast map of where code and workflows live
+- `.codex/REPO_PLAN.md`: target state, current priorities, and known gaps
+
+More specific `AGENTS.md` files exist under:
+
+- `ansible/`
+- `apps/`
+- `components/`
+- `helm/`
+- `sql/`
+
+Use the nearest relevant `AGENTS.md` for local conventions, and update it when a repeated lesson should persist for future work.
+
 ## Repository Layout
 
 ```text
 .
-├── .codex/                 # Codex instructions and repo map
+├── .codex/                 # Codex reference docs: repo map and repo plan
 ├── .devcontainer/          # Preferred local operator environment
 ├── .github/workflows/      # CI for apps and Helm charts
 ├── ansible/                # MinIO buckets/users/policies management
@@ -191,3 +209,12 @@ See `docs/Setup.md` for workstation setup, SSH certificate setup, kubeconfig boo
 - Keep cluster credentials and kubeconfig material out of git
 - `kubeadm_join_command` remains sensitive and can appear in Terraform state if embedded in cloud-init
 - Prefer local secret overrides or external secret stores for sensitive data
+
+## Documentation Maintenance
+
+When the repo structure, workflows, or conventions change, keep these docs aligned in the same task:
+
+- `README.md`
+- the nearest relevant `AGENTS.md`
+- `.codex/REPO_MAP.md`
+- `.codex/REPO_PLAN.md`
