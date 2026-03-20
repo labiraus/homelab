@@ -77,7 +77,7 @@ Key files:
 
 ### Kubernetes and Helm
 
-Helm charts in `helm/` define cluster bootstrap, app deployment, data services, observability components, and miscellaneous workloads. The current GitOps flow is Flux-based: charts are packaged as OCI artifacts by GitHub Actions and reconciled in-cluster by Flux from `flux-system`. Older Argo CD references should be treated as stale historical context, not current runtime behavior.
+Helm charts in `helm/` define cluster bootstrap, app deployment, data services, observability components, and miscellaneous workloads. The current GitOps flow is Flux-based: charts are packaged as OCI artifacts by GitHub Actions and reconciled in-cluster by Flux from `flux-system`.
 
 ### Application Code
 

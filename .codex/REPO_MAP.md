@@ -108,5 +108,5 @@ Current behavior note:
 
 - The root `README.md` is the main human overview and should stay aligned with the real directory structure.
 - The root `AGENTS.md` is the main repo-wide agent policy; use the nearest directory-level `AGENTS.md` for more specific conventions.
-- Older assumptions about Argo CD, `infra/argocd`, and `charts/` are stale; the current GitOps path is Flux plus `helm/`.
+- The current GitOps path is Flux plus `helm/`; keep docs and changes aligned to that delivery model.
 - If Codex changes behavior, entry points, or layout, update both the human docs and this file in the same task.
