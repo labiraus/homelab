@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-flux suspend kustomization --all -A
-flux suspend helmrelease --all -A
-flux suspend source oci --all -n flux-system
-flux suspend source git --all -n flux-system
-flux suspend source helm --all -n flux-system
+flux suspend kustomization --all
+flux suspend helmrelease --all
+flux suspend source oci --all
+flux suspend source git --all
+flux suspend source helm --all
