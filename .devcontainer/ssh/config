@@ -53,3 +53,7 @@ Host niflheim
 Host muspelheim
   HostName 192.168.8.125
   User ubuntu
+
+Host glaaki
+  HostName 192.168.8.191
+  User oliver
