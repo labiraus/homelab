@@ -100,7 +100,6 @@ Mounted repo-managed files:
 
 - `.devcontainer/.bashrc` -> `/home/vscode/.bashrc.devcontainer`
 - `.devcontainer/.env` -> `/home/vscode/.env`
-- `.devcontainer/hosts` -> `/etc/hosts`
 - `.devcontainer/ssh/` -> `/home/vscode/.ssh`
 - `.devcontainer/kubeconfig` -> `/home/vscode/.kube/config`
 - `plugin-cache/` -> `/home/vscode/terraform-plugin-cache`
@@ -117,6 +116,8 @@ Included tooling:
 - Node.js 24
 
 Customize the container by editing `.devcontainer/.env`, `.devcontainer/.bashrc`, `.devcontainer/hosts`, and `.devcontainer/ssh/config`, then rebuild or reopen the devcontainer if needed.
+
+On container start, `.devcontainer/scripts/sync-hosts.sh` merges the lab host mappings from `.devcontainer/hosts` into the container `/etc/hosts` and appends the current container hostname. This keeps the tracked repo file stable while keeping the desktop-lite VNC session healthy.
 
 ## Terraform Workflow
 

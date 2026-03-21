@@ -10,13 +10,13 @@ tenant:
     volumesPerServer: 2
     storage: 10Gi
     storageClassName: longhorn
-  browserRedirectURL: https://minio-console.labiraus.com
+  browserRedirectURL: http://minio-console.labiraus.com
 exposure:
   internalGateway:
     enabled: true
     gatewayName: internal-gateway
     gatewayNamespace: ingress
-    listenerName: https
+    listenerName: http
     api:
       host: minio.labiraus.com
       serviceName: minio

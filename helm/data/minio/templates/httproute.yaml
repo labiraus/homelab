@@ -11,7 +11,7 @@ spec:
   parentRefs:
     - name: {{ $internalGateway.gatewayName | default "internal-gateway" }}
       namespace: {{ $internalGateway.gatewayNamespace | default "ingress" }}
-      sectionName: {{ $internalGateway.listenerName | default "https" }}
+      sectionName: {{ $internalGateway.listenerName | default "http" }}
   hostnames:
     - {{ $api.host | default "minio.labiraus.com" | quote }}
   rules:
@@ -28,7 +28,7 @@ spec:
   parentRefs:
     - name: {{ $internalGateway.gatewayName | default "internal-gateway" }}
       namespace: {{ $internalGateway.gatewayNamespace | default "ingress" }}
-      sectionName: {{ $internalGateway.listenerName | default "https" }}
+      sectionName: {{ $internalGateway.listenerName | default "http" }}
   hostnames:
     - {{ $console.host | default "minio-console.labiraus.com" | quote }}
   rules:
