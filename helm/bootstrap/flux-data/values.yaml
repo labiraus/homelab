@@ -24,6 +24,8 @@ releases:
 
   - name: minio
     type: oci
+    dependsOn:
+      - gateway
     dependencies:
       - name: minio-operator
         type: helm

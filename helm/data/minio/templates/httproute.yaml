@@ -1,0 +1,38 @@
+{{- $internalGateway := .Values.exposure.internalGateway | default (dict) -}}
+{{- if ($internalGateway.enabled | default false) }}
+{{- $api := $internalGateway.api | default (dict) -}}
+{{- $console := $internalGateway.console | default (dict) -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Values.tenant.name }}-api
+  namespace: {{ .Values.namespace }}
+spec:
+  parentRefs:
+    - name: {{ $internalGateway.gatewayName | default "internal-gateway" }}
+      namespace: {{ $internalGateway.gatewayNamespace | default "ingress" }}
+      sectionName: {{ $internalGateway.listenerName | default "https" }}
+  hostnames:
+    - {{ $api.host | default "minio.labiraus.com" | quote }}
+  rules:
+    - backendRefs:
+        - name: {{ $api.serviceName | default "minio" }}
+          port: {{ $api.servicePort | default 9000 }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Values.tenant.name }}-console
+  namespace: {{ .Values.namespace }}
+spec:
+  parentRefs:
+    - name: {{ $internalGateway.gatewayName | default "internal-gateway" }}
+      namespace: {{ $internalGateway.gatewayNamespace | default "ingress" }}
+      sectionName: {{ $internalGateway.listenerName | default "https" }}
+  hostnames:
+    - {{ $console.host | default "minio-console.labiraus.com" | quote }}
+  rules:
+    - backendRefs:
+        - name: {{ $console.serviceName | default "minio-console" }}
+          port: {{ $console.servicePort | default 9443 }}
+{{- end }}

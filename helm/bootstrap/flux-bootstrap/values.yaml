@@ -68,6 +68,10 @@ releases:
         name: internal-gateway
         loadBalancerScheme: internal
         listeners:
+          - name: https
+            port: 443
+            protocol: HTTPS
+            hostname: "*.labiraus.com"
           - name: postgres
             port: 5432
             protocol: TCP

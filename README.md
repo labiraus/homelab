@@ -200,6 +200,9 @@ ansible-playbook -i inventory/hosts.ini playbooks/minio-incluster.yml
 
 Generated Kubernetes Secret manifests are written under `ansible/out/` and can be applied manually.
 
+The in-cluster MinIO tenant is exposed through the internal gateway at `https://minio.labiraus.com`
+for the S3 API and `https://minio-console.labiraus.com` for the console.
+
 ## Setup Notes
 
 See `docs/Setup.md` for workstation setup, SSH certificate setup, kubeconfig bootstrapping, and Proxmox host notes.

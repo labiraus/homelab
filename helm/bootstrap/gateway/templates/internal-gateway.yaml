@@ -1,5 +1,7 @@
 {{- $internal := .Values.internalGateway | default (dict) -}}
 {{- $listeners := (index $internal "listeners") | default list -}}
+{{- $certificate := .Values.certificate | default (dict) -}}
+{{- $defaultTLSSecretName := (index $certificate "secretName") | default "" -}}
 {{- $aws := .Values.aws | default (dict) -}}
 {{- $awsEnabled := (index $aws "enabled") | default false -}}
 {{- if gt (len $listeners) 0 -}}
@@ -23,8 +25,23 @@ spec:
   - name: {{ $listener.name }}
     port: {{ $listener.port }}
     protocol: {{ $listener.protocol }}
+    {{- with $listener.hostname }}
+    hostname: {{ . | quote }}
+    {{- end }}
     allowedRoutes:
       namespaces:
         from: All
+    {{- $tls := ($listener.tls | default dict) }}
+    {{- if and (eq $listener.protocol "HTTPS") (or ($tls.certificateRefs) $defaultTLSSecretName) }}
+    tls:
+      mode: {{ $tls.mode | default "Terminate" }}
+      certificateRefs:
+      {{- if $tls.certificateRefs }}
+{{ toYaml $tls.certificateRefs | nindent 6 }}
+      {{- else }}
+      - kind: Secret
+        name: {{ $defaultTLSSecretName }}
+      {{- end }}
+    {{- end }}
   {{- end }}
 {{- end }}
