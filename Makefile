@@ -4,7 +4,26 @@ LAYER ?=
 OVERLAYS ?=
 TF_ARGS ?=
 
-.PHONY: plan apply destroy plan-destroy refresh-join-token refresh-postgres-env postgres-refresh postgres
+.PHONY: plan apply destroy plan-destroy refresh-join-token refresh-postgres-env postgres-refresh postgres minio-console-proxy minio-api-proxy
+
+define minio_port_forward
+	@set -e; \
+	namespace="minio"; \
+	service="$(1)"; \
+	local_port="$(2)"; \
+	remote_port="$(3)"; \
+	label="$(4)"; \
+	echo "Opening MinIO $$label proxy at http://localhost:$$local_port"; \
+	pod="$$(kubectl -n "$$namespace" get endpointslices -l kubernetes.io/service-name="$$service" -o jsonpath='{range .items[*].endpoints[*]}{.conditions.ready}{"\t"}{.targetRef.name}{"\n"}{end}' | awk '$$1 == "true" { print $$2; exit }')"; \
+	if [ -z "$$pod" ]; then \
+		echo "Error: service $$namespace/$$service has no ready endpoints yet." >&2; \
+		echo "Current MinIO tenant pod status:" >&2; \
+		kubectl -n "$$namespace" get pods -l v1.min.io/tenant=homelab >&2 || true; \
+		echo "Wait for the tenant pods to become Ready, then retry." >&2; \
+		exit 1; \
+	fi; \
+	kubectl -n "$$namespace" port-forward "pod/$$pod" "$$local_port:$$remote_port"
+endef
 
 check-vars:
 	@if [ -z "$(COMPONENT)" ] || [ -z "$(LAYER)" ]; then \
@@ -94,3 +113,9 @@ postgres:
 		. /home/vscode/.env; \
 		connect; \
 	fi
+
+minio-console-proxy:
+	$(call minio_port_forward,homelab-console,9001,9090,console)
+
+minio-api-proxy:
+	$(call minio_port_forward,minio,9000,9000,API)

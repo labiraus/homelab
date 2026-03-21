@@ -167,6 +167,8 @@ Useful helper targets:
 - `make refresh-join-token`
 - `make refresh-postgres-env`
 - `make postgres`
+- `make minio-console-proxy`
+- `make minio-api-proxy`
 
 ## Kubernetes Worker Bootstrap
 
@@ -201,8 +203,11 @@ ansible-playbook -i inventory/hosts.ini playbooks/minio-incluster.yml
 
 Generated Kubernetes Secret manifests are written under `ansible/out/` and can be applied manually.
 
-The in-cluster MinIO tenant is exposed through the internal gateway at `https://minio.labiraus.com`
-for the S3 API and `https://minio-console.labiraus.com` for the console.
+The in-cluster MinIO tenant is exposed through the internal gateway at `http://minio.labiraus.com`
+for the S3 API and `http://minio-console.labiraus.com` for the console.
+
+If you do not want to add host machine DNS or hosts entries, use `make minio-console-proxy` and open `http://localhost:9001`, or use `make minio-api-proxy` for the API on `http://localhost:9000`.
+If the MinIO tenant is still starting, these targets will report that the service has no ready endpoints yet and print the current MinIO pod status so you can wait for the tenant to finish initializing before retrying.
 
 ## Setup Notes
 

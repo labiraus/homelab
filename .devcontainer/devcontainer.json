@@ -18,10 +18,6 @@
     },
     "ghcr.io/devcontainers/features/node": {
       "version": "24"
-    },
-    "ghcr.io/devcontainers/features/desktop-lite:1": {},
-    "ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
-      "packages": "chromium"
     }
   },
   "mounts": [
@@ -29,6 +25,11 @@
       "type": "bind",
       "source": "${localWorkspaceFolder}/.devcontainer/kubeconfig",
       "target": "/home/vscode/.kube/config"
+    },
+    {
+      "type": "bind",
+      "source": "${localWorkspaceFolder}/.devcontainer/hosts",
+      "target": "/etc/hosts"
     },
     {
       "type": "bind",
@@ -82,7 +83,6 @@
     "ssh": "[ -d /home/vscode/.ssh ] && (sudo chown -R vscode:vscode /home/vscode/.ssh 2>/dev/null || true) && chmod 700 /home/vscode/.ssh && find /home/vscode/.ssh -maxdepth 1 -type f -exec chmod 600 {} + 2>/dev/null || true",
     "reactapp-deps": "cd /workspaces/homelab/apps/reactapp && npm install"
   },
-  "postStartCommand": "bash /workspaces/homelab/.devcontainer/scripts/sync-hosts.sh",
   "remoteUser": "vscode",
   "updateRemoteUserUID": true
 }
