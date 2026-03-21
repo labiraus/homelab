@@ -82,8 +82,25 @@ runs:
           LATEST_APP_VERSION="$(trim_value "${LATEST_APP_VERSION}")"
         fi
 
+        LATEST_IMAGE_VERSION=""
+        if [[ -z "${{ inputs.app-version }}" && "${{ inputs.chart }}" == apps/* ]]; then
+          IMAGE_TAGS_URL="https://ghcr.io/v2/${{ github.repository }}/${CHART_NAME}/tags/list"
+          IMAGE_TAGS="$(
+            curl -fsSL -u "${{ github.actor }}:${{ inputs.token }}" "$IMAGE_TAGS_URL" \
+              | jq -r '.tags[]?' || true
+          )"
+          if [[ -n "${SERIES_PREFIX}" ]]; then
+            IMAGE_TAGS="$(printf '%s\n' "$IMAGE_TAGS" | awk -v p="$SERIES_PREFIX" 'index($0,p)==1')"
+          fi
+          LATEST_IMAGE_VERSION="$(printf '%s\n' "$IMAGE_TAGS" | sed '/^$/d' | sort -V | tail -n1)"
+          LATEST_IMAGE_VERSION="$(trim_value "${LATEST_IMAGE_VERSION}")"
+        fi
+
         APP_VERSION_INPUT="$(trim_value "${{ inputs.app-version }}")"
         APP_VERSION="$APP_VERSION_INPUT"
+        if [[ -z "$APP_VERSION" ]]; then
+          APP_VERSION="$LATEST_IMAGE_VERSION"
+        fi
         if [[ -z "$APP_VERSION" ]]; then
           APP_VERSION="$LATEST_APP_VERSION"
         fi
@@ -97,6 +114,7 @@ runs:
         echo "SERIES_PREFIX=${SERIES_PREFIX}" >> "$GITHUB_ENV"
         echo "LATEST_TAG=${LATEST_TAG}" >> "$GITHUB_ENV"
         echo "LATEST_APP_VERSION=${LATEST_APP_VERSION}" >> "$GITHUB_ENV"
+        echo "LATEST_IMAGE_VERSION=${LATEST_IMAGE_VERSION}" >> "$GITHUB_ENV"
         echo "Chart version set to: ${CHART_VER}"
         echo "Chart appVersion set to: ${APP_VERSION}"
 
@@ -153,6 +171,9 @@ runs:
           echo "Latest chart appVersion: ${LATEST_APP_VERSION}"
         else
           echo "No existing tag found in GHCR for this chart series."
+        fi
+        if [[ -n "$LATEST_IMAGE_VERSION" ]]; then
+          echo "Latest app image version: ${LATEST_IMAGE_VERSION}"
         fi
 
     - name: Package chart
