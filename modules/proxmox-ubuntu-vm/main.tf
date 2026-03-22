@@ -1,7 +1,7 @@
 locals {
   image_datastore_id    = coalesce(var.image_datastore_id, var.datastore_id)
   snippets_datastore_id = coalesce(var.snippets_datastore_id, var.datastore_id)
-  ubuntu_image_file_id  = var.download_ubuntu_image ? proxmox_virtual_environment_download_file.ubuntu_cloud_image[0].id : "${local.image_datastore_id}:iso/${var.ubuntu_image_file_name}"
+  ubuntu_image_file_id  = var.download_ubuntu_image ? proxmox_virtual_environment_download_file.ubuntu_cloud_image[0].id : "${local.image_datastore_id}:import/${var.ubuntu_image_file_name}"
   drain_command         = trimspace(var.drain_command) != "" ? var.drain_command : "kubectl drain ${var.vm_name} --ignore-daemonsets --delete-emptydir-data --force"
 }
 
@@ -10,7 +10,7 @@ resource "proxmox_virtual_environment_download_file" "ubuntu_cloud_image" {
 
   node_name    = var.node_name
   datastore_id = local.image_datastore_id
-  content_type = "iso"
+  content_type = "import"
   url          = var.ubuntu_image_url
   file_name    = var.ubuntu_image_file_name
   overwrite    = false
@@ -67,7 +67,7 @@ resource "proxmox_virtual_environment_vm" "this" {
 
   disk {
     datastore_id = var.datastore_id
-    file_id      = local.ubuntu_image_file_id
+    import_from  = local.ubuntu_image_file_id
     interface    = "scsi0"
     size         = var.vm_disk_size_gb
     iothread     = true

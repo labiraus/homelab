@@ -81,6 +81,7 @@ Important Proxmox token note:
 - the node tfvars currently target `snippets_datastore_id = "local"`
 - the Proxmox API token therefore needs datastore permissions on `/storage/local`, including at least `Datastore.Audit` and `Datastore.AllocateSpace`
 - if those permissions are missing, `bin/tf plan kubernetes <node>` can fail before planning completes with a `403` while listing files on the datastore
+- the worker VM boot disk is imported from an Ubuntu cloud image stored on Proxmox as `content_type = "import"` rather than `iso`
 
 ### Kubernetes and Helm
 
