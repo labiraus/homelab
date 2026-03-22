@@ -4,7 +4,7 @@ server:
     repository: itzg/minecraft-server
     tag: java21
     pullPolicy: IfNotPresent
-  port: 25566
+  port: 25565
   eula: "TRUE"
   type: FORGE
   version: "1.20.1"
