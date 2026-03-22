@@ -5,6 +5,8 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   replicas: {{ .Values.server.replicas }}
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: minecraft
@@ -13,6 +15,18 @@ spec:
       labels:
         app.kubernetes.io/name: minecraft
     spec:
+      {{- if .Values.server.scheduling.preferHighPerformanceNode }}
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: node-performance
+                    operator: In
+                    values:
+                      - high
+      {{- end }}
       containers:
         - name: minecraft
           image: "{{ .Values.server.image.repository }}:{{ .Values.server.image.tag }}"

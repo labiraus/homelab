@@ -30,6 +30,8 @@ kubeadm_join_command = ""
 
 kubelet_node_labels = {
   "topology.kubernetes.io/zone" = "lab-b"
+  "node-performance"           = "standard"
+  "node-llm"                   = "none"
 }
 
 kubelet_register_taints = []

@@ -1,6 +1,8 @@
 namespace: minecraft
 server:
   replicas: 1
+  scheduling:
+    preferHighPerformanceNode: true
   image:
     repository: itzg/minecraft-server
     tag: java21

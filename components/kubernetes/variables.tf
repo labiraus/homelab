@@ -35,6 +35,23 @@ variable "vm" {
     memory_mb    = number
     disk_size_gb = number
     ssh_username = optional(string, "ubuntu")
+    bios         = optional(string, "seabios")
+    machine      = optional(string)
+    efi_disk = optional(object({
+      datastore_id      = optional(string)
+      type              = optional(string, "4m")
+      pre_enrolled_keys = optional(bool, false)
+    }))
+    hostpci_devices = optional(list(object({
+      device   = string
+      mapping  = optional(string)
+      id       = optional(string)
+      mdev     = optional(string)
+      pcie     = optional(bool, true)
+      rombar   = optional(bool, true)
+      rom_file = optional(string)
+      xvga     = optional(bool, false)
+    })), [])
   })
 }
 

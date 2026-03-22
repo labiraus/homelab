@@ -75,6 +75,13 @@ Key files:
 - `etc/env/lab.tfvars`
 - `etc/nodes/node*.tfvars`
 
+Important Proxmox token note:
+
+- the Kubernetes worker flow uploads a cloud-init snippet with `proxmox_virtual_environment_file`
+- the node tfvars currently target `snippets_datastore_id = "local"`
+- the Proxmox API token therefore needs datastore permissions on `/storage/local`, including at least `Datastore.Audit` and `Datastore.AllocateSpace`
+- if those permissions are missing, `bin/tf plan kubernetes <node>` can fail before planning completes with a `403` while listing files on the datastore
+
 ### Kubernetes and Helm
 
 Helm charts in `helm/` define cluster bootstrap, app deployment, data services, observability components, and miscellaneous workloads. The current GitOps flow is Flux-based: charts are packaged as OCI artifacts by GitHub Actions and reconciled in-cluster by Flux from `flux-system`.
@@ -152,7 +159,17 @@ The wrapper script:
 7. Generates `components/<component>/cloud.auto.tf`
 8. Runs `terraform init -upgrade`
 9. Runs `terraform <action> -input=false -lock-timeout=5m`
-10. Removes generated `cloud.auto.tf` on exit
+10. Passes through any extra Terraform args only when provided after `--`
+11. Removes generated `cloud.auto.tf` on exit
+
+The wrapper auto-approves `apply` and `destroy` by default. `plan` does not get `-auto-approve`.
+
+If you need to pass additional Terraform flags, append them after `--`:
+
+```bash
+ENV=lab bin/tf apply kubernetes node1 -- -refresh=false
+ENV=lab bin/tf destroy kubernetes node1 -- -target=module.kubernetes_vm
+```
 
 Makefile shortcuts:
 

@@ -287,7 +287,10 @@ if [[ "${action}" == "state-list" ]]; then
   exit 0
 fi
 
-terraform_cmd=(terraform "${action}" -auto-approve -input=false -lock-timeout=5m)
+terraform_cmd=(terraform "${action}" -input=false -lock-timeout=5m)
+if [[ "${action}" == "apply" || "${action}" == "destroy" ]]; then
+  terraform_cmd+=("-auto-approve")
+fi
 if [[ "${disable_refresh}" == "true" ]]; then
   terraform_cmd+=("-refresh=false")
 fi
