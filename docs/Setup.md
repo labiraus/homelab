@@ -228,6 +228,8 @@ Use this when adding a new Proxmox-backed worker or rebuilding one of the existi
    Use `bios = "ovmf"`, `machine = "q35"`, and an `efi_disk`.
 7. Attach the GPU to the VM with a Proxmox PCI resource mapping.
    This is the safest fit for this repo because the Terraform provider is using an API token; direct PCI IDs require root username/password in the provider.
+   For the current Intel iGPU workers, use a shared mapping named `intel-igpu`:
+   `pvesh create /cluster/mapping/pci --id intel-igpu --map node=proxmox-node1,path=0000:00:02.0,id=8086:46a8 --map node=proxmox-node2,path=0000:00:02.0,id=8086:46a8 --map node=proxmox-node4,path=0000:00:02.0,id=8086:9a49`
 8. Rebuild or update the worker VM, then verify the guest sees a real GPU.
    For Intel or AMD, check `/dev/dri`.
    For NVIDIA, check `nvidia-smi`.
@@ -273,7 +275,7 @@ vm = {
   hostpci_devices = [
     {
       device  = "hostpci0"
-      mapping = "intel-gpu"
+      mapping = "intel-igpu"
       pcie    = true
     }
   ]

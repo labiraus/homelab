@@ -13,6 +13,21 @@ vm = {
   memory_mb    = 5368
   disk_size_gb = 280
   ssh_username = "ubuntu"
+  bios         = "ovmf"
+  machine      = "q35"
+  efi_disk = {
+    datastore_id = "local-lvm"
+    type         = "4m"
+  }
+  hostpci_devices = [
+    {
+      device  = "hostpci0"
+      mapping = "intel-igpu"
+      pcie    = true
+      rombar  = true
+      xvga    = false
+    },
+  ]
 }
 
 network = {
@@ -30,8 +45,8 @@ kubeadm_join_command = ""
 
 kubelet_node_labels = {
   "topology.kubernetes.io/zone" = "lab-d"
-  "node-performance"           = "standard"
-  "node-llm"                   = "none"
+  "node-performance"            = "standard"
+  "node-llm"                    = "none"
 }
 
 kubelet_register_taints = []
