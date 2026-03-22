@@ -202,9 +202,10 @@ The current Proxmox worker hosts do have onboard Intel GPUs:
 But they are not usable by the Kubernetes guests yet. At the time of writing:
 
 - all three hosts are on Proxmox VE `9.1.0`
-- `/proc/cmdline` does not include `intel_iommu=on` or `iommu=pt`
-- `/sys/kernel/iommu_groups` is empty on all three hosts
-- the worker VMs are still `bios: seabios` and have no `hostpci` devices configured
+- all three hosts now boot with `intel_iommu=on iommu=pt`
+- all three hosts now load the VFIO modules and expose IOMMU groups
+- the cluster-wide PCI mapping `intel-igpu` is defined in Proxmox for the three worker hosts
+- the running worker VMs still need the Terraform VM changes applied before the guests can see a real GPU
 
 That means the correct current label is still `node-llm=none` for every worker, even though the physical hosts have integrated GPUs.
 
