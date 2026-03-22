@@ -46,7 +46,10 @@ kubeadm_join_command = ""
 kubelet_node_labels = {
   "topology.kubernetes.io/zone" = "lab-d"
   "node-performance"            = "standard"
+  "node-gpu"                    = "passthrough"
   "node-llm"                    = "none"
+  "node-llm-class"              = "igpu"
+  "node-llm-vram"               = "shared"
 }
 
 kubelet_register_taints = []

@@ -130,13 +130,16 @@ Use node labels to make workload placement explicit for game servers and future 
 Current label scheme:
 
 - `node-performance=high|standard`
+- `node-gpu=passthrough|none`
 - `node-llm=gpu|none`
+- `node-llm-class=igpu|consumer-gpu|high-vram-gpu|none`
+- `node-llm-vram=shared|8gb|12gb|16gb|24gb|48gb|none`
 
 Current intended values:
 
-- `jotunheim`: `node-performance=high`, `node-llm=none`
-- `alfheim`: `node-performance=standard`, `node-llm=none`
-- `niflheim`: `node-performance=standard`, `node-llm=none`
+- `jotunheim`: `node-performance=high`, `node-gpu=passthrough`, `node-llm=none`, `node-llm-class=igpu`, `node-llm-vram=shared`
+- `alfheim`: `node-performance=standard`, `node-gpu=passthrough`, `node-llm=none`, `node-llm-class=igpu`, `node-llm-vram=shared`
+- `niflheim`: `node-performance=standard`, `node-gpu=passthrough`, `node-llm=none`, `node-llm-class=igpu`, `node-llm-vram=shared`
 
 ### How to check CPU performance
 
@@ -175,10 +178,25 @@ At the time of writing:
 Check inside the Kubernetes node guest first:
 
 ```bash
-ssh jotunheim 'lspci | egrep -i "vga|3d|display|nvidia|amd|intel" || true; echo ---; ls /dev/dri 2>/dev/null || true; echo ---; command -v nvidia-smi >/dev/null && nvidia-smi || true'
-ssh alfheim 'lspci | egrep -i "vga|3d|display|nvidia|amd|intel" || true; echo ---; ls /dev/dri 2>/dev/null || true; echo ---; command -v nvidia-smi >/dev/null && nvidia-smi || true'
-ssh niflheim 'lspci | egrep -i "vga|3d|display|nvidia|amd|intel" || true; echo ---; ls /dev/dri 2>/dev/null || true; echo ---; command -v nvidia-smi >/dev/null && nvidia-smi || true'
+ssh jotunheim 'lspci | egrep -i "vga|3d|display|nvidia|amd|intel" || true; echo ---; ls -lah /dev/dri 2>/dev/null || true; echo ---; test -e /dev/dri/renderD128 && echo RENDER=present || echo RENDER=absent; echo ---; command -v nvidia-smi >/dev/null && nvidia-smi || true'
+ssh alfheim 'lspci | egrep -i "vga|3d|display|nvidia|amd|intel" || true; echo ---; ls -lah /dev/dri 2>/dev/null || true; echo ---; test -e /dev/dri/renderD128 && echo RENDER=present || echo RENDER=absent; echo ---; command -v nvidia-smi >/dev/null && nvidia-smi || true'
+ssh niflheim 'lspci | egrep -i "vga|3d|display|nvidia|amd|intel" || true; echo ---; ls -lah /dev/dri 2>/dev/null || true; echo ---; test -e /dev/dri/renderD128 && echo RENDER=present || echo RENDER=absent; echo ---; command -v nvidia-smi >/dev/null && nvidia-smi || true'
 ```
+
+Classify a node as `node-gpu=passthrough` when the Kubernetes guest can see the passed-through physical GPU in `lspci`, even if the user-space compute stack is not ready yet.
+
+Use `node-llm-class` to express relative scheduling preference for inference:
+
+- `igpu`: integrated GPU or otherwise low-end/shared-memory accelerator
+- `consumer-gpu`: discrete desktop GPU such as a GeForce card
+- `high-vram-gpu`: larger-memory accelerator that should be preferred for bigger models
+- `none`: no meaningful accelerator present
+
+Use `node-llm-vram` to express the memory tier that an inference workload can rely on:
+
+- `shared` for iGPUs borrowing system memory
+- explicit sizes such as `8gb`, `12gb`, `16gb`, `24gb`, or `48gb` for discrete cards
+- `none` when there is no useful accelerator
 
 Classify a node as `node-llm=gpu` only when the Kubernetes guest has an actually usable accelerator for inference, for example:
 
@@ -187,9 +205,12 @@ Classify a node as `node-llm=gpu` only when the Kubernetes guest has an actually
 
 Do not count the default emulated QEMU VGA device as GPU-capable for LLM work.
 
-At the time of writing, the current worker nodes expose only the emulated VGA adapter and no usable GPU devices, so all are labeled:
+At the time of writing, the current worker nodes do see their passed-through Intel GPUs in `lspci`, but they still expose only `card0` under `/dev/dri` and do not expose a render node such as `/dev/dri/renderD128`. That means the correct current labels are:
 
+- `node-gpu=passthrough`
 - `node-llm=none`
+- `node-llm-class=igpu`
+- `node-llm-vram=shared`
 
 ### Current Proxmox GPU state
 
@@ -199,15 +220,16 @@ The current Proxmox worker hosts do have onboard Intel GPUs:
 - `proxmox-node2`: Intel Iris Xe Graphics `[8086:46a8]`
 - `proxmox-node4`: Intel Iris Xe Graphics `[8086:9a49]`
 
-But they are not usable by the Kubernetes guests yet. At the time of writing:
+At the time of writing:
 
 - all three hosts are on Proxmox VE `9.1.0`
 - all three hosts now boot with `intel_iommu=on iommu=pt`
 - all three hosts now load the VFIO modules and expose IOMMU groups
 - the cluster-wide PCI mapping `intel-igpu` is defined in Proxmox for the three worker hosts
-- the running worker VMs still need the Terraform VM changes applied before the guests can see a real GPU
+- the running worker VMs now see the physical Intel GPU at `01:00.0`
+- the guests do not yet expose a render node such as `/dev/dri/renderD128`
 
-That means the correct current label is still `node-llm=none` for every worker, even though the physical hosts have integrated GPUs.
+That means passthrough is working at the PCI level, but the correct current inference label is still `node-llm=none` for every worker. Relative GPU preference should currently treat them as `node-llm-class=igpu` with `node-llm-vram=shared`, and future GeForce-backed workers should be labeled into `consumer-gpu` or `high-vram-gpu` with an explicit VRAM tier.
 
 ### Proxmox GPU passthrough checklist
 
@@ -285,7 +307,10 @@ vm = {
 kubelet_node_labels = {
   "topology.kubernetes.io/zone" = "lab-a"
   "node-performance"           = "high"
+  "node-gpu"                   = "passthrough"
   "node-llm"                   = "gpu"
+  "node-llm-class"             = "consumer-gpu"
+  "node-llm-vram"              = "12gb"
 }
 ```
 
@@ -297,7 +322,10 @@ For manually added Ubuntu nodes, apply labels after the node joins:
 
 ```bash
 kubectl label node <node-name> node-performance=standard --overwrite
+kubectl label node <node-name> node-gpu=none --overwrite
 kubectl label node <node-name> node-llm=none --overwrite
+kubectl label node <node-name> node-llm-class=none --overwrite
+kubectl label node <node-name> node-llm-vram=none --overwrite
 ```
 
 If a future node has the strongest CPU in the worker pool:
@@ -309,8 +337,13 @@ kubectl label node <node-name> node-performance=high --overwrite
 If a future node has a usable inference GPU:
 
 ```bash
+kubectl label node <node-name> node-gpu=passthrough --overwrite
 kubectl label node <node-name> node-llm=gpu --overwrite
+kubectl label node <node-name> node-llm-class=consumer-gpu --overwrite
+kubectl label node <node-name> node-llm-vram=12gb --overwrite
 ```
+
+For changes to an existing worker, VM rebuilds, and post-Terraform recovery, use [WorkerRedeploy.md](/workspaces/homelab/docs/WorkerRedeploy.md).
 
 ## Network Instability
 

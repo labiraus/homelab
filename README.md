@@ -229,7 +229,7 @@ If the MinIO tenant is still starting, these targets will report that the servic
 
 ## Setup Notes
 
-See `docs/Setup.md` for workstation setup, SSH certificate setup, kubeconfig bootstrapping, and Proxmox host notes.
+See `docs/Setup.md` for workstation setup, SSH certificate setup, kubeconfig bootstrapping, Proxmox host notes, and node classification guidance. For day-two worker changes and recovery after Terraform-driven VM recreation, use [docs/WorkerRedeploy.md](/workspaces/homelab/docs/WorkerRedeploy.md).
 
 ## Security Notes
 

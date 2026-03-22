@@ -165,3 +165,26 @@ flux reconcile helmrelease <release-name> -n flux-system --with-source --timeout
 Repo note:
 
 - Keep `helm/bootstrap/flux-bootstrap/values.yaml` aligned with the live Longhorn setting so Flux does not drift the storage threshold back on the next bootstrap upgrade.
+
+### Worker GPU passthrough current state
+
+After the recent worker rebuilds, all three Kubernetes worker guests can now see a passed-through Intel iGPU in `lspci`:
+
+- `jotunheim`: Alder Lake Iris Xe `[8086:46a8]`
+- `alfheim`: Alder Lake Iris Xe `[8086:46a8]`
+- `niflheim`: Tiger Lake Iris Xe `[8086:9a49]`
+
+But all three currently expose only `/dev/dri/card0` and do not expose a render node such as `/dev/dri/renderD128`. Treat that as:
+
+- `node-gpu=passthrough`
+- `node-llm=none`
+- `node-llm-class=igpu`
+- `node-llm-vram=shared`
+
+Operationally, that means PCI passthrough is working, but the guests are not yet ready for LLM workloads that need a usable compute/render device.
+
+For future discrete GPUs, use the relative labels to steer inference workloads:
+
+- `node-llm-class=consumer-gpu` for GeForce-class cards
+- `node-llm-class=high-vram-gpu` for cards that should be preferred for larger models
+- `node-llm-vram=<tier>` such as `12gb`, `16gb`, `24gb`, or `48gb`
