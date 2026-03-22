@@ -4,7 +4,7 @@ metadata:
   name: minecraft
   namespace: {{ .Values.namespace }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.server.replicas }}
   selector:
     matchLabels:
       app.kubernetes.io/name: minecraft
@@ -28,9 +28,21 @@ spec:
               value: {{ .Values.server.type | quote }}
             - name: VERSION
               value: {{ .Values.server.version | quote }}
+            {{- if .Values.server.curseforge.apiKeySecretName }}
+            - name: CF_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.server.curseforge.apiKeySecretName }}
+                  key: {{ .Values.server.curseforge.apiKeySecretKey }}
+            {{- else if hasKey .Values.server.extraEnv "CF_API_KEY" }}
+            - name: CF_API_KEY
+              value: {{ index .Values.server.extraEnv "CF_API_KEY" | quote }}
+            {{- end }}
             {{- range $name, $value := .Values.server.extraEnv }}
+            {{- if ne $name "CF_API_KEY" }}
             - name: {{ $name }}
               value: {{ $value | quote }}
+            {{- end }}
             {{- end }}
           volumeMounts:
             - name: minecraft-data
