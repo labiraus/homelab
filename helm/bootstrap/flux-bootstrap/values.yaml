@@ -115,6 +115,9 @@ releases:
     values:
       defaultSettings:
         defaultReplicaCount: 2
+        nodeDrainPolicy: block-for-eviction-if-contains-last-replica
+        replicaAutoBalance: least-effort
+        replicaSoftAntiAffinity: false
       persistence:
         defaultClass: true
         defaultClassReplicaCount: 2
