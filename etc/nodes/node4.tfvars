@@ -11,7 +11,7 @@ proxmox = {
 vm = {
   cpu_cores    = 8
   memory_mb    = 5368
-  disk_size_gb = 80
+  disk_size_gb = 280
   ssh_username = "ubuntu"
 }
 
@@ -33,4 +33,3 @@ kubelet_node_labels = {
 }
 
 kubelet_register_taints = []
-

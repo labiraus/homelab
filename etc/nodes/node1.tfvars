@@ -11,7 +11,7 @@ proxmox = {
 vm = {
   cpu_cores    = 12
   memory_mb    = 30064
-  disk_size_gb = 80
+  disk_size_gb = 280
   ssh_username = "ubuntu"
 }
 

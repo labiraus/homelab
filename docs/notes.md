@@ -122,3 +122,46 @@ Verify:
 kubectl -n flux-system get helmrelease <release-name> -o jsonpath='{.status.lastAttemptedRevision}{"\n"}'
 flux get helmrelease <release-name> -n flux-system
 ```
+
+### Longhorn PVC stuck `Pending` for new workloads
+
+Use this when a new workload never installs and the `HelmRelease` times out waiting on a `Deployment`, while its PVC stays `Pending`.
+
+Detect:
+
+```bash
+# 1) Check the blocked release
+kubectl describe helmrelease -n flux-system <release-name>
+
+# 2) Check the workload namespace
+kubectl get deploy,pod,pvc -n <workload-namespace>
+kubectl describe pvc -n <workload-namespace> <claim-name>
+
+# 3) Check Longhorn node schedulability
+kubectl get nodes.longhorn.io -n longhorn-system -o yaml
+kubectl get settings.longhorn.io -n longhorn-system \
+  storage-over-provisioning-percentage \
+  storage-minimal-available-percentage \
+  default-replica-count -o yaml
+```
+
+Common sign:
+
+- Longhorn node disk status shows `type: Schedulable` with `status: "False"` and `reason: DiskPressure`, even though `storageAvailable` is still non-zero. In that state, new PVCs can remain `Pending` with no useful PVC events.
+
+Recovery:
+
+```bash
+# Raise the over-provisioning threshold enough for the next volume to schedule
+kubectl patch settings.longhorn.io -n longhorn-system \
+  storage-over-provisioning-percentage \
+  --type=merge \
+  -p '{"value":"135"}'
+
+# Then let Flux retry, or reconcile manually
+flux reconcile helmrelease <release-name> -n flux-system --with-source --timeout=10m
+```
+
+Repo note:
+
+- Keep `helm/bootstrap/flux-bootstrap/values.yaml` aligned with the live Longhorn setting so Flux does not drift the storage threshold back on the next bootstrap upgrade.
