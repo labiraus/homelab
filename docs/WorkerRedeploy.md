@@ -154,3 +154,20 @@ kubectl get pods -n longhorn-system -o wide
 ```
 
 Kubernetes node recovery and Longhorn node recovery are related but not identical. A worker can be `Ready` before Longhorn has fully recreated its per-node components.
+
+If Longhorn still does not recover after the VM redeploy, check for disk identity drift:
+
+```bash
+kubectl get nodes.longhorn.io -n longhorn-system -o yaml
+ssh -o StrictHostKeyChecking=no <node-name> 'sudo cat /var/lib/longhorn/longhorn-disk.cfg'
+```
+
+Common post-redeploy failure mode:
+
+- the Longhorn node object still expects the old disk UUID
+- the rebuilt VM generated a fresh `/var/lib/longhorn/longhorn-disk.cfg`
+- Longhorn marks the disk `DiskFilesystemChanged` / `DiskNotReady`
+- affected disks show `storageAvailable: 0` and `storageMaximum: 0`
+- new workload PVCs stay `Pending` even though the Kubernetes node itself is `Ready`
+
+If that happens, restore the expected `diskUUID` in `/var/lib/longhorn/longhorn-disk.cfg` on the rebuilt node, then restart the `longhorn-manager` pods so Longhorn rescans the repaired disk metadata.

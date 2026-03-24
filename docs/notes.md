@@ -178,6 +178,7 @@ kubectl get settings.longhorn.io -n longhorn-system \
 Common sign:
 
 - Longhorn node disk status shows `type: Schedulable` with `status: "False"` and `reason: DiskPressure`, even though `storageAvailable` is still non-zero. In that state, new PVCs can remain `Pending` with no useful PVC events.
+- After worker VM redeploys, Longhorn node disks can instead show `reason: DiskFilesystemChanged` with messages like `record diskUUID doesn't match the one on the disk`, plus `storageAvailable: 0` and `storageMaximum: 0`. In that state, new PVCs also remain `Pending` because Longhorn no longer trusts the rebuilt VM's `/var/lib/longhorn` disk identity.
 
 Recovery:
 
@@ -192,9 +193,26 @@ kubectl patch settings.longhorn.io -n longhorn-system \
 flux reconcile helmrelease <release-name> -n flux-system --with-source --timeout=10m
 ```
 
+If the failure mode is `DiskFilesystemChanged` after worker redeploys:
+
+```bash
+# 1) Compare the disk UUID Longhorn expects with the rebuilt node's local file
+kubectl get nodes.longhorn.io -n longhorn-system <node-name> -o yaml
+ssh -o StrictHostKeyChecking=no <node-name> 'sudo cat /var/lib/longhorn/longhorn-disk.cfg'
+
+# 2) If the rebuilt VM generated a new UUID, restore the UUID Longhorn already knows
+#    in /var/lib/longhorn/longhorn-disk.cfg on that node, then restart longhorn-manager
+kubectl delete pod -n longhorn-system -l app=longhorn-manager
+
+# 3) Re-check Longhorn disk readiness and recreate any brand-new faulted PVC/volume if needed
+kubectl get nodes.longhorn.io -n longhorn-system -o yaml
+kubectl get volumes.longhorn.io -n longhorn-system
+```
+
 Repo note:
 
 - Keep `helm/bootstrap/flux-bootstrap/values.yaml` aligned with the live Longhorn setting so Flux does not drift the storage threshold back on the next bootstrap upgrade.
+- Treat `DiskFilesystemChanged` as a likely post-redeploy VM identity problem before treating it as generic storage exhaustion. In this repo, the March 22, 2026 worker redeploys regenerated `/var/lib/longhorn/longhorn-disk.cfg` with new `diskUUID` values and made Longhorn reject the rebuilt node disks until the expected UUIDs were restored.
 
 ### Worker GPU passthrough current state
 
