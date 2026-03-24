@@ -3,6 +3,9 @@ server:
   replicas: 1
   scheduling:
     preferHighPerformanceNode: true
+  memory:
+    max: 10G
+    init: 2G
   image:
     repository: itzg/minecraft-server
     tag: java21

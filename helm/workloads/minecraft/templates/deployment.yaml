@@ -43,6 +43,10 @@ spec:
               value: {{ .Values.server.type | quote }}
             - name: VERSION
               value: {{ .Values.server.version | quote }}
+            - name: MEMORY
+              value: {{ .Values.server.memory.max | quote }}
+            - name: INIT_MEMORY
+              value: {{ .Values.server.memory.init | quote }}
             {{- if .Values.server.curseforge.apiKeySecretName }}
             - name: CF_API_KEY
               valueFrom:

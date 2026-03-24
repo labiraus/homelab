@@ -133,6 +133,50 @@ Memory:
 - `mc-image-helper install-neoforge --help` shows `--http-response-timeout` and `--tls-handshake-timeout` as supported CLI flags.
 - `MC_IMAGE_HELPER_OPTS` is not the right hook for those flags in this image. On March 24, 2026, setting `MC_IMAGE_HELPER_OPTS="--http-response-timeout=PT5M --tls-handshake-timeout=PT1M"` caused Java startup to fail with `Unrecognized option`.
 
+## NeoForge Server Fails Loading Datapacks With `Java heap space`
+
+Symptom:
+
+- server gets through bootstrap and mod loading, then fails during datapack load
+- logs include:
+
+```text
+Failed to load datapacks, can't proceed with server load
+java.lang.OutOfMemoryError: Java heap space
+```
+
+What this means:
+
+- this is a JVM heap sizing problem, not a Flux, PVC, or Longhorn problem
+- on March 24, 2026, ATM10 Sky on NeoForge 1.21.1 exhausted the default heap during datapack/resource enumeration
+- warnings immediately before the crash such as `Initial datapack load took ...` are consistent with a very heavy pack approaching heap exhaustion
+
+Repo mitigation:
+
+- `helm/workloads/minecraft/values.yaml` sets explicit heap defaults:
+
+```yaml
+server:
+  memory:
+    max: 10G
+    init: 2G
+```
+
+- `helm/workloads/minecraft/templates/deployment.yaml` passes those through as:
+
+```yaml
+- name: MEMORY
+  value: "10G"
+- name: INIT_MEMORY
+  value: "2G"
+```
+
+Operator guidance:
+
+- if Minecraft fails with `Failed to load datapacks` plus `OutOfMemoryError`, increase heap before trying datapack safe mode
+- if the pack changes significantly, revisit `server.memory.max`
+- keep node capacity in mind when raising heap further
+
 ## Useful Commands
 
 ```bash
