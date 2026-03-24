@@ -8,6 +8,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - `AGENTS.md`: reference index for Codex docs in this directory
   - `REPO_MAP.md`: this summary
   - `REPO_PLAN.md`: repo target state, priorities, and gaps
+  - `MINECRAFT_TROUBLESHOOTING.md`: recurring Minecraft-specific failures, causes, and fixes
 - `AGENTS.md`: root repository operating rules
 - `.devcontainer/`
   - Devcontainer config, mounted kubeconfig, SSH config, env file
