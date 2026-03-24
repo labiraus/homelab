@@ -123,6 +123,36 @@ kubectl -n flux-system get helmrelease <release-name> -o jsonpath='{.status.last
 flux get helmrelease <release-name> -n flux-system
 ```
 
+### Helm upgrade fails after switching a workload to `Recreate`
+
+Use this when a `HelmRelease` starts failing with an error like `spec.strategy.rollingUpdate: Forbidden` after a chart changes a Deployment from `RollingUpdate` to `Recreate`.
+
+Detect:
+
+```bash
+kubectl describe helmrelease -n flux-system <release-name>
+kubectl get deployment -n <workload-namespace> <deployment-name> -o yaml
+```
+
+Common signs:
+
+- Helm reports `Deployment.apps "<name>" is invalid: spec.strategy.rollingUpdate: Forbidden: may not be specified when strategy type is 'Recreate'`.
+- The live Deployment still shows `strategy.type: RollingUpdate` with a populated `rollingUpdate` block.
+- Other resources from the same release can be missing because the upgrade never completed, for example a PVC that the pods need to schedule.
+
+Recovery:
+
+```bash
+# In the chart, explicitly clear rollingUpdate when using Recreate
+strategy:
+  type: Recreate
+  rollingUpdate: null
+
+# Then publish the chart and let Flux retry, or reconcile manually
+flux reconcile source oci <release-name> -n flux-system --timeout=3m
+flux reconcile helmrelease <release-name> -n flux-system --with-source --timeout=10m
+```
+
 ### Longhorn PVC stuck `Pending` for new workloads
 
 Use this when a new workload never installs and the `HelmRelease` times out waiting on a `Deployment`, while its PVC stays `Pending`.

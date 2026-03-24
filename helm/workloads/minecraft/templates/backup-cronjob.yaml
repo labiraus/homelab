@@ -6,6 +6,7 @@ metadata:
 spec:
   schedule: {{ .Values.backup.schedule | quote }}
   suspend: {{ .Values.backup.suspend }}
+  concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 2
   failedJobsHistoryLimit: 2
   jobTemplate:
