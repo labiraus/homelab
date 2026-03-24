@@ -43,10 +43,6 @@ spec:
               value: {{ .Values.server.type | quote }}
             - name: VERSION
               value: {{ .Values.server.version | quote }}
-            {{- with .Values.server.bootstrap.imageHelperOpts }}
-            - name: MC_IMAGE_HELPER_OPTS
-              value: {{ . | quote }}
-            {{- end }}
             {{- if .Values.server.curseforge.apiKeySecretName }}
             - name: CF_API_KEY
               valueFrom:

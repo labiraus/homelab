@@ -3,8 +3,6 @@ server:
   replicas: 1
   scheduling:
     preferHighPerformanceNode: true
-  bootstrap:
-    imageHelperOpts: --http-response-timeout=PT5M --tls-handshake-timeout=PT1M
   image:
     repository: itzg/minecraft-server
     tag: java21

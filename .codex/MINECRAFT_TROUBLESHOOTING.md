@@ -126,17 +126,12 @@ Possible mitigations if this becomes frequent:
 - keep the PVC intact so retries reuse downloaded artifacts
 - avoid deleting the Minecraft PVC during troubleshooting unless storage itself is the problem
 - consider pre-seeding the server artifacts or modpack contents into `/data` if first-boot network reliability continues to be poor
-- expose image-helper timeout controls in the chart through `MC_IMAGE_HELPER_OPTS` if repeated read timeouts continue to happen during modpack bootstrap
-
-Repo mitigation:
-
-- [values.yaml](/workspaces/homelab/helm/workloads/minecraft/values.yaml) now sets `server.bootstrap.imageHelperOpts`
-- [deployment.yaml](/workspaces/homelab/helm/workloads/minecraft/templates/deployment.yaml) exports that as `MC_IMAGE_HELPER_OPTS`
-- current default: `--http-response-timeout=PT5M --tls-handshake-timeout=PT1M`
+- consider a wrapper script or image-level change if helper CLI timeouts need to be set explicitly during modpack bootstrap
 
 Memory:
 
-- `mc-image-helper` consumes `MC_IMAGE_HELPER_OPTS`; a probe with an invalid option caused the helper JVM startup to fail immediately, confirming that the env var is honored by the image.
+- `mc-image-helper install-neoforge --help` shows `--http-response-timeout` and `--tls-handshake-timeout` as supported CLI flags.
+- `MC_IMAGE_HELPER_OPTS` is not the right hook for those flags in this image. On March 24, 2026, setting `MC_IMAGE_HELPER_OPTS="--http-response-timeout=PT5M --tls-handshake-timeout=PT1M"` caused Java startup to fail with `Unrecognized option`.
 
 ## Useful Commands
 
