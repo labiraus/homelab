@@ -188,6 +188,36 @@ Operator guidance:
 - keep node capacity in mind when raising heap further
 - if players can authenticate and join but then time out under heavy modpack load, check whether the pod is still `BestEffort`; reserve CPU and memory before chasing network causes
 
+## Players Join But Disconnect A Few Minutes Later
+
+Symptom:
+
+- the player authenticates successfully
+- the server logs `joined the game`
+- the pod stays `Running`
+- a minute or two later the session drops
+
+What we observed on March 24, 2026:
+
+- after fixing bootstrap/OOM/resource issues, Minecraft still had intermittent post-login disconnects
+- the pod had an injected `istio-proxy` sidecar because the repo defaults namespaces to Istio injection
+- the service and `TCPRoute` were valid, but raw Minecraft traffic still had an unnecessary extra proxy hop
+
+Repo mitigation:
+
+- `helm/workloads/minecraft/templates/deployment.yaml` now sets:
+
+```yaml
+metadata:
+  annotations:
+    sidecar.istio.io/inject: "false"
+```
+
+Operator guidance:
+
+- for this workload, prefer running Minecraft without an Istio sidecar unless you need mesh features specifically
+- if disconnects continue after the sidecar is removed, investigate the client path and modpack/server behavior separately from Kubernetes routing
+
 ## Useful Commands
 
 ```bash
