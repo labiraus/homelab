@@ -63,6 +63,8 @@ spec:
               value: {{ $value | quote }}
             {{- end }}
             {{- end }}
+          resources:
+{{ toYaml .Values.server.resources | indent 12 }}
           volumeMounts:
             - name: minecraft-data
               mountPath: /data

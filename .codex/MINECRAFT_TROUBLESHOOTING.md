@@ -171,11 +171,22 @@ server:
   value: "2G"
 ```
 
+- the chart also reserves node capacity for the pod:
+
+```yaml
+server:
+  resources:
+    requests:
+      cpu: "4"
+      memory: 12Gi
+```
+
 Operator guidance:
 
 - if Minecraft fails with `Failed to load datapacks` plus `OutOfMemoryError`, increase heap before trying datapack safe mode
 - if the pack changes significantly, revisit `server.memory.max`
 - keep node capacity in mind when raising heap further
+- if players can authenticate and join but then time out under heavy modpack load, check whether the pod is still `BestEffort`; reserve CPU and memory before chasing network causes
 
 ## Useful Commands
 

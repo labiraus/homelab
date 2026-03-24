@@ -6,6 +6,10 @@ server:
   memory:
     max: 10G
     init: 2G
+  resources:
+    requests:
+      cpu: "4"
+      memory: 12Gi
   image:
     repository: itzg/minecraft-server
     tag: java21
