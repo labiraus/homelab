@@ -51,7 +51,7 @@ debug:
     passiveMaxPort: 21105
 route:
   enabled: true
-  gatewayName: internal-gateway
+  gatewayName: minecraft-gateway
   gatewayNamespace: ingress
   sectionName: minecraft
 backup:

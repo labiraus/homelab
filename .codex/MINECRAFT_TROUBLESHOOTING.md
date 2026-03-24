@@ -202,6 +202,7 @@ What we observed on March 24, 2026:
 - after fixing bootstrap/OOM/resource issues, Minecraft still had intermittent post-login disconnects
 - the pod had an injected `istio-proxy` sidecar because the repo defaults namespaces to Istio injection
 - the service and `TCPRoute` were valid, but raw Minecraft traffic still had an unnecessary extra proxy hop
+- Minecraft was also sharing the same `internal-gateway` Gateway instance as other internal traffic
 
 Repo mitigation:
 
@@ -213,9 +214,30 @@ metadata:
     sidecar.istio.io/inject: "false"
 ```
 
+- Minecraft now targets a dedicated Gateway instead of the shared internal gateway:
+
+```yaml
+route:
+  gatewayName: minecraft-gateway
+  gatewayNamespace: ingress
+  sectionName: minecraft
+```
+
+- the bootstrap gateway chart creates that dedicated TCP Gateway:
+
+```yaml
+minecraftGateway:
+  name: minecraft-gateway
+  listeners:
+    - name: minecraft
+      port: 25565
+      protocol: TCP
+```
+
 Operator guidance:
 
 - for this workload, prefer running Minecraft without an Istio sidecar unless you need mesh features specifically
+- if Minecraft is staying on Gateway API, isolate it onto its own Gateway instance rather than sharing the generic internal gateway
 - if disconnects continue after the sidecar is removed, investigate the client path and modpack/server behavior separately from Kubernetes routing
 
 ## Useful Commands

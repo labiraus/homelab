@@ -75,6 +75,11 @@ releases:
           - name: postgres
             port: 5432
             protocol: TCP
+      minecraftGateway:
+        namespace: ingress
+        name: minecraft-gateway
+        loadBalancerScheme: internal
+        listeners:
           - name: minecraft
             port: 25565
             protocol: TCP
