@@ -30,6 +30,10 @@ Host proxmox-node4
   HostName 192.168.8.103
   User root
 
+Host svartalfheim
+  HostName 192.168.8.177
+  User oliver
+
 Host yggdrasil
   HostName 192.168.8.132
   User oliver

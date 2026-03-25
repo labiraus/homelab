@@ -56,7 +56,7 @@ pvesm set local --content iso,vztmpl,backup,import,snippets
 Copy the public key to the new node
 
 ```bash
-ssh-copy-id -i ~/.ssh/ssh_user_ca.pub root@192.168.8.X
+ssh-copy-id -o PreferredAuthentications=password -o PubkeyAuthentication=no -o PasswordAuthentication=yes -i ~/.ssh/ssh_user_ca.pub root@192.168.8.X
 ```
 
 ### ProMox
