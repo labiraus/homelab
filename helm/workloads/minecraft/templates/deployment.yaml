@@ -4,15 +4,32 @@ metadata:
   name: minecraft
   namespace: {{ .Values.namespace }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.server.replicas }}
+  strategy:
+    type: Recreate
+    rollingUpdate: null
   selector:
     matchLabels:
       app.kubernetes.io/name: minecraft
   template:
     metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
       labels:
         app.kubernetes.io/name: minecraft
     spec:
+      {{- if .Values.server.scheduling.preferHighPerformanceNode }}
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: node-performance
+                    operator: In
+                    values:
+                      - high
+      {{- end }}
       containers:
         - name: minecraft
           image: "{{ .Values.server.image.repository }}:{{ .Values.server.image.tag }}"
@@ -28,10 +45,28 @@ spec:
               value: {{ .Values.server.type | quote }}
             - name: VERSION
               value: {{ .Values.server.version | quote }}
+            - name: MEMORY
+              value: {{ .Values.server.memory.max | quote }}
+            - name: INIT_MEMORY
+              value: {{ .Values.server.memory.init | quote }}
+            {{- if .Values.server.curseforge.apiKeySecretName }}
+            - name: CF_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.server.curseforge.apiKeySecretName }}
+                  key: {{ .Values.server.curseforge.apiKeySecretKey }}
+            {{- else if hasKey .Values.server.extraEnv "CF_API_KEY" }}
+            - name: CF_API_KEY
+              value: {{ index .Values.server.extraEnv "CF_API_KEY" | quote }}
+            {{- end }}
             {{- range $name, $value := .Values.server.extraEnv }}
+            {{- if ne $name "CF_API_KEY" }}
             - name: {{ $name }}
               value: {{ $value | quote }}
             {{- end }}
+            {{- end }}
+          resources:
+{{ toYaml .Values.server.resources | indent 12 }}
           volumeMounts:
             - name: minecraft-data
               mountPath: /data

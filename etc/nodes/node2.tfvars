@@ -10,9 +10,24 @@ proxmox = {
 
 vm = {
   cpu_cores    = 12
-  memory_mb    = 15032
-  disk_size_gb = 60
+  memory_mb    = 12288
+  disk_size_gb = 120
   ssh_username = "ubuntu"
+  bios         = "ovmf"
+  machine      = "q35"
+  efi_disk = {
+    datastore_id = "local-lvm"
+    type         = "4m"
+  }
+  hostpci_devices = [
+    {
+      device  = "hostpci0"
+      mapping = "intel-igpu"
+      pcie    = true
+      rombar  = true
+      xvga    = false
+    },
+  ]
 }
 
 network = {
@@ -30,7 +45,11 @@ kubeadm_join_command = ""
 
 kubelet_node_labels = {
   "topology.kubernetes.io/zone" = "lab-b"
+  "node-performance"            = "standard"
+  "node-gpu"                    = "passthrough"
+  "node-llm"                    = "none"
+  "node-llm-class"              = "igpu"
+  "node-llm-vram"               = "shared"
 }
 
 kubelet_register_taints = []
-

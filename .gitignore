@@ -26,3 +26,5 @@ k8s/generated-secrets/
 # Devcontainer local config/secrets
 .devcontainer/.env
 .devcontainer/kubeconfig
+
+*.mkv

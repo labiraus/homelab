@@ -75,6 +75,14 @@ Key files:
 - `etc/env/lab.tfvars`
 - `etc/nodes/node*.tfvars`
 
+Important Proxmox token note:
+
+- the Kubernetes worker flow uploads a cloud-init snippet with `proxmox_virtual_environment_file`
+- the node tfvars currently target `snippets_datastore_id = "local"`
+- the Proxmox API token therefore needs datastore permissions on `/storage/local`, including at least `Datastore.Audit` and `Datastore.AllocateSpace`
+- if those permissions are missing, `bin/tf plan kubernetes <node>` can fail before planning completes with a `403` while listing files on the datastore
+- the worker VM boot disk is imported from an Ubuntu cloud image stored on Proxmox as `content_type = "import"` rather than `iso`
+
 ### Kubernetes and Helm
 
 Helm charts in `helm/` define cluster bootstrap, app deployment, data services, observability components, and miscellaneous workloads. The current GitOps flow is Flux-based: charts are packaged as OCI artifacts by GitHub Actions and reconciled in-cluster by Flux from `flux-system`.
@@ -100,7 +108,6 @@ Mounted repo-managed files:
 
 - `.devcontainer/.bashrc` -> `/home/vscode/.bashrc.devcontainer`
 - `.devcontainer/.env` -> `/home/vscode/.env`
-- `.devcontainer/hosts` -> `/etc/hosts`
 - `.devcontainer/ssh/` -> `/home/vscode/.ssh`
 - `.devcontainer/kubeconfig` -> `/home/vscode/.kube/config`
 - `plugin-cache/` -> `/home/vscode/terraform-plugin-cache`
@@ -117,6 +124,8 @@ Included tooling:
 - Node.js 24
 
 Customize the container by editing `.devcontainer/.env`, `.devcontainer/.bashrc`, `.devcontainer/hosts`, and `.devcontainer/ssh/config`, then rebuild or reopen the devcontainer if needed.
+
+On container start, `.devcontainer/scripts/sync-hosts.sh` merges the lab host mappings from `.devcontainer/hosts` into the container `/etc/hosts` and appends the current container hostname. This keeps the tracked repo file stable while keeping the desktop-lite VNC session healthy.
 
 ## Terraform Workflow
 
@@ -151,7 +160,17 @@ The wrapper script:
 7. Generates `components/<component>/cloud.auto.tf`
 8. Runs `terraform init -upgrade`
 9. Runs `terraform <action> -input=false -lock-timeout=5m`
-10. Removes generated `cloud.auto.tf` on exit
+10. Passes through any extra Terraform args only when provided after `--`
+11. Removes generated `cloud.auto.tf` on exit
+
+The wrapper auto-approves `apply` and `destroy` by default. `plan` does not get `-auto-approve`.
+
+If you need to pass additional Terraform flags, append them after `--`:
+
+```bash
+ENV=lab bin/tf apply kubernetes node1 -- -refresh=false
+ENV=lab bin/tf destroy kubernetes node1 -- -target=module.kubernetes_vm
+```
 
 Makefile shortcuts:
 
@@ -166,6 +185,8 @@ Useful helper targets:
 - `make refresh-join-token`
 - `make refresh-postgres-env`
 - `make postgres`
+- `make minio-console-proxy`
+- `make minio-api-proxy`
 
 ## Kubernetes Worker Bootstrap
 
@@ -200,9 +221,15 @@ ansible-playbook -i inventory/hosts.ini playbooks/minio-incluster.yml
 
 Generated Kubernetes Secret manifests are written under `ansible/out/` and can be applied manually.
 
+The in-cluster MinIO tenant is exposed through the internal gateway at `http://minio.labiraus.com`
+for the S3 API and `http://minio-console.labiraus.com` for the console.
+
+If you do not want to add host machine DNS or hosts entries, use `make minio-console-proxy` and open `http://localhost:9001`, or use `make minio-api-proxy` for the API on `http://localhost:9000`.
+If the MinIO tenant is still starting, these targets will report that the service has no ready endpoints yet and print the current MinIO pod status so you can wait for the tenant to finish initializing before retrying.
+
 ## Setup Notes
 
-See `docs/Setup.md` for workstation setup, SSH certificate setup, kubeconfig bootstrapping, and Proxmox host notes.
+See `docs/Setup.md` for workstation setup, SSH certificate setup, kubeconfig bootstrapping, Proxmox host notes, and node classification guidance. For day-two worker changes and recovery after Terraform-driven VM recreation, use [docs/WorkerRedeploy.md](/workspaces/homelab/docs/WorkerRedeploy.md).
 
 ## Security Notes
 

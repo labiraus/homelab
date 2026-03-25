@@ -68,9 +68,18 @@ releases:
         name: internal-gateway
         loadBalancerScheme: internal
         listeners:
+          - name: http
+            port: 80
+            protocol: HTTP
+            hostname: "*.labiraus.com"
           - name: postgres
             port: 5432
             protocol: TCP
+      minecraftGateway:
+        namespace: ingress
+        name: minecraft-gateway
+        loadBalancerScheme: internal
+        listeners:
           - name: minecraft
             port: 25565
             protocol: TCP
@@ -111,6 +120,9 @@ releases:
     values:
       defaultSettings:
         defaultReplicaCount: 2
+        nodeDrainPolicy: block-for-eviction-if-contains-last-replica
+        replicaAutoBalance: least-effort
+        replicaSoftAntiAffinity: false
       persistence:
         defaultClass: true
         defaultClassReplicaCount: 2

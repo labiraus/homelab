@@ -12,6 +12,10 @@ module "kubernetes_vm" {
   vm_cpu_cores    = var.vm.cpu_cores
   vm_memory_mb    = var.vm.memory_mb
   vm_disk_size_gb = var.vm.disk_size_gb
+  vm_bios         = try(var.vm.bios, "seabios")
+  vm_machine      = try(var.vm.machine, null)
+  vm_efi_disk     = try(var.vm.efi_disk, null)
+  hostpci_devices = try(var.vm.hostpci_devices, [])
 
   use_dhcp             = var.network.use_dhcp
   ipv4_address         = try(var.network.ipv4_address, "")

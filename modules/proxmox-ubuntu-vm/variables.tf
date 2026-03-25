@@ -50,6 +50,43 @@ variable "vm_disk_size_gb" {
   type        = number
 }
 
+variable "vm_bios" {
+  description = "VM BIOS type."
+  type        = string
+  default     = "seabios"
+}
+
+variable "vm_machine" {
+  description = "Optional QEMU machine type (for example q35 when using PCIe passthrough)."
+  type        = string
+  default     = null
+}
+
+variable "vm_efi_disk" {
+  description = "Optional OVMF EFI disk settings. Required when vm_bios is ovmf."
+  type = object({
+    datastore_id      = optional(string)
+    type              = optional(string, "4m")
+    pre_enrolled_keys = optional(bool, false)
+  })
+  default = null
+}
+
+variable "hostpci_devices" {
+  description = "Optional host PCI devices to pass through to the VM. Prefer cluster resource mappings when using the API token provider flow."
+  type = list(object({
+    device   = string
+    mapping  = optional(string)
+    id       = optional(string)
+    mdev     = optional(string)
+    pcie     = optional(bool, true)
+    rombar   = optional(bool, true)
+    rom_file = optional(string)
+    xvga     = optional(bool, false)
+  }))
+  default = []
+}
+
 variable "ubuntu_image_url" {
   description = "Ubuntu cloud image URL."
   type        = string

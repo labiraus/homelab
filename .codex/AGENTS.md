@@ -8,6 +8,7 @@ These files are reference docs, not a replacement for the root or directory-leve
 
 - `REPO_MAP.md`: where things are and where to start by task
 - `REPO_PLAN.md`: target state, current priorities, and known gaps
+- `MINECRAFT_TROUBLESHOOTING.md`: Codex memory for recurring Minecraft-specific failures and fixes
 
 ## Usage
 

@@ -1,8 +1,5 @@
-127.0.0.1 localhost
-::1 localhost ip6-localhost ip6-loopback
 192.168.8.229 proxmox-node1
 192.168.8.133 proxmox-node2
-192.168.8.XXX proxmox-node3
 192.168.8.103 proxmox-node4
 192.168.8.177 svartalfheim
 
@@ -12,3 +9,6 @@
 192.168.8.123 helheim
 192.168.8.124 niflheim
 192.168.8.125 muspelheim
+
+192.168.8.241 minio.labiraus.com
+192.168.8.241 minio-console.labiraus.com

@@ -122,3 +122,117 @@ Verify:
 kubectl -n flux-system get helmrelease <release-name> -o jsonpath='{.status.lastAttemptedRevision}{"\n"}'
 flux get helmrelease <release-name> -n flux-system
 ```
+
+### Helm upgrade fails after switching a workload to `Recreate`
+
+Use this when a `HelmRelease` starts failing with an error like `spec.strategy.rollingUpdate: Forbidden` after a chart changes a Deployment from `RollingUpdate` to `Recreate`.
+
+Detect:
+
+```bash
+kubectl describe helmrelease -n flux-system <release-name>
+kubectl get deployment -n <workload-namespace> <deployment-name> -o yaml
+```
+
+Common signs:
+
+- Helm reports `Deployment.apps "<name>" is invalid: spec.strategy.rollingUpdate: Forbidden: may not be specified when strategy type is 'Recreate'`.
+- The live Deployment still shows `strategy.type: RollingUpdate` with a populated `rollingUpdate` block.
+- Other resources from the same release can be missing because the upgrade never completed, for example a PVC that the pods need to schedule.
+
+Recovery:
+
+```bash
+# In the chart, explicitly clear rollingUpdate when using Recreate
+strategy:
+  type: Recreate
+  rollingUpdate: null
+
+# Then publish the chart and let Flux retry, or reconcile manually
+flux reconcile source oci <release-name> -n flux-system --timeout=3m
+flux reconcile helmrelease <release-name> -n flux-system --with-source --timeout=10m
+```
+
+### Longhorn PVC stuck `Pending` for new workloads
+
+Use this when a new workload never installs and the `HelmRelease` times out waiting on a `Deployment`, while its PVC stays `Pending`.
+
+Detect:
+
+```bash
+# 1) Check the blocked release
+kubectl describe helmrelease -n flux-system <release-name>
+
+# 2) Check the workload namespace
+kubectl get deploy,pod,pvc -n <workload-namespace>
+kubectl describe pvc -n <workload-namespace> <claim-name>
+
+# 3) Check Longhorn node schedulability
+kubectl get nodes.longhorn.io -n longhorn-system -o yaml
+kubectl get settings.longhorn.io -n longhorn-system \
+  storage-over-provisioning-percentage \
+  storage-minimal-available-percentage \
+  default-replica-count -o yaml
+```
+
+Common sign:
+
+- Longhorn node disk status shows `type: Schedulable` with `status: "False"` and `reason: DiskPressure`, even though `storageAvailable` is still non-zero. In that state, new PVCs can remain `Pending` with no useful PVC events.
+- After worker VM redeploys, Longhorn node disks can instead show `reason: DiskFilesystemChanged` with messages like `record diskUUID doesn't match the one on the disk`, plus `storageAvailable: 0` and `storageMaximum: 0`. In that state, new PVCs also remain `Pending` because Longhorn no longer trusts the rebuilt VM's `/var/lib/longhorn` disk identity.
+
+Recovery:
+
+```bash
+# Raise the over-provisioning threshold enough for the next volume to schedule
+kubectl patch settings.longhorn.io -n longhorn-system \
+  storage-over-provisioning-percentage \
+  --type=merge \
+  -p '{"value":"135"}'
+
+# Then let Flux retry, or reconcile manually
+flux reconcile helmrelease <release-name> -n flux-system --with-source --timeout=10m
+```
+
+If the failure mode is `DiskFilesystemChanged` after worker redeploys:
+
+```bash
+# 1) Compare the disk UUID Longhorn expects with the rebuilt node's local file
+kubectl get nodes.longhorn.io -n longhorn-system <node-name> -o yaml
+ssh -o StrictHostKeyChecking=no <node-name> 'sudo cat /var/lib/longhorn/longhorn-disk.cfg'
+
+# 2) If the rebuilt VM generated a new UUID, restore the UUID Longhorn already knows
+#    in /var/lib/longhorn/longhorn-disk.cfg on that node, then restart longhorn-manager
+kubectl delete pod -n longhorn-system -l app=longhorn-manager
+
+# 3) Re-check Longhorn disk readiness and recreate any brand-new faulted PVC/volume if needed
+kubectl get nodes.longhorn.io -n longhorn-system -o yaml
+kubectl get volumes.longhorn.io -n longhorn-system
+```
+
+Repo note:
+
+- Keep `helm/bootstrap/flux-bootstrap/values.yaml` aligned with the live Longhorn setting so Flux does not drift the storage threshold back on the next bootstrap upgrade.
+- Treat `DiskFilesystemChanged` as a likely post-redeploy VM identity problem before treating it as generic storage exhaustion. In this repo, the March 22, 2026 worker redeploys regenerated `/var/lib/longhorn/longhorn-disk.cfg` with new `diskUUID` values and made Longhorn reject the rebuilt node disks until the expected UUIDs were restored.
+
+### Worker GPU passthrough current state
+
+After the recent worker rebuilds, all three Kubernetes worker guests can now see a passed-through Intel iGPU in `lspci`:
+
+- `jotunheim`: Alder Lake Iris Xe `[8086:46a8]`
+- `alfheim`: Alder Lake Iris Xe `[8086:46a8]`
+- `niflheim`: Tiger Lake Iris Xe `[8086:9a49]`
+
+But all three currently expose only `/dev/dri/card0` and do not expose a render node such as `/dev/dri/renderD128`. Treat that as:
+
+- `node-gpu=passthrough`
+- `node-llm=none`
+- `node-llm-class=igpu`
+- `node-llm-vram=shared`
+
+Operationally, that means PCI passthrough is working, but the guests are not yet ready for LLM workloads that need a usable compute/render device.
+
+For future discrete GPUs, use the relative labels to steer inference workloads:
+
+- `node-llm-class=consumer-gpu` for GeForce-class cards
+- `node-llm-class=high-vram-gpu` for cards that should be preferred for larger models
+- `node-llm-vram=<tier>` such as `12gb`, `16gb`, `24gb`, or `48gb`

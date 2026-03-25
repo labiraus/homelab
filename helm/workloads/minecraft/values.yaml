@@ -1,26 +1,57 @@
 namespace: minecraft
 server:
+  replicas: 1
+  scheduling:
+    preferHighPerformanceNode: true
+  memory:
+    max: 10G
+    init: 2G
+  resources:
+    requests:
+      cpu: "4"
+      memory: 12Gi
   image:
     repository: itzg/minecraft-server
     tag: java21
     pullPolicy: IfNotPresent
   port: 25565
   eula: "TRUE"
-  type: FORGE
-  version: "1.20.1"
+  type: NEOFORGE
+  version: "1.21.1"
+  curseforge:
+    apiKeySecretName: minecraft-curseforge
+    apiKeySecretKey: cf-api-key
   extraEnv:
+    MOD_PLATFORM: AUTO_CURSEFORGE
     CF_API_KEY: ""
-    CURSEFORGE_FILES: ""
-    CF_PAGE_URL: "https://www.curseforge.com/minecraft/modpacks/all-the-mods-10-sky"
+    CF_SLUG: all-the-mods-10-sky
+
 persistence:
   claimName: minecraft-minecraft
   storageClass: longhorn
   size: 10Gi
 service:
   name: minecraft
+debug:
+  deploymentName: mc-debug-ftp
+  serviceName: mc-debug-ftp
+  replicas: 0
+  image:
+    repository: fauria/vsftpd
+    tag: latest
+    pullPolicy: IfNotPresent
+  ftp:
+    user: minecraft
+    authSecretName: mc-debug-ftp-auth
+    passwordSecretKey: ftp-pass
+    userSecretKey: ftp-user
+    port: 21
+    passiveAddress: 127.0.0.1
+    passiveMinPort: 21100
+    passiveMaxPort: 21105
 route:
   enabled: true
-  gatewayName: internal-gateway
+  gatewayName: minecraft-gateway
   gatewayNamespace: ingress
   sectionName: minecraft
 backup:
