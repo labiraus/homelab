@@ -1,15 +1,17 @@
-# Ansible MinIO State Management
+# Ansible External Storage Host Management
 
-This directory manages MinIO/S3 service state out-of-band from Kubernetes:
+This directory manages external storage-host services out-of-band from Kubernetes:
 
+- MinIO server bootstrap on `svartalfheim`
 - buckets
 - users/access keys
 - policies
 - lifecycle rules
 - optional replication/mirroring skeleton
-- external Raspberry Pi MinIO service bootstrap
+- Samba network sharing for the attached `svartalfheim` hard drive
 
-Kubernetes remains Helm/Flux-managed. MinIO state is Ansible-managed.
+Kubernetes remains Helm/Flux-managed. Storage-host services are Ansible-managed.
+The authoritative MinIO service and attached-drive network share for this repo both live on the external Raspberry Pi host `svartalfheim`.
 
 ## Prerequisites
 
@@ -26,8 +28,7 @@ ansible-galaxy collection install amazon.aws
 
 ## Inventory and targets
 
-- In-cluster target group: `minio_incluster`
-- External Pi target group: `minio_external_pi`
+- External Pi API-management group: `minio_external_pi`
 - External Pi host bootstrap group: `minio_external_pi_host`
 
 The API-management groups default to `localhost` because those playbooks run from your laptop/CI/management node and call MinIO APIs.
@@ -36,12 +37,9 @@ The external host bootstrap group connects to the Pi over SSH and installs the M
 
 ## Secure credentials
 
-Set admin credentials for target endpoint:
+Set admin credentials for the `svartalfheim` MinIO endpoint:
 
 ```bash
-export MINIO_INCLUSTER_ADMIN_ACCESS_KEY='...'
-export MINIO_INCLUSTER_ADMIN_SECRET_KEY='...'
-
 export MINIO_EXTERNAL_ADMIN_ACCESS_KEY='...'
 export MINIO_EXTERNAL_ADMIN_SECRET_KEY='...'
 ```
@@ -61,36 +59,37 @@ export MINIO_SITE1_UPLOADER_ACCESS_KEY='...'
 export MINIO_SITE1_UPLOADER_SECRET_KEY='...'
 ```
 
+Set the Samba password for the `oliver` network-share account:
+
+```bash
+export SVARTALFHEIM_SAMBA_PASSWORD='...'
+```
+
 Use Ansible Vault or CI secret store for production automation.
 
 ## Run playbooks
 
-Bootstrap the external Raspberry Pi host:
+Bootstrap the external Raspberry Pi host services:
 
 ```bash
 cd ansible
 ansible-playbook -i inventory/hosts.ini playbooks/minio-external-pi-host.yml
 ```
 
-This installs the MinIO binary from `https://dl.min.io/server/minio/release/linux-arm64/minio`, creates a `systemd` service, and stores objects under `/srv/minio/minio-data` by default.
+This installs the MinIO binary from `https://dl.min.io/server/minio/release/linux-arm64/minio`, creates a `systemd` service, stores objects under `/srv/minio/minio-data` by default, installs Samba, and exposes the attached drive as the `storage` share backed by `/srv/minio`.
 
-On `svartalfheim`, the service currently runs as user `oliver` because the attached NTFS disk is mounted with ownership mapped to that account. If the disk is later migrated to a Linux-native filesystem, consider switching to a dedicated `minio` service user.
+On `svartalfheim`, both MinIO and the Samba share currently run through user `oliver` because the attached NTFS disk is mounted with ownership mapped to that account. If the disk is later migrated to a Linux-native filesystem, consider switching MinIO and file-sharing ownership to dedicated service users.
 
-In-cluster MinIO:
-
-```bash
-cd ansible
-ansible-playbook -i inventory/hosts.ini playbooks/minio-incluster.yml
-```
-
-External Pi MinIO placeholder:
+Apply MinIO buckets, policies, users, and lifecycle rules against `svartalfheim`:
 
 ```bash
 cd ansible
 ansible-playbook -i inventory/hosts.ini playbooks/minio-external-pi.yml
 ```
 
-The external Pi API endpoint currently defaults to `http://svartalfheim:9000`. Override `minio_external_endpoint` when DNS or TLS is introduced.
+The external Pi API endpoint defaults to `http://svartalfheim:9000`. Override `minio_external_endpoint` when DNS or TLS is introduced.
+
+The attached hard drive is currently mounted from NTFS partition UUID `C2629529629522E9` at `/srv/minio`. The Samba share intentionally exposes `/srv/minio` while hiding `/srv/minio/minio-data` from normal share access so object-storage internals do not show up in the file share.
 
 ## Expected managed state
 
@@ -99,6 +98,7 @@ Buckets:
 - `velero`
 - `cnpg-backups`
 - `minecraft-backups`
+- `documents`
 - `static-sites-site1`
 
 Policies:
@@ -148,6 +148,6 @@ kubectl apply -f ansible/out/k8s-secrets/
 
 - default: `enabled=false`
 - optional dry run: `dry_run=true`
-- source/target aliases support in-cluster -> external PI scenarios
+- source/target aliases support external-to-external mirroring scenarios when a second target is introduced
 
 Enable via `group_vars` override when ready.

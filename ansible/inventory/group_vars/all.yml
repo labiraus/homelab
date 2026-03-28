@@ -1,14 +1,8 @@
 base_domain: labiraus.com
 
-minio_incluster_endpoint: "https://minio.{{ base_domain }}"
-minio_external_endpoint: "https://minio-pi.{{ base_domain }}"
+minio_external_endpoint: "http://svartalfheim:9000"
 
 minio_targets:
-  minio_incluster:
-    alias: minio_incluster
-    endpoint: "{{ minio_incluster_endpoint }}"
-    access_key_env: MINIO_INCLUSTER_ADMIN_ACCESS_KEY
-    secret_key_env: MINIO_INCLUSTER_ADMIN_SECRET_KEY
   minio_external:
     alias: minio_external
     endpoint: "{{ minio_external_endpoint }}"
@@ -36,6 +30,8 @@ minio_buckets:
     lifecycle_days: 90
   - name: minecraft-backups
     lifecycle_days: 30
+  - name: documents
+    lifecycle_days: 0
   - name: static-sites-site1
     lifecycle_days: 0
 
@@ -141,7 +137,7 @@ minio_users:
 
 minio_replication:
   enabled: false
-  source_alias: minio_incluster
+  source_alias: minio_external
   target_alias: minio_external
   mode: mirror
   dry_run: true

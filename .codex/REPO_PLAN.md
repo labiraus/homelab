@@ -13,7 +13,7 @@ This repo already includes:
 - a Python API (apps/pythonapi)
 - Helm charts for apps/data/observability and shared chart templates
 - Postgres via CNPG, with the vector extension enabled at bootstrap
-- MinIO as an object store with state intentionally managed via Ansible outside Kubernetes manifests
+- MinIO as an object store hosted on `svartalfheim`, with state intentionally managed via Ansible outside Kubernetes manifests
 
 Goal: add a new RAG slice (ragapi + ingestion/indexing) while preserving the existing example UI + APIs.
 
@@ -23,7 +23,7 @@ The repo should converge on a clean homelab platform with:
 
 - Terraform responsible for provisioning and lifecycle of Kubernetes-capable infrastructure
 - Helm + reconciliation (Flux preferred) responsible for cluster bootstrap and steady-state application deployment
-- Ansible responsible only for MinIO service state intentionally managed outside Kubernetes manifests
+- Ansible responsible for external storage-host services on `svartalfheim`, including MinIO service state intentionally managed outside Kubernetes manifests
 - Small example and utility applications deployable through the same delivery path as platform workloads
 - A RAG system that can ingest documents, build embeddings, perform retrieval, and generate answers via an LLM
 - Operator workflows safe to run from the devcontainer with minimal host-specific setup

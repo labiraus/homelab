@@ -1,0 +1,57 @@
+---
+- name: Load Samba share password from environment
+  ansible.builtin.set_fact:
+    samba_share_password: "{{ lookup('ansible.builtin.env', samba_share_password_env) }}"
+
+- name: Validate Samba share password is present
+  ansible.builtin.assert:
+    that:
+      - samba_share_guest_ok | bool or samba_share_password | length > 0
+    fail_msg: >-
+      Missing Samba share password in env var {{ samba_share_password_env }}.
+
+- name: Install Samba packages
+  ansible.builtin.package:
+    name: "{{ samba_packages }}"
+    state: present
+  become: true
+
+- name: Ensure Samba share path exists
+  ansible.builtin.file:
+    path: "{{ samba_share_path }}"
+    state: directory
+  become: true
+
+- name: Install Samba configuration
+  ansible.builtin.template:
+    src: smb.conf.j2
+    dest: /etc/samba/smb.conf
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: Restart Samba
+
+- name: Ensure Samba password exists for share user
+  ansible.builtin.shell: |
+    set -eu
+    if pdbedit -L -u {{ samba_share_user | quote }} >/dev/null 2>&1; then
+      printf '%s\n%s\n' "$SAMBA_PASSWORD" "$SAMBA_PASSWORD" | smbpasswd -s {{ samba_share_user | quote }}
+    else
+      printf '%s\n%s\n' "$SAMBA_PASSWORD" "$SAMBA_PASSWORD" | smbpasswd -s -a {{ samba_share_user | quote }}
+    fi
+  args:
+    executable: /bin/bash
+  environment:
+    SAMBA_PASSWORD: "{{ samba_share_password }}"
+  become: true
+  when: not (samba_share_guest_ok | bool)
+  changed_when: true
+
+- name: Ensure Samba service is enabled and started
+  ansible.builtin.systemd_service:
+    name: "{{ samba_service_name }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  become: true

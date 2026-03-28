@@ -5,7 +5,7 @@ This repository combines four related areas:
 - Terraform for provisioning Kubernetes worker VMs on Proxmox
 - Helm charts for cluster bootstrap and workloads
 - Small application services used inside the cluster
-- Ansible for MinIO service state that is managed outside Kubernetes manifests
+- Ansible for external storage-host services on `svartalfheim`, including MinIO and a network share
 
 ## Repo Guidance For Humans And Agents
 
@@ -32,7 +32,7 @@ Use the nearest relevant `AGENTS.md` for local conventions, and update it when a
 ├── .codex/                 # Codex reference docs: repo map and repo plan
 ├── .devcontainer/          # Preferred local operator environment
 ├── .github/workflows/      # CI for apps and Helm charts
-├── ansible/                # MinIO buckets/users/policies management
+├── ansible/                # `svartalfheim` host services: MinIO, buckets/users/policies, network share
 ├── apps/
 │   ├── goapi/              # Go HTTP service
 │   ├── pythonapi/          # Python Flask HTTP service
@@ -98,7 +98,7 @@ The app stack under `apps/` is intentionally small:
 
 ### Ansible
 
-`ansible/` manages MinIO state such as buckets, users, policies, lifecycle rules, and optional replication. Kubernetes remains Helm-managed; MinIO service state is handled separately.
+`ansible/` manages `svartalfheim` host services such as the MinIO server, MinIO state, and the attached-drive Samba share. Kubernetes remains Helm-managed; external storage-host service state is handled separately.
 
 ## Devcontainer
 
@@ -116,6 +116,7 @@ Included tooling:
 
 - Docker outside Docker
 - Terraform
+- Ansible
 - Flux
 - kubectl and Helm
 - k9s
@@ -185,8 +186,6 @@ Useful helper targets:
 - `make refresh-join-token`
 - `make refresh-postgres-env`
 - `make postgres`
-- `make minio-console-proxy`
-- `make minio-api-proxy`
 
 ## Kubernetes Worker Bootstrap
 
@@ -212,20 +211,17 @@ Important note: some workflow files may lag behind the runtime choices in the re
 
 ## Ansible Workflow
 
-Run playbooks from `ansible/` to manage MinIO state:
+Run playbooks from `ansible/` to manage `svartalfheim` host services and MinIO state:
 
 ```bash
 cd ansible
-ansible-playbook -i inventory/hosts.ini playbooks/minio-incluster.yml
+ansible-playbook -i inventory/hosts.ini playbooks/minio-external-pi-host.yml
+ansible-playbook -i inventory/hosts.ini playbooks/minio-external-pi.yml
 ```
 
 Generated Kubernetes Secret manifests are written under `ansible/out/` and can be applied manually.
 
-The in-cluster MinIO tenant is exposed through the internal gateway at `http://minio.labiraus.com`
-for the S3 API and `http://minio-console.labiraus.com` for the console.
-
-If you do not want to add host machine DNS or hosts entries, use `make minio-console-proxy` and open `http://localhost:9001`, or use `make minio-api-proxy` for the API on `http://localhost:9000`.
-If the MinIO tenant is still starting, these targets will report that the service has no ready endpoints yet and print the current MinIO pod status so you can wait for the tenant to finish initializing before retrying.
+The authoritative MinIO endpoint is the external Raspberry Pi `svartalfheim` on `http://svartalfheim:9000`. Its attached NTFS drive is mounted at `/srv/minio` and is also exported as the `storage` Samba share. Bucket, user, policy, and host-share changes should go through the Ansible playbooks rather than cluster manifests.
 
 ## Setup Notes
 

@@ -1,0 +1,21 @@
+samba_packages:
+  - samba
+
+samba_service_name: smbd
+samba_workgroup: WORKGROUP
+samba_server_string: svartalfheim file share
+
+samba_share_name: storage
+samba_share_path: /srv/minio
+samba_share_user: oliver
+samba_share_group: oliver
+samba_share_password_env: SVARTALFHEIM_SAMBA_PASSWORD
+samba_share_browseable: true
+samba_share_read_only: false
+samba_share_guest_ok: false
+samba_share_create_mask: "0664"
+samba_share_directory_mask: "0775"
+samba_share_force_user: "{{ samba_share_user }}"
+samba_share_force_group: "{{ samba_share_group }}"
+samba_share_veto_files:
+  - /minio-data/

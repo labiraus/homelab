@@ -10,7 +10,7 @@ cluster:
   owner: app
 backup:
   destinationPath: s3://cnpg-backups/app-db
-  endpointURL: https://minio.minio.svc.cluster.local:9000
+  endpointURL: http://svartalfheim:9000
   credentialsSecret: cnpg-backup-s3
 networkPolicy:
   enabled: true

@@ -22,20 +22,6 @@ releases:
         chart: strimzi-kafka-operator
         targetNamespace: kafka
 
-  - name: minio
-    type: oci
-    dependsOn:
-      - gateway
-    dependencies:
-      - name: minio-operator
-        type: helm
-        interval: 1h
-        repository:
-          name: minio-operator
-          url: https://operator.min.io/
-        chart: operator
-        targetNamespace: minio-operator
-
   - name: mongo
     type: oci
     dependencies:

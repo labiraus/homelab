@@ -1,6 +1,7 @@
 ---
-- name: Install and configure MinIO service on external Raspberry Pi host
+- name: Install and configure svartalfheim host services
   hosts: minio_external_pi_host
   gather_facts: false
   roles:
     - role: minio_server
+    - role: samba_share

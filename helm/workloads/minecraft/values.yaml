@@ -58,6 +58,6 @@ backup:
   schedule: "0 */6 * * *"
   suspend: false
   pvcName: minecraft-minecraft
-  minioEndpoint: https://minio.minio.svc.cluster.local:9000
+  minioEndpoint: http://svartalfheim:9000
   minioBucket: minecraft-backups
   minioSecretName: minecraft-backup-minio

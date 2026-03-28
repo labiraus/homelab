@@ -101,6 +101,10 @@ Current behavior note:
 - Playbooks: `ansible/playbooks/`
 - Roles: `ansible/roles/`
 
+Current behavior note:
+
+- The repo treats the external Raspberry Pi `svartalfheim` as the authoritative MinIO service and attached-drive file-share host; Helm no longer deploys an in-cluster MinIO tenant.
+
 ### CI and Release Behavior
 
 - App workflows: `.github/workflows/app-*.yml`

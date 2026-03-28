@@ -8,10 +8,13 @@ Use this file for durable setup notes about Raspberry Pi hosts when the repo doe
 - Address: `192.168.8.177`
 - Hardware note: Raspberry Pi with an attached `8 TB` hard drive
 - Disk note: existing data disk is mounted from NTFS partition UUID `C2629529629522E9`
-- Current mount intent: media and storage are currently being attached under `/srv/minio`
+- Current mount reality: the attached NTFS disk is mounted at `/srv/minio`
+- Current mount contents note: the disk currently contains existing media files directly under `/srv/minio`
 - Current workload note: Plex is being installed to serve video content already present on the attached drive
 - Intended role: planned Proxmox host
 - Intended storage role: planned MinIO host
 - Management note: MinIO on this host should be managed with the repo's Ansible workflow
-- Bootstrap note: repo now includes an Ansible external-host playbook that installs MinIO on `svartalfheim` and stores object data under `/srv/minio/minio-data`
+- Management note: the attached drive should also be managed as a Samba network share from the repo Ansible workflow
+- Bootstrap note: repo now includes an Ansible external-host playbook that installs MinIO on `svartalfheim`, stores object data under `/srv/minio/minio-data`, and exports `/srv/minio` as a Samba share named `storage`
 - Bootstrap note: this machine was recently set up and initially needed password-based SSH for first access
+- Reality check note: as of 2026-03-28, `svartalfheim` did not yet have `minio.service` or `smbd.service` installed before repo-driven bootstrap

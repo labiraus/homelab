@@ -18,6 +18,7 @@ RUN apt-get update \
     unzip \
     bash-completion \
     ripgrep \
+    ansible \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 

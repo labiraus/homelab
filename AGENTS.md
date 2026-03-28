@@ -28,6 +28,7 @@ Directory-level `AGENTS.md` files currently exist for:
 - When changing behavior, config, workflows, or layout, update the relevant human docs in the same task.
 - Do not commit real secrets, kubeconfig material, private keys, or local-only environment files.
 - Prefer repo-native workflows before inventing new ones.
+- Treat MinIO as an external service hosted on the Raspberry Pi `svartalfheim`; do not reintroduce an in-cluster MinIO deployment unless repo guidance is explicitly updated.
 - When a session reveals durable setup facts about Raspberry Pi hosts that do not yet have dedicated repo code, record them in `.codex/PI_NOTES.md`.
 
 For Postgres troubleshooting in this repo, prefer the devcontainer `psql` workflow over `kubectl exec` into the database pod:

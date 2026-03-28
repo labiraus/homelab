@@ -14,6 +14,7 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 - Prefer reusable templates and consistent values structure over copy-pasted chart logic.
 - When changing chart inputs or outputs, update values files, templates, and operator docs together.
 - Treat Flux-facing bootstrap charts as part of the delivery contract; avoid one-off behavior that breaks repository or secret conventions.
+- Do not add MinIO back under `helm/` unless the repo-wide MinIO hosting decision is explicitly changed; the current source of truth is the external service on `svartalfheim`.
 - Keep secret handling indirect where possible: reference existing secrets or generated values rather than committing literal credentials.
 - Treat git push as the deployment trigger for charts in normal operation. Chart build and publication are performed by `.github/workflows/helm-all.yml`, and Flux deploys from the published OCI artifacts rather than from local chart files.
 - For app-backed charts, remember that container publication and chart publication move together. The app workflows publish a new container image and then publish the corresponding chart with the matching app version, so image and chart changes should stay aligned.

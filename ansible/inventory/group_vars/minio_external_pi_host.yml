@@ -4,3 +4,11 @@ minio_service_group: oliver
 minio_manage_data_dir_permissions: false
 minio_data_dirs:
   - /srv/minio/minio-data
+
+samba_share_name: storage
+samba_share_path: /srv/minio
+samba_share_user: oliver
+samba_share_group: oliver
+samba_share_force_user: oliver
+samba_share_force_group: oliver
+samba_share_password_env: SVARTALFHEIM_SAMBA_PASSWORD

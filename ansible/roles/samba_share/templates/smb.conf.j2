@@ -1,0 +1,25 @@
+[global]
+   workgroup = {{ samba_workgroup }}
+   server string = {{ samba_server_string }}
+   security = user
+   map to guest = Bad User
+   server min protocol = SMB2
+   load printers = no
+   printing = bsd
+   disable spoolss = yes
+   log file = /var/log/samba/log.%m
+   max log size = 1000
+
+[{{ samba_share_name }}]
+   path = {{ samba_share_path }}
+   browseable = {{ 'yes' if samba_share_browseable else 'no' }}
+   read only = {{ 'yes' if samba_share_read_only else 'no' }}
+   guest ok = {{ 'yes' if samba_share_guest_ok else 'no' }}
+   valid users = {{ samba_share_user }}
+   force user = {{ samba_share_force_user }}
+   force group = {{ samba_share_force_group }}
+   create mask = {{ samba_share_create_mask }}
+   directory mask = {{ samba_share_directory_mask }}
+{% if samba_share_veto_files | length > 0 %}
+   veto files = {{ samba_share_veto_files | join(' ') }}
+{% endif %}
