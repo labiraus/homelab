@@ -1,0 +1,6 @@
+minio_manage_service_user: false
+minio_service_user: oliver
+minio_service_group: oliver
+minio_manage_data_dir_permissions: false
+minio_data_dirs:
+  - /srv/minio/minio-data

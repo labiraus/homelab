@@ -1,0 +1,100 @@
+---
+- name: Load MinIO root credentials from environment
+  ansible.builtin.set_fact:
+    minio_root_user: "{{ lookup('ansible.builtin.env', minio_root_user_env) }}"
+    minio_root_password: "{{ lookup('ansible.builtin.env', minio_root_password_env) }}"
+
+- name: Validate MinIO root credentials are present
+  ansible.builtin.assert:
+    that:
+      - minio_root_user | length > 0
+      - minio_root_password | length > 0
+    fail_msg: >-
+      Missing MinIO root credentials in env vars {{ minio_root_user_env }} and/or
+      {{ minio_root_password_env }}.
+
+- name: Ensure MinIO service group exists when managed by Ansible
+  ansible.builtin.group:
+    name: "{{ minio_service_group }}"
+    system: true
+  when: minio_manage_service_user | bool
+  become: true
+
+- name: Ensure MinIO service user exists when managed by Ansible
+  ansible.builtin.user:
+    name: "{{ minio_service_user }}"
+    group: "{{ minio_service_group }}"
+    home: "{{ minio_service_home }}"
+    create_home: false
+    shell: /usr/sbin/nologin
+    system: true
+  when: minio_manage_service_user | bool
+  become: true
+
+- name: Ensure MinIO service home exists
+  ansible.builtin.file:
+    path: "{{ minio_service_home }}"
+    state: directory
+    owner: "{{ minio_service_user }}"
+    group: "{{ minio_service_group }}"
+    mode: "0755"
+  become: true
+
+- name: Ensure MinIO data directories exist with managed ownership
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ minio_service_user }}"
+    group: "{{ minio_service_group }}"
+    mode: "0755"
+  loop: "{{ minio_data_dirs }}"
+  when: minio_manage_data_dir_permissions | bool
+  become: true
+
+- name: Ensure MinIO data directories exist without ownership changes
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+  loop: "{{ minio_data_dirs }}"
+  when: not (minio_manage_data_dir_permissions | bool)
+  become: true
+
+- name: Download MinIO server binary
+  ansible.builtin.get_url:
+    url: "{{ minio_binary_url }}"
+    dest: "{{ minio_binary_path }}"
+    mode: "0755"
+    owner: root
+    group: root
+  become: true
+  notify: Restart MinIO
+
+- name: Install MinIO environment file
+  ansible.builtin.template:
+    src: minio.default.j2
+    dest: "{{ minio_env_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+  become: true
+  notify: Restart MinIO
+
+- name: Install MinIO systemd unit
+  ansible.builtin.template:
+    src: minio.service.j2
+    dest: "/etc/systemd/system/{{ minio_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify:
+    - Reload systemd
+    - Restart MinIO
+
+- name: Ensure MinIO service is enabled and started
+  ansible.builtin.systemd_service:
+    name: "{{ minio_service_name }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  become: true

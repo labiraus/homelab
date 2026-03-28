@@ -12,6 +12,7 @@ Use the `.codex` docs as reference context:
 
 - `.codex/REPO_MAP.md`: fast navigation map for the codebase
 - `.codex/REPO_PLAN.md`: current target state, priorities, and active gaps
+- `.codex/PI_NOTES.md`: durable setup notes for Raspberry Pi hosts that do not yet have dedicated repo code
 
 Directory-level `AGENTS.md` files currently exist for:
 
@@ -27,6 +28,7 @@ Directory-level `AGENTS.md` files currently exist for:
 - When changing behavior, config, workflows, or layout, update the relevant human docs in the same task.
 - Do not commit real secrets, kubeconfig material, private keys, or local-only environment files.
 - Prefer repo-native workflows before inventing new ones.
+- When a session reveals durable setup facts about Raspberry Pi hosts that do not yet have dedicated repo code, record them in `.codex/PI_NOTES.md`.
 
 For Postgres troubleshooting in this repo, prefer the devcontainer `psql` workflow over `kubectl exec` into the database pod:
 

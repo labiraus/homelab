@@ -1,5 +1,5 @@
 ---
-- name: Configure external MinIO on Raspberry Pi (placeholder)
+- name: Configure external MinIO service state on Raspberry Pi
   hosts: minio_external_pi
   gather_facts: false
   roles:

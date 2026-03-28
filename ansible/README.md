@@ -7,6 +7,7 @@ This directory manages MinIO/S3 service state out-of-band from Kubernetes:
 - policies
 - lifecycle rules
 - optional replication/mirroring skeleton
+- external Raspberry Pi MinIO service bootstrap
 
 Kubernetes remains Helm/Flux-managed. MinIO state is Ansible-managed.
 
@@ -15,6 +16,7 @@ Kubernetes remains Helm/Flux-managed. MinIO state is Ansible-managed.
 - `ansible-core` 2.15+
 - MinIO client `mc` on the machine running playbooks
 - Optional: `amazon.aws` collection for future S3 module adoption
+- SSH access with sudo for external host bootstrap playbooks
 
 Install collection (optional):
 
@@ -26,8 +28,11 @@ ansible-galaxy collection install amazon.aws
 
 - In-cluster target group: `minio_incluster`
 - External Pi target group: `minio_external_pi`
+- External Pi host bootstrap group: `minio_external_pi_host`
 
-Both groups default to `localhost` because playbooks run from your laptop/CI/management node and call MinIO APIs.
+The API-management groups default to `localhost` because those playbooks run from your laptop/CI/management node and call MinIO APIs.
+
+The external host bootstrap group connects to the Pi over SSH and installs the MinIO server binary plus a `systemd` service.
 
 ## Secure credentials
 
@@ -40,6 +45,8 @@ export MINIO_INCLUSTER_ADMIN_SECRET_KEY='...'
 export MINIO_EXTERNAL_ADMIN_ACCESS_KEY='...'
 export MINIO_EXTERNAL_ADMIN_SECRET_KEY='...'
 ```
+
+For the external Pi bootstrap playbook, these same environment variables are used as the MinIO root credentials written into the service environment file on the host.
 
 Set managed user credentials (do not commit):
 
@@ -58,6 +65,17 @@ Use Ansible Vault or CI secret store for production automation.
 
 ## Run playbooks
 
+Bootstrap the external Raspberry Pi host:
+
+```bash
+cd ansible
+ansible-playbook -i inventory/hosts.ini playbooks/minio-external-pi-host.yml
+```
+
+This installs the MinIO binary from `https://dl.min.io/server/minio/release/linux-arm64/minio`, creates a `systemd` service, and stores objects under `/srv/minio/minio-data` by default.
+
+On `svartalfheim`, the service currently runs as user `oliver` because the attached NTFS disk is mounted with ownership mapped to that account. If the disk is later migrated to a Linux-native filesystem, consider switching to a dedicated `minio` service user.
+
 In-cluster MinIO:
 
 ```bash
@@ -71,6 +89,8 @@ External Pi MinIO placeholder:
 cd ansible
 ansible-playbook -i inventory/hosts.ini playbooks/minio-external-pi.yml
 ```
+
+The external Pi API endpoint currently defaults to `http://svartalfheim:9000`. Override `minio_external_endpoint` when DNS or TLS is introduced.
 
 ## Expected managed state
 

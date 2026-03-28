@@ -1,0 +1,16 @@
+minio_binary_url: https://dl.min.io/server/minio/release/linux-arm64/minio
+minio_binary_path: /usr/local/bin/minio
+minio_service_name: minio
+minio_service_user: minio
+minio_service_group: minio
+minio_manage_service_user: true
+minio_service_home: /var/lib/minio
+minio_env_file: /etc/default/minio
+minio_api_address: :9000
+minio_console_address: :9001
+minio_root_user_env: MINIO_EXTERNAL_ADMIN_ACCESS_KEY
+minio_root_password_env: MINIO_EXTERNAL_ADMIN_SECRET_KEY
+minio_data_dirs:
+  - /srv/minio/minio-data
+minio_manage_data_dir_permissions: true
+minio_service_extra_args: []

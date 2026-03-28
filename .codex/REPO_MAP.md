@@ -6,6 +6,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
 
 - `.codex/`
   - `AGENTS.md`: reference index for Codex docs in this directory
+  - `PI_NOTES.md`: durable setup notes for Raspberry Pi hosts that do not yet have dedicated repo code
   - `REPO_MAP.md`: this summary
   - `REPO_PLAN.md`: repo target state, priorities, and gaps
   - `MINECRAFT_TROUBLESHOOTING.md`: recurring Minecraft-specific failures, causes, and fixes

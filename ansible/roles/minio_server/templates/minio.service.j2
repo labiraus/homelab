@@ -1,0 +1,21 @@
+[Unit]
+Description=MinIO Object Storage
+Documentation=https://min.io/docs/minio/linux/index.html
+Wants=network-online.target
+After=network-online.target
+AssertFileIsExecutable={{ minio_binary_path }}
+
+[Service]
+WorkingDirectory={{ minio_service_home }}
+User={{ minio_service_user }}
+Group={{ minio_service_group }}
+EnvironmentFile={{ minio_env_file }}
+ExecStart={{ minio_binary_path }} server $MINIO_VOLUMES --address $MINIO_ADDRESS --console-address $MINIO_CONSOLE_ADDRESS $MINIO_EXTRA_ARGS
+Restart=always
+LimitNOFILE=65536
+TasksMax=infinity
+TimeoutStartSec=infinity
+SendSIGKILL=no
+
+[Install]
+WantedBy=multi-user.target

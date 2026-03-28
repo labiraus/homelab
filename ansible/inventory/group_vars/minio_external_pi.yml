@@ -1,1 +1,2 @@
 minio_target: minio_external
+minio_external_endpoint: "http://svartalfheim:9000"
