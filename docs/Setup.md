@@ -216,6 +216,28 @@ Reapply flow after MinIO already exists:
 2. Run `make bootstrap-svartalfheim-storage`.
 3. The script will detect `/etc/default/minio` and refresh the MinIO admin credentials automatically before the playbook runs.
 
+## Minecraft networking
+
+Expose the Minecraft server with a direct Kubernetes `Service` of type `LoadBalancer` by default.
+
+This repo keeps Gateway API support optional for Minecraft, but long-lived game TCP sessions have been more reliable when they bypass the extra Istio Gateway/TCPRoute hop entirely.
+
+Current default chart behavior:
+
+- `helm/workloads/minecraft` exposes port `25565` through `service.type=LoadBalancer`
+- `route.enabled=false` keeps the Gateway API path disabled unless you explicitly opt back into it
+- `sidecar.istio.io/inject: "false"` keeps the Minecraft pod out of the mesh proxy path
+
+If you opt back into Gateway API for Minecraft, also restore the `minecraftGateway.listeners` entry in `helm/bootstrap/flux-bootstrap/values.yaml` so the dedicated TCP listener is created again.
+
+Useful checks:
+
+```bash
+kubectl get svc -n minecraft minecraft -o wide
+kubectl describe svc -n minecraft minecraft
+kubectl get endpointslice -n minecraft -l kubernetes.io/service-name=minecraft
+```
+
 ## Node Classification
 
 Use node labels to make workload placement explicit for game servers and future LLM workloads.

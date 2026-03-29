@@ -32,6 +32,12 @@ persistence:
   size: 10Gi
 service:
   name: minecraft
+  type: LoadBalancer
+  annotations: {}
+  externalTrafficPolicy: ""
+  loadBalancerClass: ""
+  loadBalancerIP: ""
+  allocateLoadBalancerNodePorts:
 debug:
   deploymentName: mc-debug-ftp
   serviceName: mc-debug-ftp
@@ -50,7 +56,7 @@ debug:
     passiveMinPort: 21100
     passiveMaxPort: 21105
 route:
-  enabled: true
+  enabled: false
   gatewayName: minecraft-gateway
   gatewayNamespace: ingress
   sectionName: minecraft

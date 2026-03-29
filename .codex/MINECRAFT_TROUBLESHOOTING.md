@@ -201,8 +201,9 @@ What we observed on March 24, 2026:
 
 - after fixing bootstrap/OOM/resource issues, Minecraft still had intermittent post-login disconnects
 - the pod had an injected `istio-proxy` sidecar because the repo defaults namespaces to Istio injection
-- the service and `TCPRoute` were valid, but raw Minecraft traffic still had an unnecessary extra proxy hop
-- Minecraft was also sharing the same `internal-gateway` Gateway instance as other internal traffic
+- the service and `TCPRoute` were valid, but raw Minecraft traffic still had an unnecessary extra proxy hop through Istio Gateway/Envoy
+- upstream Minecraft-on-Kubernetes examples commonly expose the server with a direct `Service` of type `LoadBalancer` instead of a Gateway-managed TCP route
+- Gateway API `TCPRoute` remains a more specialized path for raw TCP workloads, so using it by default added complexity without helping this game-server case
 
 Repo mitigation:
 
@@ -214,36 +215,33 @@ metadata:
     sidecar.istio.io/inject: "false"
 ```
 
-- Minecraft now targets a dedicated Gateway instead of the shared internal gateway:
+- Minecraft now defaults to a direct `LoadBalancer` `Service`:
+
+```yaml
+service:
+  type: LoadBalancer
+```
+
+- the chart keeps Gateway API support as an opt-in path instead of the default:
 
 ```yaml
 route:
-  gatewayName: minecraft-gateway
-  gatewayNamespace: ingress
-  sectionName: minecraft
-```
-
-- the bootstrap gateway chart creates that dedicated TCP Gateway:
-
-```yaml
-minecraftGateway:
-  name: minecraft-gateway
-  listeners:
-    - name: minecraft
-      port: 25565
-      protocol: TCP
+  enabled: false
 ```
 
 Operator guidance:
 
 - for this workload, prefer running Minecraft without an Istio sidecar unless you need mesh features specifically
-- if Minecraft is staying on Gateway API, isolate it onto its own Gateway instance rather than sharing the generic internal gateway
+- prefer a direct `LoadBalancer` `Service` for player traffic on this repo's cluster rather than routing Minecraft through Istio Gateway API
+- if you intentionally keep Minecraft on Gateway API, isolate it onto its own dedicated Gateway instance rather than sharing the generic internal gateway
+- if you re-enable `route.enabled`, also re-enable `minecraftGateway.listeners` under `helm/bootstrap/flux-bootstrap/values.yaml` so the listener exists again
 - if disconnects continue after the sidecar is removed, investigate the client path and modpack/server behavior separately from Kubernetes routing
 
 ## Useful Commands
 
 ```bash
 kubectl get helmrelease -n flux-system minecraft -o yaml
+kubectl get svc -n minecraft minecraft -o wide
 kubectl get pod -n minecraft -o wide
 kubectl logs -n minecraft deploy/minecraft --tail=300
 kubectl describe pod -n minecraft <pod-name>

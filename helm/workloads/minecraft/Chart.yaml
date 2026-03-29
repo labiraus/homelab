@@ -1,6 +1,6 @@
 apiVersion: v2
 name: minecraft
-description: Minecraft server workload with backup cronjob and TCP exposure
+description: Minecraft server workload with backup cronjob and optional TCP exposure
 type: application
 version: 0.1.0
 appVersion: "1.0.0"
