@@ -104,7 +104,15 @@ The app stack under `apps/` is intentionally small:
 
 The devcontainer is the preferred local working environment.
 
-Mounted repo-managed files:
+Secret handling is intentionally split into three local-only classes:
+
+- per-machine SSH identities and SSH certificates under `.devcontainer/ssh/`
+- generated local files or env entries rebuilt from trusted cluster sources, such as `.devcontainer/kubeconfig` or `make refresh-postgres-env`
+- a minimal `.devcontainer/.env` for true external-only secrets and operator settings that cannot be derived from the cluster
+
+For Ansible-specific external secrets, prefer `ansible/.env` over loading everything into the shared shell environment.
+
+Mounted local-only files:
 
 - `.devcontainer/.bashrc` -> `/home/vscode/.bashrc.devcontainer`
 - `.devcontainer/.env` -> `/home/vscode/.env`
@@ -116,7 +124,8 @@ Included tooling:
 
 - Docker outside Docker
 - Terraform
-- Ansible
+- Ansible Core 2.15.x
+- MinIO client (`mc`)
 - Flux
 - kubectl and Helm
 - k9s
@@ -124,7 +133,14 @@ Included tooling:
 - skaffold
 - Node.js 24
 
-Customize the container by editing `.devcontainer/.env`, `.devcontainer/.bashrc`, `.devcontainer/hosts`, and `.devcontainer/ssh/config`, then rebuild or reopen the devcontainer if needed.
+Bootstrap new machines from the example files:
+
+- copy `.devcontainer/.env.example` to `.devcontainer/.env`
+- mint or copy the local SSH keypair and CA-signed cert into `.devcontainer/ssh/`
+- run `make refresh-kubeconfig` and any other `refresh-*` targets needed for cluster-derived credentials
+- run `make refresh-ansible-secrets` if you need the external-host playbooks and want to sync MinIO admin credentials from `svartalfheim`
+
+Customize the container by editing local-only files such as `.devcontainer/.env`, `.devcontainer/.bashrc`, `.devcontainer/hosts`, and `.devcontainer/ssh/config`, then rebuild or reopen the devcontainer if needed.
 
 On container start, `.devcontainer/scripts/sync-hosts.sh` merges the lab host mappings from `.devcontainer/hosts` into the container `/etc/hosts` and appends the current container hostname. This keeps the tracked repo file stable while keeping the desktop-lite VNC session healthy.
 
@@ -183,8 +199,11 @@ make destroy COMPONENT=kubernetes LAYER=node1
 
 Useful helper targets:
 
+- `make refresh-kubeconfig`
 - `make refresh-join-token`
 - `make refresh-postgres-env`
+- `make refresh-ansible-secrets`
+- `make bootstrap-svartalfheim-storage`
 - `make postgres`
 
 ## Kubernetes Worker Bootstrap
@@ -214,10 +233,12 @@ Important note: some workflow files may lag behind the runtime choices in the re
 Run playbooks from `ansible/` to manage `svartalfheim` host services and MinIO state:
 
 ```bash
-cd ansible
-ansible-playbook -i inventory/hosts.ini playbooks/minio-external-pi-host.yml
-ansible-playbook -i inventory/hosts.ini playbooks/minio-external-pi.yml
+make ansible-minio-host
+make ansible-minio-state
 ```
+
+These targets use `scripts/ansible-run-playbook.sh`, which loads shared operator env from `.devcontainer/.env` and then applies Ansible-only overrides from `ansible/.env`.
+Before loading `ansible/.env`, the wrapper refreshes the tracked MinIO admin credentials from `svartalfheim` over SSH by default.
 
 Generated Kubernetes Secret manifests are written under `ansible/out/` and can be applied manually.
 
@@ -231,6 +252,10 @@ See `docs/Setup.md` for workstation setup, SSH certificate setup, kubeconfig boo
 
 - Do not commit real secrets
 - Keep cluster credentials and kubeconfig material out of git
+- Prefer script-generated local secret material when the cluster is already the authoritative source
+- Keep `.devcontainer/.env` minimal and reserve it for external-only secrets plus non-secret operator settings
+- Keep Ansible-only external secrets in `ansible/.env` instead of the shared shell env when they are not needed by other tooling
+- Prefer `make refresh-ansible-secrets` for host-sourced MinIO admin credentials instead of copying them by hand
 - `kubeadm_join_command` remains sensitive and can appear in Terraform state if embedded in cloud-init
 - Prefer local secret overrides or external secret stores for sensitive data
 

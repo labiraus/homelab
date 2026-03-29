@@ -1,8 +1,26 @@
 # Setup
 
+## Secret model
+
+Use three local-only secret classes when onboarding a new machine:
+
+1. SSH keypairs and CA-signed SSH certificates in `.devcontainer/ssh/`
+2. Generated local files or env entries rebuilt from trusted cluster sources with repo scripts and `make refresh-*` targets
+3. A minimal `.devcontainer/.env` for external-only secrets and operator settings that cannot be derived from the cluster
+
+Keep `.devcontainer/.env` intentionally small. If the cluster can tell you a value, prefer a script that repopulates it locally instead of hand-managing it.
+
 ## Local
 
-Install containerisation tool (Docker desktop, Rancher desktop, etc) and rebuild devcontainer
+Install containerisation tool (Docker desktop, Rancher desktop, etc) and rebuild devcontainer.
+
+Initialize ignored local env files from the tracked examples:
+
+```bash
+cp .devcontainer/.env.example .devcontainer/.env
+```
+
+`ansible/.env` is generated or updated locally when needed. You do not need a checked-in example file for it.
 
 Create an SSH CA
 
@@ -10,20 +28,20 @@ Create an SSH CA
 ssh-keygen -t ed25519 -f ~/.ssh/ssh_user_ca -C "homelab-user-ca"
 ```
 
-Create your login certificate which will add it to the ./.devcontainer/ssh folder
+Create your login keypair and certificate for this machine. Keep these local-only files under `.devcontainer/ssh/`.
 
 ``` bash
-ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -C "homelab-login"
-ssh-keygen -s .devcontainer/ssh/ssh_user_ca \
+ssh-keygen -t ed25519 -f .devcontainer/ssh/id_ed25519 -C "homelab-login"
+ssh-keygen -s ~/.ssh/ssh_user_ca \
   -I "oliver@homelab" \
   -n oliver,ubuntu,root \
   -V +30d \
   .devcontainer/ssh/id_ed25519.pub
 
-ssh-add ~/.ssh/id_ed25519
+ssh-add .devcontainer/ssh/id_ed25519
 ```
 
-`ssh-add` only needs the private key. OpenSSH will use the matching certificate (`~/.ssh/id_ed25519-cert.pub`) automatically.
+`ssh-add` only needs the private key. OpenSSH will use the matching certificate (`.devcontainer/ssh/id_ed25519-cert.pub`) automatically.
 
 You will need to run the second `ssh-keygen` command every 30 days to re-sign the key, or remove the timeout. In this example root is the user for proxmox, oliver is the user I set up for yggdrasil and ubuntu is the default username that will be used on all ubuntu machines.
 
@@ -114,14 +132,89 @@ For proxmox use:
 
 ## Kubernetes Control Plane
 
-Initialize the devcontainer kubeconfig from `yggdrasil`:
+Initialize or refresh the devcontainer kubeconfig from `yggdrasil`:
 
 ```bash
-ssh yggdrasil 'cat ~/.kube/config' > .devcontainer/kubeconfig
-git update-index --skip-worktree .devcontainer/kubeconfig
+make refresh-kubeconfig
 ```
 
 This file contains cluster credentials and private key material. Keep it out of git and treat it as a secret.
+
+The helper script defaults to `yggdrasil:~/.kube/config`. Override with `KUBECONFIG_SOURCE_HOST` or `KUBECONFIG_SOURCE_PATH` in `.devcontainer/.env` when the control-plane source changes.
+
+## Generated local secrets
+
+When a secret or credential is already exposed by the cluster or control plane, prefer rebuilding local state from the source of truth instead of storing it permanently in `.devcontainer/.env`.
+
+Current repo-native flows:
+
+- `make refresh-kubeconfig`: rebuilds `.devcontainer/kubeconfig` from the control plane over SSH
+- `make refresh-join-token`: updates `TF_VAR_kubeadm_join_token` in `.devcontainer/.env`
+- `make refresh-postgres-env`: updates `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASS` in `.devcontainer/.env`
+
+Treat those generated entries as cacheable local state, not hand-maintained secrets.
+
+## Ansible secret handling
+
+Use `ansible/.env` for external-host secrets that Ansible needs but the rest of the repo does not.
+
+- `.devcontainer/.env`: shared shell env, minimal, loaded automatically by the devcontainer shell
+- `ansible/.env`: Ansible-only local cache and overrides, loaded only by `scripts/ansible-run-playbook.sh`
+
+Sync the MinIO admin credentials from `svartalfheim`:
+
+```bash
+make refresh-ansible-secrets
+```
+
+That script SSHes to `svartalfheim`, reads `/etc/default/minio`, and upserts:
+
+- `MINIO_EXTERNAL_ADMIN_ACCESS_KEY`
+- `MINIO_EXTERNAL_ADMIN_SECRET_KEY`
+
+into `ansible/.env`.
+
+It preserves any other existing entries in `ansible/.env`.
+
+Current limitation:
+
+- the Samba password and managed MinIO user secrets are not recoverable from `/etc/default/minio`
+- keep those as local-only values in `ansible/.env` until they also get a fetch path from their own source of truth
+
+Run the external playbooks through the repo wrapper so both env layers are applied consistently:
+
+```bash
+make ansible-minio-host
+make ansible-minio-state
+```
+
+## MinIO and Samba bootstrap
+
+Use the storage bootstrap script when bringing up `svartalfheim` for the first time or when reapplying the host service configuration:
+
+```bash
+make bootstrap-svartalfheim-storage
+```
+
+That wrapper:
+
+- requires `ansible/.env` to contain `MINIO_EXTERNAL_ADMIN_ACCESS_KEY`, `MINIO_EXTERNAL_ADMIN_SECRET_KEY`, and `SVARTALFHEIM_SAMBA_PASSWORD`
+- checks `svartalfheim` for `/etc/default/minio`
+- skips the MinIO credential fetch on first install when MinIO is not present yet
+- re-enables the fetch automatically on later runs once MinIO is installed
+- runs the Ansible host playbook that installs MinIO and Samba
+
+First-install flow:
+
+1. Create `ansible/.env` with the three bootstrap values.
+2. Run `make bootstrap-svartalfheim-storage`.
+3. After the install succeeds, `make refresh-ansible-secrets` can pull the MinIO admin credentials back from `svartalfheim`.
+
+Reapply flow after MinIO already exists:
+
+1. Keep `ansible/.env` with the Samba password and any other local-only values.
+2. Run `make bootstrap-svartalfheim-storage`.
+3. The script will detect `/etc/default/minio` and refresh the MinIO admin credentials automatically before the playbook runs.
 
 ## Node Classification
 

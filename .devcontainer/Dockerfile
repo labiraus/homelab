@@ -18,7 +18,8 @@ RUN apt-get update \
     unzip \
     bash-completion \
     ripgrep \
-    ansible \
+    python3-pip \
+    pipx \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
@@ -26,6 +27,9 @@ COPY zscaler-ca.crt /usr/local/share/ca-certificates/zscaler-ca.crt
 RUN update-ca-certificates
 ENV AWS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 ENV NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/zscaler-ca.crt
+
+RUN python3 -m pip install --upgrade --break-system-packages pipx
+RUN pipx install --global 'ansible-core>=2.15,<2.16'
 
 # Install terraform-docs
 RUN curl -sSLo /tmp/terraform-docs.tar.gz https://terraform-docs.io/dl/v0.16.0/terraform-docs-v0.16.0-$(uname)-amd64.tar.gz \
@@ -44,6 +48,17 @@ RUN set -eux; \
     install -m 0755 bin/istioctl /usr/local/bin/istioctl && \
     cd / && \
     rm -rf /tmp/istio-*
+
+# Install MinIO client
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in \
+    amd64) mc_arch='linux-amd64' ;; \
+    arm64) mc_arch='linux-arm64' ;; \
+    *) echo "Unsupported architecture: $arch" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://dl.min.io/client/mc/release/${mc_arch}/mc" -o /usr/local/bin/mc; \
+    chmod 0755 /usr/local/bin/mc
 
 RUN set -eux; \
     plat="$(uname -m | grep -qiE 'aarch64\|arm64' && echo linux_arm64 || echo linux_amd64)"; \

@@ -14,6 +14,8 @@ Keep this area focused on service-state automation, not general cluster deployme
 - Treat the external MinIO service on `svartalfheim` as the authoritative MinIO target for this repo unless a task explicitly says otherwise.
 - Keep inventory, group vars, playbooks, and roles aligned; update all affected layers when behavior changes.
 - Prefer environment-provided secrets or vault-backed inputs over tracked secret files.
+- When adding or changing Ansible secret inputs, keep shared repo env in `.devcontainer/.env` and Ansible-only secret inputs in ignored `ansible/.env`.
+- Prefer pull scripts from the real source of truth, such as `scripts/ansible-fetch-secrets.sh` for `svartalfheim` MinIO admin credentials, over checked-in example secret files.
 - If a playbook produces operator-facing outputs or generated manifests, document where they land and how they should be applied.
 - Update `ansible/README.md` when changing role expectations, required env vars, or playbook flow.
 

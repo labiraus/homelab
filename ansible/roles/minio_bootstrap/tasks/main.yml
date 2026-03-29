@@ -53,6 +53,9 @@
           | first
         ) | default({})
       }}
+
+- name: Determine whether mc alias needs update
+  ansible.builtin.set_fact:
     minio_alias_needs_update: >-
       {{
         (minio_alias_record == {})

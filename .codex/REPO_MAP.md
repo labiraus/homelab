@@ -30,7 +30,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - installable charts and chart libraries
   - `workloads/`: misc Flux-managed workloads outside the core platform
 - `scripts/`
-  - operational helper scripts
+  - operational helper scripts such as kubeconfig refresh
 - `sql/`
   - SQL snippets and bootstrap scripts
 - `values/`
@@ -100,10 +100,15 @@ Current behavior note:
 - Inventory: `ansible/inventory/`
 - Playbooks: `ansible/playbooks/`
 - Roles: `ansible/roles/`
+- Secret sync: `scripts/ansible-fetch-secrets.sh`
+- Wrapper: `scripts/ansible-run-playbook.sh`
+- Host bootstrap: `scripts/bootstrap-svartalfheim-storage.sh`
 
 Current behavior note:
 
 - The repo treats the external Raspberry Pi `svartalfheim` as the authoritative MinIO service and attached-drive file-share host; Helm no longer deploys an in-cluster MinIO tenant.
+- Shared operator env belongs in `.devcontainer/.env`; Ansible-only external secrets belong in ignored `ansible/.env`.
+- MinIO admin credentials are refreshed from `svartalfheim:/etc/default/minio` rather than copied from a tracked example file.
 
 ### CI and Release Behavior
 

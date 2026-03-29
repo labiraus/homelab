@@ -37,6 +37,31 @@ The external host bootstrap group connects to the Pi over SSH and installs the M
 
 ## Secure credentials
 
+Keep Ansible secret material local-only and split it by scope:
+
+- shared operator settings or credentials used across the repo belong in `.devcontainer/.env`
+- Ansible-only external-service secrets belong in `ansible/.env`
+- cluster-derived credentials should be rebuilt from the cluster when possible rather than copied by hand into env files
+
+Sync the MinIO admin credentials from `svartalfheim` into `ansible/.env`:
+
+```bash
+make refresh-ansible-secrets
+```
+
+This SSHes to `svartalfheim`, reads `/etc/default/minio`, and upserts:
+
+- `MINIO_EXTERNAL_ADMIN_ACCESS_KEY`
+- `MINIO_EXTERNAL_ADMIN_SECRET_KEY`
+
+The script preserves any other existing entries in `ansible/.env`.
+
+Current limitation:
+
+- `SVARTALFHEIM_SAMBA_PASSWORD` is not recoverable from `/etc/default/minio`
+- managed MinIO user access keys and secret keys are not recoverable from the live MinIO server after creation
+- keep those remaining Ansible-only secrets in local `ansible/.env` until they gain their own fetch workflow
+
 Set admin credentials for the `svartalfheim` MinIO endpoint:
 
 ```bash
@@ -66,25 +91,41 @@ export SVARTALFHEIM_SAMBA_PASSWORD='...'
 ```
 
 Use Ansible Vault or CI secret store for production automation.
+For local interactive runs in this repo, prefer `ansible/.env` plus the wrapper scripts below over exporting secrets into every shell.
 
 ## Run playbooks
 
 Bootstrap the external Raspberry Pi host services:
 
 ```bash
-cd ansible
-ansible-playbook -i inventory/hosts.ini playbooks/minio-external-pi-host.yml
+make bootstrap-svartalfheim-storage
 ```
 
 This installs the MinIO binary from `https://dl.min.io/server/minio/release/linux-arm64/minio`, creates a `systemd` service, stores objects under `/srv/minio/minio-data` by default, installs Samba, and exposes the attached drive as the `storage` share backed by `/srv/minio`.
+
+The bootstrap wrapper automatically handles first install versus reapply:
+
+- first install: if `/etc/default/minio` is absent on `svartalfheim`, it uses the bootstrap values already present in `ansible/.env`
+- later runs: if `/etc/default/minio` exists, it refreshes `MINIO_EXTERNAL_ADMIN_ACCESS_KEY` and `MINIO_EXTERNAL_ADMIN_SECRET_KEY` from the host before running the playbook
 
 On `svartalfheim`, both MinIO and the Samba share currently run through user `oliver` because the attached NTFS disk is mounted with ownership mapped to that account. If the disk is later migrated to a Linux-native filesystem, consider switching MinIO and file-sharing ownership to dedicated service users.
 
 Apply MinIO buckets, policies, users, and lifecycle rules against `svartalfheim`:
 
 ```bash
-cd ansible
-ansible-playbook -i inventory/hosts.ini playbooks/minio-external-pi.yml
+make ansible-minio-state
+```
+
+The make targets call `scripts/ansible-run-playbook.sh`, which sources:
+
+1. `.devcontainer/.env` for shared repo-level operator env
+2. `scripts/ansible-fetch-secrets.sh` to refresh MinIO admin credentials from `svartalfheim` unless `ANSIBLE_FETCH_MINIO_SECRETS=0`
+3. `ansible/.env` for Ansible-only local secret overrides or cached values
+
+You can also run the wrapper directly for other playbooks:
+
+```bash
+./scripts/ansible-run-playbook.sh -i ansible/inventory/hosts.ini ansible/playbooks/minio-external-pi.yml
 ```
 
 The external Pi API endpoint defaults to `http://svartalfheim:9000`. Override `minio_external_endpoint` when DNS or TLS is introduced.

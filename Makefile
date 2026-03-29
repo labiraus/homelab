@@ -4,7 +4,7 @@ LAYER ?=
 OVERLAYS ?=
 TF_ARGS ?=
 
-.PHONY: plan apply destroy plan-destroy refresh-join-token refresh-postgres-env postgres-refresh postgres
+.PHONY: plan apply destroy plan-destroy refresh-kubeconfig refresh-join-token refresh-postgres-env refresh-ansible-secrets bootstrap-svartalfheim-storage postgres-refresh postgres ansible-minio-host ansible-minio-state
 
 check-vars:
 	@if [ -z "$(COMPONENT)" ] || [ -z "$(LAYER)" ]; then \
@@ -23,6 +23,9 @@ destroy: check-vars
 
 plan-destroy: check-vars
 	$(TF) plan $(COMPONENT) $(LAYER) $(OVERLAYS) -- -destroy $(TF_ARGS)
+
+refresh-kubeconfig:
+	@./scripts/refresh-kubeconfig.sh
 
 refresh-join-token:
 	@set -e; \
@@ -78,6 +81,12 @@ refresh-postgres-env:
 	echo "Updated $$env_file with Postgres connection details for $$pg_host:$$pg_port/$$pg_db"; \
 	echo "Run: . /home/vscode/.env"
 
+refresh-ansible-secrets:
+	@./scripts/ansible-fetch-secrets.sh
+
+bootstrap-svartalfheim-storage:
+	@./scripts/bootstrap-svartalfheim-storage.sh
+
 postgres:
 	@set -e; \
 	. /home/vscode/.env; \
@@ -94,3 +103,9 @@ postgres:
 		. /home/vscode/.env; \
 		connect; \
 	fi
+
+ansible-minio-host:
+	@./scripts/ansible-run-playbook.sh -i ansible/inventory/hosts.ini ansible/playbooks/minio-external-pi-host.yml
+
+ansible-minio-state:
+	@./scripts/ansible-run-playbook.sh -i ansible/inventory/hosts.ini ansible/playbooks/minio-external-pi.yml
