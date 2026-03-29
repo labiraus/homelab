@@ -228,6 +228,7 @@ Current default chart behavior:
 - `service.externalTrafficPolicy=Local` keeps player TCP sessions on the node that is actually running the Minecraft pod
 - `route.enabled=false` keeps the Gateway API path disabled unless you explicitly opt back into it
 - `sidecar.istio.io/inject: "false"` keeps the Minecraft pod out of the mesh proxy path
+- the optional FTP debug deployment now creates its own auth secret (`mc-debug-ftp-auth` by default) if one does not already exist
 
 If you opt back into Gateway API for Minecraft, also restore the `minecraftGateway.listeners` entry in `helm/bootstrap/flux-bootstrap/values.yaml` so the dedicated TCP listener is created again.
 

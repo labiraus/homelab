@@ -6,6 +6,7 @@ APP_NAME="${APP_NAME:-mc-debug-ftp}"
 NAMESPACE="${NAMESPACE:-minecraft}"
 MINECRAFT_DEPLOYMENT="${MINECRAFT_DEPLOYMENT:-minecraft}"
 AUTH_SECRET_NAME="${AUTH_SECRET_NAME:-mc-debug-ftp-auth}"
+BACKUP_CRONJOB="${BACKUP_CRONJOB:-minecraft-world-backup}"
 FTP_PORT="${FTP_PORT:-2121}"
 PASV_MIN_PORT="${PASV_MIN_PORT:-21100}"
 PASV_MAX_PORT="${PASV_MAX_PORT:-21105}"
@@ -28,6 +29,8 @@ Environment overrides:
                 Minecraft deployment to scale down/up (default: ${MINECRAFT_DEPLOYMENT})
   AUTH_SECRET_NAME
                 Secret that stores FileZilla credentials (default: ${AUTH_SECRET_NAME})
+  BACKUP_CRONJOB
+                CronJob that should be suspended during debug access (default: ${BACKUP_CRONJOB})
   FTP_PORT      Local FTP control port for port-forward (default: ${FTP_PORT})
   PASV_MIN_PORT First passive mode port (default: ${PASV_MIN_PORT})
   PASV_MAX_PORT Last passive mode port (default: ${PASV_MAX_PORT})
@@ -77,6 +80,41 @@ ensure_deployment() {
   kubectl -n "${NAMESPACE}" get deployment "$1" >/dev/null
 }
 
+cronjob_exists() {
+  kubectl -n "${NAMESPACE}" get cronjob "$1" >/dev/null 2>&1
+}
+
+suspend_cronjob() {
+  local cronjob="$1"
+  if cronjob_exists "${cronjob}"; then
+    kubectl -n "${NAMESPACE}" patch cronjob "${cronjob}" --type=merge -p '{"spec":{"suspend":true}}' >/dev/null
+  fi
+}
+
+resume_cronjob() {
+  local cronjob="$1"
+  if cronjob_exists "${cronjob}"; then
+    kubectl -n "${NAMESPACE}" patch cronjob "${cronjob}" --type=merge -p '{"spec":{"suspend":false}}' >/dev/null
+  fi
+}
+
+warn_if_backup_job_running() {
+  local cronjob="$1"
+  local active_jobs
+
+  if ! cronjob_exists "${cronjob}"; then
+    return 0
+  fi
+
+  active_jobs="$(kubectl -n "${NAMESPACE}" get jobs -l "batch.kubernetes.io/cronjob-name=${cronjob}" -o jsonpath='{range .items[*]}{.metadata.name} {.status.active}{"\n"}{end}')"
+  if printf "%s" "${active_jobs}" | rg -q ' [1-9][0-9]*$'; then
+    echo "Warning: ${cronjob} still has an active backup job using the PVC." >&2
+    echo "Wait for the job to finish or delete the active backup pod/job before retrying debug access." >&2
+    kubectl -n "${NAMESPACE}" get jobs -l "batch.kubernetes.io/cronjob-name=${cronjob}"
+    exit 1
+  fi
+}
+
 get_secret_value() {
   local key="$1"
   kubectl -n "${NAMESPACE}" get secret "${AUTH_SECRET_NAME}" -o "jsonpath={.data.${key}}" | base64 -d
@@ -104,6 +142,9 @@ show_status() {
   kubectl -n "${NAMESPACE}" get deployment "${MINECRAFT_DEPLOYMENT}" "${APP_NAME}"
   kubectl -n "${NAMESPACE}" get service "$(service_name)"
   kubectl -n "${NAMESPACE}" get pod -l "app.kubernetes.io/name=${APP_NAME}"
+  if cronjob_exists "${BACKUP_CRONJOB}"; then
+    kubectl -n "${NAMESPACE}" get cronjob "${BACKUP_CRONJOB}"
+  fi
   if kubectl -n "${NAMESPACE}" get secret "${AUTH_SECRET_NAME}" >/dev/null 2>&1; then
     echo
     echo "FileZilla settings:"
@@ -122,6 +163,9 @@ cmd_up() {
   ensure_namespace
   ensure_deployment "${MINECRAFT_DEPLOYMENT}"
   ensure_deployment "${APP_NAME}"
+  echo "Suspending ${BACKUP_CRONJOB}..."
+  suspend_cronjob "${BACKUP_CRONJOB}"
+  warn_if_backup_job_running "${BACKUP_CRONJOB}"
   echo "Scaling ${MINECRAFT_DEPLOYMENT} down..."
   kubectl -n "${NAMESPACE}" scale deployment "${MINECRAFT_DEPLOYMENT}" --replicas=0 >/dev/null
   wait_for_replicas "${MINECRAFT_DEPLOYMENT}" 0
@@ -144,6 +188,8 @@ cmd_down() {
   echo "Scaling ${MINECRAFT_DEPLOYMENT} up..."
   kubectl -n "${NAMESPACE}" scale deployment "${MINECRAFT_DEPLOYMENT}" --replicas=1 >/dev/null
   kubectl -n "${NAMESPACE}" rollout status deployment/"${MINECRAFT_DEPLOYMENT}" --timeout=300s
+  echo "Resuming ${BACKUP_CRONJOB}..."
+  resume_cronjob "${BACKUP_CRONJOB}"
   echo "Scaled ${APP_NAME} down and restored ${MINECRAFT_DEPLOYMENT}."
 }
 
