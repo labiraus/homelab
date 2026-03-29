@@ -34,7 +34,7 @@ service:
   name: minecraft
   type: LoadBalancer
   annotations: {}
-  externalTrafficPolicy: ""
+  externalTrafficPolicy: Local
   loadBalancerClass: ""
   loadBalancerIP: ""
   allocateLoadBalancerNodePorts:

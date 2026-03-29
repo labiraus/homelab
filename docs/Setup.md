@@ -225,6 +225,7 @@ This repo keeps Gateway API support optional for Minecraft, but long-lived game 
 Current default chart behavior:
 
 - `helm/workloads/minecraft` exposes port `25565` through `service.type=LoadBalancer`
+- `service.externalTrafficPolicy=Local` keeps player TCP sessions on the node that is actually running the Minecraft pod
 - `route.enabled=false` keeps the Gateway API path disabled unless you explicitly opt back into it
 - `sidecar.istio.io/inject: "false"` keeps the Minecraft pod out of the mesh proxy path
 

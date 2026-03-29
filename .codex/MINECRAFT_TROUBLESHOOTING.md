@@ -233,9 +233,15 @@ Operator guidance:
 
 - for this workload, prefer running Minecraft without an Istio sidecar unless you need mesh features specifically
 - prefer a direct `LoadBalancer` `Service` for player traffic on this repo's cluster rather than routing Minecraft through Istio Gateway API
+- prefer `externalTrafficPolicy: Local` on the Minecraft `LoadBalancer` service so LAN traffic stays on the node that actually hosts the single Minecraft pod instead of crossing an extra kube-proxy hop
 - if you intentionally keep Minecraft on Gateway API, isolate it onto its own dedicated Gateway instance rather than sharing the generic internal gateway
 - if you re-enable `route.enabled`, also re-enable `minecraftGateway.listeners` under `helm/bootstrap/flux-bootstrap/values.yaml` so the listener exists again
 - if disconnects continue after the sidecar is removed, investigate the client path and modpack/server behavior separately from Kubernetes routing
+
+What this helps with:
+
+- if the Minecraft pod stays `Running`, server logs only show normal disconnects or `Timed out`, and the client sees `Connection reset by peer`, the extra cross-node forwarding path is a likely suspect
+- `externalTrafficPolicy: Local` is a better default for this single-replica, long-lived TCP workload because it removes one forwarding hop from the session path
 
 ## Useful Commands
 
