@@ -83,6 +83,65 @@ Memory:
 - On March 22-24, 2026, worker VM redeploys regenerated node-local `longhorn-disk.cfg` files with new `diskUUID` values.
 - Longhorn then rejected the rebuilt disks until the expected UUIDs were restored.
 
+## Stuck Backup Pod Causes Minecraft PVC Multi-Attach And Salvage Loops
+
+Symptom:
+
+- Minecraft pods alternate between `Pending`, `FailedAttachVolume`, and short-lived starts
+- events show a `minecraft-world-backup` pod or cronjob holding the same RWO claim
+- Longhorn shows the Minecraft volume as `degraded`, `unknown`, or repeatedly detaching/reattaching
+- deleting the Minecraft pod alone does not recover the workload
+
+What we observed on April 3, 2026:
+
+- a stuck `minecraft-world-backup` job in namespace `minecraft` grabbed the `minecraft-minecraft` PVC
+- the backup pod also had an injected Istio sidecar, so the job stayed active longer than expected
+- Minecraft then hit repeated `Multi-Attach` errors against the same claim
+- Longhorn auto-salvaged the volume and left it in a bad state with an orphaned `VolumeAttachment`
+- after that, Minecraft could start briefly and then get killed, or remain pending against the broken attachment path
+
+Operator guidance:
+
+- treat this as a storage-attachment failure first, not a modpack or JVM failure
+- inspect namespace events for `minecraft-world-backup`, `FailedAttachVolume`, and `BackOff`
+- inspect the Longhorn volume for `AutoSalvaged`, `Remount`, `detached`, or `robustness: unknown`
+- do not drop the Minecraft PVC by default; assume the world data must be preserved
+- before any destructive reset, require human intervention to export the world data from the existing PVC:
+
+```bash
+./scripts/mc-debug.sh up
+./scripts/mc-debug.sh status
+./scripts/mc-debug.sh port-forward
+```
+
+- then use FileZilla or another FTP client to pull the relevant world files from the debug deployment before continuing
+- after the export is verified, restore normal deployment ownership with:
+
+```bash
+./scripts/mc-debug.sh down
+```
+
+- only after that backup/export step is complete should a destructive reset be considered for this instance:
+
+```bash
+kubectl scale deployment -n minecraft minecraft --replicas=0
+kubectl delete pod -n minecraft <pending-or-stuck-minecraft-pod> --ignore-not-found=true
+kubectl delete pvc -n minecraft minecraft-minecraft
+kubectl get volumeattachment | grep minecraft
+kubectl delete volumeattachment <stale-volumeattachment-name>
+kubectl apply -f <fresh-minecraft-pvc-manifest>
+kubectl scale deployment -n minecraft minecraft --replicas=1
+```
+
+- if the PVC deletion finishes but the replacement pod stays unscheduled with no events, deleting that one fresh pending pod can clear the final post-reset limbo and let the ReplicaSet recreate it cleanly
+- if the world data has not yet been exported, stop before deleting the PVC and inspect the backup job definition, Longhorn volume state, and `mc-debug` access path first
+
+Current interpretation:
+
+- the immediate crash path on April 3, 2026 was downstream of a stuck backup job plus Longhorn salvage churn on the shared RWO volume
+- once the old PVC, orphaned `VolumeAttachment`, and broken Longhorn volume were removed, a fresh PVC provisioned successfully and the Minecraft pod resumed normal startup
+- future recovery guidance for this repo is to preserve and export world data first, then wipe only with explicit human confirmation
+
 ## NeoForge Or CurseForge Bootstrap Times Out
 
 Symptom:
