@@ -25,6 +25,7 @@ server:
     MOD_PLATFORM: AUTO_CURSEFORGE
     CF_API_KEY: ""
     CF_SLUG: all-the-mods-10-sky
+    CF_FILENAME_MATCHER: 2.0.2
 
 persistence:
   claimName: minecraft-minecraft
