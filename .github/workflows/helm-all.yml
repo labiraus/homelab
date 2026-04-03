@@ -116,7 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: uat
     needs: discover
-    if: needs.discover.outputs.matrix != '[]' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && !contains(github.event.head_commit.message, 'no-ci')
+    if: needs.discover.outputs.matrix != '[]' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && !contains(github.event.head_commit.message, 'no-ci') && !startsWith(matrix.chart, 'apps/')
     strategy:
       fail-fast: false
       matrix:
