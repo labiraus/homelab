@@ -61,10 +61,3 @@ route:
   gatewayName: minecraft-gateway
   gatewayNamespace: ingress
   sectionName: minecraft
-backup:
-  schedule: "0 */6 * * *"
-  suspend: false
-  pvcName: minecraft-minecraft
-  minioEndpoint: http://svartalfheim:9000
-  minioBucket: minecraft-backups
-  minioSecretName: minecraft-backup-minio
