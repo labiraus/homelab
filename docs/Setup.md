@@ -216,44 +216,40 @@ Reapply flow after MinIO already exists:
 2. Run `make bootstrap-svartalfheim-storage`.
 3. The script will detect `/etc/default/minio` and refresh the MinIO admin credentials automatically before the playbook runs.
 
-## Minecraft networking
+## Minecraft VM
 
-Expose the Minecraft server with a direct Kubernetes `Service` of type `LoadBalancer` by default.
+Minecraft now runs outside Kubernetes on a dedicated Ubuntu VM on `proxmox-node1`.
 
-This repo keeps Gateway API support optional for Minecraft, but long-lived game TCP sessions have been more reliable when they bypass the extra Istio Gateway/TCPRoute hop entirely.
+Current authoritative deployment path:
 
-Current default chart behavior:
+- Terraform component: `components/minecraft-vm`
+- primary layer: `minecraft-node1`
+- VM name: `nidavellir`
+- Proxmox host: `proxmox-node1`
+- LAN IP: `192.168.8.126`
+- direct player exposure: router port-forward to TCP `25565`
 
-- `helm/workloads/minecraft` exposes port `25565` through `service.type=LoadBalancer`
-- `service.externalTrafficPolicy=Local` keeps player TCP sessions on the node that is actually running the Minecraft pod
-- `route.enabled=false` keeps the Gateway API path disabled unless you explicitly opt back into it
-- `sidecar.istio.io/inject: "false"` keeps the Minecraft pod out of the mesh proxy path
-- the optional FTP debug deployment now creates its own auth secret (`mc-debug-ftp-auth` by default) if one does not already exist
+Current VM defaults:
 
-If you opt back into Gateway API for Minecraft, also restore the `minecraftGateway.listeners` entry in `helm/bootstrap/flux-bootstrap/values.yaml` so the dedicated TCP listener is created again.
+- `cpu_cores = 6`
+- `memory_mb = 14336`
+- `disk_size_gb = 120`
+- Minecraft heap remains `MEMORY=10G` and `INIT_MEMORY=2G`
+
+Current service management:
+
+- provision the VM with `make plan COMPONENT=minecraft-vm LAYER=minecraft-node1`
+- apply the VM with `make apply COMPONENT=minecraft-vm LAYER=minecraft-node1`
+- configure Minecraft in-guest with `make ansible-minecraft-vm`
+- the game runs as `minecraft.service` and exposes `25565/tcp` directly from the guest
 
 Useful checks:
 
 ```bash
-kubectl get svc -n minecraft minecraft -o wide
-kubectl describe svc -n minecraft minecraft
-kubectl get endpointslice -n minecraft -l kubernetes.io/service-name=minecraft
+ENV=lab bin/tf plan minecraft-vm minecraft-node1
+ssh nidavellir 'systemctl status --no-pager minecraft'
+ssh nidavellir 'docker ps --filter name=minecraft'
 ```
-
-## Minecraft storage
-
-Minecraft currently uses a dedicated node-local PersistentVolume instead of Longhorn.
-
-Current behavior:
-
-- the local PV is pinned to `jotunheim`
-- the host path is `/var/lib/minecraft-local`
-- this favors lower world I/O latency over replicated-storage failover
-
-Operator note:
-
-- keep external world backups current before deleting or reprovisioning the local PV
-- if Minecraft remains `Pending` after rollout, verify that `/var/lib/minecraft-local` exists on `jotunheim`
 
 ## Node Classification
 

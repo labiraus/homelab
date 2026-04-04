@@ -28,8 +28,6 @@ minio_buckets:
     lifecycle_days: 90
   - name: cnpg-backups
     lifecycle_days: 90
-  - name: minecraft-backups
-    lifecycle_days: 30
   - name: documents
     lifecycle_days: 0
   - name: static-sites-site1
@@ -71,23 +69,6 @@ minio_policies:
             - s3:AbortMultipartUpload
           Resource:
             - arn:aws:s3:::cnpg-backups/*
-  - name: minecraft-rw
-    document:
-      Version: "2012-10-17"
-      Statement:
-        - Effect: Allow
-          Action:
-            - s3:ListBucket
-          Resource:
-            - arn:aws:s3:::minecraft-backups
-        - Effect: Allow
-          Action:
-            - s3:GetObject
-            - s3:PutObject
-            - s3:DeleteObject
-            - s3:AbortMultipartUpload
-          Resource:
-            - arn:aws:s3:::minecraft-backups/*
   - name: static-site-site1-upload
     document:
       Version: "2012-10-17"
@@ -122,14 +103,6 @@ minio_users:
       namespace: data
       name: cnpg-backup-s3
       format: access_secret_pair
-  - name: minecraft
-    access_key_env: MINIO_MINECRAFT_ACCESS_KEY
-    secret_key_env: MINIO_MINECRAFT_SECRET_KEY
-    policy: minecraft-rw
-    k8s_secret:
-      namespace: minecraft
-      name: minecraft-backup-minio
-      format: access_secret_pair
   - name: static-site-uploader-site1
     access_key_env: MINIO_SITE1_UPLOADER_ACCESS_KEY
     secret_key_env: MINIO_SITE1_UPLOADER_SECRET_KEY
@@ -144,4 +117,3 @@ minio_replication:
   buckets:
     - velero
     - cnpg-backups
-    - minecraft-backups

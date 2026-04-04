@@ -14,6 +14,7 @@ This repo already includes:
 - Helm charts for apps/data/observability and shared chart templates
 - Postgres via CNPG, with the vector extension enabled at bootstrap
 - MinIO as an object store hosted on `svartalfheim`, with state intentionally managed via Ansible outside Kubernetes manifests
+- a dedicated Minecraft VM on `proxmox-node1`, provisioned by Terraform and configured by Ansible because gameplay latency was not reliable enough in the Kubernetes path
 
 Goal: add a new RAG slice (ragapi + ingestion/indexing) while preserving the existing example UI + APIs.
 

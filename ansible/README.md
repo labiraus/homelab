@@ -1,6 +1,6 @@
-# Ansible External Storage Host Management
+# Ansible External Service Management
 
-This directory manages external storage-host services out-of-band from Kubernetes:
+This directory manages external services out-of-band from Kubernetes:
 
 - MinIO server bootstrap on `svartalfheim`
 - buckets
@@ -9,9 +9,11 @@ This directory manages external storage-host services out-of-band from Kubernete
 - lifecycle rules
 - optional replication/mirroring skeleton
 - Samba network sharing for the attached `svartalfheim` hard drive
+- dedicated Minecraft VM service configuration on `nidavellir`
 
 Kubernetes remains Helm/Flux-managed. Storage-host services are Ansible-managed.
 The authoritative MinIO service and attached-drive network share for this repo both live on the external Raspberry Pi host `svartalfheim`.
+Minecraft now runs on its own Proxmox VM and is managed through Ansible rather than Helm.
 
 ## Prerequisites
 
@@ -30,10 +32,12 @@ ansible-galaxy collection install amazon.aws
 
 - External Pi API-management group: `minio_external_pi`
 - External Pi host bootstrap group: `minio_external_pi_host`
+- Dedicated Minecraft VM group: `minecraft_vm`
 
 The API-management groups default to `localhost` because those playbooks run from your laptop/CI/management node and call MinIO APIs.
 
 The external host bootstrap group connects to the Pi over SSH and installs the MinIO server binary plus a `systemd` service.
+The Minecraft VM group connects over SSH and configures the in-guest Minecraft service and systemd unit.
 
 ## Secure credentials
 
@@ -78,8 +82,6 @@ export MINIO_VELERO_ACCESS_KEY='...'
 export MINIO_VELERO_SECRET_KEY='...'
 export MINIO_CNPG_ACCESS_KEY='...'
 export MINIO_CNPG_SECRET_KEY='...'
-export MINIO_MINECRAFT_ACCESS_KEY='...'
-export MINIO_MINECRAFT_SECRET_KEY='...'
 export MINIO_SITE1_UPLOADER_ACCESS_KEY='...'
 export MINIO_SITE1_UPLOADER_SECRET_KEY='...'
 ```
@@ -116,6 +118,24 @@ Apply MinIO buckets, policies, users, and lifecycle rules against `svartalfheim`
 make ansible-minio-state
 ```
 
+Configure the dedicated Minecraft VM:
+
+```bash
+make ansible-minecraft-vm
+```
+
+This target intentionally disables the MinIO secret-refresh helper because the Minecraft VM playbook does not require the external MinIO admin credentials.
+
+The Minecraft VM playbook expects `MINECRAFT_CURSEFORGE_API_KEY` to be available from `ansible/.env` or your shell environment so `itzg/minecraft-server` can bootstrap the ATM10 Sky pack.
+
+Managed Minecraft VM state:
+
+- installs `docker.io`
+- creates `/srv/minecraft/data` and `/srv/minecraft/backups`
+- renders `/etc/minecraft/minecraft.env`
+- manages a `minecraft.service` systemd unit that runs `itzg/minecraft-server:java21`
+- exposes the game directly on TCP `25565`
+
 The make targets call `scripts/ansible-run-playbook.sh`, which sources:
 
 1. `.devcontainer/.env` for shared repo-level operator env
@@ -138,7 +158,6 @@ Buckets:
 
 - `velero`
 - `cnpg-backups`
-- `minecraft-backups`
 - `documents`
 - `static-sites-site1`
 
@@ -146,14 +165,12 @@ Policies:
 
 - `velero-rw`
 - `cnpg-rw`
-- `minecraft-rw`
 - `static-site-site1-upload`
 
 Users:
 
 - `velero`
 - `cnpg`
-- `minecraft`
 - `static-site-uploader-site1`
 
 Lifecycle rules:

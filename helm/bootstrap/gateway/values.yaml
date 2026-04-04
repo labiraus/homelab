@@ -11,10 +11,5 @@ internalGateway:
   name: internal-gateway
   loadBalancerScheme: internal
   listeners: []
-minecraftGateway:
-  namespace: ingress
-  name: minecraft-gateway
-  loadBalancerScheme: internal
-  listeners: []
 acm:
   certificateArn:

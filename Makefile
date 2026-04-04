@@ -4,7 +4,7 @@ LAYER ?=
 OVERLAYS ?=
 TF_ARGS ?=
 
-.PHONY: plan apply destroy plan-destroy refresh-kubeconfig refresh-join-token refresh-postgres-env refresh-ansible-secrets bootstrap-svartalfheim-storage postgres-refresh postgres ansible-minio-host ansible-minio-state
+.PHONY: plan apply destroy plan-destroy refresh-kubeconfig refresh-join-token refresh-postgres-env refresh-ansible-secrets bootstrap-svartalfheim-storage postgres-refresh postgres ansible-minio-host ansible-minio-state ansible-minecraft-vm
 
 check-vars:
 	@if [ -z "$(COMPONENT)" ] || [ -z "$(LAYER)" ]; then \
@@ -109,3 +109,6 @@ ansible-minio-host:
 
 ansible-minio-state:
 	@./scripts/ansible-run-playbook.sh -i ansible/inventory/hosts.ini ansible/playbooks/minio-external-pi.yml
+
+ansible-minecraft-vm:
+	@ANSIBLE_FETCH_MINIO_SECRETS=0 ./scripts/ansible-run-playbook.sh -i ansible/inventory/hosts.ini ansible/playbooks/minecraft-vm.yml

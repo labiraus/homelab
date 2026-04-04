@@ -4,13 +4,13 @@ This file applies to everything under `ansible/`.
 
 ## Purpose
 
-`ansible/` manages external storage-host services that are intentionally kept outside the Helm-managed Kubernetes manifests, including MinIO and host-level storage sharing on `svartalfheim`.
+`ansible/` manages external services that are intentionally kept outside the Helm-managed Kubernetes manifests, including MinIO and host-level storage sharing on `svartalfheim`, plus dedicated VM-hosted workloads such as Minecraft.
 
 Keep this area focused on service-state automation, not general cluster deployment.
 
 ## Working Rules
 
-- Preserve the current separation of responsibilities: Kubernetes deployment via Helm/Flux, external storage-host services via Ansible.
+- Preserve the current separation of responsibilities: Kubernetes deployment via Helm/Flux, external services and dedicated VM workloads via Ansible.
 - Treat the external MinIO service on `svartalfheim` as the authoritative MinIO target for this repo unless a task explicitly says otherwise.
 - Keep inventory, group vars, playbooks, and roles aligned; update all affected layers when behavior changes.
 - Prefer environment-provided secrets or vault-backed inputs over tracked secret files.

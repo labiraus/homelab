@@ -1,0 +1,40 @@
+#cloud-config
+hostname: ${vm_name}
+manage_etc_hosts: true
+package_update: true
+package_upgrade: false
+ssh_pwauth: false
+
+users:
+  - default
+  - name: ${ssh_username}
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+%{ for key in ssh_authorized_keys ~}
+      - ${key}
+%{ endfor ~}
+
+%{ if length(dns_servers) > 0 ~}
+resolv_conf:
+  nameservers: [${join(", ", formatlist("\"%s\"", dns_servers))}]
+%{ endif ~}
+
+%{ if length(ntp_servers) > 0 ~}
+ntp:
+  enabled: true
+  servers: [${join(", ", formatlist("\"%s\"", ntp_servers))}]
+%{ endif ~}
+
+packages:
+  - qemu-guest-agent
+  - ca-certificates
+  - curl
+  - jq
+  - tar
+  - unzip
+
+runcmd:
+  - systemctl enable --now qemu-guest-agent
+
+final_message: "Minecraft VM bootstrap complete."

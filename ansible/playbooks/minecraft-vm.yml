@@ -1,0 +1,6 @@
+---
+- name: Configure dedicated Minecraft VM
+  hosts: minecraft_vm
+  become: true
+  roles:
+    - minecraft_vm

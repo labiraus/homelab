@@ -1,11 +1,12 @@
 # Homelab
 
-This repository combines four related areas:
+This repository combines five related areas:
 
-- Terraform for provisioning Kubernetes worker VMs on Proxmox
-- Helm charts for cluster bootstrap and workloads
+- Terraform for provisioning Kubernetes worker VMs and dedicated service VMs on Proxmox
+- Helm charts for cluster bootstrap and in-cluster workloads
 - Small application services used inside the cluster
-- Ansible for external storage-host services on `svartalfheim`, including MinIO and a network share
+- Ansible for external service management, including MinIO on `svartalfheim`
+- Ansible for dedicated VM-hosted workloads such as Minecraft
 
 ## Repo Guidance For Humans And Agents
 
@@ -32,7 +33,7 @@ Use the nearest relevant `AGENTS.md` for local conventions, and update it when a
 ├── .codex/                 # Codex reference docs: repo map and repo plan
 ├── .devcontainer/          # Preferred local operator environment
 ├── .github/workflows/      # CI for apps and Helm charts
-├── ansible/                # `svartalfheim` host services: MinIO, buckets/users/policies, network share
+├── ansible/                # External services and VM-hosted workloads
 ├── apps/
 │   ├── goapi/              # Go HTTP service
 │   ├── pythonapi/          # Python Flask HTTP service
@@ -41,7 +42,8 @@ Use the nearest relevant `AGENTS.md` for local conventions, and update it when a
 ├── bin/
 │   └── tf                  # Terraform wrapper script
 ├── components/
-│   └── kubernetes/         # Terraform component entry point
+│   ├── kubernetes/         # Terraform component for Kubernetes worker VMs
+│   └── minecraft-vm/       # Terraform component for the dedicated Minecraft VM
 ├── docs/                   # Setup and notes
 ├── etc/
 │   ├── env/                # Environment tfvars
@@ -65,19 +67,20 @@ Use the nearest relevant `AGENTS.md` for local conventions, and update it when a
 
 ### Terraform and Proxmox
 
-Terraform provisions Kubernetes worker VMs on Proxmox VE using layered `tfvars` and Terraform Cloud for state.
+Terraform provisions Kubernetes worker VMs and dedicated service VMs on Proxmox VE using layered `tfvars` and Terraform Cloud for state.
 
 Key files:
 
 - `bin/tf`
 - `components/kubernetes/`
+- `components/minecraft-vm/`
 - `modules/proxmox-ubuntu-vm/`
 - `etc/env/lab.tfvars`
 - `etc/nodes/node*.tfvars`
 
 Important Proxmox token note:
 
-- the Kubernetes worker flow uploads a cloud-init snippet with `proxmox_virtual_environment_file`
+- both the Kubernetes worker flow and the dedicated Minecraft VM flow upload a cloud-init snippet with `proxmox_virtual_environment_file`
 - the node tfvars currently target `snippets_datastore_id = "local"`
 - the Proxmox API token therefore needs datastore permissions on `/storage/local`, including at least `Datastore.Audit` and `Datastore.AllocateSpace`
 - if those permissions are missing, `bin/tf plan kubernetes <node>` can fail before planning completes with a `403` while listing files on the datastore
@@ -85,7 +88,9 @@ Important Proxmox token note:
 
 ### Kubernetes and Helm
 
-Helm charts in `helm/` define cluster bootstrap, app deployment, data services, observability components, and miscellaneous workloads. The current GitOps flow is Flux-based: charts are packaged as OCI artifacts by GitHub Actions and reconciled in-cluster by Flux from `flux-system`.
+Helm charts in `helm/` define cluster bootstrap, app deployment, data services, observability components, and miscellaneous in-cluster workloads. The current GitOps flow is Flux-based: charts are packaged as OCI artifacts by GitHub Actions and reconciled in-cluster by Flux from `flux-system`.
+
+Minecraft is no longer deployed through Helm/Flux. The authoritative Minecraft path is a dedicated Proxmox VM managed through Terraform and Ansible.
 
 ### Application Code
 
@@ -98,7 +103,7 @@ The app stack under `apps/` is intentionally small:
 
 ### Ansible
 
-`ansible/` manages `svartalfheim` host services such as the MinIO server, MinIO state, and the attached-drive Samba share. Kubernetes remains Helm-managed; external storage-host service state is handled separately.
+`ansible/` manages `svartalfheim` host services such as the MinIO server, MinIO state, and the attached-drive Samba share, plus the dedicated Minecraft VM on `nidavellir`. Kubernetes remains Helm-managed for in-cluster services; external service state is handled separately.
 
 ## Devcontainer
 
@@ -162,7 +167,7 @@ bin/tf <action> <component> <primary_layer> [overlay_layer ...] [-- <extra terra
 ```
 
 - `action`: `plan`, `apply`, `destroy`
-- `component`: currently `kubernetes`
+- `component`: `kubernetes` or `minecraft-vm`
 - `primary_layer`: first node layer such as `node1`
 - overlay layers: loaded from `etc/<overlay>.tfvars` or `etc/overlays/<overlay>.tfvars`
 
@@ -186,6 +191,7 @@ If you need to pass additional Terraform flags, append them after `--`:
 
 ```bash
 ENV=lab bin/tf apply kubernetes node1 -- -refresh=false
+ENV=lab bin/tf plan minecraft-vm minecraft-node1
 ENV=lab bin/tf destroy kubernetes node1 -- -target=module.kubernetes_vm
 ```
 
@@ -195,6 +201,7 @@ Makefile shortcuts:
 make plan COMPONENT=kubernetes LAYER=node1
 make apply COMPONENT=kubernetes LAYER=node1
 make destroy COMPONENT=kubernetes LAYER=node1
+make plan COMPONENT=minecraft-vm LAYER=minecraft-node1
 ```
 
 Useful helper targets:
@@ -204,6 +211,7 @@ Useful helper targets:
 - `make refresh-postgres-env`
 - `make refresh-ansible-secrets`
 - `make bootstrap-svartalfheim-storage`
+- `make ansible-minecraft-vm`
 - `make postgres`
 
 ## Kubernetes Worker Bootstrap

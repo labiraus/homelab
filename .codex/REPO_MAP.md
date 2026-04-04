@@ -19,7 +19,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - `reactapp/`: Vite frontend
   - `pkg/`: shared Go modules
 - `ansible/`
-  - MinIO service state management
+  - external service state management, including the Minecraft VM
 - `bin/`
   - `tf`: Terraform wrapper used by the Makefile
 - `components/`
@@ -42,9 +42,13 @@ Use this file as the first fast pass when you need to locate the relevant code i
 
 - Start with `bin/tf`
 - Then check `Makefile`
-- Terraform component entry: `components/kubernetes/`
+- Terraform component entries: `components/kubernetes/`, `components/minecraft-vm/`
 - Reusable VM module: `modules/proxmox-ubuntu-vm/`
 - Environment data: `etc/env/` and `etc/nodes/`
+
+Current behavior note:
+
+- the authoritative Minecraft deployment path is the dedicated VM layer `minecraft-node1` under `components/minecraft-vm/`, not Helm
 
 ### Kubernetes App Deployment
 
@@ -103,10 +107,12 @@ Current behavior note:
 - Secret sync: `scripts/ansible-fetch-secrets.sh`
 - Wrapper: `scripts/ansible-run-playbook.sh`
 - Host bootstrap: `scripts/bootstrap-svartalfheim-storage.sh`
+- Minecraft VM playbook: `ansible/playbooks/minecraft-vm.yml`
 
 Current behavior note:
 
 - The repo treats the external Raspberry Pi `svartalfheim` as the authoritative MinIO service and attached-drive file-share host; Helm no longer deploys an in-cluster MinIO tenant.
+- Minecraft is managed outside Kubernetes on the dedicated VM `nidavellir` through Terraform plus Ansible.
 - Shared operator env belongs in `.devcontainer/.env`; Ansible-only external secrets belong in ignored `ansible/.env`.
 - MinIO admin credentials are refreshed from `svartalfheim:/etc/default/minio` rather than copied from a tracked example file.
 

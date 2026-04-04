@@ -1,8 +1,5 @@
 namespace: homelab
-namespaces:
-  - name: minecraft
-    labels:
-      istio-injection: "disabled"
+namespaces: []
 provider: generic
 tag: uat
 secret: true
@@ -16,7 +13,4 @@ imagePullSecret:
     namespace: flux-system
     name: ghcr-creds
 min_version: 0.0.0-0
-releases:
-  - name: minecraft
-    type: oci
-    namespace: minecraft
+releases: []

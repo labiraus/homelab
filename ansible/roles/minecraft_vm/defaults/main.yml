@@ -1,0 +1,11 @@
+minecraft_vm_packages:
+  - docker.io
+
+minecraft_vm_dirs:
+  - "{{ minecraft_vm_root }}"
+  - "{{ minecraft_vm_data_dir }}"
+  - "{{ minecraft_vm_backup_dir }}"
+
+minecraft_vm_dir_owner: root
+minecraft_vm_dir_group: root
+minecraft_vm_dir_mode: "0755"
