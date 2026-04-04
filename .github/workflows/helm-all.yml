@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
+      ghcr_matrix: ${{ steps.matrix.outputs.ghcr_matrix }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.1.1
@@ -71,7 +72,22 @@ jobs:
                 '
           )"
 
+          ghcr_matrix_json="$(
+            printf '%s\n' "${rows[@]}" \
+              | jq -R -s -c '
+                  split("\n")
+                  | map(select(length > 0))
+                  | map(split("|"))
+                  | map({
+                      chart: .[0],
+                      ghcr_values: .[1]
+                    })
+                  | map(select(.chart | startswith("apps/") | not))
+                '
+          )"
+
           echo "matrix=${matrix_json}" >> "$GITHUB_OUTPUT"
+          echo "ghcr_matrix=${ghcr_matrix_json}" >> "$GITHUB_OUTPUT"
 
   test-default:
     name: "${{ matrix.chart }} Helm Test Default"
@@ -116,11 +132,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: uat
     needs: discover
-    if: needs.discover.outputs.matrix != '[]' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && !contains(github.event.head_commit.message, 'no-ci') && !startsWith(matrix.chart, 'apps/')
+    if: needs.discover.outputs.ghcr_matrix != '[]' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && !contains(github.event.head_commit.message, 'no-ci')
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJson(needs.discover.outputs.matrix) }}
+        include: ${{ fromJson(needs.discover.outputs.ghcr_matrix) }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.1.1
