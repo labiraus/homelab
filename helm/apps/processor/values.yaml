@@ -133,7 +133,7 @@ security:
       - to:
           - namespaceSelector:
               matchLabels:
-                kubernetes.io/metadata.name: data
+                kubernetes.io/metadata.name: kafka
         ports:
           - protocol: TCP
             port: 9092
