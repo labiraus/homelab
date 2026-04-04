@@ -5,10 +5,8 @@ bootstrapAlias:
   enabled: true
   name: homelab-kafka
 kafka:
+  version: 4.1.0
+  metadataVersion: 4.1-IV1
   replicas: 3
   storageClass: longhorn
   storageSize: 50Gi
-zookeeper:
-  replicas: 3
-  storageClass: longhorn
-  storageSize: 20Gi
