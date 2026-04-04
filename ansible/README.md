@@ -132,9 +132,30 @@ Managed Minecraft VM state:
 
 - installs `docker.io`
 - creates `/srv/minecraft/data` and `/srv/minecraft/backups`
+- makes `/srv/minecraft` writable by the `ubuntu` login user for direct SFTP uploads
 - renders `/etc/minecraft/minecraft.env`
 - manages a `minecraft.service` systemd unit that runs `itzg/minecraft-server:java21`
 - exposes the game directly on TCP `25565`
+
+For world restores or other bulk file copies, prefer direct SFTP to the VM rather than port-forwarding through Kubernetes. The Minecraft VM has its own LAN IP and the playbook makes `/srv/minecraft` writable by `ubuntu`, so you can upload straight to:
+
+- `/srv/minecraft/data` for live server data
+- `/srv/minecraft/backups` for staged restore archives
+
+Example:
+
+```bash
+sftp ubuntu@nidavellir
+put -r ./world /srv/minecraft/data/world
+```
+
+For large world replacements, stop the service first so files are consistent:
+
+```bash
+ssh nidavellir 'sudo systemctl stop minecraft'
+sftp ubuntu@nidavellir
+ssh nidavellir 'sudo systemctl start minecraft'
+```
 
 The make targets call `scripts/ansible-run-playbook.sh`, which sources:
 

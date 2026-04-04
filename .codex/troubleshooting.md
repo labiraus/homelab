@@ -7,6 +7,7 @@
 - Worker boot disks must be imported from a Proxmox `import` image, not an `iso`.
 - In this repo, the Ubuntu cloud image should be downloaded as `content_type = "import"` and referenced from the VM disk with `import_from`.
 - A source like `local:iso/ubuntu-24.04-noble-server-cloudimg-amd64.img` fails for VM creation. Use an importable disk image such as `ubuntu-24.04-noble-server-cloudimg-amd64.qcow2`.
+- If Proxmox already has `ubuntu-24.04-noble-server-cloudimg-amd64.qcow2` in the datastore, set `download_ubuntu_image = false` in the relevant node layer so Terraform reuses the existing import image instead of failing with `refusing to override existing file`.
 
 ### Safe interpretation of Terraform hangs
 

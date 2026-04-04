@@ -6,6 +6,6 @@ minecraft_vm_dirs:
   - "{{ minecraft_vm_data_dir }}"
   - "{{ minecraft_vm_backup_dir }}"
 
-minecraft_vm_dir_owner: root
-minecraft_vm_dir_group: root
-minecraft_vm_dir_mode: "0755"
+minecraft_vm_dir_owner: "{{ minecraft_vm_upload_user }}"
+minecraft_vm_dir_group: "{{ minecraft_vm_upload_user }}"
+minecraft_vm_dir_mode: "0775"

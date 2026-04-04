@@ -47,6 +47,21 @@ The Ansible playbook installs Docker, renders `/etc/minecraft/minecraft.env`, cr
 
 `MINECRAFT_CURSEFORGE_API_KEY` must be present in `ansible/.env` or the operator environment before running the Ansible playbook.
 
+## Lag Notes
+
+- Symptom seen on the dedicated VM: brief 1-3 second delays on interactions such as opening chests, even after moving Minecraft off Kubernetes.
+- Observed fix: set `sync-chunk-writes=false` in `/srv/minecraft/data/server.properties` and restart `minecraft.service`.
+- Why this matters: with synchronous chunk writes enabled, the server thread can pause waiting for chunk/world writes to complete, which looks like gameplay lag even when VM CPU, RAM, and disk space are healthy.
+- Current repo note: this appears to have been the main cause of the remaining lag spikes on `nidavellir`.
+
+Apply on the VM:
+
+```bash
+ssh nidavellir 'sudo systemctl stop minecraft'
+ssh nidavellir 'sudo sed -i "s/^sync-chunk-writes=.*/sync-chunk-writes=false/" /srv/minecraft/data/server.properties'
+ssh nidavellir 'sudo systemctl start minecraft'
+```
+
 ## Public Networking
 
 - player traffic is a direct router port-forward to `nidavellir:25565`

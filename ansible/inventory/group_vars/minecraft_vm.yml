@@ -4,6 +4,7 @@ minecraft_vm_image: "itzg/minecraft-server:java21"
 minecraft_vm_root: /srv/minecraft
 minecraft_vm_data_dir: "{{ minecraft_vm_root }}/data"
 minecraft_vm_backup_dir: "{{ minecraft_vm_root }}/backups"
+minecraft_vm_upload_user: ubuntu
 minecraft_vm_port: 25565
 minecraft_vm_memory: 10G
 minecraft_vm_init_memory: 2G

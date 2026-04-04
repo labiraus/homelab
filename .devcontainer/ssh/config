@@ -58,6 +58,10 @@ Host muspelheim
   HostName 192.168.8.125
   User ubuntu
 
+Host nidavellir
+  HostName 192.168.8.126
+  User ubuntu
+
 Host glaaki
   HostName 192.168.8.191
   User oliver
