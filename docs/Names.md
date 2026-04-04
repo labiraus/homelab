@@ -48,3 +48,8 @@ Some names appear in more than one section. For example, the Kubernetes workers 
   - role: dedicated Minecraft VM
   - Proxmox host: `proxmox-node1`
   - IP: `192.168.8.126`
+
+## Raspberry Pi Machines
+
+- `svartalfheim`
+  - role: Raspberry Pi host for external MinIO

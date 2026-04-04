@@ -134,6 +134,7 @@ Managed Minecraft VM state:
 - creates `/srv/minecraft/data` and `/srv/minecraft/backups`
 - makes `/srv/minecraft` writable by the `ubuntu` login user for direct SFTP uploads
 - renders `/etc/minecraft/minecraft.env`
+- enforces selected `server.properties` values such as `sync-chunk-writes=false`
 - manages a `minecraft.service` systemd unit that runs `itzg/minecraft-server:java21`
 - exposes the game directly on TCP `25565`
 

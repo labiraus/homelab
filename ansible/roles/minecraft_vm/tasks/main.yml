@@ -67,3 +67,17 @@
     name: "{{ minecraft_vm_service_name }}"
     enabled: true
     state: started
+
+- name: Wait for Minecraft server.properties to exist
+  ansible.builtin.wait_for:
+    path: "{{ minecraft_vm_data_dir }}/server.properties"
+    state: present
+    timeout: 900
+
+- name: Manage Minecraft server.properties overrides
+  ansible.builtin.lineinfile:
+    path: "{{ minecraft_vm_data_dir }}/server.properties"
+    regexp: "^{{ item.key | regex_escape }}="
+    line: "{{ item.key }}={{ item.value }}"
+  loop: "{{ minecraft_vm_server_properties | dict2items }}"
+  notify: Restart minecraft

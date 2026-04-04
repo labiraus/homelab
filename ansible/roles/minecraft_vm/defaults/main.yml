@@ -9,3 +9,6 @@ minecraft_vm_dirs:
 minecraft_vm_dir_owner: "{{ minecraft_vm_upload_user }}"
 minecraft_vm_dir_group: "{{ minecraft_vm_upload_user }}"
 minecraft_vm_dir_mode: "0775"
+
+minecraft_vm_server_properties:
+  sync-chunk-writes: "false"
