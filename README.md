@@ -98,12 +98,20 @@ Minecraft is no longer deployed through Helm/Flux. The authoritative Minecraft p
 
 The app stack under `apps/` is intentionally small:
 
-- `apps/external`: public Go service exposing readiness/liveness, metrics, and `/users/count`
-- `apps/mcp`: public Go MCP service exposing `/mcp`
-- `apps/orchestrator`: internal Go service exposing `POST /documents`
-- `apps/processor`: internal TypeScript worker consuming Kafka and writing chunks plus embeddings to Postgres
-- `apps/ui`: Vite frontend used to hit the public API route from one UI
+- `apps/ui`: public React frontend
+- `apps/external`: public Go API for the UI and stable browser-facing integrations
+- `apps/mcp`: public Go MCP service for AI-native access
+- `apps/orchestrator`: internal Go control-plane service for reconciliation and task dispatch
+- `apps/processor`: internal TypeScript Kafka worker for extraction, chunking, embedding, and persistence
 - `apps/pkg/*`: shared Go packages for HTTP server startup, logging, metrics, and integrations
+
+Current document-platform direction:
+
+- MinIO on `svartalfheim` is the canonical raw object store
+- Postgres via CNPG plus pgvector is the source of truth for metadata, state, chunks, and embeddings
+- Kafka plus KEDA handle asynchronous execution and worker scaling
+- Redis is available but not yet a core design dependency
+- Mongo is intentionally not part of the active application architecture
 
 ### Ansible
 

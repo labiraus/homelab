@@ -1,6 +1,8 @@
 # mcp
 
-`mcp` is a small public Go service that exposes the cluster MCP endpoint.
+`mcp` is the AI-native public front door for agents and MCP-compatible clients.
+
+It should expose stable capabilities while hiding internal pipeline details behind the MCP surface.
 
 ## Endpoints
 

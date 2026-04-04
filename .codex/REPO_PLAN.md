@@ -1,134 +1,188 @@
-# Repo Plan For Codex — Homelab Migration to a RAG System
+# Repo Plan For Codex — Homelab Async Document Platform
 
-Use this file as the working objective-state document for the repository as it evolves from “platform + example apps” into a functional Retrieval-Augmented Generation (RAG) system.
+Use this file as the working objective-state document for the repository.
 
-REPO_MAP.md explains where things are.
-This file explains where the repo is trying to go, what is in flight, and which gaps should shape future work.
+`REPO_MAP.md` explains where things are.
+This file explains the architecture the repo is converging on, what is active now, and which gaps should drive future changes.
 
 ## Executive Summary
 
-This repo already includes:
-- a Vite React UI (apps/ui)
-- a public Go API (apps/external)
-- a public Go MCP service (apps/mcp)
-- an internal Go orchestrator (apps/orchestrator)
-- an internal TypeScript processor (apps/processor)
-- Helm charts for apps/data/observability and shared chart templates
-- Postgres via CNPG, with the vector extension enabled at bootstrap
-- MinIO as an object store hosted on `svartalfheim`, with state intentionally managed via Ansible outside Kubernetes manifests
-- a dedicated Minecraft VM on `proxmox-node1`, provisioned by Terraform and configured by Ansible because gameplay latency was not reliable enough in the Kubernetes path
+This repo is no longer planning around separate `rag_ingest` and `ragapi` applications.
+The chosen application boundary is:
 
-Goal: evolve the existing app stack into a document-processing and RAG-friendly platform while preserving a simple public UI and API surface.
+- `ui`: React frontend
+- `external`: public Go API for browser clients
+- `mcp`: Go MCP server for AI-native access
+- `orchestrator`: internal Go control-plane API
+- `processor`: TypeScript Kafka worker for document operations
 
-## Target State
+The intended platform shape is:
 
-The repo should converge on a clean homelab platform with:
+- MinIO on `svartalfheim` remains the canonical raw object store
+- Postgres via CNPG plus pgvector is the system of record for metadata, workflow state, chunks, and embeddings
+- Kafka plus KEDA provide asynchronous execution and worker scaling
+- Redis is available but is not yet a core architectural dependency
+- Mongo is not part of the active plan
 
-- Terraform responsible for provisioning and lifecycle of Kubernetes-capable infrastructure
-- Helm + reconciliation (Flux preferred) responsible for cluster bootstrap and steady-state application deployment
-- Ansible responsible for external storage-host services on `svartalfheim`, including MinIO service state intentionally managed outside Kubernetes manifests
-- Small example and utility applications deployable through the same delivery path as platform workloads
-- A RAG system that can ingest documents, build embeddings, perform retrieval, and generate answers via an LLM
-- Operator workflows safe to run from the devcontainer with minimal host-specific setup
-- Repo documentation that stays aligned with actual layout, workflows, and security expectations
+## Current Repo Reality
 
-## RAG Architectural Intent
+The repo already includes:
 
-### Data plane
+- Flux plus Helm as the delivery path for cluster workloads
+- app charts under `helm/apps/`
+- data/platform charts under `helm/data/` and `helm/bootstrap/`
+- the `ui`, `external`, `mcp`, `orchestrator`, and `processor` apps under `apps/`
+- SQL bootstrap under `sql/`
+- external MinIO management through Ansible on `svartalfheim`
 
-- MinIO is the landing zone for raw documents and (optionally) derived ingestion artifacts.
-- Postgres (CNPG) is the system-of-record for RAG metadata and embeddings using the vector extension.
-- The RAG schema lives under its own Postgres schema namespace (e.g., rag.*) for clean rollback/cleanup.
+Documentation must stay aligned with implementation as these pieces evolve.
 
-### Control plane
+## Chosen Architecture
 
-- Ingestion/indexing runs as a Kubernetes Job/CronJob:
-  - detects new/changed documents
-  - extracts text
-  - chunks content using a deterministic strategy
-  - creates embeddings using the chosen embedding model
-  - upserts chunk records + embeddings into Postgres
-- Query-time retrieval/generation runs as a dedicated service (ragapi):
-  - accepts queries from the UI
-  - performs vector similarity retrieval from Postgres
-  - constructs prompts with retrieved context
-  - calls an LLM (in-cluster or external, chosen explicitly)
-  - returns answer + source citations (source_uri + chunk identifiers)
+## App Boundaries
 
-### App surface
+- `ui` is the browser-facing React application.
+- `external` is the stable public API for the UI. It serves Postgres-backed data and triggers orchestrator actions without exposing internal pipeline details.
+- `mcp` is the stable AI-native front door for agents and MCP-compatible clients.
+- `orchestrator` is the internal control plane. It owns workflow state transitions, reconciliation, and task dispatch decisions.
+- `processor` is the stateless data-plane worker. It performs extraction, chunking, embedding, and persistence work when triggered asynchronously.
 
-- The existing UI calls `/api/users/count`.
-- The UI adds a RAG panel that calls /rag/query.
-- The RAG response includes citations suitable for display (source + chunk ranges).
+## Data And Control Model
 
-## Phased Migration Plan
+- MinIO is the canonical source for raw objects and source documents.
+- Postgres is the source of truth for document inventory, workflow state, metadata, chunks, and embeddings.
+- Kafka is transport and execution infrastructure, not the source of truth.
+- KEDA scales workers from Kafka lag and should remain an execution concern rather than a state-management concern.
 
-### Phase 0 — Decisions and scope (gate)
+## Architectural Principles
+
+- Prefer async-first workflows.
+- Prefer controller/reconciliation plus state-machine thinking over request-coupled pipelines.
+- Keep public and AI-facing APIs stable while hiding ingestion and processing internals behind them.
+- Keep raw storage in MinIO and derived state in Postgres.
+- Treat reprocessing and versioning as first-class future concerns even when early implementations stay small.
+
+## Service Roles
+
+### `orchestrator`
+
+`orchestrator` is the control plane.
+
+It should:
+
+- reconcile MinIO object inventory into Postgres
+- decide what requires processing or reprocessing
+- own durable workflow transitions
+- enqueue asynchronous work on Kafka when needed
+
+It should not:
+
+- do chunking or embedding itself
+- treat Kafka as the authoritative state store
+- leak internal pipeline mechanics into the public API surface
+
+### `processor`
+
+`processor` is the stateless data-plane worker.
+
+It should:
+
+- consume Kafka jobs
+- fetch or receive document content for processing
+- perform extraction, chunking, and embedding
+- write results back to Postgres
+
+It should not:
+
+- own global document lifecycle state
+- become the system-of-record for reconciliation
+- replace orchestrator as the workflow owner
+
+## Phased Plan
+
+### Phase 1 — Document Inventory And Reconciliation Schema
+
 Deliverables:
-- Define corpus sources and update mechanism (MinIO bucket naming, allowed file types, expected volumes)
-- Choose embedding model and dimension
-- Choose LLM hosting approach (external API vs in-cluster CPU vs in-cluster GPU)
-- Define basic SLOs (acceptable latency, freshness, cost/compute envelope)
 
-### Phase 1 — Storage primitives (Postgres + MinIO)
+- establish a dedicated Postgres schema namespace for document/control-plane state
+- add a `documents` table suitable for MinIO reconciliation
+- include fields for bucket, object key, etag or version marker, size, last modified time, status, and timestamps
+- make idempotent upsert and reconciliation practical
+- leave explicit room for future processing-version and reprocessing tracking
+
+### Phase 2 — Orchestrator-Triggered MinIO Scan And Document Upsert
+
 Deliverables:
-- SQL: create rag schema and tables (documents, chunks, embeddings)
-- Ansible: create MinIO bucket(s) and dedicated IAM/policies for rag ingestion + ragapi reads
-- Kubernetes secrets: apply generated secrets for MinIO access (never commit credentials)
 
-### Phase 2 — Ingestion/indexing workload
+- orchestrator gains the first reconciliation flow
+- MinIO object inventory is scanned through the existing external MinIO boundary
+- document metadata and lifecycle state are upserted into Postgres
+- no heavy processing logic is moved into orchestrator
+
+### Phase 3 — Kafka Job Contracts And Processor Execution
+
 Deliverables:
-- New ingestion container app (apps/rag_ingest)
-- Helm: CronJob or Job templates to run ingestion
-- Idempotency: content hashing to avoid re-embedding unchanged docs
-- Basic reconciliation: rebuild mode that can re-index all documents
 
-### Phase 3 — Query-time RAG API (ragapi)
+- define Kafka job contracts owned by the orchestrator/processor boundary
+- orchestrator emits processing work based on Postgres-backed state
+- processor consumes jobs and performs extraction, chunking, embedding, and persistence
+- processing results are written back to Postgres, not treated as Kafka-owned state
+
+### Phase 4 — Retrieval Through `external` And `mcp`
+
 Deliverables:
-- New ragapi service (apps/ragapi) with:
-  - POST /rag/query
-  - GET /readiness and /liveness
-  - optional admin endpoints guarded by auth/policy
-- Helm: deploy ragapi behind /rag ingress path with network policies and service mesh policy consistent with other apps
 
-### Phase 4 — UI integration
+- `external` exposes stable retrieval/query capabilities for the UI
+- `mcp` exposes the same capabilities in an AI-native shape for agents
+- both surfaces read from Postgres-backed state and hide pipeline internals
+
+### Phase 5 — Editing, Reprocessing, Citations, And Richer Context
+
 Deliverables:
-- UI panel/page for RAG Q&A
-- Source citation rendering (source_uri + chunk identifiers)
-- Basic UI tests
 
-### Phase 5 — Operational hardening
-Deliverables:
-- Monitoring: metrics + dashboards + alerts for ragapi and ingestion
-- Tracing: integrate with cluster tracing if configured
-- Security review: secrets, network policies, RBAC, data handling boundaries
-- Rollback drill and runbooks
+- editing and curation flows
+- explicit reprocessing/versioning support
+- citation UX in the UI and API responses
+- richer context assembly and later graph-style or CAG capabilities layered on top of the document/chunk/embedding foundation
 
-## Security and Operations
+## Near-Term Non-Goals
 
-- Never commit secrets.
-- Prefer additive changes with reversible toggles (e.g., CronJob suspend=true by default).
-- Keep RAG schema and resources isolated so rollback does not impact existing app schemas.
-- Align docs with behaviour changes whenever endpoints or deployment layouts change.
+For now, do not introduce:
 
-## Known Gaps / Questions
+- Mongo
+- a separate graph database
+- an over-engineered workflow engine unless there is a clear later justification
 
-- Flux is the authoritative reconciliation mechanism; keep migration work and docs aligned to that path.
-- What is the source corpus for RAG (MinIO bucket only, Git, web, other)?
-- What embedding/LLM models and dimensions are required?
-- What are the hardware constraints (CPU-only vs GPU nodes)?
-- What is the acceptable operational budget (latency, storage growth, re-index frequency)?
+CAG and semantic graph ambitions remain later phases, not the initial implementation target.
+
+## Delivery And Operations Reality
+
+- Flux plus Helm remain the authoritative delivery path for in-cluster workloads.
+- MinIO remains externally managed through Ansible on `svartalfheim`, not reintroduced as an in-cluster default.
+- Postgres changes under `sql/` should stay idempotent and operator-friendly.
+- Repo documentation must be updated in the same task as meaningful architecture or workflow changes.
+
+## Immediate Priorities
+
+- keep docs aligned with the chosen app boundaries
+- establish the initial `rag` Postgres schema for document inventory and future processing state
+- shape orchestrator and processor around clean control-plane versus data-plane boundaries
+- keep public access flowing through `external` and `mcp`
+- avoid premature datastore or workflow-engine expansion
 
 ## Change Heuristics
 
 Prefer changes that:
-- Move the repo toward the target state above
-- Reduce stale documentation
-- Reduce duplicated conventions
-- Make workflows safer and more explicit
-- Preserve clear ownership boundaries between Terraform, Helm/reconciliation, apps, SQL, and Ansible
+
+- reinforce Postgres as the source of truth
+- keep orchestrator as the workflow owner
+- keep processor stateless and job-driven
+- improve idempotency and future reprocessing support
+- reduce drift between docs, SQL, Helm, and app behavior
 
 Be cautious with changes that:
-- Introduce new operators/datastores without clear need
-- Add secrets or credentials into git history
-- Mix MinIO state management between Ansible and Kubernetes manifests without a clear boundary
+
+- make Kafka carry durable state
+- push document lifecycle ownership into workers
+- expose internal pipeline details through public APIs
+- add new datastores or operators without a clear architectural need

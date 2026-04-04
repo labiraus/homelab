@@ -34,7 +34,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
 - `scripts/`
   - operational helper scripts such as kubeconfig refresh
 - `sql/`
-  - SQL snippets and bootstrap scripts
+  - SQL snippets and bootstrap scripts, including the `rag` schema foundation
 - `values/`
   - values files for upstream charts
 
@@ -59,6 +59,7 @@ Current behavior note:
 - Stateful/data charts: `helm/data/`
 - Misc workload charts: `helm/workloads/`
 - Shared chart templates: `helm/libraries/commonapi/`
+- Async worker chart templates: `helm/libraries/commonscaled/`
 - Upstream override values: `values/`
 
 ### Go Service Work
@@ -66,10 +67,18 @@ Current behavior note:
 - Public API entry point: `apps/external/main.go`
 - MCP entry point: `apps/mcp/main.go`
 - Orchestrator entry point: `apps/orchestrator/main.go`
+- Orchestrator request and Kafka contract shapes: `apps/orchestrator/documents.go`
 - Shared HTTP server and probes: `apps/pkg/api/api.go`
 - Logging and readiness wiring: `apps/pkg/base/base.go`
 - Metrics: `apps/pkg/prometheusutil/prometheus.go`
 - Kafka helpers: `apps/pkg/kafkautil/kafka.go`
+- S3 / MinIO helpers: `apps/pkg/s3util/s3.go`
+- Postgres helpers: `apps/pkg/postgresutil/postgres.go`
+
+Current behavior note:
+
+- `orchestrator` is the intended control-plane service for reconciliation and task dispatch.
+- `processor` is the intended stateless data-plane worker.
 
 ### Frontend Work
 
@@ -84,6 +93,19 @@ Current behavior note:
 
 - The frontend calls `/api/users/count`.
 - This app is Vite-based, not Create React App.
+
+### Document Platform And RAG Work
+
+- Working architecture and phase plan: `.codex/REPO_PLAN.md`
+- Initial document/control-plane schema: `sql/rag/schema.pgsql`
+- Async ingestion design note: `docs/async-ingestion.md`
+- High-level RAG and retrieval direction: `docs/RAG.md`
+
+Current behavior note:
+
+- MinIO is the canonical raw object store.
+- Postgres is the source of truth for metadata, state, chunks, and embeddings.
+- Kafka plus KEDA are the async execution layer, not the durable state store.
 
 ### MinIO and Ansible
 

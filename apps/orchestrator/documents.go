@@ -13,20 +13,34 @@ import (
 )
 
 type documentRequest struct {
-	DocumentID  string                 `json:"documentId"`
-	SourceURI   string                 `json:"sourceUri"`
-	ContentType string                 `json:"contentType"`
-	Text        string                 `json:"text"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	DocumentID        string                 `json:"documentId"`
+	Bucket            string                 `json:"bucket,omitempty"`
+	ObjectKey         string                 `json:"objectKey,omitempty"`
+	SourceURI         string                 `json:"sourceUri"`
+	ContentType       string                 `json:"contentType"`
+	VersionMarker     string                 `json:"versionMarker,omitempty"`
+	ETag              string                 `json:"etag,omitempty"`
+	SizeBytes         int64                  `json:"sizeBytes,omitempty"`
+	LastModified      string                 `json:"lastModified,omitempty"`
+	Text              string                 `json:"text"`
+	Metadata          map[string]interface{} `json:"metadata,omitempty"`
+	ProcessingVersion int                    `json:"processingVersion,omitempty"`
 }
 
 type documentEvent struct {
-	DocumentID  string                 `json:"documentId"`
-	SourceURI   string                 `json:"sourceUri"`
-	ContentType string                 `json:"contentType"`
-	Text        string                 `json:"text"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
-	RequestedAt string                 `json:"requestedAt"`
+	DocumentID        string                 `json:"documentId"`
+	Bucket            string                 `json:"bucket,omitempty"`
+	ObjectKey         string                 `json:"objectKey,omitempty"`
+	SourceURI         string                 `json:"sourceUri"`
+	ContentType       string                 `json:"contentType"`
+	VersionMarker     string                 `json:"versionMarker,omitempty"`
+	ETag              string                 `json:"etag,omitempty"`
+	SizeBytes         int64                  `json:"sizeBytes,omitempty"`
+	LastModified      string                 `json:"lastModified,omitempty"`
+	Text              string                 `json:"text"`
+	Metadata          map[string]interface{} `json:"metadata,omitempty"`
+	RequestedAt       string                 `json:"requestedAt"`
+	ProcessingVersion int                    `json:"processingVersion,omitempty"`
 }
 
 type errorResponse struct {
@@ -53,12 +67,19 @@ func documentsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	event := documentEvent{
-		DocumentID:  request.DocumentID,
-		SourceURI:   request.SourceURI,
-		ContentType: request.ContentType,
-		Text:        request.Text,
-		Metadata:    request.Metadata,
-		RequestedAt: time.Now().UTC().Format(time.RFC3339),
+		DocumentID:        request.DocumentID,
+		Bucket:            request.Bucket,
+		ObjectKey:         request.ObjectKey,
+		SourceURI:         request.SourceURI,
+		ContentType:       request.ContentType,
+		VersionMarker:     request.VersionMarker,
+		ETag:              request.ETag,
+		SizeBytes:         request.SizeBytes,
+		LastModified:      request.LastModified,
+		Text:              request.Text,
+		Metadata:          request.Metadata,
+		RequestedAt:       time.Now().UTC().Format(time.RFC3339),
+		ProcessingVersion: defaultProcessingVersion(request.ProcessingVersion),
 	}
 
 	if err := publishDocumentEvent(r.Context(), event); err != nil {
@@ -106,6 +127,13 @@ func kafkaTopic() string {
 		return "documents.ingest"
 	}
 	return topic
+}
+
+func defaultProcessingVersion(value int) int {
+	if value <= 0 {
+		return 1
+	}
+	return value
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload interface{}) {

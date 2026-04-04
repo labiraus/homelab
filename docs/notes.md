@@ -6,7 +6,7 @@
 - Flux bootstrap groups: `flux-bootstrap`, `flux-apps`, `flux-workloads`, `flux-data`, `flux-observability`
 - Upstream chart values source of truth: `values/` for upstream charts, plus chart-local `values.yaml` with optional environment overlays such as `values-ghcr.yaml` and `values-ecr.yaml`
 - Storage default class: Longhorn
-- S3-compatible object storage: MinIO tenant in-cluster
+- S3-compatible object storage: external MinIO on `svartalfheim`
 - MinIO state strategy: Ansible playbooks under `ansible/` (no Crossplane/Terraform)
 - Secret strategy: generate from Ansible outputs and apply to Kubernetes
 
@@ -14,7 +14,7 @@
 
 - Plex is optional and not part of the baseline Flux bootstrap set by default.
 - Harvester/KubeVirt resources are documentation-first because most deployments require dedicated hardware and node pools.
-- Kafka is intentionally not installed. Add it after baseline stability using Strimzi operator or Redpanda operator.
+- Kafka is available through the Strimzi-based data path when enabled; treat it as async execution infrastructure rather than a source of truth.
 
 ## Troubleshooting
 

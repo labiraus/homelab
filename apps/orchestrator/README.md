@@ -1,6 +1,10 @@
 # orchestrator
 
-`orchestrator` is an internal Go service that validates document submissions and enqueues them to Kafka.
+`orchestrator` is the internal Go control-plane service.
+
+It owns reconciliation and workflow decisions, including when documents should be queued for asynchronous processing.
+
+The current implementation is intentionally small and starts with manual document submission while the MinIO reconciliation flow is being built out.
 
 ## Endpoints
 
