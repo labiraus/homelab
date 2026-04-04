@@ -19,6 +19,8 @@ Commands:
   down          Scale down the FTP debug deployment and restore the Minecraft deployment
   status        Show debug and Minecraft deployment status
   port-forward  Forward localhost ports for FileZilla access
+  download      Stream files from the debug pod to the local machine with tar
+  upload        Stream files from the local machine to the debug pod with tar
   logs          Tail the FTP pod logs
 
 Environment overrides:
@@ -35,6 +37,8 @@ Environment overrides:
 Example:
   $(basename "$0") up
   $(basename "$0") port-forward
+  $(basename "$0") download world ./restore
+  $(basename "$0") upload ./world world
 EOF
 }
 
@@ -75,6 +79,35 @@ ensure_namespace() {
 
 ensure_deployment() {
   kubectl -n "${NAMESPACE}" get deployment "$1" >/dev/null
+}
+
+pod_name() {
+  kubectl -n "${NAMESPACE}" get pod \
+    -l "app.kubernetes.io/name=${APP_NAME}" \
+    -o jsonpath='{.items[0].metadata.name}'
+}
+
+ftp_root() {
+  printf "%s" "/home/vsftpd/minecraft"
+}
+
+ensure_pod() {
+  local pod
+  pod="$(pod_name)"
+  if [[ -z "${pod}" ]]; then
+    echo "Error: no running pod found for ${APP_NAME} in namespace ${NAMESPACE}." >&2
+    exit 1
+  fi
+}
+
+remote_path() {
+  local rel="${1:-.}"
+  rel="${rel#./}"
+  if [[ "${rel}" == "." || -z "${rel}" ]]; then
+    printf "%s" "$(ftp_root)"
+  else
+    printf "%s/%s" "$(ftp_root)" "${rel}"
+  fi
 }
 
 get_secret_value() {
@@ -159,6 +192,54 @@ cmd_port_forward() {
   kubectl -n "${NAMESPACE}" port-forward svc/"$(service_name)" $(port_forward_args)
 }
 
+cmd_download() {
+  local remote_rel="${2:-.}"
+  local local_dest="${3:-.}"
+  local pod
+
+  require tar
+  ensure_namespace
+  ensure_pod
+  pod="$(pod_name)"
+
+  mkdir -p "${local_dest}"
+
+  echo "Streaming ${remote_rel} from ${pod} to ${local_dest}..."
+  kubectl -n "${NAMESPACE}" exec "${pod}" -- \
+    tar -C "$(ftp_root)" -cf - "${remote_rel}" \
+    | tar -C "${local_dest}" -xf -
+}
+
+cmd_upload() {
+  local local_src="${2:-}"
+  local remote_rel="${3:-.}"
+  local pod
+
+  require tar
+  ensure_namespace
+  ensure_pod
+
+  if [[ -z "${local_src}" ]]; then
+    echo "Error: upload requires a local source path." >&2
+    usage >&2
+    exit 1
+  fi
+
+  if [[ ! -e "${local_src}" ]]; then
+    echo "Error: local source does not exist: ${local_src}" >&2
+    exit 1
+  fi
+
+  pod="$(pod_name)"
+
+  echo "Streaming ${local_src} to ${pod}:$(remote_path "${remote_rel}")..."
+  kubectl -n "${NAMESPACE}" exec "${pod}" -- mkdir -p "$(remote_path "${remote_rel}")"
+
+  tar -C "$(dirname "${local_src}")" -cf - "$(basename "${local_src}")" \
+    | kubectl -n "${NAMESPACE}" exec -i "${pod}" -- \
+        tar -C "$(remote_path "${remote_rel}")" -xf -
+}
+
 cmd_logs() {
   kubectl -n "${NAMESPACE}" logs -f deploy/"${APP_NAME}"
 }
@@ -178,6 +259,12 @@ main() {
       ;;
     port-forward)
       cmd_port_forward
+      ;;
+    download)
+      cmd_download "$@"
+      ;;
+    upload)
+      cmd_upload "$@"
       ;;
     logs)
       cmd_logs

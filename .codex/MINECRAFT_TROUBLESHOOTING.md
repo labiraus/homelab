@@ -148,7 +148,14 @@ Operator guidance:
 ./scripts/mc-debug.sh port-forward
 ```
 
-- then use FileZilla or another FTP client to pull the relevant world files from the debug deployment before continuing
+- for browsing or one-off edits, use FileZilla or another FTP client through `port-forward`
+- for large world exports with many small files, prefer the tar-stream helper instead of FTP:
+
+```bash
+./scripts/mc-debug.sh download . ./minecraft-export
+```
+
+- the tar-stream path avoids the high per-file latency of FTP over `kubectl port-forward`
 - after the export is verified, restore normal deployment ownership with:
 
 ```bash
