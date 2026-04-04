@@ -152,6 +152,19 @@ func GetWriter(ctx context.Context, topicID string) (*kafka.Writer, error) {
 	return writer, nil
 }
 
+func Publish(ctx context.Context, topicID string, key []byte, value []byte) error {
+	writer, err := GetWriter(ctx, topicID)
+	if err != nil {
+		return err
+	}
+
+	return writer.WriteMessages(ctx, kafka.Message{
+		Key:   key,
+		Value: value,
+		Time:  time.Now().UTC(),
+	})
+}
+
 func ParseKafkaConfig(config map[string]string) (KafkaConfig, error) {
 	var kafkaConfig KafkaConfig
 	err := yaml.Unmarshal([]byte(config["kafka"]), &kafkaConfig)

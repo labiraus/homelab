@@ -1,9 +1,0 @@
-imagePullSecrets:
-  - name: registry-key
-
-image:
-  repository: ghcr.io/labiraus/homelab/goapi
-  pullPolicy: IfNotPresent
-
-env:
-  configValue: "ghcr"

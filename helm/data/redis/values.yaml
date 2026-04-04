@@ -26,8 +26,4 @@ networkPolicy:
     - namespace: homelab
       podSelector:
         matchLabels:
-          app.kubernetes.io/instance: homelab-goapi
-    - namespace: homelab
-      podSelector:
-        matchLabels:
-          app.kubernetes.io/instance: homelab-pythonapi
+          app.kubernetes.io/instance: homelab-external

@@ -1,0 +1,13 @@
+podLabels: {}
+
+image:
+  tag: "uat"
+
+tolerations:
+  - key: "karpenter.sh/controller"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+
+env:
+  configValue: "eks"

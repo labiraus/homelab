@@ -25,4 +25,19 @@ spec:
   entityOperator:
     topicOperator: {}
     userOperator: {}
+---
+{{- if .Values.bootstrapAlias.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.bootstrapAlias.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  type: ExternalName
+  externalName: {{ printf "%s-kafka-bootstrap.%s.svc.cluster.local" .Values.name .Values.namespace }}
+  ports:
+    - name: kafka
+      port: 9092
+      targetPort: 9092
+{{- end }}
 {{- end }}

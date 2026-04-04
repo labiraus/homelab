@@ -18,11 +18,11 @@ networkPolicy:
     - namespace: homelab
       podSelector:
         matchLabels:
-          app.kubernetes.io/instance: homelab-goapi
+          app.kubernetes.io/instance: homelab-external
     - namespace: homelab
       podSelector:
         matchLabels:
-          app.kubernetes.io/instance: homelab-pythonapi
+          app.kubernetes.io/instance: homelab-processor
     - namespace: ingress
       podSelector:
         matchLabels:

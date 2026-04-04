@@ -1,0 +1,6 @@
+dependencies:
+- name: commonapi
+  repository: file://../../libraries/commonapi
+  version: 1.0.0
+digest: sha256:770871b8ce5600acb09fac353e389b9db43f00bf2d23719f83a2759f3804e599
+generated: "2026-03-14T17:15:04.506478356Z"

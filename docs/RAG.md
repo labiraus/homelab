@@ -2,22 +2,27 @@
 
 ```mermaid
 flowchart LR
-  U[User in browser] --> UI[reactapp - Vite UI];
+  U[User in browser] --> UI[ui - Vite UI];
   UI -->|/rag/query| RAG[ragapi - new service];
-  UI -->|/go/hello| GO[goapi];
-  UI -->|/python/hello| PY[pythonapi];
+  UI -->|/api/users/count| EXT[external];
+  EXT --> ORCH[orchestrator];
+  MCP[mcp] --> ORCH;
 
   subgraph Data plane
     MINIO[MinIO / S3 buckets];
     PG[Postgres CNPG + vector extension];
+    KAFKA[Kafka];
   end
 
   subgraph Ingestion
-    ING[Ingest/Index Job or CronJob];
+    ORCH
+    PROC[processor];
   end
 
-  ING -->|read raw docs| MINIO;
-  ING -->|write chunks+embeddings| PG;
+  ORCH -->|enqueue documents| KAFKA;
+  PROC -->|consume documents| KAFKA;
+  PROC -->|read raw docs optional| MINIO;
+  PROC -->|write chunks+embeddings| PG;
 
   RAG -->|vector similarity search| PG;
   RAG -->|fetch doc metadata / optional raw doc| MINIO;

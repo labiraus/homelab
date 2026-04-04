@@ -1,0 +1,77 @@
+name: App MCP CI/CD
+on:
+  repository_dispatch:
+    types: [docker-build]
+  push:
+    paths:
+      - "apps/mcp/**"
+      - "apps/pkg/**"
+      - ".github/actions/docker/**"
+      - ".github/workflows/app-mcp.yml"
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+concurrency: ci-mcp-docker-pipeline
+
+jobs:
+  test:
+    name: "MCP Test"
+    runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.25.6'
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('./apps/mcp/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: unit test
+        run: go test ./apps/mcp/...
+
+  ghcr:
+    name: "MCP Build to GHCR"
+    runs-on: ubuntu-latest
+    environment: uat
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && !contains(github.event.head_commit.message, 'no-ci')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.1
+
+      - name: Resolve image version
+        id: version
+        shell: bash
+        run: |
+          echo "image_tag=0.0.0-uat.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+
+      - name: Build to GHCR
+        uses: ./.github/actions/docker/ghcr
+        with:
+          dockerfile: ./apps/mcp/dockerfile
+          context: ./apps
+          token: ${{ secrets.GITHUB_TOKEN }}
+          registry: mcp
+          tag: ${{ steps.version.outputs.image_tag }}
+
+      - name: Publish Helm chart to GHCR
+        uses: ./.github/actions/helm/ghcr
+        with:
+          chart: apps/mcp
+          token: ${{ secrets.GITHUB_TOKEN }}
+          values: values-ghcr.yaml
+          tag: uat
+          app-version: ${{ steps.version.outputs.image_tag }}

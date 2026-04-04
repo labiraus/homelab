@@ -35,10 +35,12 @@ Use the nearest relevant `AGENTS.md` for local conventions, and update it when a
 ├── .github/workflows/      # CI for apps and Helm charts
 ├── ansible/                # External services and VM-hosted workloads
 ├── apps/
-│   ├── goapi/              # Go HTTP service
-│   ├── pythonapi/          # Python Flask HTTP service
-│   ├── reactapp/           # Vite/React frontend
-│   └── pkg/                # Shared Go modules used by goapi
+│   ├── external/           # Public Go HTTP service
+│   ├── mcp/                # Public Go MCP service
+│   ├── orchestrator/       # Internal Go document service
+│   ├── processor/          # Internal TypeScript Kafka worker
+│   ├── ui/                 # Vite/React frontend
+│   └── pkg/                # Shared Go modules used by the Go services
 ├── bin/
 │   └── tf                  # Terraform wrapper script
 ├── components/
@@ -96,9 +98,11 @@ Minecraft is no longer deployed through Helm/Flux. The authoritative Minecraft p
 
 The app stack under `apps/` is intentionally small:
 
-- `apps/goapi`: Go service exposing readiness/liveness, metrics, `/hello`, and `/go/benchmarking`
-- `apps/pythonapi`: Flask service exposing readiness/liveness, `/hello`, and `/python/benchmarking`
-- `apps/reactapp`: Vite frontend used to hit the Go and Python routes from one UI
+- `apps/external`: public Go service exposing readiness/liveness, metrics, and `/users/count`
+- `apps/mcp`: public Go MCP service exposing `/mcp`
+- `apps/orchestrator`: internal Go service exposing `POST /documents`
+- `apps/processor`: internal TypeScript worker consuming Kafka and writing chunks plus embeddings to Postgres
+- `apps/ui`: Vite frontend used to hit the public API route from one UI
 - `apps/pkg/*`: shared Go packages for HTTP server startup, logging, metrics, and integrations
 
 ### Ansible
@@ -229,9 +233,11 @@ Join is idempotent and only runs if `/etc/kubernetes/kubelet.conf` does not alre
 
 GitHub Actions currently handle:
 
-- `apps/goapi` tests and image build
-- `apps/pythonapi` tests and image build
-- `apps/reactapp` tests and image build
+- `apps/external` tests and image build
+- `apps/mcp` tests and image build
+- `apps/orchestrator` tests and image build
+- `apps/processor` tests and image build
+- `apps/ui` tests and image build
 - Helm chart discovery, templating tests, and GHCR packaging
 
 Important note: some workflow files may lag behind the runtime choices in the repo. For example, the React app is Vite-based and the devcontainer uses Node 24, so treat workflow definitions as something to verify rather than assume are fully current.

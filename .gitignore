@@ -27,4 +27,6 @@ k8s/generated-secrets/
 .devcontainer/.env
 .devcontainer/kubeconfig
 
+node_modules/
+
 *.mkv

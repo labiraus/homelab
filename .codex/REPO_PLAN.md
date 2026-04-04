@@ -8,15 +8,17 @@ This file explains where the repo is trying to go, what is in flight, and which 
 ## Executive Summary
 
 This repo already includes:
-- a Vite React UI (apps/reactapp)
-- a Go API (apps/goapi)
-- a Python API (apps/pythonapi)
+- a Vite React UI (apps/ui)
+- a public Go API (apps/external)
+- a public Go MCP service (apps/mcp)
+- an internal Go orchestrator (apps/orchestrator)
+- an internal TypeScript processor (apps/processor)
 - Helm charts for apps/data/observability and shared chart templates
 - Postgres via CNPG, with the vector extension enabled at bootstrap
 - MinIO as an object store hosted on `svartalfheim`, with state intentionally managed via Ansible outside Kubernetes manifests
 - a dedicated Minecraft VM on `proxmox-node1`, provisioned by Terraform and configured by Ansible because gameplay latency was not reliable enough in the Kubernetes path
 
-Goal: add a new RAG slice (ragapi + ingestion/indexing) while preserving the existing example UI + APIs.
+Goal: evolve the existing app stack into a document-processing and RAG-friendly platform while preserving a simple public UI and API surface.
 
 ## Target State
 
@@ -55,7 +57,7 @@ The repo should converge on a clean homelab platform with:
 
 ### App surface
 
-- The existing UI continues to call /go/hello and /python/hello.
+- The existing UI calls `/api/users/count`.
 - The UI adds a RAG panel that calls /rag/query.
 - The RAG response includes citations suitable for display (source + chunk ranges).
 

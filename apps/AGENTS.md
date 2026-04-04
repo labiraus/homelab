@@ -18,9 +18,11 @@ The goal here is clarity and operability, not unnecessary abstraction.
 
 ## Repo-Specific Notes
 
-- `goapi/` is the Go service
-- `pythonapi/` is the Flask service
-- `reactapp/` is the Vite frontend
+- `external/` is the public Go service
+- `mcp/` is the Go MCP service
+- `orchestrator/` is the internal Go document service
+- `processor/` is the TypeScript Kafka worker
+- `ui/` is the Vite frontend
 - `pkg/` contains shared Go helpers used by application code
 
 ## Safety Notes

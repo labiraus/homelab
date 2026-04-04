@@ -1,6 +1,9 @@
 enabled: false
 namespace: data
 name: homelab-kafka
+bootstrapAlias:
+  enabled: true
+  name: homelab-kafka
 kafka:
   replicas: 3
   storageClass: longhorn

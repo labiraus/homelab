@@ -1,0 +1,3 @@
+{{ define "commonscaled.poddisruptionbudget" }}
+
+{{- end -}}

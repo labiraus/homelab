@@ -1,0 +1,197 @@
+# Default values for external.
+
+replicaCount: 1
+minReadySeconds: 5
+terminationGracePeriodSeconds: 30
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+
+readinessProbe:
+  httpGet:
+    path: /readiness
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 2
+  failureThreshold: 6
+
+livenessProbe:
+  httpGet:
+    path: /liveness
+    port: 8080
+  initialDelaySeconds: 15
+  periodSeconds: 10
+  timeoutSeconds: 2
+  failureThreshold: 3
+
+lifecycle:
+  preStop:
+    exec:
+      command:
+        - /bin/sh
+        - -c
+        - sleep 5
+
+namespace: homelab
+
+image:
+  repository: external
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+envFromSecrets:
+  - external-data-connections
+
+generatedSecrets:
+  - name: external-data-connections
+    stringData:
+      POSTGRES_HOST:
+        value: app-db-rw.data.svc.cluster.local
+      POSTGRES_PORT:
+        value: "5432"
+      POSTGRES_DATABASE:
+        value: app
+      POSTGRES_USER:
+        fromSecretRef:
+          namespace: data
+          name: app-db-bootstrap
+          key: username
+      POSTGRES_PASSWORD:
+        fromSecretRef:
+          namespace: data
+          name: app-db-bootstrap
+          key: password
+      REDIS_HOST:
+        value: redis.data.svc.cluster.local
+      REDIS_PORT:
+        value: "6379"
+      REDIS_PASSWORD:
+        fromSecretRef:
+          namespace: data
+          name: redis-auth
+          key: password
+
+security:
+  istio:
+    peerAuthentication:
+      enabled: true
+      mode: STRICT
+    authorizationPolicy:
+      enabled: true
+      action: ALLOW
+      rules:
+        - from:
+            - source:
+                principals:
+                  - cluster.local/ns/ingress/sa/gateway-istio
+          to:
+            - operation:
+                ports: ["8080"]
+  networkPolicy:
+    enabled: true
+    defaultDenyIngress: true
+    defaultDenyEgress: true
+    ingress:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: ingress
+        ports:
+          - protocol: TCP
+            port: 8080
+    egress:
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: kube-system
+            podSelector:
+              matchLabels:
+                k8s-app: kube-dns
+        ports:
+          - protocol: UDP
+            port: 53
+          - protocol: TCP
+            port: 53
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: istio-system
+            podSelector:
+              matchLabels:
+                app: istiod
+        ports:
+          - protocol: TCP
+            port: 15012
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: data
+            podSelector:
+              matchLabels:
+                cnpg.io/cluster: app-db
+        ports:
+          - protocol: TCP
+            port: 5432
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: data
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/name: redis
+        ports:
+          - protocol: TCP
+            port: 6379
+
+podAnnotations: {}
+podLabels:
+  testing_label_key: external
+
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: true
+  httpsRedirect: true
+  className: ""
+  annotations: {}
+  hosts:
+    - host: mcp.labiraus.com
+      paths:
+        - path: /api
+          pathType: PathPrefix
+  tls: []
+
+resources: {}
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+env:
+  configValue: "default"

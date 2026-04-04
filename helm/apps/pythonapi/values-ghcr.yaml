@@ -1,9 +1,0 @@
-imagePullSecrets:
-  - name: registry-key
-
-image:
-  repository: ghcr.io/labiraus/homelab/pythonapi
-  pullPolicy: IfNotPresent
-
-env:
-  configValue: "ghcr"

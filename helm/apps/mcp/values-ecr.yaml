@@ -1,0 +1,23 @@
+podLabels: {}
+
+image:
+  tag: "uat"
+
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  hosts:
+    - host: uat.labiraus.com
+      paths:
+        - path: /mcp
+          pathType: PathPrefix
+
+tolerations:
+  - key: "karpenter.sh/controller"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+
+env:
+  configValue: "eks"

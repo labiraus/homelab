@@ -1,0 +1,22 @@
+{
+  "name": "processor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "test": "node --import tsx --test test/**/*.test.ts"
+  },
+  "dependencies": {
+    "kafkajs": "^2.2.4",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "@types/pg": "^8.15.5",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  }
+}

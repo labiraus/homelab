@@ -1,0 +1,9 @@
+imagePullSecrets:
+ - name: registry-key
+
+image:
+  repository: ghcr.io/labiraus/homelab/ui
+  pullPolicy: IfNotPresent
+
+env:
+    configValue: "ghcr"

@@ -1,9 +1,0 @@
-imagePullSecrets:
- - name: registry-key
-
-image:
-  repository: ghcr.io/labiraus/homelab/reactapp
-  pullPolicy: IfNotPresent
-
-env:
-    configValue: "ghcr"

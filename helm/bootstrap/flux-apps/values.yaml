@@ -17,22 +17,31 @@ imagePullSecret:
     name: ghcr-creds
 min_version: 0.0.0-0
 releases:
-  - name: goapi
+  - name: external
     type: oci
     namespace: homelab
     dependsOn:
       - postgres
-      - mongo
       - redis
 
-  - name: pythonapi
+  - name: ui
+    type: oci
+    namespace: homelab
+
+  - name: mcp
+    type: oci
+    namespace: homelab
+
+  - name: orchestrator
     type: oci
     namespace: homelab
     dependsOn:
-      - postgres
-      - mongo
-      - redis
+      - kafka
 
-  - name: reactapp
+  - name: processor
     type: oci
     namespace: homelab
+    dependsOn:
+      - kafka
+      - postgres
+      - keda

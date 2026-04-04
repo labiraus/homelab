@@ -14,9 +14,11 @@ Use this file as the first fast pass when you need to locate the relevant code i
 - `.devcontainer/`
   - Devcontainer config, mounted kubeconfig, SSH config, env file
 - `apps/`
-  - `goapi/`: Go service
-  - `pythonapi/`: Flask service
-  - `reactapp/`: Vite frontend
+  - `external/`: public Go service
+  - `mcp/`: public Go MCP service
+  - `orchestrator/`: internal Go document service
+  - `processor/`: internal TypeScript Kafka worker
+  - `ui/`: Vite frontend
   - `pkg/`: shared Go modules
 - `ansible/`
   - external service state management, including the Minecraft VM
@@ -61,41 +63,26 @@ Current behavior note:
 
 ### Go Service Work
 
-- Entry point: `apps/goapi/main.go`
-- Old outbound client helper: `apps/goapi/client.go`
-- Local tests: `apps/goapi/client_test.go`
+- Public API entry point: `apps/external/main.go`
+- MCP entry point: `apps/mcp/main.go`
+- Orchestrator entry point: `apps/orchestrator/main.go`
 - Shared HTTP server and probes: `apps/pkg/api/api.go`
 - Logging and readiness wiring: `apps/pkg/base/base.go`
 - Metrics: `apps/pkg/prometheusutil/prometheus.go`
-- In-cluster Kubernetes access: `apps/pkg/kubernetesutil/kubernetes.go`
-
-Current behavior note:
-
-- `apps/goapi/main.go` handles `/hello` directly and no longer uses `GetUser()` from `client.go`.
-
-### Python Service Work
-
-- Entry point: `apps/pythonapi/app.py`
-- Response type: `apps/pythonapi/UserResponse.py`
-- Tests: `apps/pythonapi/tests/app_test.py`
-- Container dependencies: `apps/pythonapi/requirements.txt`
-
-Current behavior note:
-
-- `/hello` still calls `USER_API_URL`, defaulting to `http://userapi/user`.
+- Kafka helpers: `apps/pkg/kafkautil/kafka.go`
 
 ### Frontend Work
 
-- Entry point: `apps/reactapp/src/main.jsx`
-- Main UI: `apps/reactapp/src/App.jsx`
-- Tests: `apps/reactapp/src/App.test.jsx`
-- Tooling and scripts: `apps/reactapp/package.json`
-- Vite config: `apps/reactapp/vite.config.js`
-- Container build: `apps/reactapp/dockerfile`
+- Entry point: `apps/ui/src/main.jsx`
+- Main UI: `apps/ui/src/App.jsx`
+- Tests: `apps/ui/src/App.test.jsx`
+- Tooling and scripts: `apps/ui/package.json`
+- Vite config: `apps/ui/vite.config.js`
+- Container build: `apps/ui/dockerfile`
 
 Current behavior note:
 
-- The frontend calls `/go/hello` and `/python/hello`.
+- The frontend calls `/api/users/count`.
 - This app is Vite-based, not Create React App.
 
 ### MinIO and Ansible

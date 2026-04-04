@@ -22,27 +22,15 @@ releases:
         chart: strimzi-kafka-operator
         targetNamespace: kafka
 
-  - name: mongo
-    type: oci
-    dependencies:
-      - name: mongodb-operator-crds
-        type: helm
-        interval: 1h
-        repository:
-          name: mongodb
-          url: https://mongodb.github.io/helm-charts
-        chart: community-operator-crds
-        targetNamespace: mongodb
-      - name: mongodb-operator
-        type: helm
-        interval: 1h
-        dependsOn:
-          - mongodb-operator-crds
-        repository:
-          name: mongodb
-          url: https://mongodb.github.io/helm-charts
-        chart: community-operator
-        targetNamespace: mongodb
+  - name: keda
+    type: helm
+    interval: 1h
+    repository:
+      name: kedacore
+      url: https://kedacore.github.io/charts
+    chart: keda
+    version: 2.16.x
+    targetNamespace: keda
 
   - name: plex
     type: oci
