@@ -10,14 +10,48 @@ Use this file as the Codex memory for recurring issues and fixes specific to the
 - mod loader: NeoForge
 - modpack delivery: CurseForge via `MOD_PLATFORM=AUTO_CURSEFORGE`
 - persistent data: PVC `minecraft-minecraft`
+- current storage target: node-local PV on `jotunheim` at `/var/lib/minecraft-local`
 
 ## First Checks
 
 ```bash
 kubectl get helmrelease -n flux-system minecraft
 kubectl get pod,pvc,svc,cronjob -n minecraft
+kubectl get pv minecraft-local-pv
 kubectl logs -n minecraft deploy/minecraft --tail=200
 kubectl describe pod -n minecraft <pod-name>
+```
+
+## Local PV Tradeoff For Minecraft
+
+What we changed on April 4, 2026:
+
+- the Minecraft chart switched from Longhorn-backed storage to a dedicated local PersistentVolume
+- the local PV is pinned to node `jotunheim`
+- the world path is `/var/lib/minecraft-local`
+
+Why:
+
+- the workload showed intermittent multi-second tick stalls even on LAN
+- `spark` tick monitor showed real server ticks lasting roughly `1.4s`, `6.4s`, and `7.7s`
+- GC pauses during the same window were only tens of milliseconds, which did not explain the freezes
+- because the main architectural difference versus the known-good server was Kubernetes plus Longhorn-backed storage, local disk became the primary A/B test
+
+Operator guidance:
+
+- treat this as a latency optimization tradeoff, not a pure upgrade
+- local PV removes Longhorn replication overhead from the hot world path
+- local PV also removes automatic cross-node failover for this workload
+- preserve off-cluster backups before changing or deleting the local PV path
+- if the pod remains `Pending`, verify that `/var/lib/minecraft-local` exists on `jotunheim`
+
+Useful checks:
+
+```bash
+kubectl get pv minecraft-local-pv
+kubectl describe pv minecraft-local-pv
+kubectl get pvc -n minecraft minecraft-minecraft -o yaml
+kubectl get pod -n minecraft -o wide
 ```
 
 ## Flux Reconcile Fails On `Recreate`

@@ -29,8 +29,14 @@ server:
 
 persistence:
   claimName: minecraft-minecraft
-  storageClass: longhorn
+  storageClass: minecraft-local
   size: 10Gi
+  local:
+    enabled: true
+    storageClassName: minecraft-local
+    volumeName: minecraft-local-pv
+    nodeName: jotunheim
+    path: /var/lib/minecraft-local
 service:
   name: minecraft
   type: LoadBalancer

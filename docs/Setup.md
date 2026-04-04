@@ -240,6 +240,21 @@ kubectl describe svc -n minecraft minecraft
 kubectl get endpointslice -n minecraft -l kubernetes.io/service-name=minecraft
 ```
 
+## Minecraft storage
+
+Minecraft currently uses a dedicated node-local PersistentVolume instead of Longhorn.
+
+Current behavior:
+
+- the local PV is pinned to `jotunheim`
+- the host path is `/var/lib/minecraft-local`
+- this favors lower world I/O latency over replicated-storage failover
+
+Operator note:
+
+- keep external world backups current before deleting or reprovisioning the local PV
+- if Minecraft remains `Pending` after rollout, verify that `/var/lib/minecraft-local` exists on `jotunheim`
+
 ## Node Classification
 
 Use node labels to make workload placement explicit for game servers and future LLM workloads.

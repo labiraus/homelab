@@ -1,0 +1,9 @@
+{{- $local := .Values.persistence.local | default dict -}}
+{{- if ($local.enabled | default false) }}
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ $local.storageClassName | default "minecraft-local" }}
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+{{- end }}
