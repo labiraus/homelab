@@ -1,5 +1,5 @@
 enabled: true
-namespace: data
+namespace: kafka
 name: homelab-kafka
 bootstrapAlias:
   enabled: true

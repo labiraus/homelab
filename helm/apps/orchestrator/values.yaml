@@ -60,7 +60,7 @@ generatedSecrets:
   - name: orchestrator-config
     stringData:
       KAFKA_BROKERS:
-        value: homelab-kafka.data.svc.cluster.local:9092
+        value: homelab-kafka.kafka.svc.cluster.local:9092
       KAFKA_TOPIC:
         value: documents.ingest
 

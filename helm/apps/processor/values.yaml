@@ -60,7 +60,7 @@ generatedSecrets:
   - name: processor-config
     stringData:
       KAFKA_BROKERS:
-        value: homelab-kafka.data.svc.cluster.local:9092
+        value: homelab-kafka.kafka.svc.cluster.local:9092
       KAFKA_TOPIC:
         value: documents.ingest
       KAFKA_GROUP:
@@ -172,7 +172,7 @@ keda:
   pollingInterval: 30
   cooldownPeriod: 300
   kafka:
-    bootstrapServers: homelab-kafka.data.svc.cluster.local:9092
+    bootstrapServers: homelab-kafka.kafka.svc.cluster.local:9092
     consumerGroup: processor
     topic: documents.ingest
     lagThreshold: "5"
