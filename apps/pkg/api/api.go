@@ -11,14 +11,26 @@ import (
 	"github.com/google/uuid"
 )
 
-func Start(ctx context.Context, mux *http.ServeMux, port int) <-chan struct{} {
+type Middleware func(http.Handler) http.Handler
+
+func Start(ctx context.Context, mux *http.ServeMux, port int, middlewares ...Middleware) <-chan struct{} {
 	mux.HandleFunc("/readiness", readinessHandler)
 	mux.HandleFunc("/liveness", livelinessHandler)
+
+	handler := http.Handler(mux)
+	for i := len(middlewares) - 1; i >= 0; i-- {
+		if middlewares[i] == nil {
+			continue
+		}
+		handler = middlewares[i](handler)
+	}
+	handler = traceIDMiddleware(handler)
+	handler = contextMiddleware(ctx, handler)
 
 	done := make(chan struct{})
 	srv := &http.Server{
 		Addr:    fmt.Sprintf("0.0.0.0:%d", port),
-		Handler: contextMiddleware(ctx, traceIDMiddleware(mux)),
+		Handler: handler,
 	}
 
 	go func() {

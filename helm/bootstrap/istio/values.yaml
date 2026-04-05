@@ -1,5 +1,8 @@
 meshConfig:
   accessLogFile: /dev/stdout
+  defaultConfig:
+    gatewayTopology:
+      forwardClientCertDetails: SANITIZE_SET
 pilot:
   autoscaleEnabled: true
   autoscaleMin: 1

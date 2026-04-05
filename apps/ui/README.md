@@ -4,11 +4,13 @@ This is a small Vite and React frontend used to verify routing to the public API
 
 ## What It Does
 
-The UI exposes a button that calls:
+The UI exposes:
 
+- an authentication panel backed by `/api/auth/status`
+- a `Login with Google` button that targets `/api/auth/login/google`
 - `/api/users/count`
 
-The result is shown in the page so it is easy to confirm browser-to-gateway-to-service routing.
+The results are shown in the page so it is easy to confirm browser-to-gateway-to-service routing and inspect the current auth state seen by the API.
 
 ## Local Development
 

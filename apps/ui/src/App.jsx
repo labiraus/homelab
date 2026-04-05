@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 const THEME_STORAGE_KEY = "homelab-theme";
+const AUTH_STATUS_PATH = "/api/auth/status";
+const GOOGLE_LOGIN_PATH = "/api/auth/login/google";
 
 const actions = [
 	{
@@ -38,10 +40,33 @@ async function callApi({ method, path, body }) {
 	return payload;
 }
 
+async function fetchAuthStatus() {
+	return callApi({ method: "GET", path: AUTH_STATUS_PATH });
+}
+
+function authSummary(status) {
+	if (!status) {
+		return "Authentication status has not been loaded yet.";
+	}
+
+	if (status.valid) {
+		return `Signed in as ${status.email}.`;
+	}
+
+	if (status.mode === "none") {
+		return "No authenticated identity is present.";
+	}
+
+	return status.invalidReason || "The authenticated identity is not recognized.";
+}
+
 function App() {
 	const [activeRequest, setActiveRequest] = useState(null);
 	const [message, setMessage] = useState("Choose a service call to verify routing.");
 	const [error, setError] = useState("");
+	const [authStatus, setAuthStatus] = useState(null);
+	const [authLoading, setAuthLoading] = useState(true);
+	const [authError, setAuthError] = useState("");
 	const [theme, setTheme] = useState(() => {
 		if (typeof window === "undefined") {
 			return "light";
@@ -60,6 +85,26 @@ function App() {
 		window.localStorage.setItem(THEME_STORAGE_KEY, theme);
 	}, [theme]);
 
+	const loadAuthStatus = async () => {
+		setAuthLoading(true);
+		setAuthError("");
+
+		try {
+			const status = await fetchAuthStatus();
+			setAuthStatus(status);
+		} catch (requestError) {
+			setAuthError(
+				requestError instanceof Error ? requestError.message : "Could not load auth status",
+			);
+		} finally {
+			setAuthLoading(false);
+		}
+	};
+
+	useEffect(() => {
+		void loadAuthStatus();
+	}, []);
+
 	const handleAction = async (action) => {
 		setActiveRequest(action.id);
 		setError("");
@@ -72,6 +117,10 @@ function App() {
 		} finally {
 			setActiveRequest(null);
 		}
+	};
+
+	const handleGoogleLogin = () => {
+		window.location.assign(`${API_BASE_URL}${GOOGLE_LOGIN_PATH}`);
 	};
 
 	return (
@@ -90,9 +139,61 @@ function App() {
 					</button>
 				</div>
 				<p className="intro">
-					This frontend is intentionally small: it verifies the public API route exposed
-					through the gateway.
+					This frontend now doubles as a quick auth console: it shows what the gateway
+					and API believe about your identity before you hit the backend checks.
 				</p>
+			</section>
+
+			<section className="panel">
+				<div className="panel-header">
+					<div>
+						<h2>Authentication</h2>
+						<p>Inspect the trusted auth state seen by the public Go API.</p>
+					</div>
+					<span className={`status-badge ${authStatus?.valid ? "success" : "warning"}`}>
+						{authLoading ? "Checking auth" : authStatus?.valid ? "Recognized user" : "Not recognized"}
+					</span>
+				</div>
+
+				<div className="auth-grid">
+					<div className="auth-card">
+						<p className="response-label">Auth mode</p>
+						<p className="auth-value">{authStatus?.mode ?? "loading"}</p>
+					</div>
+					<div className="auth-card">
+						<p className="response-label">Valid user</p>
+						<p className="auth-value">{authStatus ? String(authStatus.valid) : "loading"}</p>
+					</div>
+					<div className="auth-card auth-card-wide">
+						<p className="response-label">Authenticated email</p>
+						<p className="auth-value">{authStatus?.email || "No email present"}</p>
+					</div>
+				</div>
+
+				<div className="response-card auth-response" aria-live="polite">
+					<p className="response-label">Current auth state</p>
+					<p className="response-value">{authSummary(authStatus)}</p>
+					{authStatus?.invalidReason ? (
+						<p className="error-text">Reason: {authStatus.invalidReason}</p>
+					) : null}
+					{authError ? <p className="error-text">Status request failed: {authError}</p> : null}
+				</div>
+
+				<div className="auth-actions">
+					<button type="button" className="action-card primary-action" onClick={handleGoogleLogin}>
+						<span>Login with Google</span>
+						<small>Start the configured OIDC flow through the public API.</small>
+					</button>
+					<button
+						type="button"
+						className="action-card"
+						onClick={() => void loadAuthStatus()}
+						disabled={authLoading}
+					>
+						<span>Refresh Auth Status</span>
+						<small>Re-read the current identity as seen by the gateway and API.</small>
+					</button>
+				</div>
 			</section>
 
 			<section className="panel">

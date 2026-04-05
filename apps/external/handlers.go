@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"pkg/api"
 	"pkg/prometheusutil"
 	"time"
 )
@@ -42,4 +44,35 @@ func userCountHandler(w http.ResponseWriter, r *http.Request) {
 		err = fmt.Errorf("error marshalling json response: %w", encodeErr)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+}
+
+func authStatusHandler(w http.ResponseWriter, r *http.Request) {
+	status, ok := api.AuthStatusFromContext(r.Context())
+	if !ok {
+		status = api.AuthStatus{
+			Mode:          api.AuthModeNone,
+			InvalidReason: "authentication middleware did not populate request context",
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(AuthStatusResponse{
+		Mode:          string(status.Mode),
+		Email:         status.Email,
+		Valid:         status.Valid,
+		InvalidReason: status.InvalidReason,
+	})
+}
+
+func googleLoginHandler(w http.ResponseWriter, r *http.Request) {
+	loginURL := os.Getenv("OIDC_LOGIN_URL")
+	if loginURL == "" {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(ErrorResponse{
+			Error: "google login is not configured",
+		})
+		return
+	}
+
+	http.Redirect(w, r, loginURL, http.StatusTemporaryRedirect)
 }

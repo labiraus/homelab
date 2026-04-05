@@ -75,6 +75,8 @@ generatedSecrets:
           namespace: data
           name: app-db-bootstrap
           key: password
+      OIDC_LOGIN_URL:
+        value: ""
       REDIS_HOST:
         value: redis.data.svc.cluster.local
       REDIS_PORT:
