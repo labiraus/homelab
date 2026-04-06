@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"pkg/base"
 	"testing"
 )
 
@@ -67,6 +68,13 @@ func TestNewAuthMiddlewareValidatesIdentity(t *testing.T) {
 		if !status.Valid {
 			t.Fatalf("expected valid identity, got invalid status: %+v", status)
 		}
+		userID, ok := r.Context().Value(base.UserID).(string)
+		if !ok {
+			t.Fatal("expected user id on request context")
+		}
+		if userID != "oliver@labiraus.com" {
+			t.Fatalf("expected user id to match email, got %q", userID)
+		}
 		w.WriteHeader(http.StatusNoContent)
 	}))
 
@@ -99,6 +107,13 @@ func TestNewAuthMiddlewareMarksUnknownUserInvalid(t *testing.T) {
 		if status.InvalidReason != "email is not recognized" {
 			t.Fatalf("expected invalid reason to be preserved, got %q", status.InvalidReason)
 		}
+		userID, ok := r.Context().Value(base.UserID).(string)
+		if !ok {
+			t.Fatal("expected user id on request context")
+		}
+		if userID != "someone@example.com" {
+			t.Fatalf("expected user id to match email, got %q", userID)
+		}
 		w.WriteHeader(http.StatusNoContent)
 	}))
 
@@ -110,5 +125,14 @@ func TestNewAuthMiddlewareMarksUnknownUserInvalid(t *testing.T) {
 
 	if recorder.Code != http.StatusNoContent {
 		t.Fatalf("expected success response, got %d", recorder.Code)
+	}
+}
+
+func TestWithUserIDLeavesContextUnchangedForEmptyValue(t *testing.T) {
+	ctx := context.WithValue(context.Background(), base.TraceID, "trace-123")
+	updated := WithUserID(ctx, "  ")
+
+	if updated != ctx {
+		t.Fatal("expected empty user id to leave context unchanged")
 	}
 }

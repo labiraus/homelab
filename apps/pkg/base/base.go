@@ -10,15 +10,15 @@ import (
 	"github.com/google/uuid"
 )
 
-type TraceIDKey string
+type ContextKey string
 
-const TraceID TraceIDKey = "trace_id"
+const TraceID ContextKey = "X-Trace-Id"
+const UserID ContextKey = "UserID"
 
 var (
-	Ready       = make(chan struct{})
-	ServiceName string
-	tagLogger   *slog.Logger
-	tagList     = map[string]bool{"test": true}
+	BuildVersion = "local"
+	Ready        = make(chan struct{})
+	ServiceName  string
 )
 
 type customHandler struct {
@@ -61,15 +61,10 @@ func Start(serviceName string) context.Context {
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
 
-	tagBaseHandler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{AddSource: true, Level: slog.LevelDebug})
-	basehandler := &wrappedHandler{Handler: tagBaseHandler.WithGroup(serviceName)}
-	tagLogger = slog.New(basehandler)
-
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	ctx = context.WithValue(ctx, TraceID, uuid.New().String())
 
 	slog.InfoContext(ctx, "starting")
-	LogTags(ctx, slog.LevelDebug, "starting with tags", "test")
 	go func() {
 		defer ctxCancel()
 		c := make(chan os.Signal, 1)
@@ -84,18 +79,6 @@ func Start(serviceName string) context.Context {
 	}()
 
 	return ctx
-}
-
-func LogTags(ctx context.Context, level slog.Level, msg string, tags ...string) {
-	if !tagLogger.Enabled(ctx, level) {
-		return
-	}
-
-	for _, tag := range tags {
-		if tagList[tag] {
-			tagLogger.Log(ctx, level, msg, "tag", tag)
-		}
-	}
 }
 
 func GetEnv(key, fallback string) string {

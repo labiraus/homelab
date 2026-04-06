@@ -1,4 +1,4 @@
-module pkg/s3util
+module pkg/minioutil
 
 go 1.25.6
 

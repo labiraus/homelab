@@ -143,3 +143,16 @@ affinity: {}
 
 env:
   configValue: "default"
+  # API_BASE_URL: "http://orchestrator.homelab.svc.cluster.local:8080"
+  # POSTGRES_HOST: "postgresql.homelab.svc.cluster.local"
+  # POSTGRES_PORT: "5432"
+  # POSTGRES_USER: ""
+  # POSTGRES_PASSWORD: ""
+  # POSTGRES_DATABASE: ""
+  # POSTGRES_SSLMODE: "disable"
+  # MINIO_ENDPOINT: "svartalfheim.labiraus.com:9000"
+  # MINIO_ACCESS_KEY: ""
+  # MINIO_SECRET_KEY: ""
+  # MINIO_USE_SSL: "true"
+  # MINIO_REGION: ""
+  # MINIO_BUCKET: "documents"

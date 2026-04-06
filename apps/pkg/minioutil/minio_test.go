@@ -1,9 +1,9 @@
-package s3util
+package minioutil
 
 import "testing"
 
-func TestParseS3Config(t *testing.T) {
-	config, err := ParseS3Config(map[string]string{
+func TestParseConfig(t *testing.T) {
+	config, err := ParseConfig(map[string]string{
 		"default": `
 endpoint: minio.data.svc.cluster.local:9000
 accessKey: user

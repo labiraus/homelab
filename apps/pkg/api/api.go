@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"pkg/base"
 
 	"github.com/google/uuid"
 )
 
-type Middleware func(http.Handler) http.Handler
-
-func Start(ctx context.Context, mux *http.ServeMux, port int, middlewares ...Middleware) <-chan struct{} {
+func Start(ctx context.Context, mux *http.ServeMux, port int, middlewares ...func(http.Handler) http.Handler) <-chan struct{} {
 	mux.HandleFunc("/readiness", readinessHandler)
 	mux.HandleFunc("/liveness", livelinessHandler)
 
@@ -26,6 +25,7 @@ func Start(ctx context.Context, mux *http.ServeMux, port int, middlewares ...Mid
 	}
 	handler = traceIDMiddleware(handler)
 	handler = contextMiddleware(ctx, handler)
+	handler = securityHeadersMiddleware(handler)
 
 	done := make(chan struct{})
 	srv := &http.Server{
@@ -61,6 +61,47 @@ func traceIDMiddleware(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func securityHeadersMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if requestIsHTTPS(r) {
+			setHeaderIfAbsent(w.Header(), "Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+
+		setHeaderIfAbsent(w.Header(), "Content-Security-Policy", "default-src 'self'; base-uri 'self'; frame-ancestors 'self'; object-src 'none'")
+		setHeaderIfAbsent(w.Header(), "X-XSS-Protection", "1; mode=block")
+		setHeaderIfAbsent(w.Header(), "X-Frame-Options", "SAMEORIGIN")
+		setHeaderIfAbsent(w.Header(), "X-Content-Type-Options", "nosniff")
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func setHeaderIfAbsent(header http.Header, key string, value string) {
+	if header.Get(key) != "" {
+		return
+	}
+
+	header.Set(key, value)
+}
+
+func requestIsHTTPS(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+
+	if strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+		return true
+	}
+
+	for _, forwarded := range r.Header.Values("Forwarded") {
+		if strings.Contains(strings.ToLower(forwarded), "proto=https") {
+			return true
+		}
+	}
+
+	return false
 }
 
 func contextMiddleware(ctx context.Context, next http.Handler) http.Handler {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"pkg/base"
 	"strings"
 )
 
@@ -32,7 +33,7 @@ type AuthOptions struct {
 
 type authStatusContextKey struct{}
 
-func NewAuthMiddleware(options AuthOptions) Middleware {
+func NewAuthMiddleware(options AuthOptions) func(next http.Handler) http.Handler {
 	certificateHeader := headerOrDefault(options.CertificateIdentityHeader, "X-Forwarded-Client-Cert")
 	oidcHeader := headerOrDefault(options.OIDCEmailHeader, "X-Auth-Request-Email")
 
@@ -40,7 +41,9 @@ func NewAuthMiddleware(options AuthOptions) Middleware {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			status := ResolveAuthStatus(r.Context(), r.Header, certificateHeader, oidcHeader)
 			status = validateAuthStatus(r.Context(), status, options.Validator)
-			next.ServeHTTP(w, r.WithContext(WithAuthStatus(r.Context(), status)))
+			ctx := WithAuthStatus(r.Context(), status)
+			ctx = WithUserID(ctx, status.Email)
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
@@ -77,6 +80,20 @@ func WithAuthStatus(ctx context.Context, status AuthStatus) context.Context {
 func AuthStatusFromContext(ctx context.Context) (AuthStatus, bool) {
 	status, ok := ctx.Value(authStatusContextKey{}).(AuthStatus)
 	return status, ok
+}
+
+func WithUserID(ctx context.Context, userID string) context.Context {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return ctx
+	}
+
+	return context.WithValue(ctx, base.UserID, userID)
+}
+
+func UserIDFromContext(ctx context.Context) (string, bool) {
+	userID, ok := ctx.Value(base.UserID).(string)
+	return userID, ok
 }
 
 func validateAuthStatus(ctx context.Context, status AuthStatus, validator AuthValidator) AuthStatus {
