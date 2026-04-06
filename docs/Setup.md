@@ -163,12 +163,15 @@ The helper script defaults to `yggdrasil:~/.kube/config`. Override with `KUBECON
 
 If you need to join an Ubuntu machine to the cluster outside the Terraform `cloud-init` flow, use the Ansible playbook for the manual-worker inventory group.
 
+`midgard` is the current manual GPU worker. It is a bare-metal Linux machine, not a Proxmox VM. It is intentionally powered on only when heavier GPU workloads need extra capacity, so it is expected to be absent or offline at times. Treat `midgard` being switched off as normal operating state, not a Kubernetes bug, unless work was explicitly meant to be running there.
+
 Prerequisites:
 
 - SSH is installed and reachable on the node.
 - Your login key and certificate are in place using the SSH setup above.
 - The node exists in [hosts.ini](/workspaces/homelab/ansible/inventory/hosts.ini) under `kubernetes_manual_node`.
 - The control-plane host `yggdrasil` is reachable from the machine running Ansible so the playbook can fetch a fresh join command at runtime.
+- The local GPU and its drivers should already be working on `midgard` before you try to use it for GPU workloads.
 
 Run the playbook for `midgard`:
 
@@ -180,6 +183,8 @@ ANSIBLE_FETCH_MINIO_SECRETS=0 ./scripts/ansible-run-playbook.sh \
 ```
 
 That playbook installs the Kubernetes prerequisites on `midgard`, fetches a fresh `kubeadm join` command from `yggdrasil`, and joins the node when it is not already bootstrapped.
+
+For `midgard`, the playbook also enables the node for NVIDIA-backed Kubernetes workloads by installing `nvidia-container-toolkit`, configuring containerd with an `nvidia` runtime, applying the NVIDIA device-plugin manifest, and labeling the node for GPU scheduling.
 
 If the machine was previously joined and you need to re-bootstrap it cleanly, reset it first:
 
@@ -194,7 +199,23 @@ ssh midgard 'systemctl is-active kubelet containerd'
 kubectl get nodes -o wide
 ```
 
-If the machine is being added as a manually managed Ubuntu worker rather than a Terraform-managed node, apply the expected node labels after it joins using [NodeClassification.md](/workspaces/homelab/docs/NodeClassification.md).
+Verify local GPU availability before scheduling GPU workloads there:
+
+```bash
+ssh midgard 'lspci | egrep -i "vga|3d|display|nvidia|amd|intel" || true; echo ---; ls -lah /dev/dri 2>/dev/null || true; echo ---; test -e /dev/dri/renderD128 && echo RENDER=present || echo RENDER=absent; echo ---; command -v nvidia-smi >/dev/null && nvidia-smi || true'
+```
+
+If the machine is being added as a manually managed Ubuntu worker rather than a Terraform-managed node, apply the expected node labels after it joins using [NodeClassification.md](/workspaces/homelab/docs/NodeClassification.md). For `midgard`, that means at least `node-gpu=passthrough` when the node can see its real local GPU, and `node-llm=gpu` only after the node exposes a usable render or compute interface.
+
+When you are finished with a burst of GPU work on `midgard`, drain and power it off cleanly:
+
+```bash
+kubectl drain midgard --ignore-daemonsets --delete-emptydir-data --force
+kubectl cordon midgard
+ssh midgard 'sudo poweroff'
+```
+
+If `midgard` is intentionally offline afterward, leave it that way. A missing or powered-off `midgard` is expected when no heavy GPU work is queued.
 
 If you are using the Terraform worker flow instead, refresh the cached bootstrap token locally first:
 
@@ -202,7 +223,6 @@ If you are using the Terraform worker flow instead, refresh the cached bootstrap
 make refresh-join-token
 ```
 
-That target updates `TF_VAR_kubeadm_join_token` in `.devcontainer/.env` for repo-managed `cloud-init` bootstrap. It is not required for the manual SSH join path above.
 That target updates `TF_VAR_kubeadm_join_token` in `.devcontainer/.env` for repo-managed `cloud-init` bootstrap. It is not required for the manual Ansible join path above.
 
 
@@ -290,4 +310,3 @@ After the host returns, confirm the update:
 ssh root@proxmox-node1 'hostnamectl | rg "Firmware Version"'
 ssh root@proxmox-node1 'dmidecode -t bios | sed -n "1,20p"'
 ```
-

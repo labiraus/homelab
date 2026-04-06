@@ -15,6 +15,17 @@ Current intended values:
 - `jotunheim`: `node-performance=high`, `node-gpu=passthrough`, `node-llm=none`, `node-llm-class=igpu`, `node-llm-vram=shared`
 - `alfheim`: `node-performance=standard`, `node-gpu=passthrough`, `node-llm=none`, `node-llm-class=igpu`, `node-llm-vram=shared`
 - `niflheim`: `node-performance=standard`, `node-gpu=passthrough`, `node-llm=none`, `node-llm-class=igpu`, `node-llm-vram=shared`
+- `midgard`: manual bare-metal GPU worker, intentionally intermittent; when powered on, classify from the actual exposed accelerator rather than assuming it matches the Intel iGPU workers
+
+## Intermittent GPU workers
+
+`midgard` is not part of the always-on baseline worker pool. It is a bare-metal Linux machine that is expected to be powered on only for heavier GPU jobs and to stay offline the rest of the time.
+
+Working rule for this repo:
+
+- do not treat a powered-off or missing `midgard` as a bug by itself
+- only expect `midgard` to be `Ready` when there is active work that needs its GPU capacity
+- when `midgard` returns, verify both Kubernetes readiness and GPU visibility before scheduling GPU-bound workloads there
 
 ## How to check CPU performance
 
@@ -58,7 +69,7 @@ ssh alfheim 'lspci | egrep -i "vga|3d|display|nvidia|amd|intel" || true; echo --
 ssh niflheim 'lspci | egrep -i "vga|3d|display|nvidia|amd|intel" || true; echo ---; ls -lah /dev/dri 2>/dev/null || true; echo ---; test -e /dev/dri/renderD128 && echo RENDER=present || echo RENDER=absent; echo ---; command -v nvidia-smi >/dev/null && nvidia-smi || true'
 ```
 
-Classify a node as `node-gpu=passthrough` when the Kubernetes guest can see the passed-through physical GPU in `lspci`, even if the user-space compute stack is not ready yet.
+Classify a node as `node-gpu=passthrough` when the node can see a real physical GPU in `lspci`, even if the user-space compute stack is not ready yet. For the Proxmox workers that means a passed-through GPU in the guest; for bare-metal `midgard` it means the locally attached GPU is visible.
 
 Use `node-llm-class` to express relative scheduling preference for inference:
 
@@ -73,10 +84,10 @@ Use `node-llm-vram` to express the memory tier that an inference workload can re
 - explicit sizes such as `8gb`, `12gb`, `16gb`, `24gb`, or `48gb` for discrete cards
 - `none` when there is no useful accelerator
 
-Classify a node as `node-llm=gpu` only when the Kubernetes guest has an actually usable accelerator for inference, for example:
+Classify a node as `node-llm=gpu` only when the node has an actually usable accelerator for inference, for example:
 
-- a passed-through NVIDIA GPU visible to `nvidia-smi`
-- a passed-through Intel or AMD GPU with usable render devices under `/dev/dri`
+- an NVIDIA GPU visible to `nvidia-smi`
+- an Intel or AMD GPU with usable render devices under `/dev/dri`
 
 Do not count the default emulated QEMU VGA device as GPU-capable for LLM work.
 
@@ -201,6 +212,31 @@ kubectl label node <node-name> node-gpu=none --overwrite
 kubectl label node <node-name> node-llm=none --overwrite
 kubectl label node <node-name> node-llm-class=none --overwrite
 kubectl label node <node-name> node-llm-vram=none --overwrite
+```
+
+For the intermittent GPU worker `midgard`, use this sequence after it joins and after you confirm the node can see its local physical GPU:
+
+```bash
+kubectl label node midgard node-performance=standard --overwrite
+kubectl label node midgard node-gpu=passthrough --overwrite
+```
+
+The Ansible manual-node playbook now applies these labels automatically for `midgard` and also applies the NVIDIA device-plugin selector label used by the repo-managed DaemonSet.
+
+Only promote `midgard` to `node-llm=gpu` after the node has a usable inference interface:
+
+```bash
+kubectl label node midgard node-llm=gpu --overwrite
+kubectl label node midgard node-llm-class=<consumer-gpu|high-vram-gpu> --overwrite
+kubectl label node midgard node-llm-vram=<8gb|12gb|16gb|24gb|48gb> --overwrite
+```
+
+If `midgard` is up but the node cannot expose a usable render or compute interface yet, keep it honest:
+
+```bash
+kubectl label node midgard node-llm=none --overwrite
+kubectl label node midgard node-llm-class=none --overwrite
+kubectl label node midgard node-llm-vram=none --overwrite
 ```
 
 If a future node has the strongest CPU in the worker pool:

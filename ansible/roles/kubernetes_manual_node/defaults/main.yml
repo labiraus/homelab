@@ -8,7 +8,19 @@ kubernetes_manual_node_packages:
   - apt-transport-https
   - containerd
   - conntrack
+  - pciutils
 kubernetes_manual_node_kubernetes_packages:
   - kubelet
   - kubeadm
   - kubectl
+kubernetes_manual_node_kubernetes_node_name: "{{ inventory_hostname }}"
+kubernetes_manual_node_enable_nvidia_gpu: false
+kubernetes_manual_node_nvidia_container_toolkit_packages:
+  - nvidia-container-toolkit
+kubernetes_manual_node_nvidia_runtime_class_name: nvidia
+kubernetes_manual_node_nvidia_device_plugin_namespace: kube-system
+kubernetes_manual_node_nvidia_device_plugin_name: nvidia-device-plugin
+kubernetes_manual_node_nvidia_device_plugin_image: nvcr.io/nvidia/k8s-device-plugin:v0.17.1
+kubernetes_manual_node_nvidia_selector_label_key: gpu.nvidia.com/device-plugin
+kubernetes_manual_node_nvidia_selector_label_value: "true"
+kubernetes_manual_node_gpu_labels: {}

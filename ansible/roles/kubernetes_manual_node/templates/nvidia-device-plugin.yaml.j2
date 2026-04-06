@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ kubernetes_manual_node_nvidia_device_plugin_name }}
+  namespace: {{ kubernetes_manual_node_nvidia_device_plugin_namespace }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ kubernetes_manual_node_nvidia_device_plugin_name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ kubernetes_manual_node_nvidia_device_plugin_name }}
+    spec:
+      priorityClassName: system-node-critical
+      nodeSelector:
+        {{ kubernetes_manual_node_nvidia_selector_label_key }}: "{{ kubernetes_manual_node_nvidia_selector_label_value }}"
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: nvidia-device-plugin-ctr
+          image: {{ kubernetes_manual_node_nvidia_device_plugin_image }}
+          args:
+            - --fail-on-init-error=false
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/device-plugins
+      volumes:
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins

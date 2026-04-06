@@ -144,6 +144,14 @@ This playbook:
 - enables `containerd` and `kubelet`
 - fetches a fresh `kubeadm join` command from `yggdrasil`
 - joins the node only when `/etc/kubernetes/kubelet.conf` does not already exist
+- can optionally configure NVIDIA GPU support for Kubernetes on selected manual nodes
+
+Operational note for `midgard`:
+
+- it is an intermittent worker intended for heavier GPU jobs, not an always-on baseline node
+- if it is powered off when no GPU work is queued, that is expected and should not be treated as a bug
+- before scheduling GPU workloads there, verify the node can actually see its local GPU with `lspci`, `/dev/dri`, or `nvidia-smi`
+- the `midgard` host vars now enable NVIDIA support in this playbook, which installs `nvidia-container-toolkit`, configures the `nvidia` containerd runtime, labels the node for GPU scheduling, and applies the NVIDIA device-plugin DaemonSet plus `RuntimeClass`
 
 The Minecraft VM playbook expects `MINECRAFT_CURSEFORGE_API_KEY` to be available from `ansible/.env` or your shell environment so `itzg/minecraft-server` can bootstrap the ATM10 Sky pack.
 

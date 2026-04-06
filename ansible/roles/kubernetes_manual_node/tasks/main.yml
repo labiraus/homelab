@@ -75,6 +75,74 @@
     replace: '\1SystemdCgroup = true'
   register: kubernetes_manual_node_containerd_cgroup
 
+- name: Ensure apt keyring directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Ensure NVIDIA apt keyring exists
+  ansible.builtin.stat:
+    path: /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg
+  register: kubernetes_manual_node_nvidia_keyring
+  when: kubernetes_manual_node_enable_nvidia_gpu
+
+- name: Check whether NVIDIA container toolkit apt repository already exists
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list.d/nvidia-container-toolkit.list
+  register: kubernetes_manual_node_nvidia_repo
+  when: kubernetes_manual_node_enable_nvidia_gpu
+
+- name: Install NVIDIA container toolkit signing key
+  ansible.builtin.shell: >-
+    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey
+    | gpg --dearmor -o /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg
+  when:
+    - kubernetes_manual_node_enable_nvidia_gpu
+    - not kubernetes_manual_node_nvidia_keyring.stat.exists
+  changed_when: true
+
+- name: Configure NVIDIA container toolkit apt repository
+  ansible.builtin.shell: >-
+    curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list
+    | sed 's#deb https://#deb [signed-by=/etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g'
+    > /etc/apt/sources.list.d/nvidia-container-toolkit.list
+  when:
+    - kubernetes_manual_node_enable_nvidia_gpu
+    - not kubernetes_manual_node_nvidia_repo.stat.exists
+  changed_when: true
+
+- name: Install NVIDIA container toolkit packages
+  ansible.builtin.apt:
+    name: "{{ kubernetes_manual_node_nvidia_container_toolkit_packages }}"
+    state: present
+    update_cache: true
+  when: kubernetes_manual_node_enable_nvidia_gpu
+
+- name: Configure containerd default runtime for NVIDIA
+  ansible.builtin.replace:
+    path: /etc/containerd/config.toml
+    regexp: '^(\s*)default_runtime_name = "runc"$'
+    replace: '\1default_runtime_name = "{{ kubernetes_manual_node_nvidia_runtime_class_name }}"'
+  register: kubernetes_manual_node_nvidia_default_runtime
+  when: kubernetes_manual_node_enable_nvidia_gpu
+
+- name: Configure NVIDIA runtime in containerd
+  ansible.builtin.blockinfile:
+    path: /etc/containerd/config.toml
+    marker: "# {mark} ANSIBLE MANAGED NVIDIA RUNTIME"
+    block: |
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.{{ kubernetes_manual_node_nvidia_runtime_class_name }}]
+        privileged_without_host_devices = false
+        runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.{{ kubernetes_manual_node_nvidia_runtime_class_name }}.options]
+          BinaryName = "/usr/bin/nvidia-container-runtime"
+          SystemdCgroup = true
+  register: kubernetes_manual_node_nvidia_runtime_block
+  when: kubernetes_manual_node_enable_nvidia_gpu
+
 - name: Ensure containerd service is enabled and started
   ansible.builtin.systemd_service:
     name: containerd
@@ -85,15 +153,10 @@
   ansible.builtin.systemd_service:
     name: containerd
     state: restarted
-  when: kubernetes_manual_node_containerd_cgroup.changed
-
-- name: Ensure Kubernetes apt keyring directory exists
-  ansible.builtin.file:
-    path: /etc/apt/keyrings
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
+  when:
+    - kubernetes_manual_node_containerd_cgroup.changed
+      or (kubernetes_manual_node_nvidia_default_runtime is defined and kubernetes_manual_node_nvidia_default_runtime.changed)
+      or (kubernetes_manual_node_nvidia_runtime_block is defined and kubernetes_manual_node_nvidia_runtime_block.changed)
 
 - name: Check whether Kubernetes apt keyring already exists
   ansible.builtin.stat:
@@ -142,6 +205,15 @@
     enabled: true
     state: started
 
+- name: Restart kubelet when NVIDIA runtime changes
+  ansible.builtin.systemd_service:
+    name: kubelet
+    state: restarted
+  when:
+    - kubernetes_manual_node_enable_nvidia_gpu
+    - kubernetes_manual_node_nvidia_default_runtime.changed
+      or kubernetes_manual_node_nvidia_runtime_block.changed
+
 - name: Check whether the node is already joined
   ansible.builtin.stat:
     path: /etc/kubernetes/kubelet.conf
@@ -160,3 +232,76 @@
   ansible.builtin.command: "{{ kubernetes_manual_node_join_command.stdout }}"
   when: not kubernetes_manual_node_kubelet_conf.stat.exists
   no_log: true
+
+- name: Render NVIDIA RuntimeClass manifest locally
+  ansible.builtin.template:
+    src: nvidia-runtimeclass.yaml.j2
+    dest: /tmp/kubernetes-manual-node-nvidia-runtimeclass.yaml
+    mode: "0644"
+  delegate_to: localhost
+  become: false
+  when: kubernetes_manual_node_enable_nvidia_gpu
+
+- name: Apply NVIDIA RuntimeClass
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - apply
+      - -f
+      - /tmp/kubernetes-manual-node-nvidia-runtimeclass.yaml
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: kubernetes_manual_node_enable_nvidia_gpu
+
+- name: Label NVIDIA device-plugin node selector on the Kubernetes node
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - label
+      - node
+      - "{{ kubernetes_manual_node_kubernetes_node_name }}"
+      - "{{ kubernetes_manual_node_nvidia_selector_label_key }}={{ kubernetes_manual_node_nvidia_selector_label_value }}"
+      - --overwrite
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: kubernetes_manual_node_enable_nvidia_gpu
+
+- name: Apply GPU capability labels to the Kubernetes node
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - label
+      - node
+      - "{{ kubernetes_manual_node_kubernetes_node_name }}"
+      - "{{ item.key }}={{ item.value }}"
+      - --overwrite
+  loop: "{{ kubernetes_manual_node_gpu_labels | dict2items }}"
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when:
+    - kubernetes_manual_node_enable_nvidia_gpu
+    - kubernetes_manual_node_gpu_labels | length > 0
+
+- name: Render NVIDIA device plugin manifest locally
+  ansible.builtin.template:
+    src: nvidia-device-plugin.yaml.j2
+    dest: /tmp/kubernetes-manual-node-nvidia-device-plugin.yaml
+    mode: "0644"
+  delegate_to: localhost
+  become: false
+  when: kubernetes_manual_node_enable_nvidia_gpu
+
+- name: Apply NVIDIA device plugin
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - apply
+      - -f
+      - /tmp/kubernetes-manual-node-nvidia-device-plugin.yaml
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: kubernetes_manual_node_enable_nvidia_gpu
