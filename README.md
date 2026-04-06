@@ -270,6 +270,18 @@ The authoritative MinIO endpoint is the external Raspberry Pi `svartalfheim` on 
 
 See [docs/Setup.md](/workspaces/homelab/docs/Setup.md) for Kubernetes setup, workstation bootstrap, SSH certificate setup, kubeconfig bootstrapping, and Proxmox worker host notes. Related workflows now live in [docs/NodeClassification.md](/workspaces/homelab/docs/NodeClassification.md), [docs/MinecraftVM.md](/workspaces/homelab/docs/MinecraftVM.md), [docs/StorageBootstrap.md](/workspaces/homelab/docs/StorageBootstrap.md), and [docs/Secrets.md](/workspaces/homelab/docs/Secrets.md). For day-two worker changes and recovery after Terraform-driven VM recreation, use [docs/WorkerRedeploy.md](/workspaces/homelab/docs/WorkerRedeploy.md).
 
+## App Authentication
+
+The public UI and `external` API now use an email-based identity model with three runtime auth states:
+
+- certificate auth from Istio-forwarded client certificate identity
+- OIDC auth from a trusted upstream email header after login
+- no auth when neither identity source is present
+
+The only seeded valid user is `oliver@labiraus.com`, and the UI shows the resolved auth mode, email, validity, and invalid reason from `/api/auth/status`.
+
+For architecture, client-certificate generation, Istio CA trust, and the Google login redirect flow, see [docs/Auth.md](/workspaces/homelab/docs/Auth.md).
+
 ## Security Notes
 
 - Do not commit real secrets

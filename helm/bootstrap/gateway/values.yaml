@@ -6,6 +6,9 @@ aws:
 tls: true
 certificate:
   secretName: mcp-labiraus-com-tls
+clientCertificateValidation:
+  enabled: false
+  secretName: homelab-client-ca
 internalGateway:
   namespace: ingress
   name: internal-gateway

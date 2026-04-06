@@ -145,7 +145,9 @@ echo 'TrustedUserCAKeys /etc/ssh/trusted-user-ca-keys.pub' | sudo tee -a /etc/ss
 sudo sshd -t && sudo systemctl reload sshd
 ```
 
-## Kubernetes Control Plane
+## Kubernetes
+
+### Kubernetes Control Plane
 
 Initialize or refresh the devcontainer kubeconfig from `yggdrasil`:
 
@@ -157,7 +159,7 @@ This file contains cluster credentials and private key material. Keep it out of 
 
 The helper script defaults to `yggdrasil:~/.kube/config`. Override with `KUBECONFIG_SOURCE_HOST` or `KUBECONFIG_SOURCE_PATH` in `.devcontainer/.env` when the control-plane source changes.
 
-## Manual Node Join
+### Manual Node Join
 
 If you need to join an Ubuntu machine to the cluster outside the Terraform `cloud-init` flow, use the Ansible playbook for the manual-worker inventory group.
 
@@ -224,3 +226,68 @@ systemctl list-timers network-watch.timer
 ethtool nic0
 ethtool --show-eee nic0
 ```
+
+## `proxmox-node1` BIOS Updates
+
+`proxmox-node1` is a Dell Latitude 5430. If the host is wiped and rebuilt, use the Linux `fwupd` path first before resorting to a manual Windows or BIOS menu update.
+
+Install the required packages on the Proxmox host:
+
+```bash
+ssh root@proxmox-node1 'apt-get update'
+ssh root@proxmox-node1 'DEBIAN_FRONTEND=noninteractive apt-get install -y fwupd fwupd-amd64-signed udisks2'
+```
+
+Make sure the EFI system partition is mounted and visible to `fwupd`:
+
+```bash
+ssh root@proxmox-node1 'findmnt /boot/efi'
+ssh root@proxmox-node1 'fwupdtool esp-list'
+```
+
+Expected rebuild note:
+
+- this host uses `/boot/efi` on `nvme0n1p2`
+- `fwupd` will complain that no ESP is detected until `udisks2` is installed and running
+- `/etc/fstab` should contain `UUID=E683-2C33 /boot/efi vfat defaults 0 1`
+
+Check for updates and stage the BIOS capsule:
+
+```bash
+ssh root@proxmox-node1 'systemctl restart udisks2 fwupd'
+ssh root@proxmox-node1 'fwupdmgr refresh --force'
+ssh root@proxmox-node1 'fwupdmgr get-updates'
+ssh root@proxmox-node1 'fwupdmgr update -y'
+```
+
+For the successful April 2026 repair attempt, `fwupdmgr` offered:
+
+- `System Firmware`
+- current version `1.32.1`
+- target version `1.36.0`
+
+Before rebooting, verify that the capsule has been staged:
+
+```bash
+ssh root@proxmox-node1 'fwupdmgr get-history | sed -n "/System Firmware/,+20p"'
+ssh root@proxmox-node1 'ls /boot/efi/EFI/proxmox/fw'
+```
+
+Expected staged state:
+
+- `System Firmware` shows `Needs reboot`
+- `/boot/efi/EFI/proxmox/fw/` contains a `fwupd-*.cap` file
+
+Then reboot the host and let the Dell firmware updater finish:
+
+```bash
+ssh root@proxmox-node1 'systemctl reboot'
+```
+
+After the host returns, confirm the update:
+
+```bash
+ssh root@proxmox-node1 'hostnamectl | rg "Firmware Version"'
+ssh root@proxmox-node1 'dmidecode -t bios | sed -n "1,20p"'
+```
+

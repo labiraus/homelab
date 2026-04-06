@@ -27,6 +27,14 @@ k8s/generated-secrets/
 .devcontainer/.env
 .devcontainer/kubeconfig
 
+# Local auth certificate material
+.local/
+*.crt
+*.csr
+*.key
+*.p12
+*.srl
+
 node_modules/
 
 *.mkv

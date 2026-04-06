@@ -3,6 +3,9 @@
 {{- $ingressHostname := (index $ingress "hostname") | default "*.labiraus.com" -}}
 {{- $certificate := .Values.certificate | default (dict) -}}
 {{- $tlsSecretName := (index $certificate "secretName") | default "" -}}
+{{- $clientCertificateValidation := .Values.clientCertificateValidation | default (dict) -}}
+{{- $clientCertificateValidationEnabled := (index $clientCertificateValidation "enabled") | default false -}}
+{{- $clientCASecretName := (index $clientCertificateValidation "secretName") | default "" -}}
 {{- $acm := .Values.acm | default (dict) -}}
 {{- $acmCertificateArn := (index $acm "certificateArn") | default "" -}}
 {{- $aws := .Values.aws | default (dict) -}}
@@ -26,6 +29,16 @@ metadata:
     {{- end }}
 spec:
   gatewayClassName: istio
+  {{- if $clientCertificateValidationEnabled }}
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+            - group: ""
+              kind: Secret
+              name: {{ $clientCASecretName }}
+  {{- end }}
   listeners:
   - name: default
     hostname: {{ $ingressHostname | quote }}

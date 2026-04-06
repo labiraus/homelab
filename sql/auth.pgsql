@@ -1,12 +1,13 @@
-CREATE SCHEMA auth;
+CREATE SCHEMA IF NOT EXISTS auth;
 
-DROP TABLE IF EXISTS auth.users;
-
-CREATE TABLE auth.users (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(255) NOT NULL UNIQUE,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE IF NOT EXISTS auth.users (
+    email TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+TRUNCATE TABLE auth.users;
+
+INSERT INTO auth.users (email, display_name)
+VALUES ('oliver@labiraus.com', 'Oliver');

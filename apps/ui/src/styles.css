@@ -172,6 +172,42 @@ select {
 	gap: 1rem;
 }
 
+.auth-grid,
+.auth-actions {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 1rem;
+}
+
+.auth-actions {
+	margin-top: 1.5rem;
+}
+
+.auth-card {
+	padding: 1.1rem 1.2rem;
+	border: 1px solid var(--line);
+	border-radius: 20px;
+	background: rgba(255, 255, 255, 0.42);
+}
+
+:root[data-theme="dark"] .auth-card {
+	background: rgba(15, 24, 36, 0.82);
+}
+
+.auth-card-wide {
+	grid-column: span 2;
+}
+
+.auth-value {
+	margin: 0;
+	font-size: 1.05rem;
+	font-weight: 700;
+}
+
+.primary-action {
+	border-color: rgba(196, 90, 44, 0.45);
+}
+
 .action-card {
 	display: flex;
 	flex-direction: column;
@@ -228,6 +264,10 @@ select {
 	color: #edf3fb;
 }
 
+.auth-response {
+	margin-top: 1.25rem;
+}
+
 .response-label {
 	margin: 0 0 0.5rem;
 	color: rgba(244, 239, 228, 0.7);
@@ -245,6 +285,16 @@ select {
 .error-text {
 	margin: 0.85rem 0 0;
 	color: #ffb3b3;
+}
+
+.status-badge.success {
+	background: rgba(31, 109, 87, 0.1);
+	color: var(--success);
+}
+
+.status-badge.warning {
+	background: rgba(196, 90, 44, 0.12);
+	color: var(--accent-strong);
 }
 
 @media (max-width: 700px) {
@@ -267,5 +317,9 @@ select {
 
 	.panel {
 		padding: 1.2rem;
+	}
+
+	.auth-card-wide {
+		grid-column: span 1;
 	}
 }
