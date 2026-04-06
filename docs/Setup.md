@@ -186,6 +186,8 @@ That playbook installs the Kubernetes prerequisites on `midgard`, fetches a fres
 
 For `midgard`, the playbook also enables the node for NVIDIA-backed Kubernetes workloads by installing `nvidia-container-toolkit`, configuring containerd with an `nvidia` runtime, applying the NVIDIA device-plugin manifest, and labeling the node for GPU scheduling.
 
+`midgard` should also stay headless. The manual-node role can disable display-manager services, switch the default boot target to `multi-user.target`, and purge the configured GNOME or Xorg packages so the local desktop does not reclaim the NVIDIA GPU on boot.
+
 If the machine was previously joined and you need to re-bootstrap it cleanly, reset it first:
 
 ```bash

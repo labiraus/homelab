@@ -21,9 +21,12 @@ Some names appear in more than one section. For example, the Kubernetes workers 
 ### Proxmox Machines
 
 - `proxmox-node1`
+  - IP: `192.168.8.229`
 - `proxmox-node2`
+  - IP: `192.168.8.133`
 - `proxmox-node3`
 - `proxmox-node4`
+  - IP: `192.168.8.103 `
 
 ## Kubernetes Nodes
 

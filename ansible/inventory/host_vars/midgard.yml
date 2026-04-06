@@ -1,4 +1,20 @@
 kubernetes_manual_node_enable_nvidia_gpu: true
+kubernetes_manual_node_headless: true
+kubernetes_manual_node_headless_disable_services:
+  - gdm
+  - gdm3
+  - nvidia-persistenced
+kubernetes_manual_node_headless_purge_packages:
+  - gdm3
+  - gnome-shell
+  - gnome-session-bin
+  - gnome-session-common
+  - ubuntu-desktop
+  - ubuntu-desktop-minimal
+  - xorg
+  - xserver-xorg
+  - xserver-xorg-core
+  - xwayland
 kubernetes_manual_node_gpu_labels:
   node-performance: standard
   node-gpu: passthrough

@@ -44,6 +44,34 @@
     regexp: '^([^#].*\sswap\s.*)$'
     replace: '# \1'
 
+- name: Stop and disable headless worker UI services
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  loop: "{{ kubernetes_manual_node_headless_disable_services }}"
+  when:
+    - kubernetes_manual_node_headless
+    - kubernetes_manual_node_headless_disable_services | length > 0
+
+- name: Set the default boot target to multi-user for headless workers
+  ansible.builtin.file:
+    src: /lib/systemd/system/multi-user.target
+    dest: /etc/systemd/system/default.target
+    state: link
+    force: true
+  when: kubernetes_manual_node_headless
+
+- name: Purge desktop packages from headless workers
+  ansible.builtin.apt:
+    name: "{{ kubernetes_manual_node_headless_purge_packages }}"
+    state: absent
+    purge: true
+    autoremove: true
+  when:
+    - kubernetes_manual_node_headless
+    - kubernetes_manual_node_headless_purge_packages | length > 0
+
 - name: Install Kubernetes node prerequisite packages
   ansible.builtin.apt:
     name: "{{ kubernetes_manual_node_packages }}"
