@@ -1,0 +1,162 @@
+---
+- name: Ensure kernel modules persist across reboot
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/k8s.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      overlay
+      br_netfilter
+
+- name: Load required kernel modules now
+  ansible.builtin.command: "modprobe {{ item }}"
+  loop:
+    - overlay
+    - br_netfilter
+  changed_when: false
+
+- name: Configure Kubernetes sysctls
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-kubernetes-cri.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      net.bridge.bridge-nf-call-iptables = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.ipv4.ip_forward = 1
+  register: kubernetes_manual_node_sysctl_file
+
+- name: Apply sysctl settings
+  ansible.builtin.command: sysctl --system
+  when: kubernetes_manual_node_sysctl_file.changed
+  changed_when: true
+
+- name: Disable swap for the current boot
+  ansible.builtin.command: swapoff -a
+  when: ansible_swaptotal_mb | default(0) | int > 0
+  changed_when: true
+
+- name: Disable swap entries in fstab
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^([^#].*\sswap\s.*)$'
+    replace: '# \1'
+
+- name: Install Kubernetes node prerequisite packages
+  ansible.builtin.apt:
+    name: "{{ kubernetes_manual_node_packages }}"
+    state: present
+    update_cache: true
+
+- name: Ensure containerd config directory exists
+  ansible.builtin.file:
+    path: /etc/containerd
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Check whether containerd config already exists
+  ansible.builtin.stat:
+    path: /etc/containerd/config.toml
+  register: kubernetes_manual_node_containerd_config
+
+- name: Generate default containerd config
+  ansible.builtin.shell: containerd config default >/etc/containerd/config.toml
+  when: not kubernetes_manual_node_containerd_config.stat.exists
+  changed_when: true
+
+- name: Configure containerd to use systemd cgroups
+  ansible.builtin.replace:
+    path: /etc/containerd/config.toml
+    regexp: '^(\s*)SystemdCgroup = false$'
+    replace: '\1SystemdCgroup = true'
+  register: kubernetes_manual_node_containerd_cgroup
+
+- name: Ensure containerd service is enabled and started
+  ansible.builtin.systemd_service:
+    name: containerd
+    enabled: true
+    state: started
+
+- name: Restart containerd when config changes
+  ansible.builtin.systemd_service:
+    name: containerd
+    state: restarted
+  when: kubernetes_manual_node_containerd_cgroup.changed
+
+- name: Ensure Kubernetes apt keyring directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Check whether Kubernetes apt keyring already exists
+  ansible.builtin.stat:
+    path: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  register: kubernetes_manual_node_keyring
+
+- name: Install Kubernetes apt signing key
+  ansible.builtin.shell: >-
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/{{ kubernetes_manual_node_kube_minor_channel }}/deb/Release.key
+    | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  when: not kubernetes_manual_node_keyring.stat.exists
+  changed_when: true
+
+- name: Ensure Kubernetes apt keyring permissions are correct
+  ansible.builtin.file:
+    path: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Configure Kubernetes apt repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/kubernetes.list
+    owner: root
+    group: root
+    mode: "0644"
+    content: >-
+      deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg]
+      https://pkgs.k8s.io/core:/stable:/{{ kubernetes_manual_node_kube_minor_channel }}/deb/ /
+
+- name: Install Kubernetes packages
+  ansible.builtin.apt:
+    name: "{{ kubernetes_manual_node_kubernetes_packages }}"
+    state: present
+    update_cache: true
+
+- name: Hold Kubernetes packages at the installed version
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop: "{{ kubernetes_manual_node_kubernetes_packages }}"
+
+- name: Ensure kubelet service is enabled and started
+  ansible.builtin.systemd_service:
+    name: kubelet
+    enabled: true
+    state: started
+
+- name: Check whether the node is already joined
+  ansible.builtin.stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: kubernetes_manual_node_kubelet_conf
+
+- name: Fetch a fresh kubeadm join command from the control plane
+  ansible.builtin.command: ssh {{ kubernetes_manual_node_control_plane_host }} kubeadm token create --print-join-command
+  delegate_to: localhost
+  become: false
+  register: kubernetes_manual_node_join_command
+  changed_when: false
+  when: not kubernetes_manual_node_kubelet_conf.stat.exists
+  no_log: true
+
+- name: Join the node to the cluster
+  ansible.builtin.command: "{{ kubernetes_manual_node_join_command.stdout }}"
+  when: not kubernetes_manual_node_kubelet_conf.stat.exists
+  no_log: true

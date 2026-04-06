@@ -65,3 +65,7 @@ Host nidavellir
 Host glaaki
   HostName 192.168.8.191
   User oliver
+
+Host midgard
+  HostName 192.168.8.205
+  user oliver

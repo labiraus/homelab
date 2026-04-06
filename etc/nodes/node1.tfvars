@@ -10,7 +10,7 @@ proxmox = {
 
 vm = {
   cpu_cores    = 12
-  memory_mb    = 30064
+  memory_mb    = 24576
   disk_size_gb = 280
   ssh_username = "ubuntu"
   bios         = "ovmf"

@@ -22,6 +22,12 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - `pkg/`: shared Go modules
 - `ansible/`
   - external service state management, including the Minecraft VM
+- `docs/`
+  - `Setup.md`: Kubernetes setup path for local machine, Proxmox worker prep, SSH, kubeconfig, and worker network stability
+  - `Secrets.md`: generated local secrets and Ansible-only secret handling
+  - `StorageBootstrap.md`: external MinIO and Samba bootstrap on `svartalfheim`
+  - `MinecraftVM.md`: dedicated Minecraft VM provisioning and operations
+  - `NodeClassification.md`: Kubernetes worker label policy and GPU/LLM classification
 - `bin/`
   - `tf`: Terraform wrapper used by the Makefile
 - `components/`
@@ -110,6 +116,7 @@ Current behavior note:
 ### MinIO and Ansible
 
 - Start with `ansible/README.md`
+- Supporting operator docs: `docs/Secrets.md` and `docs/StorageBootstrap.md`
 - Inventory: `ansible/inventory/`
 - Playbooks: `ansible/playbooks/`
 - Roles: `ansible/roles/`
@@ -122,8 +129,15 @@ Current behavior note:
 
 - The repo treats the external Raspberry Pi `svartalfheim` as the authoritative MinIO service and attached-drive file-share host; Helm no longer deploys an in-cluster MinIO tenant.
 - Minecraft is managed outside Kubernetes on the dedicated VM `nidavellir` through Terraform plus Ansible.
+- `midgard` can be prepared and joined as a manually managed Ubuntu worker through the Ansible playbook `ansible/playbooks/kubernetes-manual-node.yml`.
 - Shared operator env belongs in `.devcontainer/.env`; Ansible-only external secrets belong in ignored `ansible/.env`.
 - MinIO admin credentials are refreshed from `svartalfheim:/etc/default/minio` rather than copied from a tracked example file.
+
+### Kubernetes Setup And Worker Policy
+
+- Core Kubernetes setup guide: `docs/Setup.md`
+- Worker rebuild and recovery: `docs/WorkerRedeploy.md`
+- Worker label and capability policy: `docs/NodeClassification.md`
 
 ### CI and Release Behavior
 

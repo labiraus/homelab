@@ -137,6 +137,8 @@ Leave headroom on the Proxmox host for the host OS and QEMU overhead. Do not siz
 
 For example, `proxmox-node2` has about `15 GiB` of RAM total, so `memory_mb = 15032` was too aggressive and caused QEMU to be killed by the host OOM killer during startup. Reducing the worker to `12288` MB left enough headroom for the host and allowed the VM to boot.
 
+Likewise, `jotunheim` on `proxmox-node1` was too large at `memory_mb = 30064` on a host with about `31 GiB` total RAM, especially with Intel iGPU passthrough enabled. That combination led to the host OOM killer terminating QEMU during VM startup. Reducing `jotunheim` to `24576` MB restored enough headroom for the host and the passthrough-backed guest to start cleanly.
+
 ## Finish The Maintenance
 
 After the node is back and `Ready`:

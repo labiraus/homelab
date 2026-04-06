@@ -33,11 +33,13 @@ ansible-galaxy collection install amazon.aws
 - External Pi API-management group: `minio_external_pi`
 - External Pi host bootstrap group: `minio_external_pi_host`
 - Dedicated Minecraft VM group: `minecraft_vm`
+- Manual Ubuntu Kubernetes node group: `kubernetes_manual_node`
 
 The API-management groups default to `localhost` because those playbooks run from your laptop/CI/management node and call MinIO APIs.
 
 The external host bootstrap group connects to the Pi over SSH and installs the MinIO server binary plus a `systemd` service.
 The Minecraft VM group connects over SSH and configures the in-guest Minecraft service and systemd unit.
+The manual Kubernetes node group connects over SSH, installs the worker prerequisites on Ubuntu, and joins the node with a fresh token fetched from `yggdrasil` at runtime.
 
 ## Secure credentials
 
@@ -125,6 +127,23 @@ make ansible-minecraft-vm
 ```
 
 This target intentionally disables the MinIO secret-refresh helper because the Minecraft VM playbook does not require the external MinIO admin credentials.
+
+Prepare and join the manual Ubuntu worker `midgard`:
+
+```bash
+ANSIBLE_FETCH_MINIO_SECRETS=0 ./scripts/ansible-run-playbook.sh \
+  -i ansible/inventory/hosts.ini \
+  ansible/playbooks/kubernetes-manual-node.yml \
+  --limit midgard
+```
+
+This playbook:
+
+- installs `containerd` and the Kubernetes packages from `pkgs.k8s.io`
+- disables swap and applies the required kernel modules and sysctls
+- enables `containerd` and `kubelet`
+- fetches a fresh `kubeadm join` command from `yggdrasil`
+- joins the node only when `/etc/kubernetes/kubelet.conf` does not already exist
 
 The Minecraft VM playbook expects `MINECRAFT_CURSEFORGE_API_KEY` to be available from `ansible/.env` or your shell environment so `itzg/minecraft-server` can bootstrap the ATM10 Sky pack.
 

@@ -1,0 +1,13 @@
+kubernetes_manual_node_control_plane_host: yggdrasil
+kubernetes_manual_node_kube_minor_channel: v1.34
+kubernetes_manual_node_packages:
+  - ca-certificates
+  - curl
+  - gpg
+  - apt-transport-https
+  - containerd
+  - conntrack
+kubernetes_manual_node_kubernetes_packages:
+  - kubelet
+  - kubeadm
+  - kubectl

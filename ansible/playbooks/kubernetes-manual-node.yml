@@ -1,0 +1,6 @@
+---
+- name: Prepare and join manual Ubuntu Kubernetes nodes
+  hosts: kubernetes_manual_node
+  become: true
+  roles:
+    - kubernetes_manual_node

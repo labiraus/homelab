@@ -268,7 +268,7 @@ The authoritative MinIO endpoint is the external Raspberry Pi `svartalfheim` on 
 
 ## Setup Notes
 
-See `docs/Setup.md` for workstation setup, SSH certificate setup, kubeconfig bootstrapping, Proxmox host notes, and node classification guidance. For day-two worker changes and recovery after Terraform-driven VM recreation, use [docs/WorkerRedeploy.md](/workspaces/homelab/docs/WorkerRedeploy.md).
+See [docs/Setup.md](/workspaces/homelab/docs/Setup.md) for Kubernetes setup, workstation bootstrap, SSH certificate setup, kubeconfig bootstrapping, and Proxmox worker host notes. Related workflows now live in [docs/NodeClassification.md](/workspaces/homelab/docs/NodeClassification.md), [docs/MinecraftVM.md](/workspaces/homelab/docs/MinecraftVM.md), [docs/StorageBootstrap.md](/workspaces/homelab/docs/StorageBootstrap.md), and [docs/Secrets.md](/workspaces/homelab/docs/Secrets.md). For day-two worker changes and recovery after Terraform-driven VM recreation, use [docs/WorkerRedeploy.md](/workspaces/homelab/docs/WorkerRedeploy.md).
 
 ## Security Notes
 
