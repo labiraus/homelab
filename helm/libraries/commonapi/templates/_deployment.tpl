@@ -69,6 +69,12 @@ spec:
               value: {{ default "Config Default" .Values.env.configValue }}
             - name: namespace
               value: {{ .Values.namespace }}
+            {{- range $key, $value := (.Values.env | default dict) }}
+            {{- if ne $key "configValue" }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- end }}
           {{- with .Values.envFromSecrets }}
           envFrom:
             {{- range . }}

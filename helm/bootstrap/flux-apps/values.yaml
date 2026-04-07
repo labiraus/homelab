@@ -17,6 +17,10 @@ imagePullSecret:
     name: ghcr-creds
 min_version: 0.0.0-0
 releases:
+  - name: oauth2-proxy
+    type: oci
+    namespace: homelab
+
   - name: external
     type: oci
     namespace: homelab

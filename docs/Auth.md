@@ -36,10 +36,12 @@ The database-backed identity model lives in `sql/auth.pgsql`.
 
 The UI reads `/api/auth/providers` and uses the configured Google provider metadata directly.
 
-- `external` publishes the Google authorization URL from `OIDC_LOGIN_URL`.
-- Set `OIDC_LOGIN_URL` to the Google or oauth2-proxy start URL you want the browser to begin with.
+- The current browser-facing choice is `oauth2-proxy + Google`.
+- `external` publishes the browser login URL from `OIDC_LOGIN_URL`.
+- In the current repo setup, that login URL should be the local `oauth2-proxy` start endpoint on the shared hostname.
 - After the upstream OIDC flow completes, the trusted gateway or auth proxy must inject the email header the API reads, currently `X-Auth-Request-Email`.
 - See [Google OIDC Setup](/workspaces/homelab/docs/GoogleOIDCSetup.md) for the Google Cloud and redirect-URI configuration needed to make that flow work.
+- See [oauth2-proxy + Google](/workspaces/homelab/docs/OAuth2ProxyGoogle.md) for the exact current hostnames, callback URL, DNS expectations, and Helm changes.
 
 ## Client Certificate Generation
 

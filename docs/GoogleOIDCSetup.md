@@ -11,6 +11,8 @@ This repo does not complete the OAuth callback itself. Instead:
 
 Because of that split, most of the Google configuration belongs to the upstream auth layer rather than these app services directly.
 
+The current chosen upstream auth layer is `oauth2-proxy` on the shared host `mcp.labiraus.com`.
+
 ## What You Need From Google
 
 Minimum Google-side setup:
@@ -77,6 +79,10 @@ For this repo, the following are not normally Google redirect URIs:
 - `https://mcp.labiraus.com/mcp`
 
 Those are discovery, status, or protected-resource endpoints. They are not the OAuth callback target.
+
+For the current chosen setup, the Google redirect URI is:
+
+- `https://mcp.labiraus.com/oauth2/callback`
 
 ## Scopes
 
@@ -159,9 +165,14 @@ For a typical PoC using Google plus an upstream auth proxy:
 7. Ensure the proxy forwards `X-Auth-Request-Email`.
 8. Add the signed-in email to `auth.users`.
 
+For the current repo choice, the browser start URL published by `external` should be:
+
+- `https://mcp.labiraus.com/oauth2/start?rd=https%3A%2F%2Fmcp.labiraus.com%2F`
+
 ## Related Repo Docs
 
 - [Authentication](/workspaces/homelab/docs/Auth.md)
+- [oauth2-proxy + Google](/workspaces/homelab/docs/OAuth2ProxyGoogle.md)
 - [external README](/workspaces/homelab/apps/external/README.md)
 - [ui README](/workspaces/homelab/apps/ui/README.md)
 - [mcp README](/workspaces/homelab/apps/mcp/README.md)

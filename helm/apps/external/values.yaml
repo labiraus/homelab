@@ -76,7 +76,9 @@ generatedSecrets:
           name: app-db-bootstrap
           key: password
       OIDC_LOGIN_URL:
-        value: ""
+        value: "https://mcp.labiraus.com/oauth2/start?rd=https%3A%2F%2Fmcp.labiraus.com%2F"
+      OIDC_ISSUER_URL:
+        value: "https://accounts.google.com"
       REDIS_HOST:
         value: redis.data.svc.cluster.local
       REDIS_PORT:
@@ -92,17 +94,23 @@ security:
     peerAuthentication:
       enabled: true
       mode: STRICT
-    authorizationPolicy:
-      enabled: true
-      action: ALLOW
-      rules:
-        - from:
-            - source:
-                principals:
-                  - cluster.local/ns/ingress/sa/gateway-istio
-          to:
-            - operation:
-                ports: ["8080"]
+    authorizationPolicies:
+      - nameSuffix: browser-edge-auth
+        action: CUSTOM
+        provider:
+          name: oauth2-proxy
+        rules:
+          - {}
+      - nameSuffix: ingress-allow
+        action: ALLOW
+        rules:
+          - from:
+              - source:
+                  principals:
+                    - cluster.local/ns/ingress/sa/gateway-istio
+            to:
+              - operation:
+                  ports: ["8080"]
   networkPolicy:
     enabled: true
     defaultDenyIngress: true

@@ -28,6 +28,9 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - `StorageBootstrap.md`: external MinIO and Samba bootstrap on `svartalfheim`
   - `MinecraftVM.md`: dedicated Minecraft VM provisioning and operations
   - `NodeClassification.md`: Kubernetes worker label policy and GPU/LLM classification
+  - `Auth.md`: current auth model across browser OIDC and certificate-based identity
+  - `GoogleOIDCSetup.md`: Google-side OIDC setup and redirect URI guidance
+  - `OAuth2ProxyGoogle.md`: current chosen `oauth2-proxy + Google` browser-auth path
 - `bin/`
   - `tf`: Terraform wrapper used by the Makefile
 - `components/`
@@ -61,6 +64,7 @@ Current behavior note:
 ### Kubernetes App Deployment
 
 - App charts: `helm/apps/`
+- Browser edge auth chart: `helm/apps/oauth2-proxy/`
 - Bootstrap charts: `helm/bootstrap/`
 - Stateful/data charts: `helm/data/`
 - Misc workload charts: `helm/workloads/`
@@ -98,6 +102,7 @@ Current behavior note:
 Current behavior note:
 
 - The frontend calls `/api/users/count`.
+- Browser login is currently expected to be challenged at the edge through `oauth2-proxy`, not implemented directly in React.
 - This app is Vite-based, not Create React App.
 
 ### Document Platform And RAG Work

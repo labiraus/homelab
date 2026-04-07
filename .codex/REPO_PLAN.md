@@ -23,6 +23,8 @@ The intended platform shape is:
 - Kafka plus KEDA provide asynchronous execution and worker scaling
 - Redis is available but is not yet a core architectural dependency
 - Mongo is not part of the active plan
+- browser authentication currently standardizes on `oauth2-proxy + Google` on the shared public host
+- certificate authentication remains the preferred direction for stronger MCP client identity on a future dedicated hostname or listener
 
 ## Current Repo Reality
 
@@ -61,6 +63,7 @@ Documentation must stay aligned with implementation as these pieces evolve.
 - Keep public and AI-facing APIs stable while hiding ingestion and processing internals behind them.
 - Keep raw storage in MinIO and derived state in Postgres.
 - Treat reprocessing and versioning as first-class future concerns even when early implementations stay small.
+- keep browser login at the edge and avoid embedding provider-specific browser OAuth logic directly into app services
 
 ## Service Roles
 
@@ -165,6 +168,7 @@ CAG and semantic graph ambitions remain later phases, not the initial implementa
 ## Immediate Priorities
 
 - keep docs aligned with the chosen app boundaries
+- keep the chosen `oauth2-proxy + Google` browser-auth path aligned across Helm, `ui`, `external`, and docs
 - establish the initial `rag` Postgres schema for document inventory and future processing state
 - shape orchestrator and processor around clean control-plane versus data-plane boundaries
 - keep public access flowing through `external` and `mcp`

@@ -12,6 +12,8 @@ Use three local-only secret classes when onboarding a new machine:
 
 Keep `.devcontainer/.env` intentionally small. If the cluster can tell you a value, prefer a script that repopulates it locally instead of hand-managing it.
 
+For auth providers that require operator-supplied credentials and cannot be derived from the cluster, prefer creating a Kubernetes Secret manually and referencing that existing Secret from Helm rather than committing credential material into chart values.
+
 ## Generated local secrets
 
 When a secret or credential is already exposed by the cluster or control plane, prefer rebuilding local state from the source of truth instead of storing it permanently in `.devcontainer/.env`.

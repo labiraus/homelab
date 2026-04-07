@@ -143,6 +143,7 @@ affinity: {}
 
 env:
   configValue: "default"
+  OIDC_ISSUER_URL: "https://accounts.google.com"
   # API_BASE_URL: "http://orchestrator.homelab.svc.cluster.local:8080"
   # POSTGRES_HOST: "postgresql.homelab.svc.cluster.local"
   # POSTGRES_PORT: "5432"
