@@ -9,6 +9,7 @@ The UI exposes:
 - an authentication panel backed by `/api/auth/status`
 - a federated login button driven by `/api/auth/providers`
 - `/api/users/count`
+- static public legal pages at `/privacy-policy.html` and `/terms-of-service.html`
 
 The results are shown in the page so it is easy to confirm browser-to-gateway-to-service routing and inspect the current auth state seen by the API.
 

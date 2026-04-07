@@ -259,6 +259,24 @@ select {
 	color: #f4efe4;
 }
 
+.legal-footer {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem 1.5rem;
+	justify-content: center;
+	padding-bottom: 1rem;
+}
+
+.legal-footer a {
+	color: var(--ink);
+	font-size: 0.95rem;
+	text-underline-offset: 0.18em;
+}
+
+.legal-footer a:hover {
+	color: var(--accent-strong);
+}
+
 :root[data-theme="dark"] .response-card {
 	background: rgba(4, 10, 18, 0.96);
 	color: #edf3fb;

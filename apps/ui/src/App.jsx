@@ -285,6 +285,11 @@ function App() {
 					{error ? <p className="error-text">Request failed: {error}</p> : null}
 				</div>
 			</section>
+
+			<footer className="legal-footer">
+				<a href="/privacy-policy.html">Privacy Policy</a>
+				<a href="/terms-of-service.html">Terms of Service</a>
+			</footer>
 		</main>
 	);
 }
