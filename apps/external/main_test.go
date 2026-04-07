@@ -109,18 +109,39 @@ func TestAuthStatusHandlerReturnsMiddlewareStatus(t *testing.T) {
 	}
 }
 
-func TestGoogleLoginHandlerRedirectsWhenConfigured(t *testing.T) {
+func TestAuthProvidersHandlerReturnsGoogleProvider(t *testing.T) {
+	t.Setenv("OIDC_ISSUER_URL", "https://accounts.google.com")
 	t.Setenv("OIDC_LOGIN_URL", "https://accounts.google.com/o/oauth2/v2/auth")
 
-	request := httptest.NewRequest(http.MethodGet, "/auth/login/google", nil)
+	request := httptest.NewRequest(http.MethodGet, "/auth/providers", nil)
 	recorder := httptest.NewRecorder()
 
-	googleLoginHandler(recorder, request)
+	authProvidersHandler(recorder, request)
 
-	if recorder.Code != http.StatusTemporaryRedirect {
-		t.Fatalf("expected redirect status, got %d", recorder.Code)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
-	if location := recorder.Header().Get("Location"); location != "https://accounts.google.com/o/oauth2/v2/auth" {
-		t.Fatalf("expected redirect location to be set, got %q", location)
+
+	var response AuthProvidersResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected valid json response: %v", err)
+	}
+
+	if len(response.Providers) != 1 {
+		t.Fatalf("expected one provider, got %d", len(response.Providers))
+	}
+
+	provider := response.Providers[0]
+	if provider.ID != "google" {
+		t.Fatalf("expected google provider, got %q", provider.ID)
+	}
+	if provider.Issuer != "https://accounts.google.com" {
+		t.Fatalf("expected google issuer, got %q", provider.Issuer)
+	}
+	if provider.AuthorizationURL != "https://accounts.google.com/o/oauth2/v2/auth" {
+		t.Fatalf("expected authorization URL to be set, got %q", provider.AuthorizationURL)
+	}
+	if !provider.Configured {
+		t.Fatal("expected provider to be configured")
 	}
 }

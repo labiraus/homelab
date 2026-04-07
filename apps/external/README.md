@@ -7,7 +7,7 @@ It is the browser-facing API for `ui` and should remain a stable surface even as
 ## Endpoints
 
 - `/auth/status`
-- `/auth/login/google`
+- `/auth/providers`
 - `/users/count`
 - `/readiness`
 - `/liveness`
@@ -23,4 +23,4 @@ The service is published behind the gateway at `/api/...`.
 - OIDC auth is derived from a trusted upstream email header, currently `X-Auth-Request-Email`
 - the authenticated email is validated against `auth.users` in Postgres
 - `/auth/status` returns the resolved mode, email, validity, and invalid reason
-- `/auth/login/google` redirects to `OIDC_LOGIN_URL`
+- `/auth/providers` returns the configured federated login providers for browser clients

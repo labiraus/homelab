@@ -66,7 +66,7 @@ func main() {
 	mux := http.NewServeMux()
 	prometheusutil.Start(mux)
 	mux.HandleFunc("/auth/status", authStatusHandler)
-	mux.HandleFunc("/auth/login/google", googleLoginHandler)
+	mux.HandleFunc("/auth/providers", authProvidersHandler)
 	mux.HandleFunc("/users/count", userCountHandler)
 
 	done := api.Start(ctx, mux, 8080, api.NewAuthMiddleware(api.AuthOptions{

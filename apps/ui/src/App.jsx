@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 const THEME_STORAGE_KEY = "homelab-theme";
 const AUTH_STATUS_PATH = "/api/auth/status";
-const GOOGLE_LOGIN_PATH = "/api/auth/login/google";
+const AUTH_PROVIDERS_PATH = "/api/auth/providers";
 
 const actions = [
 	{
@@ -44,6 +44,10 @@ async function fetchAuthStatus() {
 	return callApi({ method: "GET", path: AUTH_STATUS_PATH });
 }
 
+async function fetchAuthProviders() {
+	return callApi({ method: "GET", path: AUTH_PROVIDERS_PATH });
+}
+
 function authSummary(status) {
 	if (!status) {
 		return "Authentication status has not been loaded yet.";
@@ -60,6 +64,18 @@ function authSummary(status) {
 	return status.invalidReason || "The authenticated identity is not recognized.";
 }
 
+function providerSummary(provider) {
+	if (!provider) {
+		return "Federated login options have not been loaded yet.";
+	}
+
+	if (provider.configured) {
+		return `Federated sign-in is available through ${provider.name}.`;
+	}
+
+	return `${provider.name} sign-in is not configured in the public API yet.`;
+}
+
 function App() {
 	const [activeRequest, setActiveRequest] = useState(null);
 	const [message, setMessage] = useState("Choose a service call to verify routing.");
@@ -67,6 +83,9 @@ function App() {
 	const [authStatus, setAuthStatus] = useState(null);
 	const [authLoading, setAuthLoading] = useState(true);
 	const [authError, setAuthError] = useState("");
+	const [authProvider, setAuthProvider] = useState(null);
+	const [providerLoading, setProviderLoading] = useState(true);
+	const [providerError, setProviderError] = useState("");
 	const [theme, setTheme] = useState(() => {
 		if (typeof window === "undefined") {
 			return "light";
@@ -101,8 +120,26 @@ function App() {
 		}
 	};
 
+	const loadAuthProviders = async () => {
+		setProviderLoading(true);
+		setProviderError("");
+
+		try {
+			const response = await fetchAuthProviders();
+			const googleProvider = response?.providers?.find((provider) => provider.id === "google") ?? null;
+			setAuthProvider(googleProvider);
+		} catch (requestError) {
+			setProviderError(
+				requestError instanceof Error ? requestError.message : "Could not load auth providers",
+			);
+		} finally {
+			setProviderLoading(false);
+		}
+	};
+
 	useEffect(() => {
 		void loadAuthStatus();
+		void loadAuthProviders();
 	}, []);
 
 	const handleAction = async (action) => {
@@ -120,7 +157,11 @@ function App() {
 	};
 
 	const handleGoogleLogin = () => {
-		window.location.assign(`${API_BASE_URL}${GOOGLE_LOGIN_PATH}`);
+		if (!authProvider?.authorizationUrl) {
+			return;
+		}
+
+		window.location.assign(authProvider.authorizationUrl);
 	};
 
 	return (
@@ -177,21 +218,37 @@ function App() {
 						<p className="error-text">Reason: {authStatus.invalidReason}</p>
 					) : null}
 					{authError ? <p className="error-text">Status request failed: {authError}</p> : null}
+					<p className="response-label">Federated login</p>
+					<p className="response-value">{providerSummary(authProvider)}</p>
+					{authProvider?.issuer ? (
+						<p className="response-value">Issuer: {authProvider.issuer}</p>
+					) : null}
+					{providerError ? (
+						<p className="error-text">Provider request failed: {providerError}</p>
+					) : null}
 				</div>
 
 				<div className="auth-actions">
-					<button type="button" className="action-card primary-action" onClick={handleGoogleLogin}>
-						<span>Login with Google</span>
-						<small>Start the configured OIDC flow through the public API.</small>
+					<button
+						type="button"
+						className="action-card primary-action"
+						onClick={handleGoogleLogin}
+						disabled={providerLoading || !authProvider?.configured}
+					>
+						<span>{authProvider ? `Log In With ${authProvider.name}` : "Log In With Google"}</span>
+						<small>Start the configured federated OIDC flow directly from provider metadata.</small>
 					</button>
 					<button
 						type="button"
 						className="action-card"
-						onClick={() => void loadAuthStatus()}
-						disabled={authLoading}
+						onClick={() => {
+							void loadAuthStatus();
+							void loadAuthProviders();
+						}}
+						disabled={authLoading || providerLoading}
 					>
-						<span>Refresh Auth Status</span>
-						<small>Re-read the current identity as seen by the gateway and API.</small>
+						<span>Refresh Auth State</span>
+						<small>Re-read the current identity and available federated providers.</small>
 					</button>
 				</div>
 			</section>

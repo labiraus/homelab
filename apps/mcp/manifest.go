@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-const certificateDiscoveryPath = "/.well-known/auth/certificate.json"
+const oauthProtectedResourcePath = "/.well-known/oauth-protected-resource"
 
 var capabilityCatalog = []manifestCapabilitySource{
 	{
@@ -174,7 +174,7 @@ func newManifestDocument(r *http.Request) manifestDocument {
 		Authorization: &manifestAuthorization{
 			Type: "bearer",
 			Meta: &manifestAuthorizationMeta{
-				CertificateDiscoveryURL: baseURL + certificateDiscoveryPath,
+				ResourceMetadataURL: baseURL + oauthProtectedResourcePath,
 			},
 		},
 		Transports: []manifestTransport{

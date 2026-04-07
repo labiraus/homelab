@@ -164,7 +164,7 @@ type manifestToolHints struct {
 }
 
 type manifestAuthorizationMeta struct {
-	CertificateDiscoveryURL string `json:"certificateDiscoveryUrl,omitempty"`
+	ResourceMetadataURL string `json:"resourceMetadataUrl,omitempty"`
 }
 
 type manifestOperationMeta struct {

@@ -8,6 +8,7 @@ import (
 	"os"
 	"pkg/api"
 	"pkg/prometheusutil"
+	"strings"
 	"time"
 )
 
@@ -64,15 +65,27 @@ func authStatusHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func googleLoginHandler(w http.ResponseWriter, r *http.Request) {
-	loginURL := os.Getenv("OIDC_LOGIN_URL")
-	if loginURL == "" {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(ErrorResponse{
-			Error: "google login is not configured",
-		})
-		return
+func authProvidersHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(AuthProvidersResponse{
+		Providers: []AuthProvider{
+			buildGoogleAuthProvider(),
+		},
+	})
+}
+
+func buildGoogleAuthProvider() AuthProvider {
+	loginURL := strings.TrimSpace(os.Getenv("OIDC_LOGIN_URL"))
+	issuerURL := strings.TrimSpace(os.Getenv("OIDC_ISSUER_URL"))
+	if issuerURL == "" {
+		issuerURL = "https://accounts.google.com"
 	}
 
-	http.Redirect(w, r, loginURL, http.StatusTemporaryRedirect)
+	return AuthProvider{
+		ID:               "google",
+		Name:             "Google",
+		Issuer:           issuerURL,
+		AuthorizationURL: loginURL,
+		Configured:       loginURL != "",
+	}
 }

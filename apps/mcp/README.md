@@ -14,7 +14,7 @@ The capability catalog in [manifest.go](/workspaces/homelab/apps/mcp/manifest.go
 
 - `/mcp`
 - `/.well-known/mcp.json`
-- `/.well-known/auth/certificate.json`
+- `/.well-known/oauth-protected-resource`
 - `/readiness`
 - `/liveness`
 
@@ -24,6 +24,7 @@ The health endpoints are provided by [pkg/api](/workspaces/homelab/apps/pkg/api)
 
 Live direct-backend capabilities currently expect:
 
+- `OIDC_ISSUER_URL` for federated identity discovery. Defaults to `https://accounts.google.com`, so MCP clients use standard Google/OIDC authorization discovery instead of a service-local login path.
 - `API_BASE_URL` for orchestrator-backed HTTP proxy operations
 - `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DATABASE`, `POSTGRES_SSLMODE` for Postgres-backed capabilities
 - `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_USE_SSL`, `MINIO_REGION`, `MINIO_BUCKET` for MinIO-backed capabilities

@@ -11,6 +11,18 @@ type AuthStatusResponse struct {
 	InvalidReason string `json:"invalidReason,omitempty"`
 }
 
+type AuthProvider struct {
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	Issuer           string `json:"issuer"`
+	AuthorizationURL string `json:"authorizationUrl,omitempty"`
+	Configured       bool   `json:"configured"`
+}
+
+type AuthProvidersResponse struct {
+	Providers []AuthProvider `json:"providers"`
+}
+
 type ErrorResponse struct {
 	Error string `json:"error"`
 }

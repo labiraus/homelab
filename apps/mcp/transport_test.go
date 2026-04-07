@@ -18,8 +18,8 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 		t.Fatalf("expected authorization metadata to be present")
 	}
 
-	if manifest.Authorization.Meta.CertificateDiscoveryURL != "https://mcp.labiraus.com/.well-known/auth/certificate.json" {
-		t.Fatalf("unexpected certificate discovery URL: %q", manifest.Authorization.Meta.CertificateDiscoveryURL)
+	if manifest.Authorization.Meta.ResourceMetadataURL != "https://mcp.labiraus.com/.well-known/oauth-protected-resource" {
+		t.Fatalf("unexpected resource metadata URL: %q", manifest.Authorization.Meta.ResourceMetadataURL)
 	}
 
 	liveTool := findToolInManifest(t, manifest, "documents.submit")

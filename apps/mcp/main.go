@@ -62,7 +62,7 @@ func main() {
 	mux := http.NewServeMux()
 	prometheusutil.Start(mux)
 	mux.HandleFunc(wellKnownHandlerName, wellKnownAPI)
-	mux.HandleFunc(certificateDiscoveryHandlerName, certificateDiscoveryAPI)
+	mux.HandleFunc(oauthProtectedResourceHandlerName, oauthProtectedResourceAPI)
 	mux.HandleFunc(mcpGetHandlerName, mcpGetAPI)
 	mux.HandleFunc(mcpPostHandlerName, mcpPostAPI)
 
