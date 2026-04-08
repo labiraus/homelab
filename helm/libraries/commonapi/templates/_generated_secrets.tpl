@@ -13,6 +13,6 @@ stringData:
   {{- range $key, $value := ($secret.stringData | default dict) }}
   {{ $key }}: {{ include "commonapi.generatedSecretValue" $value | quote }}
   {{- end }}
----
+---{{ "\n" }}
 {{- end }}
 {{- end -}}

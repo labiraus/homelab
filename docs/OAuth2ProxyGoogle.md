@@ -80,7 +80,7 @@ No new hostname is required for the current browser login choice.
 
 The repo now carries:
 
-- `helm/apps/oauth2-proxy/`
+- `helm/infra/oauth2-proxy/`
   - deploys `oauth2-proxy` on port `4180`
   - exposes `/oauth2` on `mcp.labiraus.com`
 - `helm/bootstrap/istio/values.yaml`

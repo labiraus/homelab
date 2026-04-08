@@ -15,5 +15,5 @@ spec:
       name: http
   selector:
     {{- include "commonapi.selectorLabels" . | nindent 4 }}
----
+---{{ "\n" }}
 {{- end }}

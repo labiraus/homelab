@@ -10,7 +10,7 @@ metadata:
   namespace: {{ $root.Values.namespace }}
 rules:
 {{- toYaml $rules | nindent 2 }}
----
+---{{ "\n" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -24,7 +24,7 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: {{ include "commonapi.fullname" $root }}
----
+---{{ "\n" }}
 {{- end }}
 {{- $clusterRbac := (.Values.clusterRbac | default dict) -}}
 {{- $clusterRules := (get $clusterRbac "rules" | default list) -}}
@@ -35,7 +35,7 @@ metadata:
   name: {{ include "commonapi.fullname" $root }}
 rules:
 {{- toYaml $clusterRules | nindent 2 }}
----
+---{{ "\n" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -48,6 +48,6 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: {{ include "commonapi.fullname" $root }}
----
+---{{ "\n" }}
 {{- end }}
 {{- end -}}

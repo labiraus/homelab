@@ -64,7 +64,8 @@ Current behavior note:
 ### Kubernetes App Deployment
 
 - App charts: `helm/apps/`
-- Browser edge auth chart: `helm/apps/oauth2-proxy/`
+- Infra charts: `helm/infra/`
+- Browser edge auth chart: `helm/infra/oauth2-proxy/`
 - Bootstrap charts: `helm/bootstrap/`
 - Stateful/data charts: `helm/data/`
 - Misc workload charts: `helm/workloads/`

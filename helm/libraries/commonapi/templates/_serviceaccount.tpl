@@ -21,5 +21,5 @@ imagePullSecrets:
   - name: {{ .name }}
   {{- end }}
 {{- end }}
----
+---{{ "\n" }}
 {{- end }}

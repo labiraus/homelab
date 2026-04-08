@@ -15,7 +15,7 @@ spec:
       {{- include "commonapi.selectorLabels" $root | nindent 6 }}
   mtls:
     mode: {{ get $peer "mode" | default "STRICT" }}
----
+---{{ "\n" }}
 {{- end }}
 {{- $authz := (get $istio "authorizationPolicy" | default dict) -}}
 {{- $authzList := (get $istio "authorizationPolicies" | default list) -}}
@@ -44,7 +44,7 @@ spec:
   {{- end }}
   rules:
 {{- toYaml (get $policy "rules" | default list) | nindent 4 }}
----
+---{{ "\n" }}
 {{- end }}
 {{- else if (get $authz "enabled" | default false) }}
 {{- $provider := (get $authz "provider" | default dict) -}}
@@ -64,6 +64,6 @@ spec:
   {{- end }}
   rules:
 {{- toYaml (get $authz "rules" | default list) | nindent 4 }}
----
+---{{ "\n" }}
 {{- end }}
 {{- end -}}
