@@ -23,7 +23,7 @@ Host proxmox-node2
   User root
 
 Host proxmox-node3
-  HostName 192.168.8.XXX
+  HostName 192.168.8.191
   User root
 
 Host proxmox-node4

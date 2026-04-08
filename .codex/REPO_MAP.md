@@ -130,12 +130,14 @@ Current behavior note:
 - Wrapper: `scripts/ansible-run-playbook.sh`
 - Host bootstrap: `scripts/bootstrap-svartalfheim-storage.sh`
 - Minecraft VM playbook: `ansible/playbooks/minecraft-vm.yml`
+- Terraform worker bootstrap playbook: `ansible/playbooks/kubernetes-terraform-node.yml`
 
 Current behavior note:
 
 - The repo treats the external Raspberry Pi `svartalfheim` as the authoritative MinIO service and attached-drive file-share host; Helm no longer deploys an in-cluster MinIO tenant.
 - Minecraft is managed outside Kubernetes on the dedicated VM `nidavellir` through Terraform plus Ansible.
 - `midgard` can be prepared and joined as a manually managed Ubuntu worker through the Ansible playbook `ansible/playbooks/kubernetes-manual-node.yml`.
+- Terraform-managed worker VMs are provisioned through `bin/tf` and then joined to Kubernetes through the Ansible playbook `ansible/playbooks/kubernetes-terraform-node.yml`.
 - Shared operator env belongs in `.devcontainer/.env`; Ansible-only external secrets belong in ignored `ansible/.env`.
 - MinIO admin credentials are refreshed from `svartalfheim:/etc/default/minio` rather than copied from a tracked example file.
 

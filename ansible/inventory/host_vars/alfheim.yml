@@ -1,0 +1,7 @@
+kubernetes_manual_node_gpu_labels:
+  topology.kubernetes.io/zone: lab-b
+  node-performance: standard
+  node-gpu: passthrough
+  node-llm: none
+  node-llm-class: igpu
+  node-llm-vram: shared

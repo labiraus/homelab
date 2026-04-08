@@ -6,7 +6,7 @@ This repository combines five related areas:
 - Helm charts for cluster bootstrap and in-cluster workloads
 - Small application services used inside the cluster
 - Ansible for external service management, including MinIO on `svartalfheim`
-- Ansible for dedicated VM-hosted workloads such as Minecraft
+- Ansible for dedicated VM-hosted workloads such as Minecraft and post-provision Kubernetes worker bootstrap
 
 ## Repo Guidance For Humans And Agents
 
@@ -115,7 +115,7 @@ Current document-platform direction:
 
 ### Ansible
 
-`ansible/` manages `svartalfheim` host services such as the MinIO server, MinIO state, and the attached-drive Samba share, plus the dedicated Minecraft VM on `nidavellir`. Kubernetes remains Helm-managed for in-cluster services; external service state is handled separately.
+`ansible/` manages `svartalfheim` host services such as the MinIO server, MinIO state, and the attached-drive Samba share, plus the dedicated Minecraft VM on `nidavellir` and post-provision bootstrap for repo-managed Kubernetes worker guests. Kubernetes remains Helm-managed for in-cluster services; external service state is handled separately.
 
 ## Devcontainer
 
@@ -219,23 +219,24 @@ make plan COMPONENT=minecraft-vm LAYER=minecraft-node1
 Useful helper targets:
 
 - `make refresh-kubeconfig`
-- `make refresh-join-token`
 - `make refresh-postgres-env`
 - `make refresh-ansible-secrets`
 - `make bootstrap-svartalfheim-storage`
 - `make ansible-minecraft-vm`
+- `make ansible-kubernetes-worker LIMIT=helheim`
 - `make postgres`
 
 ## Kubernetes Worker Bootstrap
 
-The Terraform cloud-init data installs and configures:
+Terraform cloud-init on worker VMs installs and configures:
 
 - `containerd` with `SystemdCgroup=true`
 - Kubernetes packages from `pkgs.k8s.io`
 - swap disable
-- optional `kubeadm join`
+- `qemu-guest-agent`
+- node-local `KUBELET_EXTRA_ARGS` such as labels and taints
 
-Join is idempotent and only runs if `/etc/kubernetes/kubelet.conf` does not already exist.
+Cluster join is handled afterward through Ansible, not through Terraform state or cloud-init.
 
 ## CI and Build Workflows
 
@@ -257,6 +258,12 @@ Run playbooks from `ansible/` to manage `svartalfheim` host services and MinIO s
 ```bash
 make ansible-minio-host
 make ansible-minio-state
+```
+
+Run post-provision worker bootstrap for a Terraform-managed Kubernetes node:
+
+```bash
+make ansible-kubernetes-worker LIMIT=helheim
 ```
 
 These targets use `scripts/ansible-run-playbook.sh`, which loads shared operator env from `.devcontainer/.env` and then applies Ansible-only overrides from `ansible/.env`.
@@ -290,7 +297,7 @@ For architecture, client-certificate generation, Istio CA trust, and the Google 
 - Keep `.devcontainer/.env` minimal and reserve it for external-only secrets plus non-secret operator settings
 - Keep Ansible-only external secrets in `ansible/.env` instead of the shared shell env when they are not needed by other tooling
 - Prefer `make refresh-ansible-secrets` for host-sourced MinIO admin credentials instead of copying them by hand
-- `kubeadm_join_command` remains sensitive and can appear in Terraform state if embedded in cloud-init
+- avoid reintroducing `kubeadm join` commands or bootstrap tokens into Terraform-managed cloud-init
 - Prefer local secret overrides or external secret stores for sensitive data
 
 ## Documentation Maintenance

@@ -1,11 +1,4 @@
 locals {
-  join_discovery_hash = trimsuffix(trimprefix(trimspace(var.kubeadm_discovery_token_ca_cert_hash), "sha256:"), "\n")
-  computed_kubeadm_join_command = (
-    trimspace(var.kube_api_server_host) != "" &&
-    trimspace(var.kubeadm_join_token) != "" &&
-    local.join_discovery_hash != ""
-  ) ? "kubeadm join ${var.kube_api_server_host}:${var.kube_api_server_port} --token ${var.kubeadm_join_token} --discovery-token-ca-cert-hash sha256:${local.join_discovery_hash}" : ""
-  effective_kubeadm_join_command = trimspace(var.kubeadm_join_command) != "" ? var.kubeadm_join_command : local.computed_kubeadm_join_command
   effective_kubelet_node_labels  = merge(var.kubelet_node_labels, { "node.mesh" = "enabled" })
 
   kubelet_extra_args_parts = concat(
@@ -28,7 +21,6 @@ locals {
     ntp_servers          = var.ntp_servers
     kube_minor_channel   = var.kube_minor_channel
     kube_version         = var.kube_version
-    kubeadm_join_command = local.effective_kubeadm_join_command
     kubelet_extra_args   = local.kubelet_extra_args
   })
 }

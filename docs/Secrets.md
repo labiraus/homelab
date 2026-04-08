@@ -21,7 +21,6 @@ When a secret or credential is already exposed by the cluster or control plane, 
 Current repo-native flows:
 
 - `make refresh-kubeconfig`: rebuilds `.devcontainer/kubeconfig` from the control plane over SSH
-- `make refresh-join-token`: updates `TF_VAR_kubeadm_join_token` in `.devcontainer/.env`
 - `make refresh-postgres-env`: updates `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASS` in `.devcontainer/.env`
 
 Treat those generated entries as cacheable local state, not hand-maintained secrets.

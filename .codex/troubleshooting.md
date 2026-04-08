@@ -33,30 +33,63 @@ qm destroy <vmid> --purge 1 || true
 - `alfheim` failed to boot at `memory_mb = 15032` on a host with about `15 GiB` total memory because QEMU was killed by the host OOM killer.
 - Leaving host headroom fixed it; `12288` MB was stable.
 
-## Kubernetes Worker Recovery
+### Proxmox USB uplinks can fail below Kubernetes
 
-### Recreated workers may not auto-join
-
-- A rebuilt worker only auto-joins if a valid `kubeadm_join_command` is available at apply time.
-- Refresh the join token before Terraform changes:
+- If several worker nodes suddenly become `NotReady` at once, check the Proxmox host uplinks before debugging Cilium, Flux, or the workloads.
+- On April 8, 2026, the real failure mode was host-side USB Ethernet instability plus bridge drift, not a cluster-wide Kubernetes regression.
+- A new USB dongle can be detected successfully and still not be the live management path if `/etc/network/interfaces` keeps `vmbr0` bridged to the old NIC.
+- The quickest host checks are:
 
 ```bash
-make refresh-join-token
-. /home/vscode/.env
+ip -br link
+ip -br addr
+ip route
+bridge link
+ethtool <candidate-uplink>
+journalctl -k -b | egrep -i 'usb|asix|r8152|cdc_ncm|link|carrier'
 ```
 
-- If the VM comes up but `/var/lib/kubelet/config.yaml` is missing, `cloud-init` likely finished without a successful `kubeadm join`.
+- If the host uses a bridge such as `vmbr0`, reason about two interfaces separately:
+  - the routed interface that holds the IP and default route
+  - the bridge member that is the actual physical uplink
+- Do not assume the physical uplink is always named `nic0`. USB adapters often appear as `enx...` names and can change across hosts and recovery attempts.
+- The `network-watch.sh` watchdog should derive the active uplink from the current default route. A watchdog hard-coded to the wrong NIC can bounce the healthy path and make host recovery worse.
+- On April 8, 2026, `proxmox-node1` and `proxmox-node4` still dropped VM return traffic even after the new `cdc_ncm` dongles were bridged correctly. The durable fix was to put the physical uplink into explicit user-requested promiscuous mode:
+
+```bash
+ip link set dev <uplink> promisc on
+```
+
+- The key symptom was asymmetric traffic:
+  - the guest could open SYNs toward `192.168.8.132:6443`
+  - `yggdrasil` showed many `SYN-RECV` sockets from the guest IPs
+  - but `yggdrasil` could not ping or SSH the guests until promisc was enabled directly on the USB uplink
+- Keep this behavior in mind for `cdc_ncm` bridge uplinks. Bridge membership alone may not be enough; the physical USB NIC may need explicit promisc reapplied after link bounces or reboot.
+
+## Kubernetes Worker Recovery
+
+### Recreated workers now need post-provision Ansible join
+
+- A rebuilt Terraform-managed worker no longer joins the cluster from Terraform cloud-init.
+- The expected post-apply step is:
+
+```bash
+make ansible-kubernetes-worker LIMIT=<node-name>
+```
+
+- If the VM comes up but `/var/lib/kubelet/config.yaml` is missing, that now usually means the Ansible join step has not run yet or did not complete.
+- If `kubeadm` hangs early while polling `kube-public/cluster-info`, check whether the control plane is signing bootstrap tokens into the ConfigMap. A missing JWS signature for the new token ID blocks join before kubelet writes its config.
 
 ### Correct recovery order after VM recreation
 
 - Check `cloud-init` first. If it is still running, wait before intervening.
-- If `cloud-init` finished but the node did not join, run `kubeadm join` manually.
+- If `cloud-init` finished but the node did not join, run `make ansible-kubernetes-worker LIMIT=<node-name>`.
 - If the old Kubernetes `Node` object still exists, delete it before trying to register the rebuilt VM.
 - If the worker joined once, then the node object was deleted and kubelet is stuck in an identity mismatch, stop trying to patch around it. Run:
 
 ```bash
 sudo kubeadm reset -f
-sudo kubeadm join <api-server>:6443 --token <token> --discovery-token-ca-cert-hash <hash>
+make ansible-kubernetes-worker LIMIT=<node-name>
 ```
 
 ### Cilium recovery after node recreation

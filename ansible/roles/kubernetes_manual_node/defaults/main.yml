@@ -24,6 +24,9 @@ kubernetes_manual_node_nvidia_device_plugin_image: nvcr.io/nvidia/k8s-device-plu
 kubernetes_manual_node_nvidia_selector_label_key: gpu.nvidia.com/device-plugin
 kubernetes_manual_node_nvidia_selector_label_value: "true"
 kubernetes_manual_node_gpu_labels: {}
+kubernetes_manual_node_wait_for_node_registration: true
+kubernetes_manual_node_wait_for_node_registration_retries: 30
+kubernetes_manual_node_wait_for_node_registration_delay: 10
 kubernetes_manual_node_headless: false
 kubernetes_manual_node_headless_disable_services: []
 kubernetes_manual_node_headless_purge_packages: []

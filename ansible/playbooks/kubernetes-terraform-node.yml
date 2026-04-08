@@ -1,0 +1,6 @@
+---
+- name: Prepare and join Terraform-managed Ubuntu Kubernetes workers
+  hosts: kubernetes_terraform_node
+  become: true
+  roles:
+    - kubernetes_manual_node

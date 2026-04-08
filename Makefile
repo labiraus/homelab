@@ -4,7 +4,7 @@ LAYER ?=
 OVERLAYS ?=
 TF_ARGS ?=
 
-.PHONY: plan apply destroy plan-destroy refresh-kubeconfig refresh-join-token refresh-postgres-env refresh-ansible-secrets bootstrap-svartalfheim-storage postgres-refresh postgres ansible-minio-host ansible-minio-state ansible-minecraft-vm
+.PHONY: plan apply destroy plan-destroy refresh-kubeconfig refresh-postgres-env refresh-ansible-secrets bootstrap-svartalfheim-storage postgres-refresh postgres ansible-minio-host ansible-minio-state ansible-minecraft-vm ansible-kubernetes-worker
 
 check-vars:
 	@if [ -z "$(COMPONENT)" ] || [ -z "$(LAYER)" ]; then \
@@ -26,23 +26,6 @@ plan-destroy: check-vars
 
 refresh-kubeconfig:
 	@./scripts/refresh-kubeconfig.sh
-
-refresh-join-token:
-	@set -e; \
-	env_file=".devcontainer/.env"; \
-	join_cmd="$$(ssh yggdrasil 'kubeadm token create --print-join-command')"; \
-	token="$$(printf '%s\n' "$$join_cmd" | sed -n 's/.*--token \([^ ]*\).*/\1/p')"; \
-	if [ -z "$$token" ]; then \
-		echo "Error: failed to parse kubeadm token from: $$join_cmd" >&2; \
-		exit 1; \
-	fi; \
-	if grep -q '^TF_VAR_kubeadm_join_token=' "$$env_file"; then \
-		sed -i "s|^TF_VAR_kubeadm_join_token=.*|TF_VAR_kubeadm_join_token='$$token'|" "$$env_file"; \
-	else \
-		printf "TF_VAR_kubeadm_join_token='%s'\n" "$$token" >> "$$env_file"; \
-	fi; \
-	echo "Updated $$env_file with TF_VAR_kubeadm_join_token=$$token"; \
-	echo "Run: . /home/vscode/.env"
 
 refresh-postgres-env:
 	@set -e; \
@@ -112,3 +95,11 @@ ansible-minio-state:
 
 ansible-minecraft-vm:
 	@ANSIBLE_FETCH_MINIO_SECRETS=0 ./scripts/ansible-run-playbook.sh -i ansible/inventory/hosts.ini ansible/playbooks/minecraft-vm.yml
+
+ansible-kubernetes-worker:
+	@set -e; \
+	args="-i ansible/inventory/hosts.ini ansible/playbooks/kubernetes-terraform-node.yml"; \
+	if [ -n "$(LIMIT)" ]; then \
+		args="$$args --limit $(LIMIT)"; \
+	fi; \
+	ANSIBLE_FETCH_MINIO_SECRETS=0 ./scripts/ansible-run-playbook.sh $$args

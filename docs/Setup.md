@@ -57,16 +57,43 @@ sudo bash firmware-util.sh
 For a laptop, set HandleLidSwitch=ignore in /etc/systemd/logind.conf to prevent sleep on lid close. For a desktop, this is not necessary.
 
 ``` bash
-hostnamectl set-hostname proxmox-nodeX
+hostnamectl set-hostname proxmox-node3
 apt update && apt dist-upgrade -y
 apt install -y chrony
 systemctl enable --now chrony
 systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
-sudo nano /etc/systemd/logind.conf
+nano /etc/systemd/logind.conf
 systemctl restart systemd-logind
 
 pvesm set local --content iso,vztmpl,backup,import,snippets
 ```
+
+Fresh Proxmox installs need to be joined to the existing Proxmox cluster before they will behave like the other homelab hosts. The current cluster name is `homecluster`, and `proxmox-node1` (`192.168.8.229`) is a good seed node to join against.
+
+On the new host:
+
+```bash
+pvecm status
+pvecm add 192.168.8.229
+```
+
+That command will prompt for the root password of the seed cluster node and then pull the corosync configuration onto the new host.
+
+Verify afterward:
+
+```bash
+pvecm status
+pvecm nodes
+```
+
+For a healthy join, `pvecm status` on the new node should report cluster name `homecluster` and show the current members:
+
+- `proxmox-node1` `192.168.8.229`
+- `proxmox-node2` `192.168.8.133`
+- `proxmox-node3` `192.168.8.191`
+- `proxmox-node4` `192.168.8.103`
+
+Do this while the node is still effectively empty. Joining a non-fresh Proxmox host into an existing cluster has extra caveats around local VM and cluster state, but for a newly installed node the normal `pvecm add` flow is the right path.
 
 For GPU passthrough prerequisites on Intel-based Proxmox hosts, add IOMMU and VFIO setup during the host bootstrap:
 
@@ -99,7 +126,7 @@ Do not blacklist `i915` on these hosts as part of the base setup. Each current P
 Copy the public key to the new node
 
 ```bash
-ssh-copy-id -o PreferredAuthentications=password -o PubkeyAuthentication=no -o PasswordAuthentication=yes -i ~/.ssh/ssh_user_ca.pub root@192.168.8.X
+ssh-copy-id -o PreferredAuthentications=password -o PubkeyAuthentication=no -o PasswordAuthentication=yes -i ~/.ssh/ssh_user_ca.pub root@192.168.8.191
 ```
 
 ### ProMox
@@ -161,7 +188,7 @@ The helper script defaults to `yggdrasil:~/.kube/config`. Override with `KUBECON
 
 ### Manual Node Join
 
-If you need to join an Ubuntu machine to the cluster outside the Terraform `cloud-init` flow, use the Ansible playbook for the manual-worker inventory group.
+If you need to join an Ubuntu machine to the cluster outside the Terraform-managed worker flow, use the Ansible playbook for the manual-worker inventory group.
 
 `midgard` is the current manual GPU worker. It is a bare-metal Linux machine, not a Proxmox VM. It is intentionally powered on only when heavier GPU workloads need extra capacity, so it is expected to be absent or offline at times. Treat `midgard` being switched off as normal operating state, not a Kubernetes bug, unless work was explicitly meant to be running there.
 
@@ -219,13 +246,32 @@ ssh midgard 'sudo poweroff'
 
 If `midgard` is intentionally offline afterward, leave it that way. A missing or powered-off `midgard` is expected when no heavy GPU work is queued.
 
-If you are using the Terraform worker flow instead, refresh the cached bootstrap token locally first:
+### Terraform-Managed Worker Join
+
+Terraform now builds the worker VM and installs the base Kubernetes packages, but the actual `kubeadm join` step is handled afterward through Ansible rather than through Terraform cloud-init.
+
+After `ENV=lab bin/tf apply kubernetes <node-layer>`, run the worker bootstrap playbook for that node:
 
 ```bash
-make refresh-join-token
+make ansible-kubernetes-worker LIMIT=helheim
 ```
 
-That target updates `TF_VAR_kubeadm_join_token` in `.devcontainer/.env` for repo-managed `cloud-init` bootstrap. It is not required for the manual Ansible join path above.
+Equivalent direct wrapper command:
+
+```bash
+ANSIBLE_FETCH_MINIO_SECRETS=0 ./scripts/ansible-run-playbook.sh \
+  -i ansible/inventory/hosts.ini \
+  ansible/playbooks/kubernetes-terraform-node.yml \
+  --limit helheim
+```
+
+This is the preferred path for Terraform-managed workers such as `jotunheim`, `alfheim`, `helheim`, and `niflheim` because it fetches a fresh join command from `yggdrasil` at runtime instead of baking cluster bootstrap material into Terraform state.
+
+If you want to roll the same Ansible-side change across every Terraform-managed worker, omit `LIMIT`:
+
+```bash
+make ansible-kubernetes-worker
+```
 
 
 ## Network Instability
@@ -239,14 +285,40 @@ scp scripts/network-watch.timer root@proxmox-node4:/etc/systemd/system/network-w
 ssh root@proxmox-node4 'chmod 755 /usr/local/sbin/network-watch.sh && systemctl daemon-reload && systemctl enable --now network-watch.timer && systemctl status --no-pager network-watch.timer'
 ```
 
+The watchdog derives the management path from the current default route. On a routed bridge such as `vmbr0`, it pings the gateway through the bridge interface and restarts the bridge member that is actually carrying the uplink instead of assuming the physical NIC is always named `nic0`.
+
+On the newer `cdc_ncm` USB dongles used on `proxmox-node1` and `proxmox-node4`, the Linux bridge's implicit promiscuous handling was not enough to keep VM return traffic working reliably. A direct `ip link set dev <uplink> promisc on` on the physical bridge member restored bidirectional traffic from `yggdrasil` to the worker VMs. The watchdog now reapplies explicit promiscuous mode on the detected uplink before testing or bouncing it.
+
+If a Proxmox host is migrated to a new USB Ethernet dongle, stop the watchdog before changing the bridge or hot-plugging multiple candidate uplinks. A stale watchdog that still targets the previous NIC can flap the healthy interface while you are trying to recover the host:
+
+```bash
+systemctl stop network-watch.timer network-watch.service
+systemctl disable network-watch.timer
+```
+
+USB Ethernet adapters can also fail in ways that look like Kubernetes or Flux problems but are really host-level link issues. In the April 8, 2026 outage, a new ASIX `AX88179` dongle was detected by Linux and exposed as `enx...`, but it was not the active bridge member yet, and one host showed intermittent USB registration failures while the old Realtek uplink was still the live management path. When diagnosing a Proxmox node that vanished from the cluster, confirm the host uplink first:
+
+```bash
+ip -br link
+ip -br addr
+ip route
+bridge link
+ethtool <candidate-uplink>
+journalctl -k -b | egrep -i 'usb|asix|r8152|cdc_ncm|link|carrier'
+```
+
+If a newly attached USB dongle reports `LOWER_UP` / `Link detected: yes` but the host still does not recover, verify whether `vmbr0` is still bridged to the old interface in `/etc/network/interfaces`. A healthy dongle that is not yet the bridge member will not carry management traffic until the bridge config is updated.
+
 Useful follow-up checks on the host:
 
 ```bash
-journalctl -k -g e1000e
+journalctl -k | egrep -i 'usb|asix|r8152|cdc_ncm|e1000e|link|carrier'
 journalctl -u network-watch.service -u network-watch.timer
 systemctl list-timers network-watch.timer
-ethtool nic0
-ethtool --show-eee nic0
+ip route show default
+bridge link
+UPLINK=$(ip route show default | awk '/default/ {print $5; exit}'); if [ -d "/sys/class/net/$UPLINK/brif" ]; then UPLINK=$(basename "$(find "/sys/class/net/$UPLINK/brif" -mindepth 1 -maxdepth 1 | head -n1)"); fi; ethtool "$UPLINK"
+ip link set dev "$UPLINK" promisc on
 ```
 
 ## `proxmox-node1` BIOS Updates

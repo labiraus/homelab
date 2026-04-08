@@ -34,12 +34,13 @@ ansible-galaxy collection install amazon.aws
 - External Pi host bootstrap group: `minio_external_pi_host`
 - Dedicated Minecraft VM group: `minecraft_vm`
 - Manual Ubuntu Kubernetes node group: `kubernetes_manual_node`
+- Terraform-managed Ubuntu Kubernetes worker group: `kubernetes_terraform_node`
 
 The API-management groups default to `localhost` because those playbooks run from your laptop/CI/management node and call MinIO APIs.
 
 The external host bootstrap group connects to the Pi over SSH and installs the MinIO server binary plus a `systemd` service.
 The Minecraft VM group connects over SSH and configures the in-guest Minecraft service and systemd unit.
-The manual Kubernetes node group connects over SSH, installs the worker prerequisites on Ubuntu, and joins the node with a fresh token fetched from `yggdrasil` at runtime.
+The Kubernetes node groups connect over SSH, install the worker prerequisites on Ubuntu, and join the node with a fresh token fetched from `yggdrasil` at runtime.
 
 ## Secure credentials
 
@@ -154,6 +155,36 @@ Operational note for `midgard`:
 - it should boot headless rather than into a local GNOME session so the NVIDIA GPU stays available for worker use
 - before scheduling GPU workloads there, verify the node can actually see its local GPU with `lspci`, `/dev/dri`, or `nvidia-smi`
 - the `midgard` host vars now enable NVIDIA support in this playbook, which installs `nvidia-container-toolkit`, configures the `nvidia` containerd runtime, labels the node for GPU scheduling, and applies the NVIDIA device-plugin DaemonSet plus `RuntimeClass`
+
+Prepare and join a Terraform-managed Ubuntu worker after `bin/tf apply` has rebuilt or created the VM:
+
+```bash
+make ansible-kubernetes-worker LIMIT=helheim
+```
+
+This target runs:
+
+```bash
+ANSIBLE_FETCH_MINIO_SECRETS=0 ./scripts/ansible-run-playbook.sh \
+  -i ansible/inventory/hosts.ini \
+  ansible/playbooks/kubernetes-terraform-node.yml \
+  --limit helheim
+```
+
+This worker playbook:
+
+- reconnects to the Terraform-created VM over SSH
+- ensures the Kubernetes prerequisites and services are in place
+- fetches a fresh `kubeadm join` command from `yggdrasil`
+- joins the node only when `/etc/kubernetes/kubelet.conf` does not already exist
+- reapplies the repo's per-node labels for all Terraform-managed workers through host vars
+- can enable NVIDIA runtime support on selected Terraform-managed GPU workers such as `helheim`
+
+If you omit `LIMIT`, the target runs against the full `kubernetes_terraform_node` inventory group so you can roll package or runtime changes across every repo-managed worker:
+
+```bash
+make ansible-kubernetes-worker
+```
 
 The Minecraft VM playbook expects `MINECRAFT_CURSEFORGE_API_KEY` to be available from `ansible/.env` or your shell environment so `itzg/minecraft-server` can bootstrap the ATM10 Sky pack.
 

@@ -1,0 +1,8 @@
+kubernetes_manual_node_enable_nvidia_gpu: true
+kubernetes_manual_node_gpu_labels:
+  topology.kubernetes.io/zone: lab-c
+  node-performance: standard
+  node-gpu: passthrough
+  node-llm: gpu
+  node-llm-class: consumer-gpu
+  node-llm-vram: 8gb

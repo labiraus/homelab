@@ -4,16 +4,9 @@ Use this flow when a Terraform change requires a worker VM to be recreated or ma
 
 ## Before The Apply
 
-1. Refresh the kubeadm join token so a rebuilt VM can auto-join:
+1. Make the Terraform change in the relevant `etc/nodes/nodeX.tfvars`.
 
-```bash
-make refresh-join-token
-. /home/vscode/.env
-```
-
-2. Make the Terraform change in the relevant `etc/nodes/nodeX.tfvars`.
-
-3. Drain only the node you are changing:
+2. Drain only the node you are changing:
 
 ```bash
 kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data --force
@@ -21,7 +14,7 @@ kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data --force
 
 For Longhorn-backed clusters, expect drain to block on instance-manager PDBs until Longhorn has moved or dropped the remaining replicas. In a disposable lab, it can be necessary to remove the blocking instance-manager PDB and pod manually.
 
-4. Apply only that node layer:
+3. Apply only that node layer:
 
 ```bash
 ENV=lab bin/tf apply kubernetes <node-layer> --no-refresh
@@ -33,6 +26,12 @@ Examples:
 ENV=lab bin/tf apply kubernetes node1 --no-refresh
 ENV=lab bin/tf apply kubernetes node2 --no-refresh
 ENV=lab bin/tf apply kubernetes node4 --no-refresh
+```
+
+4. Join or rejoin the rebuilt worker through Ansible:
+
+```bash
+make ansible-kubernetes-worker LIMIT=<node-name>
 ```
 
 ## If The VM Is Recreated
@@ -54,12 +53,12 @@ If `cloud-init` is still `running`, wait for it to finish before intervening. It
 - installing `containerd`
 - installing `kubelet`, `kubeadm`, and `kubectl`
 - writing `/etc/default/kubelet`
-- running `kubeadm join`
+- enabling `qemu-guest-agent`
 
-If `cloud-init` completed but `kubelet` is missing its config or never joined, join it manually with a fresh token:
+If `cloud-init` completed but `kubelet` is missing its config or never joined, run the Ansible worker bootstrap for that node:
 
 ```bash
-ssh <node-name> 'sudo kubeadm join <api-server>:6443 --token <token> --discovery-token-ca-cert-hash <hash>'
+make ansible-kubernetes-worker LIMIT=<node-name>
 ```
 
 If a stale node object from the old VM still exists, delete it first:
@@ -68,10 +67,11 @@ If a stale node object from the old VM still exists, delete it first:
 kubectl delete node <node-name>
 ```
 
-If you already joined once and then deleted the stale node object, do a full reset and join again so kubelet can bootstrap a fresh node identity:
+If you already joined once and then deleted the stale node object, do a full reset and rerun the worker bootstrap so kubelet can register a fresh node identity:
 
 ```bash
-ssh <node-name> 'sudo kubeadm reset -f && sudo kubeadm join <api-server>:6443 --token <token> --discovery-token-ca-cert-hash <hash>'
+ssh <node-name> 'sudo kubeadm reset -f'
+make ansible-kubernetes-worker LIMIT=<node-name>
 ```
 
 ## If The Rebuilt Node Is Stuck `NotReady`
@@ -106,7 +106,8 @@ kubectl delete pod -n kube-system <cilium-pod> --grace-period=0 --force
 If Cilium shows node-authorizer errors after a node object was deleted and recreated, stop trying to recover it piecemeal and re-bootstrap the worker cleanly:
 
 ```bash
-ssh <node-name> 'sudo kubeadm reset -f && sudo kubeadm join <api-server>:6443 --token <token> --discovery-token-ca-cert-hash <hash>'
+ssh <node-name> 'sudo kubeadm reset -f'
+make ansible-kubernetes-worker LIMIT=<node-name>
 ```
 
 ## If Terraform Says The VM Started But Kubernetes Is Still Stale
@@ -121,6 +122,38 @@ ssh proxmox-nodeX 'qm config <vmid>'
 If the VM hardware looks correct and the guest is booting, prefer checking `cloud-init` and `kubeadm` state in the guest rather than re-running Terraform immediately.
 
 If Terraform is hanging during refresh before making any live Proxmox change, it is usually safe to interrupt and retry with `--no-refresh` after manually checking the VM state.
+
+## If Terraform Fails With `PCI device mapping not found`
+
+This means the node layer references a Proxmox cluster PCI resource mapping that does not exist yet.
+
+Check the current cluster mappings:
+
+```bash
+ssh proxmox-nodeX 'pvesh get /cluster/mapping/pci --output-format json-pretty'
+```
+
+For `node3`, the current worker tfvars expect these mappings:
+
+```bash
+ssh proxmox-node3 'pvesh create /cluster/mapping/pci --id node3-intel-igpu --map node=proxmox-node3,path=0000:00:02.0,id=8086:3e9b,subsystem-id=1028:08eb,iommugroup=0'
+ssh proxmox-node3 'pvesh create /cluster/mapping/pci --id node3-rtx2070-gpu --map node=proxmox-node3,path=0000:01:00.0,id=10de:1f10,subsystem-id=1028:08eb,iommugroup=2'
+ssh proxmox-node3 'pvesh create /cluster/mapping/pci --id node3-rtx2070-audio --map node=proxmox-node3,path=0000:01:00.1,id=10de:10f9,subsystem-id=1028:0000,iommugroup=2'
+ssh proxmox-node3 'pvesh create /cluster/mapping/pci --id node3-rtx2070-usb --map node=proxmox-node3,path=0000:01:00.2,id=10de:1ada,subsystem-id=1028:0000,iommugroup=2'
+ssh proxmox-node3 'pvesh create /cluster/mapping/pci --id node3-rtx2070-ucsi --map node=proxmox-node3,path=0000:01:00.3,id=10de:1adb,subsystem-id=1028:0000,iommugroup=2'
+```
+
+After the mappings exist, rerun the node apply:
+
+```bash
+ENV=lab bin/tf apply kubernetes node3 --no-refresh
+```
+
+Then rerun the Ansible worker bootstrap for that node:
+
+```bash
+make ansible-kubernetes-worker LIMIT=helheim
+```
 
 ## If Terraform Or Proxmox Leaves A Broken VM Definition
 

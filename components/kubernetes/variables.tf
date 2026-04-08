@@ -122,33 +122,33 @@ variable "kube_version" {
 }
 
 variable "kubeadm_join_command" {
-  description = "Optional kubeadm join command. Warning: if used in cloud-init it is stored in Terraform state."
+  description = "Deprecated compatibility input from older worker bootstrap flow. Unused by the kubernetes component."
   type        = string
   default     = ""
   sensitive   = true
 }
 
 variable "kubeadm_join_token" {
-  description = "Optional kubeadm bootstrap token. If set with discovery hash, module builds kubeadm join command locally."
+  description = "Deprecated compatibility input from older worker bootstrap flow. Unused by the kubernetes component."
   type        = string
   default     = ""
   sensitive   = true
 }
 
 variable "kubeadm_discovery_token_ca_cert_hash" {
-  description = "CA cert hash for kubeadm discovery (hex only; optional 'sha256:' prefix is accepted)."
+  description = "Deprecated compatibility input from older worker bootstrap flow. Unused by the kubernetes component."
   type        = string
   default     = ""
 }
 
 variable "kube_api_server_host" {
-  description = "Kubernetes API server host used to build kubeadm join command."
+  description = "Deprecated compatibility input from older worker bootstrap flow. Unused by the kubernetes component."
   type        = string
   default     = ""
 }
 
 variable "kube_api_server_port" {
-  description = "Kubernetes API server port used to build kubeadm join command."
+  description = "Deprecated compatibility input from older worker bootstrap flow. Unused by the kubernetes component."
   type        = number
   default     = 6443
 }

@@ -25,6 +25,12 @@ Some names appear in more than one section. For example, the Kubernetes workers 
 - `proxmox-node2`
   - IP: `192.168.8.133`
 - `proxmox-node3`
+  - IP: `192.168.8.191`
+  - model: `Dell G7 7590`
+  - CPU: `Intel Core i7-9750H` (`6` cores / `12` threads, up to `4.5 GHz`)
+  - RAM: about `15 GiB`
+  - storage: `476.9 GiB` NVMe plus `931.5 GiB` SATA
+  - GPUs: Intel `UHD Graphics 630` plus NVIDIA `GeForce RTX 2070 Mobile`
 - `proxmox-node4`
   - IP: `192.168.8.103 `
 
@@ -40,8 +46,8 @@ Some names appear in more than one section. For example, the Kubernetes workers 
   - IP: `192.168.8.122`
 - `helheim`
   - Proxmox host: `proxmox-node3`
-  - IP: `192.168.8.XXX`
-  - placeholder IP still present in repo tfvars
+  - IP: `192.168.8.123`
+  - planned as the consumer-GPU worker on the RTX-equipped Proxmox host
 - `niflheim`
   - Proxmox host: `proxmox-node4`
   - IP: `192.168.8.124`

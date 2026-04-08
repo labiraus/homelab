@@ -261,6 +261,26 @@
   when: not kubernetes_manual_node_kubelet_conf.stat.exists
   no_log: true
 
+- name: Wait for the Kubernetes node object to appear
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - get
+      - node
+      - "{{ kubernetes_manual_node_kubernetes_node_name }}"
+      - -o
+      - name
+  delegate_to: localhost
+  become: false
+  register: kubernetes_manual_node_registered_node
+  changed_when: false
+  retries: "{{ kubernetes_manual_node_wait_for_node_registration_retries }}"
+  delay: "{{ kubernetes_manual_node_wait_for_node_registration_delay }}"
+  until: kubernetes_manual_node_registered_node.rc == 0
+  when:
+    - kubernetes_manual_node_wait_for_node_registration
+    - kubernetes_manual_node_enable_nvidia_gpu or kubernetes_manual_node_gpu_labels | length > 0
+
 - name: Render NVIDIA RuntimeClass manifest locally
   ansible.builtin.template:
     src: nvidia-runtimeclass.yaml.j2
@@ -310,7 +330,6 @@
   become: false
   changed_when: false
   when:
-    - kubernetes_manual_node_enable_nvidia_gpu
     - kubernetes_manual_node_gpu_labels | length > 0
 
 - name: Render NVIDIA device plugin manifest locally

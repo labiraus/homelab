@@ -49,7 +49,8 @@ runcmd:
   - sed -ri '/\sswap\s/s/^#?/#/' /etc/fstab
   - |
       apt-get update
-      apt-get install -y ca-certificates curl gpg apt-transport-https containerd conntrack
+      apt-get install -y ca-certificates curl gpg apt-transport-https containerd conntrack qemu-guest-agent
+      systemctl enable --now qemu-guest-agent
   - |
       mkdir -p /etc/containerd
       containerd config default >/etc/containerd/config.toml
@@ -71,11 +72,5 @@ runcmd:
       printf '%s\n' 'KUBELET_EXTRA_ARGS="${kubelet_extra_args}"' >/etc/default/kubelet
       apt-mark hold kubelet kubeadm kubectl
       systemctl enable --now kubelet
-%{ if kubeadm_join_command != "" ~}
-  - |
-      if [ ! -f /etc/kubernetes/kubelet.conf ]; then
-        ${kubeadm_join_command}
-      fi
-%{ endif ~}
 
-final_message: "Kubernetes worker bootstrap complete."
+final_message: "Kubernetes worker base bootstrap complete."

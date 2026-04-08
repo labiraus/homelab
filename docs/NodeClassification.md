@@ -14,6 +14,7 @@ Current intended values:
 
 - `jotunheim`: `node-performance=high`, `node-gpu=passthrough`, `node-llm=none`, `node-llm-class=igpu`, `node-llm-vram=shared`
 - `alfheim`: `node-performance=standard`, `node-gpu=passthrough`, `node-llm=none`, `node-llm-class=igpu`, `node-llm-vram=shared`
+- `helheim`: `node-performance=standard`, `node-gpu=passthrough`, `node-llm=gpu`, `node-llm-class=consumer-gpu`, `node-llm-vram=8gb`
 - `niflheim`: `node-performance=standard`, `node-gpu=passthrough`, `node-llm=none`, `node-llm-class=igpu`, `node-llm-vram=shared`
 - `midgard`: manual bare-metal GPU worker, intentionally intermittent; when powered on, classify from the actual exposed accelerator rather than assuming it matches the Intel iGPU workers
 
@@ -36,6 +37,7 @@ Check the Proxmox host CPU:
 ```bash
 ssh proxmox-node1 'lscpu | egrep "Model name|CPU max MHz|Vendor ID|Socket|Core|Thread"'
 ssh proxmox-node2 'lscpu | egrep "Model name|CPU max MHz|Vendor ID|Socket|Core|Thread"'
+ssh proxmox-node3 'lscpu | egrep "Model name|CPU max MHz|Vendor ID|Socket|Core|Thread"'
 ssh proxmox-node4 'lscpu | egrep "Model name|CPU max MHz|Vendor ID|Socket|Core|Thread"'
 ```
 
@@ -44,6 +46,7 @@ Check the current guest-reported clock:
 ```bash
 ssh jotunheim 'grep -m1 "cpu MHz" /proc/cpuinfo'
 ssh alfheim 'grep -m1 "cpu MHz" /proc/cpuinfo'
+ssh helheim 'grep -m1 "cpu MHz" /proc/cpuinfo'
 ssh niflheim 'grep -m1 "cpu MHz" /proc/cpuinfo'
 ```
 
@@ -57,6 +60,7 @@ At the time of writing:
 
 - `proxmox-node1` / `jotunheim` is the strongest worker host: 12th Gen Intel Core i7-1265U, max 4.8 GHz
 - `proxmox-node2` / `alfheim` is standard: 12th Gen Intel Core i5-1245U, max 4.4 GHz
+- `proxmox-node3` / `helheim` is GPU-oriented but still standard for CPU-only placement: 9th Gen Intel Core i7-9750H, 6 cores / 12 threads, max 4.5 GHz
 - `proxmox-node4` / `niflheim` is standard: 11th Gen Intel Core i5-1155G7, max 4.5 GHz
 
 ## How to check LLM/GPU capability
@@ -66,6 +70,7 @@ Check inside the Kubernetes node guest first:
 ```bash
 ssh jotunheim 'lspci | egrep -i "vga|3d|display|nvidia|amd|intel" || true; echo ---; ls -lah /dev/dri 2>/dev/null || true; echo ---; test -e /dev/dri/renderD128 && echo RENDER=present || echo RENDER=absent; echo ---; command -v nvidia-smi >/dev/null && nvidia-smi || true'
 ssh alfheim 'lspci | egrep -i "vga|3d|display|nvidia|amd|intel" || true; echo ---; ls -lah /dev/dri 2>/dev/null || true; echo ---; test -e /dev/dri/renderD128 && echo RENDER=present || echo RENDER=absent; echo ---; command -v nvidia-smi >/dev/null && nvidia-smi || true'
+ssh helheim 'lspci | egrep -i "vga|3d|display|nvidia|amd|intel" || true; echo ---; ls -lah /dev/dri 2>/dev/null || true; echo ---; test -e /dev/dri/renderD128 && echo RENDER=present || echo RENDER=absent; echo ---; command -v nvidia-smi >/dev/null && nvidia-smi || true'
 ssh niflheim 'lspci | egrep -i "vga|3d|display|nvidia|amd|intel" || true; echo ---; ls -lah /dev/dri 2>/dev/null || true; echo ---; test -e /dev/dri/renderD128 && echo RENDER=present || echo RENDER=absent; echo ---; command -v nvidia-smi >/dev/null && nvidia-smi || true'
 ```
 
@@ -104,18 +109,20 @@ The current Proxmox worker hosts do have onboard Intel GPUs:
 
 - `proxmox-node1`: Intel Iris Xe Graphics `[8086:46a8]`
 - `proxmox-node2`: Intel Iris Xe Graphics `[8086:46a8]`
+- `proxmox-node3`: Intel UHD Graphics 630 `[8086:3e9b]` plus NVIDIA GeForce RTX 2070 Mobile `[10de:1f10]`
 - `proxmox-node4`: Intel Iris Xe Graphics `[8086:9a49]`
 
 At the time of writing:
 
-- all three hosts are on Proxmox VE `9.1.0`
-- all three hosts now boot with `intel_iommu=on iommu=pt`
-- all three hosts now load the VFIO modules and expose IOMMU groups
-- the cluster-wide PCI mapping `intel-igpu` is defined in Proxmox for the three worker hosts
-- the running worker VMs now see the physical Intel GPU at `01:00.0`
-- the guests do not yet expose a render node such as `/dev/dri/renderD128`
+- `proxmox-node1`, `proxmox-node2`, and `proxmox-node4` are the current Intel-iGPU worker hosts
+- `proxmox-node3` is a Dell G7 7590 on Proxmox VE `9.1.1` with `15 GiB` RAM, a `476.9 GiB` NVMe, a `931.5 GiB` SATA disk, an Intel iGPU, and an RTX 2070 Mobile dGPU
+- `proxmox-node3` now boots with `intel_iommu=on iommu=pt`, loads the VFIO modules, and exposes IOMMU groups for both the Intel iGPU and the NVIDIA device stack
+- the Intel iGPU is isolated in IOMMU group `0`
+- the NVIDIA GPU, audio, USB, and UCSI functions are grouped together in IOMMU group `2`
+- the current VM module still models only one VM disk, so the secondary `931.5 GiB` SATA disk on `proxmox-node3` remains host-visible storage until it is added to Proxmox as a datastore and then modeled separately
+- the Intel iGPU workers currently expose passthrough at the PCI level but still do not expose a render node such as `/dev/dri/renderD128`
 
-That means passthrough is working at the PCI level, but the correct current inference label is still `node-llm=none` for every worker. Relative GPU preference should currently treat them as `node-llm-class=igpu` with `node-llm-vram=shared`, and future GeForce-backed workers should be labeled into `consumer-gpu` or `high-vram-gpu` with an explicit VRAM tier.
+That means passthrough is working at the PCI level on the existing Intel workers, but the correct current inference label is still `node-llm=none` for those iGPU-backed nodes. Relative GPU preference should currently treat them as `node-llm-class=igpu` with `node-llm-vram=shared`. `helheim` on `proxmox-node3` is the planned consumer-GPU worker and is intended to carry `node-llm=gpu`, `node-llm-class=consumer-gpu`, and `node-llm-vram=8gb` once the RTX-backed guest is built and verified end to end.
 
 ## Proxmox GPU passthrough checklist
 
@@ -139,6 +146,12 @@ Use this when adding a new Proxmox-backed worker or rebuilding one of the existi
    This is the safest fit for this repo because the Terraform provider is using an API token; direct PCI IDs require root username/password in the provider.
    For the current Intel iGPU workers, use a shared mapping named `intel-igpu`:
    `pvesh create /cluster/mapping/pci --id intel-igpu --map node=proxmox-node1,path=0000:00:02.0,id=8086:46a8 --map node=proxmox-node2,path=0000:00:02.0,id=8086:46a8 --map node=proxmox-node4,path=0000:00:02.0,id=8086:9a49`
+   For `proxmox-node3`, create dedicated mappings for the Intel and NVIDIA functions:
+   `pvesh create /cluster/mapping/pci --id node3-intel-igpu --map node=proxmox-node3,path=0000:00:02.0,id=8086:3e9b`
+   `pvesh create /cluster/mapping/pci --id node3-rtx2070-gpu --map node=proxmox-node3,path=0000:01:00.0,id=10de:1f10`
+   `pvesh create /cluster/mapping/pci --id node3-rtx2070-audio --map node=proxmox-node3,path=0000:01:00.1,id=10de:10f9`
+   `pvesh create /cluster/mapping/pci --id node3-rtx2070-usb --map node=proxmox-node3,path=0000:01:00.2,id=10de:1ada`
+   `pvesh create /cluster/mapping/pci --id node3-rtx2070-ucsi --map node=proxmox-node3,path=0000:01:00.3,id=10de:1adb`
 8. Rebuild or update the worker VM, then verify the guest sees a real GPU.
    For Intel or AMD, check `/dev/dri`.
    For NVIDIA, check `nvidia-smi`.
@@ -146,11 +159,11 @@ Use this when adding a new Proxmox-backed worker or rebuilding one of the existi
 
 Important caveat for these hosts:
 
-- each current Proxmox worker appears to rely on its integrated GPU as the primary host display adapter
+- the current Intel-iGPU worker hosts rely on their integrated GPU as the primary host display adapter
 - passing through the only GPU can remove local console output from the Proxmox host
-- because these are iGPUs rather than discrete cards, success is more hardware-sensitive than on a server with a dedicated GPU
+- `proxmox-node3` is less constrained here because it also has a discrete RTX 2070 Mobile, but the full NVIDIA function group still needs to be assigned deliberately and verified in-guest
 
-Treat passthrough on the current three hosts as feasible-but-experimental until one node is converted and verified end to end.
+Treat passthrough on the Proxmox worker hosts as feasible-but-experimental until each target node is converted and verified end to end.
 
 ## Terraform support for passthrough-capable Proxmox workers
 
