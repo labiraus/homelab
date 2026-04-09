@@ -68,6 +68,29 @@ ip link set dev <uplink> promisc on
 
 ## Kubernetes Worker Recovery
 
+### Control-plane instability can be an external API client problem
+
+- If Flux rollouts stop progressing, `kubectl` begins timing out on `yggdrasil`, and controller pods start losing leader election, do not assume the failing app is the root cause.
+- On April 9, 2026, the actual bottleneck was the control-plane host `yggdrasil` itself:
+  - local `https://127.0.0.1:6443/livez` and `readyz` checks were slow or timing out
+  - `readyz` reported only `etcd` failing when it did answer
+  - `kube-apiserver`, `etcd`, `kube-controller-manager`, and `kube-scheduler` were all CPU-hot on the host
+  - `vmstat` showed CPU saturation with little or no I/O wait
+- A high-connection external watcher can be enough to push the single control-plane host over the edge. In that incident, `192.168.8.140` (`UK-CVMSCC4.lan`) held about 62 concurrent connections to the API server and was the busiest external client by far.
+- Before restarting workloads, check the control plane directly from `yggdrasil`:
+
+```bash
+curl -k -m 10 -s -o /dev/null -w "%{http_code} %{time_connect} %{time_starttransfer} %{time_total}\n" https://127.0.0.1:6443/livez
+curl -k -m 15 https://127.0.0.1:6443/readyz?verbose
+uptime
+vmstat 1 5
+ss -ant | grep -c ':6443'
+ss -ant | grep -c ':2379'
+ss -ant | grep ':6443' | awk '{print $5}' | sed 's/.*ffff://; s/]//; s/\[//' | cut -d: -f1 | sort | uniq -c | sort -nr | head
+```
+
+- If one external machine dominates the API connections, stop or reboot that watcher first before deciding the cluster needs a node reboot.
+
 ### Recreated workers now need post-provision Ansible join
 
 - A rebuilt Terraform-managed worker no longer joins the cluster from Terraform cloud-init.

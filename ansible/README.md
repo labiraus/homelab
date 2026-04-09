@@ -146,7 +146,7 @@ This playbook:
 - enables `containerd` and `kubelet`
 - fetches a fresh `kubeadm join` command from `yggdrasil`
 - joins the node only when `/etc/kubernetes/kubelet.conf` does not already exist
-- can optionally configure NVIDIA GPU support for Kubernetes on selected manual nodes
+- can optionally configure NVIDIA GPU support for Kubernetes on selected manual nodes, including the guest driver, `nvidia-ctk` containerd runtime wiring, and the device-plugin/runtime manifests
 
 Operational note for `midgard`:
 
@@ -154,7 +154,7 @@ Operational note for `midgard`:
 - if it is powered off when no GPU work is queued, that is expected and should not be treated as a bug
 - it should boot headless rather than into a local GNOME session so the NVIDIA GPU stays available for worker use
 - before scheduling GPU workloads there, verify the node can actually see its local GPU with `lspci`, `/dev/dri`, or `nvidia-smi`
-- the `midgard` host vars now enable NVIDIA support in this playbook, which installs `nvidia-container-toolkit`, configures the `nvidia` containerd runtime, labels the node for GPU scheduling, and applies the NVIDIA device-plugin DaemonSet plus `RuntimeClass`
+- the `midgard` host vars now enable NVIDIA support in this playbook, which installs the guest NVIDIA driver plus `nvidia-container-toolkit`, configures the `nvidia` containerd runtime through `nvidia-ctk`, labels the node for GPU scheduling, and applies the NVIDIA device-plugin DaemonSet plus `RuntimeClass`
 
 Prepare and join a Terraform-managed Ubuntu worker after `bin/tf apply` has rebuilt or created the VM:
 
@@ -179,6 +179,7 @@ This worker playbook:
 - joins the node only when `/etc/kubernetes/kubelet.conf` does not already exist
 - reapplies the repo's per-node labels for all Terraform-managed workers through host vars
 - can enable NVIDIA runtime support on selected Terraform-managed GPU workers such as `helheim`
+- installs the guest NVIDIA driver and only keeps `node-llm=gpu` style labels when `nvidia-smi` is actually usable in the guest
 
 If you omit `LIMIT`, the target runs against the full `kubernetes_terraform_node` inventory group so you can roll package or runtime changes across every repo-managed worker:
 
