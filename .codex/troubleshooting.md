@@ -68,6 +68,14 @@ ip link set dev <uplink> promisc on
 
 ## Kubernetes Worker Recovery
 
+### Flux can be green in git but red in-cluster when the published OCI chart is bad
+
+- Flux in this repo deploys published OCI chart artifacts, not the local chart files in the workspace.
+- If `helm template` is clean locally but a `HelmRelease` is still failing in-cluster, inspect the paired `OCIRepository` before assuming the workspace still contains the bug.
+- On April 9, 2026, `external`, `mcp`, and `ui` were stuck because Flux had already fetched newer bad OCI chart tags even though the local templates rendered cleanly again.
+- The practical live workaround was to patch the `OCIRepository.spec.ref` from semver tracking to an exact known-good `tag`, then reconcile the source and `HelmRelease`.
+- `oauth2-proxy` was a separate packaging bug: the upstream image tags use a leading `v`, so `quay.io/oauth2-proxy/oauth2-proxy:7.12.0` failed with `ErrImagePull` while `v7.12.0` was the valid tag shape.
+
 ### Control-plane instability can be an external API client problem
 
 - If Flux rollouts stop progressing, `kubectl` begins timing out on `yggdrasil`, and controller pods start losing leader election, do not assume the failing app is the root cause.
