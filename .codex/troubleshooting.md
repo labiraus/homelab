@@ -130,6 +130,7 @@ ss -ant | grep ':6443' | awk '{print $5}' | sed 's/.*ffff://; s/]//; s/\[//' | c
 - In this repo, the provider must target the rendered service name `homelab-oauth2-proxy.homelab.svc.cluster.local`, not the unprefixed chart name.
 - The provider must use the Service port `80`, not the container port `4180`.
 - The provider must send checks to `/oauth2/auth`. Hitting `/`, `/oauth2/start`, or another browser endpoint produces the wrong behavior for Envoy external authorization.
+- If browsers authenticate successfully but then land on a plain `Authenticated` page, the auth check is returning the user to `/oauth2/auth` instead of the original site URL. Set an explicit `X-Auth-Request-Redirect` in the Istio extension provider so oauth2-proxy sends the browser back to `https://mcp.labiraus.com/`.
 - `oauth2-proxy` itself should show this split when checked directly:
   - `/oauth2/start` returns a `302` redirect to Google
   - `/oauth2/auth` returns `401 Unauthorized` when no session cookie is present

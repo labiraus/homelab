@@ -87,6 +87,7 @@ The repo now carries:
   - defines the Istio `oauth2-proxy` extension provider
   - points that provider at `homelab-oauth2-proxy.homelab.svc.cluster.local:80`
   - sends external-auth checks to `/oauth2/auth`
+  - adds an explicit `X-Auth-Request-Redirect` back to `https://mcp.labiraus.com/` so successful browser sign-in returns to the UI instead of leaving the browser on `/oauth2/auth`
 - `helm/apps/ui/values.yaml`
   - applies Istio `CUSTOM` auth through `oauth2-proxy`
 - `helm/apps/external/values.yaml`

@@ -93,6 +93,11 @@ releases:
               includeRequestHeadersInCheck:
                 - authorization
                 - cookie
+                - x-forwarded-proto
+                - x-forwarded-host
+                - x-forwarded-uri
+              includeAdditionalHeadersInCheck:
+                X-Auth-Request-Redirect: https://%REQ(:authority)%/
               headersToUpstreamOnAllow:
                 - authorization
                 - path
