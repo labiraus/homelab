@@ -21,6 +21,12 @@ Pinned upstream versions in this repo:
 - Envoy Gateway `v1.7.0`
 - Envoy AI Gateway CRDs `v0.5.0`
 - Envoy AI Gateway controller `v0.5.0`
+- Gateway API experimental CRDs `v1.4.1` via `helm/bootstrap/flux-bootstrap/`
+
+Current repo note:
+
+- Gateway API is pinned to `v1.4.1` to stay aligned with the upstream Envoy Gateway `v1.7.x` compatibility matrix used by this repo
+- operator access to Postgres no longer depends on a permanent Gateway API `TCPRoute`; the supported workflow is local `make postgres` with a temporary `kubectl port-forward`
 
 Upstream references used for this integration:
 

@@ -164,6 +164,7 @@ CAG and semantic graph ambitions remain later phases, not the initial implementa
 - Flux plus Helm remain the authoritative delivery path for in-cluster workloads.
 - MinIO remains externally managed through Ansible on `svartalfheim`, not reintroduced as an in-cluster default.
 - Postgres changes under `sql/` should stay idempotent and operator-friendly.
+- operator access to the CNPG Postgres cluster should prefer the local `make postgres` port-forward workflow over permanent TCP exposure through the cluster edge
 - Repo documentation must be updated in the same task as meaningful architecture or workflow changes.
 
 ## Immediate Priorities

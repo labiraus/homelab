@@ -8,7 +8,7 @@ spec:
   url: {{ .Values.envoyGateway.repository.url }}
   ref:
     tag: {{ .Values.envoyGateway.chart.version | quote }}
-{{ "\n" }}---{{ "\n" }}
+---
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
@@ -19,7 +19,7 @@ spec:
   url: {{ .Values.aiGatewayCrds.repository.url }}
   ref:
     tag: {{ .Values.aiGatewayCrds.chart.version | quote }}
-{{ "\n" }}---{{ "\n" }}
+---
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:

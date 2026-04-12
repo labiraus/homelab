@@ -2,5 +2,5 @@ apiVersion: v2
 name: flux-data
 description: A Helm chart for Flux-managed data releases
 type: application
-version: 0.1.0
+version: 0.1.1
 appVersion: "1.16.0"

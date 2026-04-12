@@ -92,6 +92,7 @@ Current behavior note:
 
 - `orchestrator` is the intended control-plane service for reconciliation and task dispatch.
 - `processor` is the intended stateless data-plane worker.
+- operator access to the CNPG Postgres cluster is through `make postgres`, which opens a temporary local `kubectl port-forward` rather than relying on a standing TCP ingress path
 
 ### Frontend Work
 

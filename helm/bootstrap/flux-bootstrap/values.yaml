@@ -72,9 +72,6 @@ releases:
             port: 80
             protocol: HTTP
             hostname: "*.labiraus.com"
-          - name: postgres
-            port: 5432
-            protocol: TCP
 
   - name: istio
     type: oci

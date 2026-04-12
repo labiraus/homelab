@@ -228,6 +228,8 @@ Useful helper targets:
 - `make ansible-kubernetes-worker LIMIT=helheim`
 - `make postgres`
 
+`make refresh-postgres-env` refreshes the local `.devcontainer/.env` entries used for operator access to CNPG Postgres. `make postgres` starts a temporary `kubectl port-forward` to `svc/app-db-rw` in the `data` namespace and opens `psql` through that local tunnel instead of relying on a permanently exposed cluster port.
+
 ## Kubernetes Worker Bootstrap
 
 Terraform cloud-init on worker VMs installs and configures:
