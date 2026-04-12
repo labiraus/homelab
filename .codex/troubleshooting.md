@@ -134,6 +134,7 @@ ss -ant | grep ':6443' | awk '{print $5}' | sed 's/.*ffff://; s/]//; s/\[//' | c
 - If browsers authenticate successfully but then land on a plain `Authenticated` page, the auth check is returning the user to `/oauth2/auth` instead of the original site URL. Set an explicit `X-Auth-Request-Redirect` in the Istio extension provider so oauth2-proxy sends the browser back to `https://mcp.labiraus.com/`.
 - As a defense in depth on the public edge, keep `/oauth2/start` and `/oauth2/callback` routable to `oauth2-proxy`, but redirect browser hits on `/oauth2` and `/oauth2/auth` back to `/` so the raw auth-check endpoint is never the visible destination.
 - If browser login still loops or strands users after Google auth, prefer debugging the `oauth2-proxy` reverse-proxy upstreams for `/` and `/api` before reintroducing Istio `CUSTOM` auth on `ui` or `external`.
+- If `oauth2-proxy` returns `503 upstream connect error or disconnect/reset before headers` for `/`, check whether the `ui` upstream is using a mesh-native service port. In this repo, routing `oauth2-proxy` to `homelab-ui` on service port `8000` caused Envoy to use `PassthroughCluster`, which skipped mTLS origination and was rejected by the UI's `STRICT` `PeerAuthentication`. Using the UI service on port `80` fixes that path.
 - `oauth2-proxy` itself should show this split when checked directly:
   - `/oauth2/start` returns a `302` redirect to Google
   - `/oauth2/auth` returns `401 Unauthorized` when no session cookie is present

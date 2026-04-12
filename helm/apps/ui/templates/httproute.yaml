@@ -28,7 +28,7 @@ spec:
     backendRefs:
     - name: {{ include "ui.fullname" $root }}
       kind: Service
-      port: 8000
+      port: {{ $root.Values.service.port }}
   {{- end }}
 {{ "\n" }}---{{ "\n" }}
 {{- if $httpsRedirect }}
