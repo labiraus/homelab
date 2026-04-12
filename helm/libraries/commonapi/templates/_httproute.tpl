@@ -26,16 +26,23 @@ spec:
     - path:
         type: {{ $path.pathType }}
         value: {{ $path.path }}
-    {{- if $path.rewrite }}
+    {{- if $path.requestRedirect }}
+    filters:
+      - type: RequestRedirect
+        requestRedirect:
+{{ $path.requestRedirect | toYaml | indent 10 }}
+    {{- else if $path.rewrite }}
     filters:
       - type: URLRewrite
         urlRewrite:
 {{ $path.rewrite | toYaml | indent 10 }}
     {{- end }}
+    {{- if not $path.requestRedirect }}
     backendRefs:
     - name: {{ include "commonapi.fullname" $root }}
       kind: Service
       port: 80
+    {{- end }}
   {{- end }}
 {{ "\n" }}---{{ "\n" }}
 {{- if $httpsRedirect }}

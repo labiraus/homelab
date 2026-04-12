@@ -95,6 +95,27 @@ ingress:
     - host: mcp.labiraus.com
       paths:
         - path: /oauth2
+          pathType: Exact
+          requestRedirect:
+            path:
+              type: ReplaceFullPath
+              replaceFullPath: /
+            statusCode: 302
+        - path: /oauth2/auth
+          pathType: Exact
+          requestRedirect:
+            path:
+              type: ReplaceFullPath
+              replaceFullPath: /
+            statusCode: 302
+        - path: /oauth2/auth/
+          pathType: PathPrefix
+          requestRedirect:
+            path:
+              type: ReplaceFullPath
+              replaceFullPath: /
+            statusCode: 302
+        - path: /oauth2
           pathType: PathPrefix
   tls: []
 

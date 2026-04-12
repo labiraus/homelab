@@ -82,7 +82,8 @@ The repo now carries:
 
 - `helm/infra/oauth2-proxy/`
   - deploys `oauth2-proxy` on port `4180`
-  - exposes `/oauth2` on `mcp.labiraus.com`
+  - exposes `/oauth2` browser endpoints on `mcp.labiraus.com`
+  - redirects browser hits on `/oauth2` and `/oauth2/auth` back to `/` so users do not get stranded on the raw auth-check endpoint
 - `helm/bootstrap/istio/values.yaml`
   - defines the Istio `oauth2-proxy` extension provider
   - points that provider at `homelab-oauth2-proxy.homelab.svc.cluster.local:80`
