@@ -147,6 +147,7 @@ env:
   OAUTH2_PROXY_SCOPE: "openid email profile"
   OAUTH2_PROXY_EMAIL_DOMAINS: "*"
   OAUTH2_PROXY_REDIRECT_URL: "https://mcp.labiraus.com/oauth2/callback"
+  OAUTH2_PROXY_PASS_HOST_HEADER: "false"
   OAUTH2_PROXY_COOKIE_DOMAINS: "mcp.labiraus.com"
   OAUTH2_PROXY_WHITELIST_DOMAINS: "mcp.labiraus.com"
   OAUTH2_PROXY_COOKIE_SECURE: "true"

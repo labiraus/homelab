@@ -39,6 +39,8 @@ Public legal pages used by Google Auth Platform:
 6. `oauth2-proxy` forwards trusted identity headers such as `X-Forwarded-Email` to `external`.
 7. `external` validates the resulting email against `auth.users`.
 
+When `oauth2-proxy` is fronting mesh-internal services behind Istio, it should not preserve the public browser `Host` header on upstream requests. In this repo, `OAUTH2_PROXY_PASS_HOST_HEADER=false` is important so Istio's outbound HTTP listener matches the request to `homelab-ui` or `homelab-external` instead of falling back to `PassthroughCluster` for `mcp.labiraus.com`.
+
 ## Google Auth Platform Changes
 
 For the Google OAuth client, use a `Web application` client.
