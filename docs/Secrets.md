@@ -14,6 +14,8 @@ Keep `.devcontainer/.env` intentionally small. If the cluster can tell you a val
 
 For auth providers that require operator-supplied credentials and cannot be derived from the cluster, prefer creating a Kubernetes Secret manually and referencing that existing Secret from Helm rather than committing credential material into chart values.
 
+For the full list of cluster secrets that are still intentionally manual, see [Manual Cluster Secrets](/workspaces/homelab/docs/ManualClusterSecrets.md).
+
 ## Generated local secrets
 
 When a secret or credential is already exposed by the cluster or control plane, prefer rebuilding local state from the source of truth instead of storing it permanently in `.devcontainer/.env`.
