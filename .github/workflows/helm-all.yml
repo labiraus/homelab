@@ -10,6 +10,7 @@ on:
       - ".github/workflows/helm-all.yml"
 
 permissions:
+  actions: write
   contents: read
   packages: write
   id-token: write
@@ -21,6 +22,7 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
       ghcr_matrix: ${{ steps.matrix.outputs.ghcr_matrix }}
+      app_matrix: ${{ steps.matrix.outputs.app_matrix }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.1.1
@@ -98,3 +100,25 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           values: ${{ matrix.ghcr_values }}
           tag: uat
+
+  app-ghcr:
+    name: "${{ matrix.app }} App Build Pipeline"
+    runs-on: ubuntu-latest
+    needs: discover
+    if: needs.discover.outputs.app_matrix != '[]' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && !contains(github.event.head_commit.message, 'no-ci')
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.discover.outputs.app_matrix) }}
+    steps:
+      - name: Dispatch app workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          gh api \
+            --method POST \
+            "repos/${{ github.repository }}/actions/workflows/${{ matrix.workflow }}/dispatches" \
+            -f ref="${{ github.ref_name }}" \
+            -f inputs[commit_sha]="${{ github.sha }}" \
+            -f inputs[trigger_reason]="helm-chart"

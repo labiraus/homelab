@@ -12,6 +12,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HELM_ROOT = REPO_ROOT / "helm"
+WORKFLOWS_ROOT = REPO_ROOT / ".github" / "workflows"
 
 
 def git(*args: str) -> str:
@@ -149,6 +150,32 @@ def discover_publish_subset(rows: list[dict[str, str]], event_name: str, before_
     return publish_rows
 
 
+def split_publish_rows(rows: list[dict[str, str]]) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    non_app_rows: list[dict[str, str]] = []
+    app_rows: list[dict[str, str]] = []
+
+    for row in rows:
+        chart_rel = row["chart"]
+        if chart_rel.startswith("apps/"):
+            app_name = chart_rel.split("/", 1)[1].split("/", 1)[0]
+            workflow = f"app-{app_name}.yml"
+            if (WORKFLOWS_ROOT / workflow).exists():
+                app_rows.append(
+                    {
+                        "chart": chart_rel,
+                        "ghcr_values": row["ghcr_values"],
+                        "app": app_name,
+                        "workflow": workflow,
+                    }
+                )
+            else:
+                non_app_rows.append(row)
+        else:
+            non_app_rows.append(row)
+
+    return non_app_rows, app_rows
+
+
 def emit_output(name: str, value: str) -> None:
     output_path = os.environ.get("GITHUB_OUTPUT")
     if output_path:
@@ -165,9 +192,11 @@ def main() -> int:
 
     rows = discover_installable_charts()
     publish_rows = discover_publish_subset(rows, event_name, before_sha, current_sha)
+    non_app_rows, app_rows = split_publish_rows(publish_rows)
 
     emit_output("matrix", json.dumps(rows, separators=(",", ":")))
-    emit_output("ghcr_matrix", json.dumps(publish_rows, separators=(",", ":")))
+    emit_output("ghcr_matrix", json.dumps(non_app_rows, separators=(",", ":")))
+    emit_output("app_matrix", json.dumps(app_rows, separators=(",", ":")))
     return 0
 
 

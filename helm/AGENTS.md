@@ -26,7 +26,7 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 - The normal GHCR path is: commit to git -> GitHub Actions builds/publishes chart -> Flux `OCIRepository` sees the new tag -> Flux `HelmRelease` reconciles the deployment.
 - App workflows under `.github/workflows/app-*.yml` also publish the corresponding chart after building the container image, passing the new image tag as `app-version`.
 - The repo uses repo-global GitHub Actions run IDs for non-semver prerelease tags so chart and app publishes share one monotonically increasing series across workflow files.
-- `helm-all.yml` is the chart-owner path for Helm-only edits, including app charts when only `helm/apps/**` changed. If app source and app chart change together, prefer the app workflow as the coordinated image+chart publisher for that app.
+- `helm-all.yml` publishes non-app charts directly, but when only an app chart under `helm/apps/**` changes it should dispatch the matching app workflow so the app image and app chart are still published together from the same pipeline run.
 - Runtime deployment is wholly Flux-driven. Do not assume charts are applied manually unless the task explicitly says so.
 
 ## Naming And Values Conventions
