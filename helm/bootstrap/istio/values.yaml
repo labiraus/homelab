@@ -3,8 +3,9 @@ meshConfig:
   extensionProviders:
     - name: oauth2-proxy
       envoyExtAuthzHttp:
-        service: oauth2-proxy.homelab.svc.cluster.local
-        port: "4180"
+        service: homelab-oauth2-proxy.homelab.svc.cluster.local
+        port: "80"
+        pathPrefix: /oauth2/auth
         includeRequestHeadersInCheck:
           - authorization
           - cookie

@@ -126,6 +126,10 @@ ingress:
       paths:
         - path: /mcp
           pathType: PathPrefix
+        - path: /.well-known/mcp.json
+          pathType: Exact
+        - path: /.well-known/oauth-protected-resource
+          pathType: Exact
   tls: []
 
 resources: {}

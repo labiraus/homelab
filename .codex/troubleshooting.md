@@ -99,6 +99,19 @@ ss -ant | grep ':6443' | awk '{print $5}' | sed 's/.*ffff://; s/]//; s/\[//' | c
 
 - If one external machine dominates the API connections, stop or reboot that watcher first before deciding the cluster needs a node reboot.
 
+### Istio ext-auth drift can look like generic RBAC denies
+
+- If `mcp.labiraus.com` starts returning a plain `RBAC: access denied` instead of redirecting browsers to Google, inspect the Istio `oauth2-proxy` extension provider before debugging the app routes.
+- In this repo, the provider must target the rendered service name `homelab-oauth2-proxy.homelab.svc.cluster.local`, not the unprefixed chart name.
+- The provider must use the Service port `80`, not the container port `4180`.
+- The provider must send checks to `/oauth2/auth`. Hitting `/`, `/oauth2/start`, or another browser endpoint produces the wrong behavior for Envoy external authorization.
+- `oauth2-proxy` itself should show this split when checked directly:
+  - `/oauth2/start` returns a `302` redirect to Google
+  - `/oauth2/auth` returns `401 Unauthorized` when no session cookie is present
+- If `mcp` discovery looks broken even after auth is fixed, make sure the shared host route also publishes:
+  - `/.well-known/mcp.json`
+  - `/.well-known/oauth-protected-resource`
+
 ### Recreated workers now need post-provision Ansible join
 
 - A rebuilt Terraform-managed worker no longer joins the cluster from Terraform cloud-init.

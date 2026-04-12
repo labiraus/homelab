@@ -19,6 +19,7 @@ The capability catalog in [manifest.go](/workspaces/homelab/apps/mcp/manifest.go
 - `/liveness`
 
 The health endpoints are provided by [pkg/api](/workspaces/homelab/apps/pkg/api).
+The shared host route also needs to publish the two `/.well-known/*` discovery endpoints, not only `/mcp`, or MCP clients cannot discover the advertised OAuth protected-resource metadata.
 
 ## Runtime Configuration
 
@@ -32,3 +33,4 @@ Live direct-backend capabilities currently expect:
 If Postgres or MinIO configuration is omitted, the service still starts and advertises the relevant capabilities, but live calls against those backends return backend-unavailable errors until configuration is provided.
 
 The current browser-login choice in this repo is `oauth2-proxy + Google` for `ui` and `external`. That browser path does not add a local login endpoint to `mcp`; the MCP server continues to advertise protected-resource metadata for bearer-token capable clients and remains compatible with a separate certificate-auth deployment path.
+When `X-Forwarded-Client-Cert` or `X-Auth-Request-Email` is forwarded by the edge, `mcp` now consumes the shared auth middleware so proxied upstream calls can carry a normalized user identity in context.

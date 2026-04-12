@@ -66,7 +66,7 @@ func main() {
 	mux.HandleFunc(mcpGetHandlerName, mcpGetAPI)
 	mux.HandleFunc(mcpPostHandlerName, mcpPostAPI)
 
-	done := api.Start(ctx, mux, 8080)
+	done := api.Start(ctx, mux, 8080, api.NewAuthMiddleware(api.AuthOptions{}))
 
 	close(base.Ready)
 	<-done

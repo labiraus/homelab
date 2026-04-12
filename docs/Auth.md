@@ -1,6 +1,6 @@
 # Authentication
 
-This repo now supports three request auth outcomes in the public `external` API:
+This repo now supports three request auth outcomes in the shared Go auth middleware used by the public services:
 
 - `certificate`: the Istio gateway terminates mutual TLS, sanitizes and forwards `X-Forwarded-Client-Cert`, and the API extracts the email identity from the client certificate.
 - `oidc`: an upstream gateway or auth proxy completes the OIDC login flow and forwards a trusted email header to the API.
@@ -31,6 +31,7 @@ The database-backed identity model lives in `sql/auth.pgsql`.
 3. `apps/pkg/api` resolves the auth mode and normalized email.
 4. `apps/external` validates the email against Postgres `auth.users`.
 5. The UI reads `/api/auth/status` and shows the current status.
+6. `apps/mcp` can consume the same trusted identity headers when they are forwarded, so proxied upstream requests can carry a normalized user identity even though browser login is still centered on `ui` and `external`.
 
 ## Google Login Button
 
@@ -114,12 +115,18 @@ The Istio bootstrap values also set:
 
 ```yaml
 meshConfig:
+  extensionProviders:
+    - name: oauth2-proxy
+      envoyExtAuthzHttp:
+        service: homelab-oauth2-proxy.homelab.svc.cluster.local
+        port: "80"
+        pathPrefix: /oauth2/auth
   defaultConfig:
     gatewayTopology:
       forwardClientCertDetails: SANITIZE_SET
 ```
 
-That causes Istio to sanitize any incoming client-supplied `X-Forwarded-Client-Cert` value and replace it with gateway-generated certificate details.
+That causes Istio to sanitize any incoming client-supplied `X-Forwarded-Client-Cert` value and replace it with gateway-generated certificate details, while the external authorizer checks the `oauth2-proxy` auth endpoint instead of the browser start or callback routes.
 
 ## Strict mTLS Versus Browser OIDC Fallback
 

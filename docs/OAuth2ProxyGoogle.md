@@ -85,6 +85,8 @@ The repo now carries:
   - exposes `/oauth2` on `mcp.labiraus.com`
 - `helm/bootstrap/istio/values.yaml`
   - defines the Istio `oauth2-proxy` extension provider
+  - points that provider at `homelab-oauth2-proxy.homelab.svc.cluster.local:80`
+  - sends external-auth checks to `/oauth2/auth`
 - `helm/apps/ui/values.yaml`
   - applies Istio `CUSTOM` auth through `oauth2-proxy`
 - `helm/apps/external/values.yaml`
@@ -92,6 +94,7 @@ The repo now carries:
   - publishes `OIDC_LOGIN_URL` as the local `/oauth2/start` URL
 - `helm/apps/mcp/values.yaml`
   - sets `OIDC_ISSUER_URL` to Google for protected-resource discovery
+  - exposes both `/.well-known/mcp.json` and `/.well-known/oauth-protected-resource` on the shared host
 
 ## Required Cluster Secret
 
@@ -110,6 +113,7 @@ The current chart expects that Secret to already exist in-cluster. It is intenti
 This choice applies to browser login for `ui` and `external`.
 
 It does not replace the separate certificate-auth direction for `mcp`. For strict certificate authentication, the recommended future shape is still a dedicated hostname or dedicated listener instead of putting strict mTLS on the shared browser host.
+On the shared host, certificate identity can still be consumed opportunistically from trusted `X-Forwarded-Client-Cert` details when some upstream listener forwards them, but the Google redirect path is still the browser-facing fallback.
 
 ## Related Docs
 
