@@ -80,9 +80,9 @@ generatedSecrets:
       OIDC_ISSUER_URL:
         value: "https://accounts.google.com"
       MINIO_ENDPOINT:
-        value: "svartalfheim.labiraus.com:9000"
+        value: "svartalfheim:9000"
       MINIO_USE_SSL:
-        value: "true"
+        value: "false"
       MINIO_BUCKET:
         value: "documents"
       MINIO_ACCESS_KEY:

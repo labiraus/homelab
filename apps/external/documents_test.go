@@ -166,7 +166,7 @@ func TestDocumentUploadHandlerStoresFile(t *testing.T) {
 
 func setMinIOEnv(t *testing.T) {
 	t.Helper()
-	t.Setenv("MINIO_ENDPOINT", "svartalfheim.labiraus.com:9000")
+	t.Setenv("MINIO_ENDPOINT", "svartalfheim:9000")
 	t.Setenv("MINIO_ACCESS_KEY", "test-access")
 	t.Setenv("MINIO_SECRET_KEY", "test-secret")
 	t.Setenv("MINIO_BUCKET", "documents")

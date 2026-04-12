@@ -31,6 +31,7 @@ Directory-level `AGENTS.md` files currently exist for:
 - Do not commit real secrets, kubeconfig material, private keys, or local-only environment files.
 - Prefer repo-native workflows before inventing new ones.
 - Treat MinIO as an external service hosted on the Raspberry Pi `svartalfheim`; do not reintroduce an in-cluster MinIO deployment unless repo guidance is explicitly updated.
+- Do not assume the external MinIO host should be publicly reachable from the internet. Cluster workloads should talk to MinIO directly on the private/repo-managed network path, and any browser-facing or pre-signed-style document delivery should be brokered through an authenticated `mcp.labiraus.com` endpoint rather than exposing MinIO itself.
 - When a session reveals durable setup facts about Raspberry Pi hosts that do not yet have dedicated repo code, record them in `.codex/PI_NOTES.md`.
 
 For Postgres troubleshooting in this repo, prefer the devcontainer `psql` workflow over `kubectl exec` into the database pod:

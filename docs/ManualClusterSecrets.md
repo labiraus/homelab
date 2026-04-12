@@ -12,6 +12,12 @@ These secrets fall into one of three buckets:
 - trust material that is generated locally, such as the client CA used for certificate validation
 - MinIO access credentials that are managed outside Kubernetes and then mirrored into the cluster
 
+The current boundary for MinIO is:
+
+- MinIO on `svartalfheim` should not be directly exposed to the public internet
+- Kubernetes workloads should reach MinIO on the cluster-visible private path
+- if a browser-facing download or future pre-signed-style route is needed, it should be served through an authenticated `mcp.labiraus.com` endpoint rather than pointing the client at MinIO directly
+
 ## Required Secrets
 
 ### `flux-system/ghcr-creds`
