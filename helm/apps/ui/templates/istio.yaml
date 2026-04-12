@@ -15,8 +15,8 @@ spec:
   mtls:
     mode: {{ get $peer "mode" | default "STRICT" }}
 ---
-{{- end }}
-{{- range $index, $policy := (get $istio "authorizationPolicies" | default list) }}
+{{ end }}
+{{ range $index, $policy := (get $istio "authorizationPolicies" | default list) }}
 {{- $provider := (get $policy "provider" | default dict) -}}
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
@@ -34,5 +34,5 @@ spec:
   {{- end }}
   rules:
 {{ toYaml (get $policy "rules" | default list) | nindent 4 }}
----
+---{{ "\n" }}
 {{- end }}

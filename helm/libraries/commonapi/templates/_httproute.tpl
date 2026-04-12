@@ -37,7 +37,7 @@ spec:
       kind: Service
       port: 80
   {{- end }}
----{{ "\n" }}
+{{ "\n" }}---{{ "\n" }}
 {{- if $httpsRedirect }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -74,7 +74,7 @@ spec:
         statusCode: 301
   {{- end }}
   {{- end }}
----{{ "\n" }}
+{{ "\n" }}---{{ "\n" }}
 {{- end }}
 {{- end }}
 {{- end }}

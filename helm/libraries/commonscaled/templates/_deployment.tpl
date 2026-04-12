@@ -106,5 +106,5 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
----
+{{ "\n" }}---{{ "\n" }}
 {{- end }}

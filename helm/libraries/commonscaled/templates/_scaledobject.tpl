@@ -19,6 +19,6 @@ spec:
         consumerGroup: {{ .Values.keda.kafka.consumerGroup | quote }}
         topic: {{ .Values.keda.kafka.topic | quote }}
         lagThreshold: {{ .Values.keda.kafka.lagThreshold | quote }}
----
+---{{ "\n" }}
 {{- end }}
 {{- end -}}

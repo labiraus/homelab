@@ -27,6 +27,6 @@ spec:
   egress:
 {{- toYaml . | nindent 4 }}
   {{- end }}
----
+{{ "\n" }}---{{ "\n" }}
 {{- end }}
 {{- end -}}

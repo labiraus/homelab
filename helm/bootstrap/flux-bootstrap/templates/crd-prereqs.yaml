@@ -13,7 +13,7 @@ metadata:
 spec:
   interval: {{ $r.interval | default "1h" }}
   url: {{ $r.repository.url }}
----
+---{{ "\n" }}
 {{- end }}
 {{- end }}
 {{- end }}

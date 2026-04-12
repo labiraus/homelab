@@ -37,7 +37,7 @@ spec:
     class: {{ .Values.kafka.storageClass }}
     size: {{ .Values.kafka.storageSize }}
     deleteClaim: false
----
+---{{ "\n" }}
 {{- if .Values.bootstrapAlias.enabled }}
 apiVersion: v1
 kind: Service

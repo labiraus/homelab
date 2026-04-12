@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: {{ .Values.namespace }}
----
+---{{ "\n" }}
 {{- if .Values.redis.auth.enabled }}
 {{- $existing := lookup "v1" "Secret" .Values.namespace (printf "%s-auth" .Values.redis.name) }}
 apiVersion: v1
@@ -13,7 +13,7 @@ metadata:
 type: Opaque
 stringData:
   password: {{- if $existing }} {{ index $existing.data "password" | b64dec | quote }} {{- else if .Values.redis.auth.password }} {{ .Values.redis.auth.password | quote }} {{- else }} {{ randAlphaNum 32 | quote }} {{- end }}
----
+---{{ "\n" }}
 {{- end }}
 apiVersion: v1
 kind: Service
@@ -91,7 +91,7 @@ spec:
         - name: redis-data
           emptyDir: {}
   {{- end }}
----
+{{ "\n" }}---{{ "\n" }}
 {{- if .Values.networkPolicy.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

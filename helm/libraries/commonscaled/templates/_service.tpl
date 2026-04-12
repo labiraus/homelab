@@ -15,5 +15,5 @@ spec:
       name: http
   selector:
     {{- include "commonscaled.selectorLabels" . | nindent 4 }}
----
+---{{ "\n" }}
 {{- end }}

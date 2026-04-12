@@ -15,7 +15,7 @@ spec:
       {{- include "commonscaled.selectorLabels" $root | nindent 6 }}
   mtls:
     mode: {{ get $peer "mode" | default "STRICT" }}
----
+---{{ "\n" }}
 {{- end }}
 {{- $authz := (get $istio "authorizationPolicy" | default dict) -}}
 {{- if (get $authz "enabled" | default false) }}
@@ -31,6 +31,6 @@ spec:
   action: {{ get $authz "action" | default "ALLOW" }}
   rules:
 {{- toYaml (get $authz "rules" | default list) | nindent 4 }}
----
+---{{ "\n" }}
 {{- end }}
 {{- end -}}

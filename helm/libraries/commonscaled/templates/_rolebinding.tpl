@@ -15,7 +15,7 @@ roleRef:
   kind: Role
   name: {{ $role | quote }}
   apiGroup: rbac.authorization.k8s.io
----
+---{{ "\n" }}
 {{- end }}
 {{- end }}
 {{- end -}}

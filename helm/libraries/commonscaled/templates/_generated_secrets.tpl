@@ -13,6 +13,6 @@ stringData:
   {{- range $key, $value := ($secret.stringData | default dict) }}
   {{ $key }}: {{ include "commonscaled.generatedSecretValue" $value | quote }}
   {{- end }}
----
+{{ "\n" }}---{{ "\n" }}
 {{- end }}
 {{- end -}}

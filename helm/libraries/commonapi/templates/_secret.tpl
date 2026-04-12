@@ -10,6 +10,6 @@ data:
   {{- range $key, $value := .Values.secret.data }}
   {{ $key }}: {{ $value | b64enc | quote }}
   {{- end }}
----
+{{ "\n" }}---{{ "\n" }}
 {{- end }}
 {{- end -}}

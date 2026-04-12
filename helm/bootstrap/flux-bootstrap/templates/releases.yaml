@@ -71,5 +71,5 @@ spec:
   values:
     {{- toYaml . | nindent 4 }}
   {{- end }}
----
+{{ "\n" }}---{{ "\n" }}
 {{- end }}

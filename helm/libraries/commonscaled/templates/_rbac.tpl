@@ -24,7 +24,7 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: {{ include "commonscaled.fullname" $root }}
----
+---{{ "\n" }}
 {{- end }}
 {{- $clusterRbac := (.Values.clusterRbac | default dict) -}}
 {{- $clusterRules := (get $clusterRbac "rules" | default list) -}}
@@ -48,6 +48,6 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: {{ include "commonscaled.fullname" $root }}
----
+---{{ "\n" }}
 {{- end }}
 {{- end -}}

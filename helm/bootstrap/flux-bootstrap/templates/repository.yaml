@@ -18,6 +18,6 @@ spec:
   ref:
     semver: ">={{ $root.Values.min_version }}"
     semverFilter: {{ $root.Values.tag }}
----
+---{{ "\n" }}
 {{- end }}
 {{- end }}

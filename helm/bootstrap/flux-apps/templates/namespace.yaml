@@ -18,7 +18,7 @@
 {{- end -}}
 {{- range $i, $ns := $namespaces }}
 {{- if gt $i 0 }}
----
+{{ "\n" }}---{{ "\n" }}
 {{- end }}
 apiVersion: v1
 kind: Namespace
