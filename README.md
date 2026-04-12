@@ -38,7 +38,7 @@ Use the nearest relevant `AGENTS.md` for local conventions, and update it when a
 │   ├── external/           # Public Go HTTP service
 │   ├── mcp/                # Public Go MCP service
 │   ├── orchestrator/       # Internal Go document service
-│   ├── processor/          # Internal TypeScript Kafka worker
+│   ├── processor/          # Internal TypeScript NATS JetStream worker
 │   ├── ui/                 # Vite/React frontend
 │   └── pkg/                # Shared Go modules used by the Go services
 ├── bin/
@@ -104,14 +104,14 @@ The app stack under `apps/` is intentionally small:
 - `apps/external`: public Go API for the UI and stable browser-facing integrations
 - `apps/mcp`: public Go MCP service for AI-native access
 - `apps/orchestrator`: internal Go control-plane service for reconciliation and task dispatch
-- `apps/processor`: internal TypeScript Kafka worker for extraction, chunking, embedding, and persistence
+- `apps/processor`: internal TypeScript NATS JetStream worker for extraction, chunking, embedding, and persistence
 - `apps/pkg/*`: shared Go packages for HTTP server startup, logging, metrics, and integrations
 
 Current document-platform direction:
 
 - MinIO on `svartalfheim` is the canonical raw object store
 - Postgres via CNPG plus pgvector is the source of truth for metadata, state, chunks, and embeddings
-- Kafka plus KEDA handle asynchronous execution and worker scaling
+- NATS JetStream plus KEDA handle asynchronous execution and worker scaling
 - Redis is available but not yet a core design dependency
 - Mongo is intentionally not part of the active application architecture
 

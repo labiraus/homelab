@@ -1,6 +1,6 @@
 import http from "node:http";
 
-import { Kafka } from "kafkajs";
+import { AckPolicy, RetentionPolicy, StorageType, connect } from "nats";
 import { Pool } from "pg";
 
 import { chunkText } from "./chunking.js";
@@ -29,22 +29,22 @@ async function main(): Promise<void> {
 
 	server.listen(config.port, "0.0.0.0");
 
-	const kafka = new Kafka({
-		brokers: config.kafkaBrokers,
+	const nc = await connect({
+		servers: config.natsServers,
 	});
-	const consumer = kafka.consumer({ groupId: config.consumerGroup });
-	await consumer.connect();
-	await consumer.subscribe({ topic: config.inputTopic, fromBeginning: false });
+	const jsm = await nc.jetstreamManager();
+	await ensureStream(jsm, config.streamName, config.subject);
+	await ensureConsumer(jsm, config.streamName, config.consumerName, config.subject);
+
+	const js = nc.jetstream();
+	const consumer = await js.consumers.get(config.streamName, config.consumerName);
+	const messages = await consumer.consume();
 
 	ready = true;
 
-	await consumer.run({
-		eachMessage: async ({ message }) => {
-			if (!message.value) {
-				return;
-			}
-
-			const event = JSON.parse(message.value.toString()) as DocumentEvent;
+	for await (const message of messages) {
+		try {
+			const event = JSON.parse(message.string()) as DocumentEvent;
 			const chunks = chunkText(event.text, {
 				chunkSize: config.chunkSize,
 				chunkOverlap: config.chunkOverlap,
@@ -56,8 +56,63 @@ async function main(): Promise<void> {
 			}
 
 			await persistDocument(pool, event, chunks, embeddings);
-		},
-	});
+			message.ack();
+		} catch (error) {
+			message.nak();
+			throw error;
+		}
+	}
+}
+
+async function ensureStream(
+	jsm: Awaited<ReturnType<Awaited<ReturnType<typeof connect>>["jetstreamManager"]>>,
+	streamName: string,
+	subject: string,
+): Promise<void> {
+	const config = {
+		name: streamName,
+		subjects: [subject],
+		retention: RetentionPolicy.Workqueue,
+		storage: StorageType.File,
+		num_replicas: 3,
+	};
+
+	try {
+		await jsm.streams.info(streamName);
+		await jsm.streams.update(streamName, config);
+	} catch (error) {
+		if (!isNotFoundError(error)) {
+			throw error;
+		}
+		await jsm.streams.add(config);
+	}
+}
+
+async function ensureConsumer(
+	jsm: Awaited<ReturnType<Awaited<ReturnType<typeof connect>>["jetstreamManager"]>>,
+	streamName: string,
+	consumerName: string,
+	subject: string,
+): Promise<void> {
+	const config = {
+		durable_name: consumerName,
+		filter_subject: subject,
+		ack_policy: AckPolicy.Explicit,
+	};
+
+	try {
+		await jsm.consumers.info(streamName, consumerName);
+		await jsm.consumers.update(streamName, consumerName, config);
+	} catch (error) {
+		if (!isNotFoundError(error)) {
+			throw error;
+		}
+		await jsm.consumers.add(streamName, config);
+	}
+}
+
+function isNotFoundError(error: unknown): boolean {
+	return error instanceof Error && "code" in error && error.code === "404";
 }
 
 main().catch((error) => {

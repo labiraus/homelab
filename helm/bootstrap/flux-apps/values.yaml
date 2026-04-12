@@ -44,12 +44,12 @@ releases:
     type: oci
     namespace: homelab
     dependsOn:
-      - kafka
+      - nats
 
   - name: processor
     type: oci
     namespace: homelab
     dependsOn:
-      - kafka
+      - nats
       - postgres
       - keda

@@ -10,7 +10,7 @@ This keeps:
 
 - MinIO as canonical raw storage
 - Postgres as the source of truth
-- Kafka as execution transport
+- NATS JetStream as execution transport
 - `orchestrator` as control plane
 - `processor` as stateless worker
 
@@ -35,9 +35,9 @@ At this stage, the important outcome is durable document state in Postgres, not 
 
 ### Phase 2
 
-When `orchestrator` determines a document is new, changed, or needs reprocessing, it emits a Kafka job.
+When `orchestrator` determines a document is new, changed, or needs reprocessing, it emits a NATS JetStream job.
 
-Kafka is used to trigger work and scale workers, but job completion and system state are still reflected back into Postgres.
+NATS JetStream is used to trigger work and scale workers, but job completion and system state are still reflected back into Postgres.
 
 ### Phase 3
 

@@ -59,9 +59,11 @@ envFromSecrets:
 generatedSecrets:
   - name: orchestrator-config
     stringData:
-      KAFKA_BROKERS:
-        value: homelab-kafka.kafka.svc.cluster.local:9092
-      KAFKA_TOPIC:
+      NATS_URLS:
+        value: nats://nats.nats.svc.cluster.local:4222
+      NATS_STREAM:
+        value: documents
+      NATS_SUBJECT:
         value: documents.ingest
 
 security:
@@ -107,10 +109,10 @@ security:
       - to:
           - namespaceSelector:
               matchLabels:
-                kubernetes.io/metadata.name: kafka
+                kubernetes.io/metadata.name: nats
         ports:
           - protocol: TCP
-            port: 9092
+            port: 4222
 
 podAnnotations: {}
 podLabels:

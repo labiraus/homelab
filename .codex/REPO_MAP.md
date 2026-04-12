@@ -17,7 +17,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - `external/`: public Go service
   - `mcp/`: public Go MCP service
   - `orchestrator/`: internal Go document service
-  - `processor/`: internal TypeScript Kafka worker
+  - `processor/`: internal TypeScript NATS JetStream worker
   - `ui/`: Vite frontend
   - `pkg/`: shared Go modules
 - `ansible/`
@@ -80,11 +80,11 @@ Current behavior note:
 - Public API entry point: `apps/external/main.go`
 - MCP entry point: `apps/mcp/main.go`
 - Orchestrator entry point: `apps/orchestrator/main.go`
-- Orchestrator request and Kafka contract shapes: `apps/orchestrator/documents.go`
+- Orchestrator request and async contract shapes: `apps/orchestrator/documents.go`
 - Shared HTTP server and probes: `apps/pkg/api/api.go`
 - Logging and readiness wiring: `apps/pkg/base/base.go`
 - Metrics: `apps/pkg/prometheusutil/prometheus.go`
-- Kafka helpers: `apps/pkg/kafkautil/kafka.go`
+- NATS JetStream helpers: `apps/pkg/natsutil/nats.go`
 - S3 / MinIO helpers: `apps/pkg/s3util/s3.go`
 - Postgres helpers: `apps/pkg/postgresutil/postgres.go`
 
@@ -120,7 +120,7 @@ Current behavior note:
 
 - MinIO is the canonical raw object store.
 - Postgres is the source of truth for metadata, state, chunks, and embeddings.
-- Kafka plus KEDA are the async execution layer, not the durable state store.
+- NATS JetStream plus KEDA are the async execution layer, not the durable state store.
 
 ### MinIO and Ansible
 

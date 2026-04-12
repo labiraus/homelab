@@ -14,13 +14,13 @@ The chosen application boundary is:
 - `external`: public Go API for browser clients
 - `mcp`: Go MCP server for AI-native access
 - `orchestrator`: internal Go control-plane API
-- `processor`: TypeScript Kafka worker for document operations
+- `processor`: TypeScript NATS JetStream worker for document operations
 
 The intended platform shape is:
 
 - MinIO on `svartalfheim` remains the canonical raw object store
 - Postgres via CNPG plus pgvector is the system of record for metadata, workflow state, chunks, and embeddings
-- Kafka plus KEDA provide asynchronous execution and worker scaling
+- NATS JetStream plus KEDA provide asynchronous execution and worker scaling
 - Redis is available but is not yet a core architectural dependency
 - Mongo is not part of the active plan
 - browser authentication currently standardizes on `oauth2-proxy + Google` on the shared public host
@@ -54,8 +54,8 @@ Documentation must stay aligned with implementation as these pieces evolve.
 
 - MinIO is the canonical source for raw objects and source documents.
 - Postgres is the source of truth for document inventory, workflow state, metadata, chunks, and embeddings.
-- Kafka is transport and execution infrastructure, not the source of truth.
-- KEDA scales workers from Kafka lag and should remain an execution concern rather than a state-management concern.
+- NATS JetStream is transport and execution infrastructure, not the source of truth.
+- KEDA scales workers from JetStream consumer lag and should remain an execution concern rather than a state-management concern.
 
 ## Architectural Principles
 
@@ -77,12 +77,12 @@ It should:
 - reconcile MinIO object inventory into Postgres
 - decide what requires processing or reprocessing
 - own durable workflow transitions
-- enqueue asynchronous work on Kafka when needed
+- enqueue asynchronous work on NATS JetStream when needed
 
 It should not:
 
 - do chunking or embedding itself
-- treat Kafka as the authoritative state store
+- treat NATS JetStream as the authoritative state store
 - leak internal pipeline mechanics into the public API surface
 
 ### `processor`
@@ -91,7 +91,7 @@ It should not:
 
 It should:
 
-- consume Kafka jobs
+- consume NATS JetStream jobs
 - fetch or receive document content for processing
 - perform extraction, chunking, and embedding
 - write results back to Postgres
@@ -123,14 +123,14 @@ Deliverables:
 - document metadata and lifecycle state are upserted into Postgres
 - no heavy processing logic is moved into orchestrator
 
-### Phase 3 — Kafka Job Contracts And Processor Execution
+### Phase 3 — NATS JetStream Job Contracts And Processor Execution
 
 Deliverables:
 
-- define Kafka job contracts owned by the orchestrator/processor boundary
+- define NATS JetStream job contracts owned by the orchestrator/processor boundary
 - orchestrator emits processing work based on Postgres-backed state
 - processor consumes jobs and performs extraction, chunking, embedding, and persistence
-- processing results are written back to Postgres, not treated as Kafka-owned state
+- processing results are written back to Postgres, not treated as JetStream-owned state
 
 ### Phase 4 — Retrieval Through `external` And `mcp`
 
@@ -188,7 +188,7 @@ Prefer changes that:
 
 Be cautious with changes that:
 
-- make Kafka carry durable state
+- make NATS JetStream carry durable state
 - push document lifecycle ownership into workers
 - expose internal pipeline details through public APIs
 - add new datastores or operators without a clear architectural need

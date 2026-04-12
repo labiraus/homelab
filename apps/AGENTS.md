@@ -21,7 +21,7 @@ The goal here is clarity and operability, not unnecessary abstraction.
 - `external/` is the public Go service
 - `mcp/` is the Go MCP service
 - `orchestrator/` is the internal Go document service
-- `processor/` is the TypeScript Kafka worker
+- `processor/` is the TypeScript NATS JetStream worker
 - `ui/` is the Vite frontend
 - `pkg/` contains shared Go helpers used by application code
 

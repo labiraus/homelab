@@ -12,10 +12,11 @@ spec:
   minReplicaCount: {{ .Values.keda.minReplicaCount }}
   maxReplicaCount: {{ .Values.keda.maxReplicaCount }}
   triggers:
-    - type: kafka
+    - type: nats-jetstream
       metadata:
-        bootstrapServers: {{ .Values.keda.kafka.bootstrapServers | quote }}
-        consumerGroup: {{ .Values.keda.kafka.consumerGroup | quote }}
-        topic: {{ .Values.keda.kafka.topic | quote }}
-        lagThreshold: {{ .Values.keda.kafka.lagThreshold | quote }}
+        natsServerMonitoringEndpoint: {{ .Values.keda.natsJetStream.natsServerMonitoringEndpoint | quote }}
+        account: {{ .Values.keda.natsJetStream.account | quote }}
+        stream: {{ .Values.keda.natsJetStream.stream | quote }}
+        consumer: {{ .Values.keda.natsJetStream.consumer | quote }}
+        lagThreshold: {{ .Values.keda.natsJetStream.lagThreshold | quote }}
 {{- end }}

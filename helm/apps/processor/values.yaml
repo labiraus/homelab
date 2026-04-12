@@ -59,11 +59,13 @@ envFromSecrets:
 generatedSecrets:
   - name: processor-config
     stringData:
-      KAFKA_BROKERS:
-        value: homelab-kafka.kafka.svc.cluster.local:9092
-      KAFKA_TOPIC:
+      NATS_URLS:
+        value: nats://nats.nats.svc.cluster.local:4222
+      NATS_STREAM:
+        value: documents
+      NATS_SUBJECT:
         value: documents.ingest
-      KAFKA_GROUP:
+      NATS_CONSUMER:
         value: processor
       EMBEDDING_ENDPOINT:
         value: http://embeddings.homelab.svc.cluster.local/v1/embeddings
@@ -133,10 +135,15 @@ security:
       - to:
           - namespaceSelector:
               matchLabels:
-                kubernetes.io/metadata.name: kafka
+                kubernetes.io/metadata.name: nats
         ports:
           - protocol: TCP
-            port: 9092
+            port: 4222
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: data
+        ports:
           - protocol: TCP
             port: 5432
 
@@ -171,10 +178,11 @@ keda:
   maxReplicaCount: 10
   pollingInterval: 30
   cooldownPeriod: 300
-  kafka:
-    bootstrapServers: homelab-kafka.kafka.svc.cluster.local:9092
-    consumerGroup: processor
-    topic: documents.ingest
+  natsJetStream:
+    natsServerMonitoringEndpoint: nats.nats.svc.cluster.local:8222
+    account: $G
+    stream: documents
+    consumer: processor
     lagThreshold: "5"
 
 nodeSelector: {}

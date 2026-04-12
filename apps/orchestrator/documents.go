@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"pkg/kafkautil"
+	"pkg/natsutil"
 )
 
 type documentRequest struct {
@@ -114,19 +114,27 @@ func enqueueDocument(ctx context.Context, event documentEvent) error {
 		return err
 	}
 
-	err = kafkautil.Publish(ctx, "documents", []byte(event.DocumentID), payload)
+	err = natsutil.Publish(ctx, "documents", payload)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func kafkaTopic() string {
-	topic := strings.TrimSpace(os.Getenv("KAFKA_TOPIC"))
-	if topic == "" {
+func streamName() string {
+	stream := strings.TrimSpace(os.Getenv("NATS_STREAM"))
+	if stream == "" {
+		return "documents"
+	}
+	return stream
+}
+
+func subjectName() string {
+	subject := strings.TrimSpace(os.Getenv("NATS_SUBJECT"))
+	if subject == "" {
 		return "documents.ingest"
 	}
-	return topic
+	return subject
 }
 
 func defaultProcessingVersion(value int) int {

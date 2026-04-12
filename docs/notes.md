@@ -14,7 +14,7 @@
 
 - Plex is optional and not part of the baseline Flux bootstrap set by default.
 - Harvester/KubeVirt resources are documentation-first because most deployments require dedicated hardware and node pools.
-- Kafka is available through the Strimzi-based data path when enabled; treat it as async execution infrastructure rather than a source of truth.
+- NATS JetStream is available through the Flux-managed upstream Helm chart; treat it as async execution infrastructure rather than a source of truth.
 
 ## Troubleshooting
 

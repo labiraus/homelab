@@ -1,8 +1,9 @@
 export interface ProcessorConfig {
 	port: number;
-	kafkaBrokers: string[];
-	inputTopic: string;
-	consumerGroup: string;
+	natsServers: string[];
+	streamName: string;
+	subject: string;
+	consumerName: string;
 	embeddingEndpoint: string;
 	embeddingModel: string;
 	chunkSize: number;
@@ -21,9 +22,10 @@ function requireEnv(name: string): string {
 export function loadConfig(): ProcessorConfig {
 	return {
 		port: Number(process.env.PORT ?? "8080"),
-		kafkaBrokers: requireEnv("KAFKA_BROKERS").split(",").map((value) => value.trim()).filter(Boolean),
-		inputTopic: process.env.KAFKA_TOPIC?.trim() || "documents.ingest",
-		consumerGroup: process.env.KAFKA_GROUP?.trim() || "processor",
+		natsServers: requireEnv("NATS_URLS").split(",").map((value) => value.trim()).filter(Boolean),
+		streamName: process.env.NATS_STREAM?.trim() || "documents",
+		subject: process.env.NATS_SUBJECT?.trim() || "documents.ingest",
+		consumerName: process.env.NATS_CONSUMER?.trim() || "processor",
 		embeddingEndpoint: requireEnv("EMBEDDING_ENDPOINT"),
 		embeddingModel: process.env.EMBEDDING_MODEL?.trim() || "local-embeddings",
 		chunkSize: Number(process.env.CHUNK_SIZE ?? "1200"),

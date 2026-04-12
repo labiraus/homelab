@@ -9,14 +9,14 @@ import (
 
 	"pkg/api"
 	"pkg/base"
-	"pkg/kafkautil"
+	"pkg/natsutil"
 	"pkg/prometheusutil"
 )
 
 func main() {
 	ctx := base.Start("orchestrator")
 
-	if err := startKafka(ctx); err != nil {
+	if err := startNATS(ctx); err != nil {
 		slog.ErrorContext(ctx, err.Error())
 		return
 	}
@@ -31,18 +31,14 @@ func main() {
 	<-done
 }
 
-func startKafka(ctx context.Context) error {
-	return kafkautil.Start(ctx, kafkautil.KafkaConfig{
-		Brokers: strings.Split(strings.TrimSpace(os.Getenv("KAFKA_BROKERS")), ","),
-		Topics: map[string]kafkautil.Topic{
+func startNATS(ctx context.Context) error {
+	return natsutil.Start(ctx, natsutil.NATSConfig{
+		Servers: strings.Split(strings.TrimSpace(os.Getenv("NATS_URLS")), ","),
+		Streams: map[string]natsutil.Stream{
 			"documents": {
-				Name:                   kafkaTopic(),
-				CreateTopic:            true,
-				Partitions:             1,
-				ReplicationFactor:      1,
-				BatchSize:              1,
-				BatchTimeoutMs:         1000,
-				ReadLagIntervalSeconds: -1,
+				Name:     streamName(),
+				Subject:  subjectName(),
+				Replicas: 3,
 			},
 		},
 	})
