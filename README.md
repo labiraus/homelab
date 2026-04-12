@@ -92,6 +92,8 @@ Important Proxmox token note:
 
 Helm charts in `helm/` define cluster bootstrap, app deployment, data services, observability components, and miscellaneous in-cluster workloads. The current GitOps flow is Flux-based: charts are packaged as OCI artifacts by GitHub Actions and reconciled in-cluster by Flux from `flux-system`.
 
+Core bootstrap covers cluster-fabric components such as Istio and Gateway API support. Utility controllers such as Envoy AI Gateway live under `helm/infra/` and are reconciled through the regular Flux application layer.
+
 Minecraft is no longer deployed through Helm/Flux. The authoritative Minecraft path is a dedicated Proxmox VM managed through Terraform and Ansible.
 
 ### Application Code

@@ -11,6 +11,7 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 ## Working Rules
 
 - Preserve the current top-level split: `apps/`, `bootstrap/`, `data/`, `infra/`, `libraries/`, `observability/`, `workloads/`.
+- Put only cluster-fabric prerequisites in `bootstrap/`; utility controllers or shared services that other workloads consume but the cluster does not need in order to function belong in `infra/`.
 - Prefer reusable templates and consistent values structure over copy-pasted chart logic.
 - When changing chart inputs or outputs, update values files, templates, and operator docs together.
 - Treat Flux-facing bootstrap charts as part of the delivery contract; avoid one-off behavior that breaks repository or secret conventions.
@@ -24,6 +25,8 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 - Installable charts are published as OCI artifacts by the Helm CI pipeline in `.github/workflows/helm-all.yml`.
 - The normal GHCR path is: commit to git -> GitHub Actions builds/publishes chart -> Flux `OCIRepository` sees the new tag -> Flux `HelmRelease` reconciles the deployment.
 - App workflows under `.github/workflows/app-*.yml` also publish the corresponding chart after building the container image, passing the new image tag as `app-version`.
+- The repo uses repo-global GitHub Actions run IDs for non-semver prerelease tags so chart and app publishes share one monotonically increasing series across workflow files.
+- `helm-all.yml` is the chart-owner path for Helm-only edits, including app charts when only `helm/apps/**` changed. If app source and app chart change together, prefer the app workflow as the coordinated image+chart publisher for that app.
 - Runtime deployment is wholly Flux-driven. Do not assume charts are applied manually unless the task explicitly says so.
 
 ## Naming And Values Conventions

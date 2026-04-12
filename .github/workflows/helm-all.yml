@@ -6,6 +6,7 @@ on:
     paths:
       - helm/**/*
       - ".github/actions/helm/**"
+      - "scripts/build/build_helm_matrix.py"
       - ".github/workflows/helm-all.yml"
 
 permissions:
@@ -27,67 +28,12 @@ jobs:
       - name: Build chart matrix
         id: matrix
         shell: bash
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+          GITHUB_SHA: ${{ github.sha }}
         run: |
-          set -euo pipefail
-
-          rows=()
-          while IFS= read -r chart_yaml; do
-            chart_dir="${chart_yaml%/Chart.yaml}"
-            chart_rel="${chart_dir#helm/}"
-            chart_type="$(
-              awk -F': ' '/^type:/{print $2; exit}' "$chart_yaml" \
-                | tr -d '\r' \
-                | tr '[:upper:]' '[:lower:]' \
-                | xargs || true
-            )"
-
-            # Skip non-installable library charts.
-            if [[ "$chart_rel" == libraries/* || "$chart_type" == "library" ]]; then
-              continue
-            fi
-
-            ghcr_values="values.yaml"
-            if [[ -f "${chart_dir}/values-ghcr.yaml" ]]; then
-              ghcr_values="values-ghcr.yaml"
-            fi
-
-            rows+=("${chart_rel}|${ghcr_values}")
-          done < <(find helm -type f -name Chart.yaml | sort)
-
-          if [[ "${#rows[@]}" -eq 0 ]]; then
-            echo 'matrix=[]' >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          matrix_json="$(
-            printf '%s\n' "${rows[@]}" \
-              | jq -R -s -c '
-                  split("\n")
-                  | map(select(length > 0))
-                  | map(split("|"))
-                  | map({
-                      chart: .[0],
-                      ghcr_values: .[1]
-                    })
-                '
-          )"
-
-          ghcr_matrix_json="$(
-            printf '%s\n' "${rows[@]}" \
-              | jq -R -s -c '
-                  split("\n")
-                  | map(select(length > 0))
-                  | map(split("|"))
-                  | map({
-                      chart: .[0],
-                      ghcr_values: .[1]
-                    })
-                  | map(select(.chart | startswith("apps/") | not))
-                '
-          )"
-
-          echo "matrix=${matrix_json}" >> "$GITHUB_OUTPUT"
-          echo "ghcr_matrix=${ghcr_matrix_json}" >> "$GITHUB_OUTPUT"
+          python3 scripts/build/build_helm_matrix.py
 
   test-default:
     name: "${{ matrix.chart }} Helm Test Default"

@@ -52,20 +52,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.1.1
 
-      - name: Resolve image version
-        id: version
-        shell: bash
-        run: |
-          echo "image_tag=0.0.0-uat.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
-
       - name: Build to GHCR
+        id: build
         uses: ./.github/actions/docker/ghcr
         with:
           dockerfile: ./apps/external/dockerfile
           context: ./apps
           token: ${{ secrets.GITHUB_TOKEN }}
           registry: external
-          tag: ${{ steps.version.outputs.image_tag }}
+          tag: uat
 
       - name: Publish Helm chart to GHCR
         uses: ./.github/actions/helm/ghcr
@@ -74,4 +69,4 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           values: values-ghcr.yaml
           tag: uat
-          app-version: ${{ steps.version.outputs.image_tag }}
+          app-version: ${{ steps.build.outputs.image_tag }}

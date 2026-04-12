@@ -1,0 +1,32 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: {{ .Values.envoyGateway.name }}
+  namespace: flux-system
+spec:
+  interval: {{ .Values.envoyGateway.interval }}
+  url: {{ .Values.envoyGateway.repository.url }}
+  ref:
+    tag: {{ .Values.envoyGateway.chart.version | quote }}
+{{ "\n" }}---{{ "\n" }}
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: {{ .Values.aiGatewayCrds.name }}
+  namespace: flux-system
+spec:
+  interval: {{ .Values.aiGatewayCrds.interval }}
+  url: {{ .Values.aiGatewayCrds.repository.url }}
+  ref:
+    tag: {{ .Values.aiGatewayCrds.chart.version | quote }}
+{{ "\n" }}---{{ "\n" }}
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: {{ .Values.aiGateway.name }}
+  namespace: flux-system
+spec:
+  interval: {{ .Values.aiGateway.interval }}
+  url: {{ .Values.aiGateway.repository.url }}
+  ref:
+    tag: {{ .Values.aiGateway.chart.version | quote }}

@@ -26,6 +26,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - `Setup.md`: Kubernetes setup path for local machine, Proxmox worker prep, SSH, kubeconfig, and worker network stability
   - `Secrets.md`: generated local secrets and Ansible-only secret handling
   - `StorageBootstrap.md`: external MinIO and Samba bootstrap on `svartalfheim`
+  - `EnvoyAIGateway.md`: Flux infra path and scope for Envoy Gateway plus Envoy AI Gateway
   - `MinecraftVM.md`: dedicated Minecraft VM provisioning and operations
   - `NodeClassification.md`: Kubernetes worker label policy and GPU/LLM classification
   - `Auth.md`: current auth model across browser OIDC and certificate-based identity
@@ -67,6 +68,7 @@ Current behavior note:
 - Infra charts: `helm/infra/`
 - Browser edge auth chart: `helm/infra/oauth2-proxy/`
 - Bootstrap charts: `helm/bootstrap/`
+- Envoy AI Gateway infra chart: `helm/infra/envoy-ai-gateway/`
 - Stateful/data charts: `helm/data/`
 - Misc workload charts: `helm/workloads/`
 - Shared chart templates: `helm/libraries/commonapi/`

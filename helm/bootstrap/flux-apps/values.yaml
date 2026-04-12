@@ -21,6 +21,10 @@ releases:
     type: oci
     namespace: homelab
 
+  - name: envoy-ai-gateway
+    type: oci
+    targetNamespace: flux-system
+
   - name: external
     type: oci
     namespace: homelab

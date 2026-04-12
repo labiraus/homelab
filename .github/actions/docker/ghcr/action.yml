@@ -21,10 +21,10 @@ inputs:
     required: false
 
 outputs:
-  image-tag:
+  image_tag:
     description: "The resolved image tag that was pushed"
     value: ${{ steps.resolve-tags.outputs.image_tag }}
-  git-sha:
+  git_sha:
     description: "The short git sha tag that was pushed"
     value: ${{ steps.resolve-tags.outputs.git_sha }}
 
@@ -37,14 +37,14 @@ runs:
       run: |
         TAG="${{ inputs.tag }}"
         GIT_SHA="$(git rev-parse --short HEAD)"
-        RUN_NUMBER="${{ github.run_number }}"
+        RUN_ID="${{ github.run_id }}"
 
         if [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+].*)?$ ]]; then
           IMAGE_TAG="$TAG"
         else
           SAFE_TAG="$(echo "$TAG" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^0-9a-z.-]+/-/g; s/^[.-]+//; s/[.-]+$//')"
           [[ -z "$SAFE_TAG" ]] && SAFE_TAG="build"
-          IMAGE_TAG="0.0.0-${SAFE_TAG}.${RUN_NUMBER}"
+          IMAGE_TAG="0.0.0-${SAFE_TAG}.${RUN_ID}"
         fi
 
         echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"

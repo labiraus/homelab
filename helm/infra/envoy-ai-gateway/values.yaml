@@ -1,0 +1,66 @@
+envoyGateway:
+  name: envoy-gateway-upstream
+  releaseName: envoy-gateway
+  repository:
+    url: oci://docker.io/envoyproxy/gateway-helm
+  chart:
+    version: v1.7.0
+  interval: 1h
+  timeout: 10m
+  targetNamespace: envoy-gateway-system
+  values:
+    config:
+      envoyGateway:
+        gateway:
+          controllerName: gateway.envoyproxy.io/gatewayclass-controller
+        logging:
+          level:
+            default: info
+        provider:
+          type: Kubernetes
+        extensionApis:
+          enableEnvoyPatchPolicy: true
+          enableBackend: true
+        extensionManager:
+          hooks:
+            xdsTranslator:
+              translation:
+                listener:
+                  includeAll: true
+                route:
+                  includeAll: true
+                cluster:
+                  includeAll: true
+                secret:
+                  includeAll: true
+              post:
+                - Translation
+                - Cluster
+                - Route
+          service:
+            fqdn:
+              hostname: ai-gateway-controller.envoy-ai-gateway-system.svc.cluster.local
+              port: 1063
+
+aiGatewayCrds:
+  name: envoy-ai-gateway-crds-upstream
+  releaseName: envoy-ai-gateway-crds
+  repository:
+    url: oci://docker.io/envoyproxy/ai-gateway-crds-helm
+  chart:
+    version: v0.5.0
+  interval: 1h
+  timeout: 10m
+  targetNamespace: envoy-ai-gateway-system
+
+aiGateway:
+  name: envoy-ai-gateway-controller
+  releaseName: envoy-ai-gateway
+  repository:
+    url: oci://docker.io/envoyproxy/ai-gateway-helm
+  chart:
+    version: v0.5.0
+  interval: 1h
+  timeout: 10m
+  targetNamespace: envoy-ai-gateway-system
+  values: {}

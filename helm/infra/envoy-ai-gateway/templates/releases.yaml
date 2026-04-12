@@ -1,0 +1,89 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: {{ .Values.envoyGateway.name }}
+  namespace: flux-system
+spec:
+  interval: {{ .Values.envoyGateway.interval }}
+  timeout: {{ .Values.envoyGateway.timeout }}
+  targetNamespace: {{ .Values.envoyGateway.targetNamespace }}
+  releaseName: {{ .Values.envoyGateway.releaseName }}
+  install:
+    createNamespace: true
+    remediation:
+      remediateLastFailure: true
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      remediateLastFailure: true
+      retries: 3
+  chartRef:
+    kind: OCIRepository
+    name: {{ .Values.envoyGateway.name }}
+    namespace: flux-system
+  values:
+{{ toYaml .Values.envoyGateway.values | nindent 4 }}
+{{ "\n" }}---{{ "\n" }}
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: {{ .Values.aiGatewayCrds.name }}
+  namespace: flux-system
+spec:
+  interval: {{ .Values.aiGatewayCrds.interval }}
+  timeout: {{ .Values.aiGatewayCrds.timeout }}
+  targetNamespace: {{ .Values.aiGatewayCrds.targetNamespace }}
+  releaseName: {{ .Values.aiGatewayCrds.releaseName }}
+  install:
+    createNamespace: true
+    crds: CreateReplace
+    remediation:
+      remediateLastFailure: true
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    crds: CreateReplace
+    remediation:
+      remediateLastFailure: true
+      retries: 3
+  chartRef:
+    kind: OCIRepository
+    name: {{ .Values.aiGatewayCrds.name }}
+    namespace: flux-system
+{{ "\n" }}---{{ "\n" }}
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: {{ .Values.aiGateway.name }}
+  namespace: flux-system
+spec:
+  interval: {{ .Values.aiGateway.interval }}
+  timeout: {{ .Values.aiGateway.timeout }}
+  targetNamespace: {{ .Values.aiGateway.targetNamespace }}
+  releaseName: {{ .Values.aiGateway.releaseName }}
+  install:
+    createNamespace: true
+    crds: Skip
+    remediation:
+      remediateLastFailure: true
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    crds: Skip
+    remediation:
+      remediateLastFailure: true
+      retries: 3
+  dependsOn:
+    - name: {{ .Values.envoyGateway.name }}
+      namespace: flux-system
+    - name: {{ .Values.aiGatewayCrds.name }}
+      namespace: flux-system
+  chartRef:
+    kind: OCIRepository
+    name: {{ .Values.aiGateway.name }}
+    namespace: flux-system
+  {{- with .Values.aiGateway.values }}
+  values:
+{{ toYaml . | nindent 4 }}
+  {{- end }}

@@ -31,6 +31,7 @@ The intended platform shape is:
 The repo already includes:
 
 - Flux plus Helm as the delivery path for cluster workloads
+- Envoy AI Gateway infra chart under `helm/infra/envoy-ai-gateway/` for future AI traffic routing
 - app charts under `helm/apps/`
 - data/platform charts under `helm/data/` and `helm/bootstrap/`
 - the `ui`, `external`, `mcp`, `orchestrator`, and `processor` apps under `apps/`
