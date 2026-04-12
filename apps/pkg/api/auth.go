@@ -60,7 +60,7 @@ func ResolveAuthStatus(ctx context.Context, headers http.Header, certificateHead
 		}
 	}
 
-	if email := normalizeEmail(headers.Get(oidcHeader)); email != "" {
+	if email := resolveOIDCEmail(headers, oidcHeader); email != "" {
 		return AuthStatus{
 			Mode:  AuthModeOIDC,
 			Email: email,
@@ -71,6 +71,32 @@ func ResolveAuthStatus(ctx context.Context, headers http.Header, certificateHead
 		Mode:          AuthModeNone,
 		InvalidReason: "no authenticated identity was provided",
 	}
+}
+
+func resolveOIDCEmail(headers http.Header, oidcHeader string) string {
+	candidates := []string{
+		oidcHeader,
+		"X-Forwarded-Email",
+		"X-Auth-Request-Email",
+		"X-Email",
+		"X-Forwarded-User",
+		"X-Auth-Request-User",
+		"X-User",
+	}
+
+	for _, header := range candidates {
+		if email := normalizeEmail(headers.Get(header)); email != "" {
+			return email
+		}
+	}
+
+	if username, _, ok := basicAuthUsername(headers.Get("Authorization")); ok {
+		if email := normalizeEmail(username); email != "" {
+			return email
+		}
+	}
+
+	return ""
 }
 
 func WithAuthStatus(ctx context.Context, status AuthStatus) context.Context {
@@ -207,4 +233,19 @@ func unquoteXFCCValue(value string) string {
 	value = strings.TrimPrefix(value, "\"")
 	value = strings.TrimSuffix(value, "\"")
 	return value
+}
+
+func basicAuthUsername(authorization string) (string, string, bool) {
+	if strings.TrimSpace(authorization) == "" {
+		return "", "", false
+	}
+
+	request, err := http.NewRequest(http.MethodGet, "/", nil)
+	if err != nil {
+		return "", "", false
+	}
+
+	request.Header.Set("Authorization", authorization)
+	username, password, ok := request.BasicAuth()
+	return username, password, ok
 }

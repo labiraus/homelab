@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
 	"pkg/base"
@@ -33,6 +34,35 @@ func TestResolveAuthStatusOIDC(t *testing.T) {
 	}
 	if status.Email != "oliver@labiraus.com" {
 		t.Fatalf("expected oidc email to be parsed, got %q", status.Email)
+	}
+}
+
+func TestResolveAuthStatusOIDCFallsBackToForwardedUser(t *testing.T) {
+	headers := http.Header{}
+	headers.Set("X-Forwarded-User", "oliver@labiraus.com")
+
+	status := ResolveAuthStatus(context.Background(), headers, "X-Forwarded-Client-Cert", "X-Forwarded-Email")
+
+	if status.Mode != AuthModeOIDC {
+		t.Fatalf("expected oidc mode, got %q", status.Mode)
+	}
+	if status.Email != "oliver@labiraus.com" {
+		t.Fatalf("expected forwarded user email to be parsed, got %q", status.Email)
+	}
+}
+
+func TestResolveAuthStatusOIDCFallsBackToBasicAuthUsername(t *testing.T) {
+	headers := http.Header{}
+	credentials := base64.StdEncoding.EncodeToString([]byte("oliver@labiraus.com:unused"))
+	headers.Set("Authorization", "Basic "+credentials)
+
+	status := ResolveAuthStatus(context.Background(), headers, "X-Forwarded-Client-Cert", "X-Forwarded-Email")
+
+	if status.Mode != AuthModeOIDC {
+		t.Fatalf("expected oidc mode, got %q", status.Mode)
+	}
+	if status.Email != "oliver@labiraus.com" {
+		t.Fatalf("expected basic auth username email to be parsed, got %q", status.Email)
 	}
 }
 

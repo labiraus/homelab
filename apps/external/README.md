@@ -20,7 +20,7 @@ The browser-facing path is published through `oauth2-proxy` at `/api/...`, and t
 `external` now attaches auth middleware from `apps/pkg/api`.
 
 - certificate auth is derived from trusted `X-Forwarded-Client-Cert` details from Istio
-- OIDC auth is currently expected to arrive from `oauth2-proxy` through the trusted upstream email header `X-Forwarded-Email`
+- OIDC auth is expected to arrive from `oauth2-proxy` through trusted upstream identity headers, preferring `X-Forwarded-Email` and falling back to related proxy user/email headers or Basic Auth username when needed
 - the authenticated email is validated against `auth.users` in Postgres
 - `/api/auth/status` returns the resolved mode, email, validity, and invalid reason
 - `/api/auth/providers` returns the configured federated login providers for browser clients
