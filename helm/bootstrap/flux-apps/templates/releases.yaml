@@ -67,9 +67,11 @@ spec:
       version: {{ $r.version | quote }}
       {{- end }}
   {{- end }}
-  {{- with $r.values }}
   values:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- if $r.values }}
+    {{- toYaml $r.values | nindent 4 }}
+    {{- else }}
+    {}
+    {{- end }}
 {{ "\n" }}---{{ "\n" }}
 {{- end }}
