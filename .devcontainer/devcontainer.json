@@ -47,6 +47,11 @@
       "target": "/home/vscode/.bashrc.devcontainer"
     },
     {
+      "source": "${localWorkspaceFolder}/.devcontainer/config.toml",
+      "target": "/tmp/codex-config.toml",
+      "type": "bind"
+    },
+    {
       "type": "bind",
       "source": "${localWorkspaceFolder}/plugin-cache",
       "target": "/home/vscode/terraform-plugin-cache"
@@ -77,6 +82,7 @@
     ".devcontainer/.env"
   ],
   "postCreateCommand": {
+    "codex-config": "mkdir -p /home/vscode/.codex && cp /tmp/codex-config.toml /home/vscode/.codex/config.toml && chown vscode:vscode /home/vscode/.codex/config.toml && chmod 600 /home/vscode/.codex/config.toml",
     "git": "git config --global --add safe.directory /workspaces/homelab",
     "scripts": "find . -type d -name node_modules -prune -o -type f -path '*/scripts/*.sh' -exec chmod +x {} + || true",
     "terraform.sh": "chmod +x ./bin/tf",
