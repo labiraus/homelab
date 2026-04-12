@@ -22,6 +22,20 @@ def git(*args: str) -> str:
     )
 
 
+def git_object_exists(rev: str) -> bool:
+    if not rev:
+        return False
+
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}"],
+        cwd=REPO_ROOT,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    return result.returncode == 0
+
+
 def load_chart_type(chart_yaml: Path) -> str:
     for line in chart_yaml.read_text(encoding="utf-8").splitlines():
         if line.startswith("type:"):
@@ -57,7 +71,10 @@ def map_chart_file_to_dir(rel_path: str) -> str | None:
     return None
 
 
-def changed_files(before_sha: str, current_sha: str) -> list[str]:
+def changed_files(before_sha: str, current_sha: str) -> list[str] | None:
+    if not git_object_exists(before_sha) or not git_object_exists(current_sha):
+        return None
+
     output = git("diff", "--name-only", before_sha, current_sha)
     return [line for line in output.splitlines() if line]
 
@@ -78,6 +95,14 @@ def discover_publish_subset(rows: list[dict[str, str]], event_name: str, before_
 
     if not publish_all:
         files = changed_files(before_sha, current_sha)
+        if files is None:
+            print(
+                f"warning: could not diff {before_sha!r}..{current_sha!r}; falling back to publish_all",
+                file=sys.stderr,
+            )
+            publish_all = True
+
+    if not publish_all:
         if any(
             path.startswith(".github/actions/helm/")
             or path.startswith("scripts/build/")
