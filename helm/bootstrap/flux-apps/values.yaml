@@ -24,6 +24,8 @@ releases:
   - name: envoy-ai-gateway
     type: oci
     targetNamespace: flux-system
+    installDisableWait: true
+    upgradeDisableWait: true
 
   - name: external
     type: oci
