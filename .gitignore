@@ -36,5 +36,7 @@ k8s/generated-secrets/
 *.srl
 
 node_modules/
+__pycache__/
+*.py[cod]
 
 *.mkv
