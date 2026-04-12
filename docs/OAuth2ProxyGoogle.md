@@ -6,7 +6,7 @@ The chosen near-term pattern is:
 
 - `oauth2-proxy` handles browser sign-in and session cookies
 - Google is the upstream identity provider
-- `ui` and `external` are protected by Istio external authorization using `oauth2-proxy`
+- `oauth2-proxy` is the browser-facing reverse proxy for both `ui` and `external`
 - `mcp` continues to publish OAuth protected-resource metadata for bearer-capable clients and remains compatible with a future dedicated certificate-auth hostname
 
 This keeps browser authentication simple now without locking the repo into Google-only logic inside the application code.
@@ -30,11 +30,13 @@ Public legal pages used by Google Auth Platform:
 ## How The Flow Works
 
 1. The browser reaches `ui` or `external` through the shared host.
-2. Istio calls the `oauth2-proxy` external authorizer.
+2. The public Gateway sends `/`, `/api`, and `/oauth2/*` to `oauth2-proxy`.
 3. If no valid session cookie is present, `oauth2-proxy` redirects the browser to Google.
 4. Google redirects back to `/oauth2/callback`.
-5. `oauth2-proxy` sets the browser session cookie.
-6. Istio retries the request and forwards trusted headers such as `X-Auth-Request-Email` to `external`.
+5. `oauth2-proxy` sets the browser session cookie and then proxies:
+   - `/` to `ui`
+   - `/api/...` to `external`
+6. `oauth2-proxy` forwards trusted identity headers such as `X-Forwarded-Email` to `external`.
 7. `external` validates the resulting email against `auth.users`.
 
 ## Google Auth Platform Changes
@@ -82,7 +84,9 @@ The repo now carries:
 
 - `helm/infra/oauth2-proxy/`
   - deploys `oauth2-proxy` on port `4180`
-  - exposes `/oauth2` browser endpoints on `mcp.labiraus.com`
+  - exposes `/`, `/api`, and `/oauth2` on `mcp.labiraus.com`
+  - proxies `/` to `ui`
+  - proxies `/api/...` to `external`
   - redirects browser hits on `/oauth2` and `/oauth2/auth` back to `/` so users do not get stranded on the raw auth-check endpoint
 - `helm/bootstrap/istio/values.yaml`
   - defines the Istio `oauth2-proxy` extension provider
@@ -90,9 +94,9 @@ The repo now carries:
   - sends external-auth checks to `/oauth2/auth`
   - adds an explicit `X-Auth-Request-Redirect` back to `https://mcp.labiraus.com/` so successful browser sign-in returns to the UI instead of leaving the browser on `/oauth2/auth`
 - `helm/apps/ui/values.yaml`
-  - applies Istio `CUSTOM` auth through `oauth2-proxy`
+  - no longer publishes `/` directly on the shared host
 - `helm/apps/external/values.yaml`
-  - applies Istio `CUSTOM` auth through `oauth2-proxy`
+  - no longer publishes `/api` directly on the shared host
   - publishes `OIDC_LOGIN_URL` as the local `/oauth2/start` URL
 - `helm/apps/mcp/values.yaml`
   - sets `OIDC_ISSUER_URL` to Google for protected-resource discovery
@@ -112,7 +116,7 @@ The current chart expects that Secret to already exist in-cluster. It is intenti
 
 ## Current Boundaries
 
-This choice applies to browser login for `ui` and `external`.
+This choice applies to browser login for `ui` and `external`, both of which now sit behind `oauth2-proxy` on the shared hostname instead of using Istio browser ext-auth directly.
 
 It does not replace the separate certificate-auth direction for `mcp`. For strict certificate authentication, the recommended future shape is still a dedicated hostname or dedicated listener instead of putting strict mTLS on the shared browser host.
 On the shared host, certificate identity can still be consumed opportunistically from trusted `X-Forwarded-Client-Cert` details when some upstream listener forwards them, but the Google redirect path is still the browser-facing fallback.

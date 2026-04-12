@@ -94,23 +94,7 @@ security:
     peerAuthentication:
       enabled: true
       mode: STRICT
-    authorizationPolicies:
-      - nameSuffix: browser-edge-auth
-        action: CUSTOM
-        provider:
-          name: oauth2-proxy
-        rules:
-          - {}
-      - nameSuffix: ingress-allow
-        action: ALLOW
-        rules:
-          - from:
-              - source:
-                  principals:
-                    - cluster.local/ns/ingress/sa/gateway-istio
-            to:
-              - operation:
-                  ports: ["8080"]
+    authorizationPolicies: []
   networkPolicy:
     enabled: true
     defaultDenyIngress: true
@@ -119,7 +103,11 @@ security:
       - from:
           - namespaceSelector:
               matchLabels:
-                kubernetes.io/metadata.name: ingress
+                kubernetes.io/metadata.name: homelab
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: homelab-oauth2-proxy
+                app.kubernetes.io/name: oauth2-proxy
         ports:
           - protocol: TCP
             port: 8080
@@ -179,7 +167,7 @@ service:
   port: 8080
 
 ingress:
-  enabled: true
+  enabled: false
   httpsRedirect: true
   className: ""
   annotations: {}

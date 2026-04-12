@@ -13,7 +13,7 @@ The UI exposes:
 
 The results are shown in the page so it is easy to confirm browser-to-gateway-to-service routing and inspect the current auth state seen by the API.
 
-In the current repo choice, the login URL published by `/api/auth/providers` should point at the shared-host `oauth2-proxy` start endpoint rather than directly at Google.
+In the current repo choice, the shared-host browser path is fronted by `oauth2-proxy`: `/` is proxied to `ui`, `/api/...` is proxied to `external`, and the login URL published by `/api/auth/providers` points at the local `oauth2-proxy` start endpoint rather than directly at Google.
 
 ## Local Development
 

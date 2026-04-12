@@ -86,26 +86,10 @@ security:
     peerAuthentication:
       enabled: true
       mode: STRICT
-    authorizationPolicies:
-      - nameSuffix: browser-edge-auth
-        action: CUSTOM
-        provider:
-          name: oauth2-proxy
-        rules:
-          - {}
-      - nameSuffix: ingress-allow
-        action: ALLOW
-        rules:
-          - from:
-              - source:
-                  principals:
-                    - cluster.local/ns/ingress/sa/gateway-istio
-            to:
-              - operation:
-                  ports: ["80"]
+    authorizationPolicies: []
 
 ingress:
-  enabled: true
+  enabled: false
   httpsRedirect: true
   className: ""
   annotations: {}

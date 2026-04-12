@@ -40,7 +40,7 @@ The UI reads `/api/auth/providers` and uses the configured Google provider metad
 - The current browser-facing choice is `oauth2-proxy + Google`.
 - `external` publishes the browser login URL from `OIDC_LOGIN_URL`.
 - In the current repo setup, that login URL should be the local `oauth2-proxy` start endpoint on the shared hostname.
-- After the upstream OIDC flow completes, the trusted gateway or auth proxy must inject the email header the API reads, currently `X-Auth-Request-Email`.
+- In the current reverse-proxy flow, `external` reads the proxied identity from `X-Forwarded-Email`.
 - See [Google OIDC Setup](/workspaces/homelab/docs/GoogleOIDCSetup.md) for the Google Cloud and redirect-URI configuration needed to make that flow work.
 - See [oauth2-proxy + Google](/workspaces/homelab/docs/OAuth2ProxyGoogle.md) for the exact current hostnames, callback URL, DNS expectations, and Helm changes.
 
@@ -111,7 +111,7 @@ The gateway chart now supports an optional validation block:
 
 When enabled, the rendered Gateway adds `spec.tls.frontend.default.validation.caCertificateRefs`, which makes Istio verify client certificates against that CA secret.
 
-The Istio bootstrap values also set:
+The Istio bootstrap values still define an `oauth2-proxy` extension provider:
 
 ```yaml
 meshConfig:
@@ -126,7 +126,7 @@ meshConfig:
       forwardClientCertDetails: SANITIZE_SET
 ```
 
-That causes Istio to sanitize any incoming client-supplied `X-Forwarded-Client-Cert` value and replace it with gateway-generated certificate details, while the external authorizer checks the `oauth2-proxy` auth endpoint instead of the browser start or callback routes.
+That causes Istio to sanitize any incoming client-supplied `X-Forwarded-Client-Cert` value and replace it with gateway-generated certificate details. The current browser login flow, however, is now centered on `oauth2-proxy` as the reverse proxy for `/` and `/api`, rather than on Istio `CUSTOM` auth for the UI.
 
 ## Strict mTLS Versus Browser OIDC Fallback
 

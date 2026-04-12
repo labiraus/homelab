@@ -125,6 +125,7 @@ ss -ant | grep ':6443' | awk '{print $5}' | sed 's/.*ffff://; s/]//; s/\[//' | c
 
 ### Istio ext-auth drift can look like generic RBAC denies
 
+- The current browser-facing path no longer relies on Istio `CUSTOM` auth for `ui` and `external`. `oauth2-proxy` now owns `/` and `/api` as a reverse proxy, while `mcp` keeps its own route space.
 - If `mcp.labiraus.com` starts returning a plain `RBAC: access denied` instead of redirecting browsers to Google, inspect the Istio `oauth2-proxy` extension provider before debugging the app routes.
 - In the current Flux bootstrap flow, the live top-level `flux-system/istio` HelmRelease is seeded from `helm/bootstrap/flux-bootstrap/values.yaml`. Keeping `helm/bootstrap/istio/values.yaml` correct is not enough if the bootstrap release values omit the same `meshConfig` entries.
 - In this repo, the provider must target the rendered service name `homelab-oauth2-proxy.homelab.svc.cluster.local`, not the unprefixed chart name.
@@ -132,6 +133,7 @@ ss -ant | grep ':6443' | awk '{print $5}' | sed 's/.*ffff://; s/]//; s/\[//' | c
 - The provider must send checks to `/oauth2/auth`. Hitting `/`, `/oauth2/start`, or another browser endpoint produces the wrong behavior for Envoy external authorization.
 - If browsers authenticate successfully but then land on a plain `Authenticated` page, the auth check is returning the user to `/oauth2/auth` instead of the original site URL. Set an explicit `X-Auth-Request-Redirect` in the Istio extension provider so oauth2-proxy sends the browser back to `https://mcp.labiraus.com/`.
 - As a defense in depth on the public edge, keep `/oauth2/start` and `/oauth2/callback` routable to `oauth2-proxy`, but redirect browser hits on `/oauth2` and `/oauth2/auth` back to `/` so the raw auth-check endpoint is never the visible destination.
+- If browser login still loops or strands users after Google auth, prefer debugging the `oauth2-proxy` reverse-proxy upstreams for `/` and `/api` before reintroducing Istio `CUSTOM` auth on `ui` or `external`.
 - `oauth2-proxy` itself should show this split when checked directly:
   - `/oauth2/start` returns a `302` redirect to Google
   - `/oauth2/auth` returns `401 Unauthorized` when no session cookie is present

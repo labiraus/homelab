@@ -145,3 +145,31 @@ func TestAuthProvidersHandlerReturnsGoogleProvider(t *testing.T) {
 		t.Fatal("expected provider to be configured")
 	}
 }
+
+func TestRegisterPublicRouteAddsApiPrefixAlias(t *testing.T) {
+	mux := http.NewServeMux()
+	registerPublicRoute(mux, "/auth/status", authStatusHandler)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/auth/status", nil)
+	request = request.WithContext(api.WithAuthStatus(request.Context(), api.AuthStatus{
+		Mode:  api.AuthModeOIDC,
+		Email: "oliver@labiraus.com",
+		Valid: true,
+	}))
+	recorder := httptest.NewRecorder()
+
+	mux.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+
+	var response AuthStatusResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected valid json response: %v", err)
+	}
+
+	if response.Email != "oliver@labiraus.com" {
+		t.Fatalf("expected email to be returned for /api alias, got %q", response.Email)
+	}
+}

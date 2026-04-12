@@ -94,6 +94,8 @@ ingress:
   hosts:
     - host: mcp.labiraus.com
       paths:
+        - path: /api
+          pathType: PathPrefix
         - path: /oauth2
           pathType: Exact
           requestRedirect:
@@ -117,6 +119,8 @@ ingress:
             statusCode: 302
         - path: /oauth2
           pathType: PathPrefix
+        - path: /
+          pathType: PathPrefix
   tls: []
 
 resources: {}
@@ -136,7 +140,7 @@ env:
   configValue: "default"
   OAUTH2_PROXY_HTTP_ADDRESS: "0.0.0.0:4180"
   OAUTH2_PROXY_PROVIDER: "google"
-  OAUTH2_PROXY_UPSTREAMS: "static://202"
+  OAUTH2_PROXY_UPSTREAMS: "http://homelab-external.homelab.svc.cluster.local:80/api/,http://homelab-ui.homelab.svc.cluster.local:8000/"
   OAUTH2_PROXY_REVERSE_PROXY: "true"
   OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
   OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
@@ -148,3 +152,5 @@ env:
   OAUTH2_PROXY_COOKIE_SECURE: "true"
   OAUTH2_PROXY_COOKIE_SAMESITE: "lax"
   OAUTH2_PROXY_PASS_ACCESS_TOKEN: "true"
+  OAUTH2_PROXY_PASS_USER_HEADERS: "true"
+  OAUTH2_PROXY_PREFER_EMAIL_TO_USER: "true"
