@@ -1,0 +1,28 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: {{ .Values.envoyGatewayCrds.name }}
+  namespace: flux-system
+spec:
+  interval: {{ .Values.envoyGatewayCrds.interval }}
+  url: {{ .Values.envoyGatewayCrds.repository.url }}
+  ref:
+    tag: {{ .Values.envoyGatewayCrds.source.version | quote }}
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: {{ .Values.envoyGatewayCrds.name }}
+  namespace: flux-system
+spec:
+  prune: true
+  interval: {{ .Values.envoyGatewayCrds.interval }}
+  wait: true
+  timeout: {{ .Values.envoyGatewayCrds.timeout }}
+  dependsOn:
+    - name: gateway-api
+  sourceRef:
+    kind: GitRepository
+    name: {{ .Values.envoyGatewayCrds.name }}
+    namespace: flux-system
+  path: {{ .Values.envoyGatewayCrds.path | quote }}

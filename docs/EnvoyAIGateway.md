@@ -2,9 +2,9 @@
 
 Envoy AI Gateway is installed through `helm/infra/envoy-ai-gateway/` and reconciled by Flux through the `envoy-ai-gateway` release declared in `helm/bootstrap/flux-apps/values.yaml`.
 
-The infra stack installs three upstream OCI charts:
+The infra stack installs three upstream controller artifacts plus one upstream Git source:
 
-- Envoy Gateway CRDs into `envoy-gateway-system`
+- Envoy Gateway CRDs from the upstream `envoyproxy/gateway` Git repository
 - Envoy Gateway into `envoy-gateway-system`
 - Envoy AI Gateway CRDs into `envoy-ai-gateway-system`
 - Envoy AI Gateway controller into `envoy-ai-gateway-system`
@@ -28,7 +28,7 @@ Pinned upstream versions in this repo:
 Current repo note:
 
 - Gateway API is pinned to `v1.4.1` to stay aligned with the upstream Envoy Gateway `v1.7.x` compatibility matrix used by this repo
-- clean installs split CRD ownership so Flux bootstrap owns Gateway API CRDs, `gateway-crds-helm` owns Envoy Gateway CRDs, and the main Envoy Gateway chart installs with CRD management disabled
+- clean installs split CRD ownership so Flux bootstrap owns Gateway API CRDs, a Flux `GitRepository` + `Kustomization` owns Envoy Gateway CRDs from `envoyproxy/gateway`, and the main Envoy Gateway chart installs with CRD management disabled
 - operator access to Postgres no longer depends on a permanent Gateway API `TCPRoute`; the supported workflow is local `make postgres` with a temporary `kubectl port-forward`
 
 Upstream references used for this integration:

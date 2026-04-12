@@ -2,7 +2,7 @@ apiVersion: v2
 name: envoy-ai-gateway
 description: Install Envoy Gateway and Envoy AI Gateway controllers via Flux
 type: application
-version: 0.1.1
+version: 0.1.2
 
 sources:
   - "https://github.com/labiraus/homelab"

@@ -1,33 +1,6 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: {{ .Values.envoyGatewayCrds.name }}
-  namespace: flux-system
-spec:
-  interval: {{ .Values.envoyGatewayCrds.interval }}
-  timeout: {{ .Values.envoyGatewayCrds.timeout }}
-  targetNamespace: {{ .Values.envoyGatewayCrds.targetNamespace }}
-  releaseName: {{ .Values.envoyGatewayCrds.releaseName }}
-  install:
-    createNamespace: true
-    remediation:
-      remediateLastFailure: true
-      retries: 3
-  upgrade:
-    cleanupOnFail: true
-    remediation:
-      remediateLastFailure: true
-      retries: 3
-  chartRef:
-    kind: OCIRepository
-    name: {{ .Values.envoyGatewayCrds.name }}
-    namespace: flux-system
-  values:
-{{ toYaml .Values.envoyGatewayCrds.values | nindent 4 }}
----
-apiVersion: helm.toolkit.fluxcd.io/v2
-kind: HelmRelease
-metadata:
   name: {{ .Values.envoyGateway.name }}
   namespace: flux-system
 spec:
@@ -47,9 +20,6 @@ spec:
     remediation:
       remediateLastFailure: true
       retries: 3
-  dependsOn:
-    - name: {{ .Values.envoyGatewayCrds.name }}
-      namespace: flux-system
   chartRef:
     kind: OCIRepository
     name: {{ .Values.envoyGateway.name }}
