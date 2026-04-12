@@ -11,9 +11,6 @@ import type { DocumentEvent, EmbeddingResult } from "./types.js";
 
 async function main(): Promise<void> {
 	const config = loadConfig();
-	const pool = new Pool({ connectionString: config.postgresConnectionString });
-	await ensureSchema(pool);
-
 	let ready = false;
 	const server = http.createServer((request, response) => {
 		if (request.url === "/liveness") {
@@ -29,38 +26,60 @@ async function main(): Promise<void> {
 
 	server.listen(config.port, "0.0.0.0");
 
-	const nc = await connect({
-		servers: config.natsServers,
-	});
-	const jsm = await nc.jetstreamManager();
-	await ensureStream(jsm, config.streamName, config.subject);
-	await ensureConsumer(jsm, config.streamName, config.consumerName, config.subject);
-
-	const js = nc.jetstream();
-	const consumer = await js.consumers.get(config.streamName, config.consumerName);
-	const messages = await consumer.consume();
-
-	ready = true;
-
-	for await (const message of messages) {
+	for (;;) {
+		const pool = new Pool({ connectionString: config.postgresConnectionString });
+		let nc: Awaited<ReturnType<typeof connect>> | undefined;
 		try {
-			const event = JSON.parse(message.string()) as DocumentEvent;
-			const chunks = chunkText(event.text, {
-				chunkSize: config.chunkSize,
-				chunkOverlap: config.chunkOverlap,
+			await ensureSchema(pool);
+
+			nc = await connect({
+				servers: config.natsServers,
 			});
-			const embeddings: EmbeddingResult[] = [];
-			for (const chunk of chunks) {
-				const embedding = await fetchEmbedding(config.embeddingEndpoint, config.embeddingModel, chunk.text);
-				embeddings.push(embedding);
+			const jsm = await nc.jetstreamManager();
+			await ensureStream(jsm, config.streamName, config.subject);
+			await ensureConsumer(jsm, config.streamName, config.consumerName, config.subject);
+
+			const js = nc.jetstream();
+			const consumer = await js.consumers.get(config.streamName, config.consumerName);
+			const messages = await consumer.consume();
+
+			ready = true;
+
+			for await (const message of messages) {
+				try {
+					const event = JSON.parse(message.string()) as DocumentEvent;
+					const chunks = chunkText(event.text, {
+						chunkSize: config.chunkSize,
+						chunkOverlap: config.chunkOverlap,
+					});
+					const embeddings: EmbeddingResult[] = [];
+					for (const chunk of chunks) {
+						const embedding = await fetchEmbedding(config.embeddingEndpoint, config.embeddingModel, chunk.text);
+						embeddings.push(embedding);
+					}
+
+					await persistDocument(pool, event, chunks, embeddings);
+					message.ack();
+				} catch (error) {
+					message.nak();
+					console.error(error);
+				}
 			}
 
-			await persistDocument(pool, event, chunks, embeddings);
-			message.ack();
+			throw new Error("message consumer stopped");
 		} catch (error) {
-			message.nak();
-			throw error;
+			console.error(error);
+		} finally {
+			ready = false;
+			try {
+				await nc?.drain();
+			} catch {
+				nc?.close();
+			}
+			await pool.end().catch(() => undefined);
 		}
+
+		await delay(5000);
 	}
 }
 
@@ -113,6 +132,10 @@ async function ensureConsumer(
 
 function isNotFoundError(error: unknown): boolean {
 	return error instanceof Error && "code" in error && error.code === "404";
+}
+
+function delay(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 main().catch((error) => {

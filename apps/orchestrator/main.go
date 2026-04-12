@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"pkg/api"
 	"pkg/base"
@@ -16,19 +17,37 @@ import (
 func main() {
 	ctx := base.Start("orchestrator")
 
-	if err := startNATS(ctx); err != nil {
-		slog.ErrorContext(ctx, err.Error())
-		return
-	}
-
 	mux := http.NewServeMux()
 	prometheusutil.Start(mux)
 	mux.HandleFunc("/documents", documentsHandler)
 
 	done := api.Start(ctx, mux, 8080)
 
-	close(base.Ready)
+	go func() {
+		if err := startNATSWithRetry(ctx, 5*time.Second); err != nil {
+			slog.ErrorContext(ctx, "nats bootstrap stopped", "error", err)
+			return
+		}
+		close(base.Ready)
+	}()
+
 	<-done
+}
+
+func startNATSWithRetry(ctx context.Context, retryDelay time.Duration) error {
+	for {
+		if err := startNATS(ctx); err != nil {
+			slog.ErrorContext(ctx, "nats bootstrap failed", "error", err, "retryDelay", retryDelay.String())
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(retryDelay):
+				continue
+			}
+		}
+
+		return nil
+	}
 }
 
 func startNATS(ctx context.Context) error {
