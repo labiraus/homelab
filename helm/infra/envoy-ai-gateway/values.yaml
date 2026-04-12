@@ -1,3 +1,20 @@
+envoyGatewayCrds:
+  name: envoy-gateway-crds-upstream
+  releaseName: envoy-gateway-crds
+  repository:
+    url: oci://docker.io/envoyproxy/gateway-crds-helm
+  chart:
+    version: v1.7.0
+  interval: 1h
+  timeout: 10m
+  targetNamespace: envoy-gateway-system
+  values:
+    crds:
+      envoyGateway:
+        enabled: true
+      gatewayAPI:
+        enabled: false
+
 envoyGateway:
   name: envoy-gateway-upstream
   releaseName: envoy-gateway

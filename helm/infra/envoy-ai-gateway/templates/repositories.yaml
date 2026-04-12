@@ -1,6 +1,17 @@
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
+  name: {{ .Values.envoyGatewayCrds.name }}
+  namespace: flux-system
+spec:
+  interval: {{ .Values.envoyGatewayCrds.interval }}
+  url: {{ .Values.envoyGatewayCrds.repository.url }}
+  ref:
+    tag: {{ .Values.envoyGatewayCrds.chart.version | quote }}
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
   name: {{ .Values.envoyGateway.name }}
   namespace: flux-system
 spec:
