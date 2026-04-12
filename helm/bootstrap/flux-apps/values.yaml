@@ -41,6 +41,8 @@ releases:
   - name: processor
     type: oci
     namespace: homelab
+    installDisableWait: true
+    upgradeDisableWait: true
     dependsOn:
       - nats
       - postgres

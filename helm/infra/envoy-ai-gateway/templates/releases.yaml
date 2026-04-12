@@ -30,6 +30,32 @@ spec:
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
+  name: {{ .Values.aiGatewayCrds.name }}
+  namespace: flux-system
+spec:
+  interval: {{ .Values.aiGatewayCrds.interval }}
+  timeout: {{ .Values.aiGatewayCrds.timeout }}
+  targetNamespace: {{ .Values.aiGatewayCrds.targetNamespace }}
+  install:
+    createNamespace: true
+    crds: CreateReplace
+    remediation:
+      remediateLastFailure: true
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    crds: CreateReplace
+    remediation:
+      remediateLastFailure: true
+      retries: 3
+  chartRef:
+    kind: OCIRepository
+    name: {{ .Values.aiGatewayCrds.name }}
+    namespace: flux-system
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
   name: {{ .Values.aiGateway.name }}
   namespace: flux-system
 spec:
@@ -52,6 +78,8 @@ spec:
   dependsOn:
     - name: {{ .Values.envoyGateway.name }}
       namespace: flux-system
+    - name: {{ .Values.aiGatewayCrds.name }}
+      namespace: flux-system
   chartRef:
     kind: OCIRepository
     name: {{ .Values.aiGateway.name }}
@@ -60,22 +88,3 @@ spec:
   values:
 {{ toYaml . | nindent 4 }}
   {{- end }}
----
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
-  name: {{ .Values.aiGatewayCrds.name }}
-  namespace: flux-system
-spec:
-  prune: true
-  interval: {{ .Values.aiGatewayCrds.interval }}
-  wait: true
-  timeout: {{ .Values.aiGatewayCrds.timeout }}
-  dependsOn:
-    - name: gateway-api
-    - name: {{ .Values.envoyGatewayCrds.name }}
-  sourceRef:
-    kind: OCIRepository
-    name: {{ .Values.aiGatewayCrds.name }}
-    namespace: flux-system
-  path: {{ .Values.aiGatewayCrds.path | quote }}
