@@ -65,9 +65,9 @@ func main() {
 
 	mux := http.NewServeMux()
 	prometheusutil.Start(mux)
-	registerPublicRoute(mux, "/auth/status", authStatusHandler)
-	registerPublicRoute(mux, "/auth/providers", authProvidersHandler)
-	registerPublicRoute(mux, "/users/count", userCountHandler)
+	mux.HandleFunc("/api/auth/status", authStatusHandler)
+	mux.HandleFunc("/api/auth/providers", authProvidersHandler)
+	mux.HandleFunc("/api/users/count", userCountHandler)
 
 	done := api.Start(ctx, mux, 8080, api.NewAuthMiddleware(api.AuthOptions{
 		OIDCEmailHeader: "X-Forwarded-Email",
@@ -102,9 +102,4 @@ func postgresConfigured() bool {
 	}
 
 	return true
-}
-
-func registerPublicRoute(mux *http.ServeMux, path string, handler http.HandlerFunc) {
-	mux.HandleFunc(path, handler)
-	mux.HandleFunc("/api"+path, handler)
 }

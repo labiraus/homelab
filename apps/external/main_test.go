@@ -26,7 +26,7 @@ func TestUserCountHandler(t *testing.T) {
 		return 7, nil
 	}
 
-	request := httptest.NewRequest(http.MethodGet, "/users/count", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/users/count", nil)
 	recorder := httptest.NewRecorder()
 
 	userCountHandler(recorder, request)
@@ -59,7 +59,7 @@ func TestUserCountHandlerReturnsErrorPayload(t *testing.T) {
 		return 0, fmt.Errorf("boom")
 	}
 
-	request := httptest.NewRequest(http.MethodGet, "/users/count", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/users/count", nil)
 	recorder := httptest.NewRecorder()
 
 	userCountHandler(recorder, request)
@@ -79,7 +79,7 @@ func TestUserCountHandlerReturnsErrorPayload(t *testing.T) {
 }
 
 func TestAuthStatusHandlerReturnsMiddlewareStatus(t *testing.T) {
-	request := httptest.NewRequest(http.MethodGet, "/auth/status", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/auth/status", nil)
 	request = request.WithContext(api.WithAuthStatus(request.Context(), api.AuthStatus{
 		Mode:  api.AuthModeOIDC,
 		Email: "oliver@labiraus.com",
@@ -113,7 +113,7 @@ func TestAuthProvidersHandlerReturnsGoogleProvider(t *testing.T) {
 	t.Setenv("OIDC_ISSUER_URL", "https://accounts.google.com")
 	t.Setenv("OIDC_LOGIN_URL", "https://accounts.google.com/o/oauth2/v2/auth")
 
-	request := httptest.NewRequest(http.MethodGet, "/auth/providers", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/auth/providers", nil)
 	recorder := httptest.NewRecorder()
 
 	authProvidersHandler(recorder, request)
@@ -146,9 +146,9 @@ func TestAuthProvidersHandlerReturnsGoogleProvider(t *testing.T) {
 	}
 }
 
-func TestRegisterPublicRouteAddsApiPrefixAlias(t *testing.T) {
+func TestMuxExposesOnlyApiRoutes(t *testing.T) {
 	mux := http.NewServeMux()
-	registerPublicRoute(mux, "/auth/status", authStatusHandler)
+	mux.HandleFunc("/api/auth/status", authStatusHandler)
 
 	request := httptest.NewRequest(http.MethodGet, "/api/auth/status", nil)
 	request = request.WithContext(api.WithAuthStatus(request.Context(), api.AuthStatus{
@@ -170,6 +170,15 @@ func TestRegisterPublicRouteAddsApiPrefixAlias(t *testing.T) {
 	}
 
 	if response.Email != "oliver@labiraus.com" {
-		t.Fatalf("expected email to be returned for /api alias, got %q", response.Email)
+		t.Fatalf("expected email to be returned for /api route, got %q", response.Email)
+	}
+
+	rootRequest := httptest.NewRequest(http.MethodGet, "/auth/status", nil)
+	rootRecorder := httptest.NewRecorder()
+
+	mux.ServeHTTP(rootRecorder, rootRequest)
+
+	if rootRecorder.Code != http.StatusNotFound {
+		t.Fatalf("expected root route to be absent, got status %d", rootRecorder.Code)
 	}
 }
