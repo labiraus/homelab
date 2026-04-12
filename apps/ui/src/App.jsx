@@ -167,9 +167,9 @@ function App() {
 	return (
 		<main className="app-shell">
 			<section className="hero">
-				<p className="eyebrow">Homelab UI</p>
+				<p className="eyebrow">Labiraus</p>
 				<div className="hero-heading">
-					<h1>Verify backend routes from one place.</h1>
+					<h1>Verify Labiraus routes from one place.</h1>
 					<button
 						type="button"
 						className="theme-toggle"
@@ -180,8 +180,10 @@ function App() {
 					</button>
 				</div>
 				<p className="intro">
-					This frontend now doubles as a quick auth console: it shows what the gateway
-					and API believe about your identity before you hit the backend checks.
+					This frontend doubles as a quick auth console: it shows what the gateway and
+					API believe about your identity before you hit the backend checks, while the
+					Labiraus MCP server accepts either Google-backed login or certificate-authenticated
+					agent access.
 				</p>
 			</section>
 
@@ -223,6 +225,10 @@ function App() {
 					{authProvider?.issuer ? (
 						<p className="response-value">Issuer: {authProvider.issuer}</p>
 					) : null}
+					<p className="response-label">MCP access</p>
+					<p className="response-value">
+						Labiraus also accepts trusted client-certificate access for MCP clients.
+					</p>
 					{providerError ? (
 						<p className="error-text">Provider request failed: {providerError}</p>
 					) : null}

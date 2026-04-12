@@ -34,10 +34,11 @@ describe("App", () => {
 		render(<App />);
 		expect(await screen.findByText("none")).toBeInTheDocument();
 
-		expect(screen.getByRole("heading", { name: /verify backend routes/i })).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: /verify labiraus routes/i })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /user count via external api/i })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /log in with google/i })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /use dark mode/i })).toBeInTheDocument();
+		expect(screen.getByText(/client-certificate access for mcp clients/i)).toBeInTheDocument();
 	});
 
 	test("shows API response after a successful request", async () => {

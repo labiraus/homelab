@@ -24,6 +24,8 @@ Directory-level `AGENTS.md` files currently exist for:
 
 ## Working Rules
 
+- Treat the Labiraus MCP server (`homelab-mcp` in local Codex config) as the primary subject of this repo and its deployed surface area, not as a sidecar utility.
+- When evaluating the deployed project, prefer using the Labiraus MCP server together with other repo-native tools such as local `psql`, Helm/Flux inspection, and app logs so MCP-discovered behavior is checked against the rest of the deployed system.
 - Prefer small, targeted changes that fit the current structure of the repo.
 - When changing behavior, config, workflows, or layout, update the relevant human docs in the same task.
 - Do not commit real secrets, kubeconfig material, private keys, or local-only environment files.

@@ -24,7 +24,7 @@ The intended platform shape is:
 - Redis is available but is not yet a core architectural dependency
 - Mongo is not part of the active plan
 - browser authentication currently standardizes on `oauth2-proxy + Google` on the shared public host
-- certificate authentication remains the preferred direction for stronger MCP client identity on a future dedicated hostname or listener
+- certificate authentication is already part of the Labiraus MCP access story and currently sits alongside the shared Google-backed path as the all-or-nothing access choice for deployed MCP clients
 
 ## Current Repo Reality
 
@@ -47,6 +47,7 @@ Documentation must stay aligned with implementation as these pieces evolve.
 - `ui` is the browser-facing React application.
 - `external` is the stable public API for the UI. It serves Postgres-backed data and triggers orchestrator actions without exposing internal pipeline details.
 - `mcp` is the stable AI-native front door for agents and MCP-compatible clients.
+- the Labiraus MCP server is a primary product surface of this repo, not a sidecar utility, and should be evaluated alongside the rest of the deployed stack
 - `orchestrator` is the internal control plane. It owns workflow state transitions, reconciliation, and task dispatch decisions.
 - `processor` is the stateless data-plane worker. It performs extraction, chunking, embedding, and persistence work when triggered asynchronously.
 
@@ -131,6 +132,7 @@ Deliverables:
 - orchestrator emits processing work based on Postgres-backed state
 - processor consumes jobs and performs extraction, chunking, embedding, and persistence
 - processing results are written back to Postgres, not treated as JetStream-owned state
+- define document lifecycle notification subjects so MCP can eventually forward NATS-backed updates to subscribers
 
 ### Phase 4 — Retrieval Through `external` And `mcp`
 
@@ -139,6 +141,8 @@ Deliverables:
 - `external` exposes stable retrieval/query capabilities for the UI
 - `mcp` exposes the same capabilities in an AI-native shape for agents
 - both surfaces read from Postgres-backed state and hide pipeline internals
+- `mcp` publishes prompt guidance for current and planned capabilities
+- `mcp` grows a subscription pattern for document lifecycle notifications sourced from NATS JetStream
 
 ### Phase 5 — Editing, Reprocessing, Citations, And Richer Context
 
@@ -171,9 +175,11 @@ CAG and semantic graph ambitions remain later phases, not the initial implementa
 
 - keep docs aligned with the chosen app boundaries
 - keep the chosen `oauth2-proxy + Google` browser-auth path aligned across Helm, `ui`, `external`, and docs
+- keep the client-certificate MCP access story aligned with the manifest metadata and auth docs
 - establish the initial `rag` Postgres schema for document inventory and future processing state
 - shape orchestrator and processor around clean control-plane versus data-plane boundaries
 - keep public access flowing through `external` and `mcp`
+- build the Labiraus prompt and notification surfaces in step with the repo plan rather than as disconnected demos
 - avoid premature datastore or workflow-engine expansion
 
 ## Change Heuristics

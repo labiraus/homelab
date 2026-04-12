@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -20,6 +21,12 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 
 	if manifest.Authorization.Meta.ResourceMetadataURL != "https://mcp.labiraus.com/.well-known/oauth-protected-resource" {
 		t.Fatalf("unexpected resource metadata URL: %q", manifest.Authorization.Meta.ResourceMetadataURL)
+	}
+	if manifest.Authorization.Meta.Requirement != "one-of" {
+		t.Fatalf("expected one-of access requirement, got %q", manifest.Authorization.Meta.Requirement)
+	}
+	if len(manifest.Prompts) == 0 {
+		t.Fatalf("expected prompts to be published in the manifest")
 	}
 
 	liveTool := findToolInManifest(t, manifest, "documents.submit")
@@ -38,6 +45,127 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 	template := findResourceTemplateInManifest(t, manifest, "minio.documents.object")
 	if template.Meta.ExecutionMode != manifestExecutionModeMinIOGetObject {
 		t.Fatalf("expected MinIO get execution mode, got %q", template.Meta.ExecutionMode)
+	}
+
+	notificationTemplate := findResourceTemplateInManifest(t, manifest, "documents.notifications.stream")
+	if notificationTemplate.Meta.ExecutionMode != manifestExecutionModeNATSSubscription {
+		t.Fatalf("expected NATS subscription execution mode, got %q", notificationTemplate.Meta.ExecutionMode)
+	}
+}
+
+func TestInitializeUsesLabirausServerInfo(t *testing.T) {
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "initialize",
+		Params: mustMarshalParams(t, map[string]any{
+			"protocolVersion": supportedProtocolVersions[0],
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful initialize response, got %#v", responseBody)
+	}
+
+	result, ok := responseBody.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected initialize result map, got %#v", responseBody.Result)
+	}
+
+	serverInfo, ok := result["serverInfo"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected serverInfo map, got %#v", result["serverInfo"])
+	}
+	if serverInfo["name"] != "labiraus" {
+		t.Fatalf("expected labiraus server name, got %#v", serverInfo["name"])
+	}
+}
+
+func TestHandlePromptsListReturnsPromptCatalog(t *testing.T) {
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "prompts/list",
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful prompt list response, got %#v", responseBody)
+	}
+
+	result, ok := responseBody.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected prompt list result map, got %#v", responseBody.Result)
+	}
+
+	prompts, ok := result["prompts"].([]manifestPrompt)
+	if ok && len(prompts) > 0 {
+		return
+	}
+
+	decodedPrompts, ok := result["prompts"].([]any)
+	if !ok || len(decodedPrompts) == 0 {
+		t.Fatalf("expected prompt entries, got %#v", result["prompts"])
+	}
+}
+
+func TestHandlePromptsGetRendersArguments(t *testing.T) {
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "prompts/get",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "documents.notifications.subscribe.prompt",
+			"arguments": map[string]any{
+				"documentId": "doc-123",
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful prompt get response, got %#v", responseBody)
+	}
+
+	result, ok := responseBody.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected prompt result map, got %#v", responseBody.Result)
+	}
+
+	messages, ok := result["messages"].([]manifestPromptMessage)
+	if ok && len(messages) == 1 {
+		if !strings.Contains(messages[0].Content.Text, "doc-123") {
+			t.Fatalf("expected rendered document id in prompt message, got %#v", messages[0].Content.Text)
+		}
+		return
+	}
+
+	decodedMessages, ok := result["messages"].([]any)
+	if !ok || len(decodedMessages) != 1 {
+		t.Fatalf("expected one prompt message, got %#v", result["messages"])
+	}
+
+	message, ok := decodedMessages[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected prompt message map, got %#v", decodedMessages[0])
+	}
+
+	content, ok := message["content"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected prompt content map, got %#v", message["content"])
+	}
+	if !strings.Contains(content["text"].(string), "doc-123") {
+		t.Fatalf("expected rendered document id in prompt message, got %#v", content["text"])
 	}
 }
 

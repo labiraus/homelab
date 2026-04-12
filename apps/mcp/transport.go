@@ -46,6 +46,11 @@ type resourceResolution struct {
 	params     map[string]string
 }
 
+type promptResolution struct {
+	capability manifestCapabilitySource
+	operation  manifestOperationSource
+}
+
 type toolResolution struct {
 	capability manifestCapabilitySource
 	operation  manifestOperationSource
@@ -68,6 +73,10 @@ func handleMCPRequest(ctx context.Context, r *http.Request, req jsonRPCRequest) 
 		}
 	case "notifications/initialized":
 		return http.StatusAccepted, nil
+	case "prompts/list":
+		return handlePromptsList(ctx, r, req)
+	case "prompts/get":
+		return handlePromptsGet(ctx, r, req)
 	case "resources/list":
 		return handleResourcesList(ctx, r, req)
 	case "resources/templates/list":
@@ -119,10 +128,77 @@ func handleInitialize(req jsonRPCRequest) (int, *jsonRPCResponse) {
 				"tools":     map[string]any{},
 			},
 			"serverInfo": map[string]any{
-				"name":    "homelab",
+				"name":    "labiraus",
 				"version": base.BuildVersion,
 			},
-			"instructions": "Use this MCP server as a single entrypoint for orchestrator actions plus direct Postgres and MinIO-backed read and write capabilities.",
+			"instructions": "Use the Labiraus MCP server as the single entrypoint for orchestrator actions plus direct Postgres and MinIO-backed read and write capabilities. Access currently requires either Google-backed bearer authentication or trusted client-certificate authentication at the edge.",
+		},
+	}
+}
+
+func handlePromptsList(ctx context.Context, r *http.Request, req jsonRPCRequest) (int, *jsonRPCResponse) {
+	manifest, rpcErr := manifestForMCPRequest(ctx, r)
+	if rpcErr != nil {
+		return http.StatusOK, &jsonRPCResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Error:   rpcErr,
+		}
+	}
+
+	return http.StatusOK, &jsonRPCResponse{
+		JSONRPC: "2.0",
+		ID:      req.ID,
+		Result: map[string]any{
+			"prompts": manifest.Prompts,
+		},
+	}
+}
+
+func handlePromptsGet(ctx context.Context, r *http.Request, req jsonRPCRequest) (int, *jsonRPCResponse) {
+	var params getPromptParams
+
+	if err := json.Unmarshal(req.Params, &params); err != nil || strings.TrimSpace(params.Name) == "" {
+		return http.StatusOK, &jsonRPCResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Error: &jsonRPCError{
+				Code:    -32602,
+				Message: "Invalid prompts/get params",
+			},
+		}
+	}
+
+	resolution, ok := findPromptOperationByName(params.Name)
+	if !ok {
+		return http.StatusOK, &jsonRPCResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Error: &jsonRPCError{
+				Code:    -32602,
+				Message: "Unknown prompt",
+			},
+		}
+	}
+
+	arguments := extractArgumentStrings(params.Arguments, promptArgumentNames(resolution.operation.PromptArguments))
+	if err := validatePromptArguments(resolution.operation.PromptArguments, arguments); err != nil {
+		return http.StatusOK, &jsonRPCResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Error: &jsonRPCError{
+				Code:    -32602,
+				Message: err.Error(),
+			},
+		}
+	}
+
+	return http.StatusOK, &jsonRPCResponse{
+		JSONRPC: "2.0",
+		ID:      req.ID,
+		Result: map[string]any{
+			"description": operationDescription(resolution.capability, resolution.operation),
+			"messages":    renderPromptMessages(resolution.operation.PromptMessages, arguments),
 		},
 	}
 }
@@ -668,6 +744,21 @@ func findResourceOperationByURI(uri string) (resourceResolution, bool) {
 	return resourceResolution{}, false
 }
 
+func findPromptOperationByName(name string) (promptResolution, bool) {
+	for _, capability := range capabilityCatalog {
+		for _, operation := range capability.Operations {
+			if operation.Primitive == manifestPrimitivePrompt && operation.ID == name {
+				return promptResolution{
+					capability: capability,
+					operation:  operation,
+				}, true
+			}
+		}
+	}
+
+	return promptResolution{}, false
+}
+
 func findToolOperationByName(name string) (toolResolution, bool) {
 	for _, capability := range capabilityCatalog {
 		for _, operation := range capability.Operations {
@@ -785,6 +876,42 @@ func extractArgumentStrings(arguments map[string]any, keys []string) map[string]
 	}
 
 	return parameters
+}
+
+func promptArgumentNames(arguments []manifestPromptArgument) []string {
+	names := make([]string, 0, len(arguments))
+	for _, argument := range arguments {
+		names = append(names, argument.Name)
+	}
+	return names
+}
+
+func validatePromptArguments(definitions []manifestPromptArgument, arguments map[string]string) error {
+	for _, definition := range definitions {
+		if definition.Required && strings.TrimSpace(arguments[definition.Name]) == "" {
+			return fmt.Errorf("missing required prompt argument %q", definition.Name)
+		}
+	}
+
+	return nil
+}
+
+func renderPromptMessages(templates []manifestPromptMessage, arguments map[string]string) []manifestPromptMessage {
+	rendered := make([]manifestPromptMessage, 0, len(templates))
+	for _, template := range templates {
+		message := template
+		message.Content.Text = renderPromptText(template.Content.Text, arguments)
+		rendered = append(rendered, message)
+	}
+	return rendered
+}
+
+func renderPromptText(template string, arguments map[string]string) string {
+	rendered := template
+	for key, value := range arguments {
+		rendered = strings.ReplaceAll(rendered, "{{"+key+"}}", value)
+	}
+	return rendered
 }
 
 func negotiateProtocolVersion(requested string) string {

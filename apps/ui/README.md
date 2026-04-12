@@ -2,12 +2,15 @@
 
 This is a small Vite and React frontend used to verify routing to the public API from one place.
 
+Externally, the UI should present itself as Labiraus even though the repo keeps the app under `apps/ui/`.
+
 ## What It Does
 
 The UI exposes:
 
 - an authentication panel backed by `/api/auth/status`
 - a federated login button driven by `/api/auth/providers`
+- copy that explains the parallel certificate-authenticated MCP access path
 - `/api/users/count`
 - static public legal pages at `/privacy-policy.html` and `/terms-of-service.html`
 

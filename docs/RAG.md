@@ -8,6 +8,7 @@ This repo is taking an async-first path to document ingestion and retrieval.
 - `orchestrator` owns control-plane reconciliation and task dispatch
 - `processor` is the stateless worker for extraction, chunking, embedding, and persistence
 - `external` and `mcp` are the stable public and AI-facing surfaces
+- `mcp` should eventually forward document lifecycle notifications sourced from NATS JetStream to MCP subscribers
 
 Near-term scope is the document, chunk, and embedding foundation.
 CAG and graph-style knowledge layers are future phases built on top of that base rather than separate immediate datastores.
@@ -36,6 +37,7 @@ flowchart LR
   ORCH -->|upsert inventory and state| PG
   ORCH -->|enqueue processing work| NATS
   NATS --> PROC
+  NATS -->|document lifecycle notifications| MCP
   KEDA -. scales .-> PROC
   PROC -->|read or receive content| MINIO
   PROC -->|write chunks + embeddings| PG

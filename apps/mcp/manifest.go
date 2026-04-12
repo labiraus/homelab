@@ -15,6 +15,27 @@ var capabilityCatalog = []manifestCapabilitySource{
 		Summary: "Queue documents for asynchronous ingestion through the orchestrator control plane.",
 		Backend: manifestBackendOrchestrator,
 		Operations: []manifestOperationSource{
+			livePrompt(
+				"documents.submit.example",
+				"submitDocumentExample",
+				"/prompts/documents/submit-example",
+				"Show a ready-to-run example for queuing a document through the current ingestion entrypoint.",
+				false,
+				[]manifestPromptArgument{
+					{Name: "documentId", Description: "Stable identifier for the document to submit.", Required: true},
+					{Name: "sourceUri", Description: "Canonical source URI for the source document.", Required: true},
+					{Name: "contentType", Description: "MIME type for the submitted document.", Required: true},
+				},
+				[]manifestPromptMessage{
+					{
+						Role: "user",
+						Content: manifestPromptMessagePart{
+							Type: "text",
+							Text: "Use the live `documents.submit` tool on Labiraus to queue a document for ingestion. Prepare a tool call with a body like:\n\n{\n  \"documentId\": \"{{documentId}}\",\n  \"sourceUri\": \"{{sourceUri}}\",\n  \"contentType\": \"{{contentType}}\",\n  \"text\": \"<plain text payload>\",\n  \"bucket\": \"documents\",\n  \"objectKey\": \"incoming/{{documentId}}\"\n}\n\nIf the source is already in MinIO, keep `bucket` and `objectKey`; otherwise omit them and send plain text directly.",
+						},
+					},
+				},
+			),
 			liveTool(
 				"documents.submit",
 				"submitDocument",
@@ -37,6 +58,25 @@ var capabilityCatalog = []manifestCapabilitySource{
 				"Scan the documents bucket and reconcile inventory into the document control plane.",
 				false,
 			),
+			plannedPrompt(
+				"documents.scanBucket.plan",
+				"scanDocumentsBucketPlan",
+				"/prompts/documents/scan-bucket-plan",
+				"Describe the planned bucket-reconciliation flow that will scan MinIO and upsert document inventory into Postgres.",
+				false,
+				[]manifestPromptArgument{
+					{Name: "prefix", Description: "Optional MinIO prefix to constrain the future scan scope."},
+				},
+				[]manifestPromptMessage{
+					{
+						Role: "user",
+						Content: manifestPromptMessagePart{
+							Type: "text",
+							Text: "Plan the future `documents.scanBucket` workflow for the Labiraus MCP surface. The end state should scan the external MinIO documents bucket, optionally constrain reconciliation to the `{{prefix}}` prefix, upsert control-plane inventory into Postgres, and only then decide whether processor work should be queued.",
+						},
+					},
+				},
+			),
 		},
 	},
 	{
@@ -45,6 +85,23 @@ var capabilityCatalog = []manifestCapabilitySource{
 		Summary: "Read authentication and user inventory data directly from Postgres.",
 		Backend: manifestBackendPostgres,
 		Operations: []manifestOperationSource{
+			livePrompt(
+				"postgres.auth.userCount.prompt",
+				"userCountPrompt",
+				"/prompts/postgres/auth/user-count",
+				"Summarize how to inspect the current auth-user count through the live Postgres-backed resource.",
+				true,
+				nil,
+				[]manifestPromptMessage{
+					{
+						Role: "user",
+						Content: manifestPromptMessagePart{
+							Type: "text",
+							Text: "Read the live `homelab://mcp/postgres/auth/users/count` resource to inspect the current auth-user count. Treat this as a fast control-plane health check for the Postgres-backed auth surface exposed by Labiraus.",
+						},
+					},
+				},
+			),
 			liveResource(
 				"postgres.auth.userCount",
 				"userCount",
@@ -65,6 +122,7 @@ var capabilityCatalog = []manifestCapabilitySource{
 				"/postgres/auth/users/{email}",
 				"Read a specific auth user by email from Postgres.",
 				false,
+				nil,
 			),
 		},
 	},
@@ -74,6 +132,25 @@ var capabilityCatalog = []manifestCapabilitySource{
 		Summary: "Browse and manage objects in the MinIO documents bucket.",
 		Backend: manifestBackendMinIO,
 		Operations: []manifestOperationSource{
+			livePrompt(
+				"minio.documents.browse.prompt",
+				"browseDocumentObjectsPrompt",
+				"/prompts/minio/documents/browse",
+				"Show how to inspect a prefix in the documents bucket with the current live MinIO capability surface.",
+				false,
+				[]manifestPromptArgument{
+					{Name: "prefix", Description: "Optional object prefix to inspect."},
+				},
+				[]manifestPromptMessage{
+					{
+						Role: "user",
+						Content: manifestPromptMessagePart{
+							Type: "text",
+							Text: "Use the live `minio.documents.listObjects` tool to inspect the external documents bucket. If you want to narrow the search, start with the `{{prefix}}` prefix, then follow up with `homelab://mcp/minio/documents/objects/{objectKey}` reads for the specific files you need to inspect.",
+						},
+					},
+				},
+			),
 			liveTool(
 				"minio.documents.listObjects",
 				"listDocumentObjects",
@@ -139,6 +216,45 @@ var capabilityCatalog = []manifestCapabilitySource{
 			),
 		},
 	},
+	{
+		ID:      "documents.notifications",
+		Title:   "Document Notifications",
+		Summary: "Follow planned document lifecycle notifications that will be forwarded from NATS JetStream to MCP subscribers.",
+		Backend: manifestBackendNATS,
+		Operations: []manifestOperationSource{
+			plannedPrompt(
+				"documents.notifications.subscribe.prompt",
+				"documentNotificationsPrompt",
+				"/prompts/documents/notifications/subscribe",
+				"Describe the planned NATS-backed subscription flow for document lifecycle notifications.",
+				false,
+				[]manifestPromptArgument{
+					{Name: "documentId", Description: "Document identifier to follow through storage and processing.", Required: true},
+				},
+				[]manifestPromptMessage{
+					{
+						Role: "user",
+						Content: manifestPromptMessagePart{
+							Type: "text",
+							Text: "Plan the future Labiraus subscription flow for `{{documentId}}`. The MCP server should subscribe to a NATS JetStream event stream, filter lifecycle events for the document, and forward matching updates to MCP subscribers in order: `documents.events.minio.stored`, `documents.events.processor.queued`, `documents.events.processor.started`, and `documents.events.processor.completed`.",
+						},
+					},
+				},
+			),
+			plannedResourceTemplate(
+				"documents.notifications.stream",
+				"documentNotificationStream",
+				http.MethodGet,
+				"/documents/notifications/{documentId}",
+				"Subscribe to future document lifecycle notifications for a specific document as NATS-backed updates are forwarded through MCP.",
+				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendNATS,
+					ExecutionMode: manifestExecutionModeNATSSubscription,
+				},
+			),
+		},
+	},
 }
 
 func buildManifest(r *http.Request) manifestDocument {
@@ -175,6 +291,19 @@ func newManifestDocument(r *http.Request) manifestDocument {
 			Type: "bearer",
 			Meta: &manifestAuthorizationMeta{
 				ResourceMetadataURL: baseURL + oauthProtectedResourcePath,
+				AccessModes: []manifestAuthorizationAccessMode{
+					{
+						Type:        "bearer",
+						Name:        "google-oidc",
+						Description: "Browser and bearer-token capable clients can authenticate through the shared Google-backed OIDC flow.",
+					},
+					{
+						Type:        "client-certificate",
+						Name:        "mtls-client-cert",
+						Description: "MCP clients can also authenticate with a trusted client certificate presented at the edge and forwarded as normalized certificate identity.",
+					},
+				},
+				Requirement: "one-of",
 			},
 		},
 		Transports: []manifestTransport{
@@ -243,7 +372,7 @@ func liveResourceTemplate(id string, routeName string, method string, path strin
 	}
 }
 
-func plannedResourceTemplate(id string, routeName string, method string, path string, summary string, public bool) manifestOperationSource {
+func plannedResourceTemplate(id string, routeName string, method string, path string, summary string, public bool, binding *manifestOperationBinding) manifestOperationSource {
 	return manifestOperationSource{
 		ID:          id,
 		Primitive:   manifestPrimitiveResourceTemplate,
@@ -254,6 +383,7 @@ func plannedResourceTemplate(id string, routeName string, method string, path st
 		Public:      public,
 		ContentMode: "json",
 		Lifecycle:   manifestLifecyclePlanned,
+		Binding:     binding,
 	}
 }
 
@@ -287,12 +417,42 @@ func plannedTool(id string, routeName string, method string, path string, summar
 	}
 }
 
+func livePrompt(id string, routeName string, path string, summary string, public bool, arguments []manifestPromptArgument, messages []manifestPromptMessage) manifestOperationSource {
+	return manifestOperationSource{
+		ID:              id,
+		Primitive:       manifestPrimitivePrompt,
+		RouteName:       routeName,
+		Path:            path,
+		Summary:         summary,
+		Public:          public,
+		ContentMode:     "text/markdown",
+		Lifecycle:       manifestLifecycleLive,
+		PromptArguments: arguments,
+		PromptMessages:  messages,
+	}
+}
+
+func plannedPrompt(id string, routeName string, path string, summary string, public bool, arguments []manifestPromptArgument, messages []manifestPromptMessage) manifestOperationSource {
+	return manifestOperationSource{
+		ID:              id,
+		Primitive:       manifestPrimitivePrompt,
+		RouteName:       routeName,
+		Path:            path,
+		Summary:         summary,
+		Public:          public,
+		ContentMode:     "text/markdown",
+		Lifecycle:       manifestLifecyclePlanned,
+		PromptArguments: arguments,
+		PromptMessages:  messages,
+	}
+}
+
 func toManifestPrompt(capability manifestCapabilitySource, operation manifestOperationSource) manifestPrompt {
 	return manifestPrompt{
 		Name:        operation.ID,
 		Title:       capability.Title,
 		Description: operationDescription(capability, operation),
-		Arguments:   []manifestPromptArgument{},
+		Arguments:   operation.PromptArguments,
 		Meta:        toManifestMeta(capability, operation),
 	}
 }

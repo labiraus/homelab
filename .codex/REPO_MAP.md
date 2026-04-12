@@ -30,6 +30,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - `MinecraftVM.md`: dedicated Minecraft VM provisioning and operations
   - `NodeClassification.md`: Kubernetes worker label policy and GPU/LLM classification
   - `Auth.md`: current auth model across browser OIDC and certificate-based identity
+  - `MCPPrompts.md`: current MCP prompt catalog plus planned notification-oriented prompts
   - `GoogleOIDCSetup.md`: Google-side OIDC setup and redirect URI guidance
   - `OAuth2ProxyGoogle.md`: current chosen `oauth2-proxy + Google` browser-auth path
 - `bin/`

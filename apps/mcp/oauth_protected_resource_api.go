@@ -15,10 +15,12 @@ import (
 const oauthProtectedResourceHandlerName = "GET /.well-known/oauth-protected-resource"
 
 type oauthProtectedResourceDocument struct {
-	Resource             string   `json:"resource"`
-	AuthorizationServers []string `json:"authorization_servers"`
-	ScopesSupported      []string `json:"scopes_supported,omitempty"`
-	BearerMethods        []string `json:"bearer_methods_supported,omitempty"`
+	Resource             string                            `json:"resource"`
+	AuthorizationServers []string                          `json:"authorization_servers"`
+	ScopesSupported      []string                          `json:"scopes_supported,omitempty"`
+	BearerMethods        []string                          `json:"bearer_methods_supported,omitempty"`
+	AccessModes          []manifestAuthorizationAccessMode `json:"access_modes,omitempty"`
+	AccessRequirement    string                            `json:"access_requirement,omitempty"`
 }
 
 func oauthProtectedResourceAPI(w http.ResponseWriter, r *http.Request) {
@@ -51,6 +53,19 @@ func oauthProtectedResourceAPI(w http.ResponseWriter, r *http.Request) {
 		AuthorizationServers: []string{issuerURL},
 		ScopesSupported:      []string{"openid", "email", "profile"},
 		BearerMethods:        []string{"header"},
+		AccessModes: []manifestAuthorizationAccessMode{
+			{
+				Type:        "bearer",
+				Name:        "google-oidc",
+				Description: "Authenticate through the shared Google-backed OIDC flow and present the resulting bearer token to the MCP endpoint.",
+			},
+			{
+				Type:        "client-certificate",
+				Name:        "mtls-client-cert",
+				Description: "Authenticate by presenting a trusted client certificate at the edge so Labiraus receives forwarded certificate identity.",
+			},
+		},
+		AccessRequirement: "one-of",
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -7,7 +7,7 @@ The chosen near-term pattern is:
 - `oauth2-proxy` handles browser sign-in and session cookies
 - Google is the upstream identity provider
 - `oauth2-proxy` is the browser-facing reverse proxy for both `ui` and `external`
-- `mcp` continues to publish OAuth protected-resource metadata for bearer-capable clients and remains compatible with a future dedicated certificate-auth hostname
+- `mcp` continues to publish OAuth protected-resource metadata for bearer-capable clients while also documenting the current client-certificate access path for certificate-authenticated MCP clients
 
 This keeps browser authentication simple now without locking the repo into Google-only logic inside the application code.
 
@@ -120,8 +120,7 @@ The current chart expects that Secret to already exist in-cluster. It is intenti
 
 This choice applies to browser login for `ui` and `external`, both of which now sit behind `oauth2-proxy` on the shared hostname instead of using Istio browser ext-auth directly.
 
-It does not replace the separate certificate-auth direction for `mcp`. For strict certificate authentication, the recommended future shape is still a dedicated hostname or dedicated listener instead of putting strict mTLS on the shared browser host.
-On the shared host, certificate identity can still be consumed opportunistically from trusted `X-Forwarded-Client-Cert` details when some upstream listener forwards them, but the Google redirect path is still the browser-facing fallback.
+It does not replace the separate certificate-auth path for `mcp`. The current Labiraus MCP access story is all-or-nothing: clients authenticate either through the Google-backed bearer path or through trusted client certificates. A dedicated hostname or listener is still the cleaner long-term shape for strict certificate-only access, but the shared host can already consume trusted `X-Forwarded-Client-Cert` details when that identity is forwarded by the edge.
 
 ## Related Docs
 

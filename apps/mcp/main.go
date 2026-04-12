@@ -75,7 +75,7 @@ func main() {
 func mcpHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response{
-		Name:         "mcp",
+		Name:         "labiraus",
 		Version:      "v1",
 		Capabilities: []string{"documents", "health"},
 		Method:       r.Method,

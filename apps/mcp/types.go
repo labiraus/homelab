@@ -28,6 +28,11 @@ type initializeParams struct {
 	ClientInfo      map[string]any `json:"clientInfo,omitempty"`
 }
 
+type getPromptParams struct {
+	Name      string         `json:"name"`
+	Arguments map[string]any `json:"arguments,omitempty"`
+}
+
 type readResourceParams struct {
 	URI string `json:"uri"`
 }
@@ -58,6 +63,7 @@ type manifestBackend string
 const (
 	manifestBackendAuth         manifestBackend = "auth"
 	manifestBackendMinIO        manifestBackend = "minio"
+	manifestBackendNATS         manifestBackend = "nats"
 	manifestBackendOrchestrator manifestBackend = "orchestrator"
 	manifestBackendPostgres     manifestBackend = "postgres"
 )
@@ -65,13 +71,14 @@ const (
 type manifestExecutionMode string
 
 const (
-	manifestExecutionModeDiscovery      manifestExecutionMode = "discovery"
-	manifestExecutionModeHTTPProxy      manifestExecutionMode = "httpProxy"
-	manifestExecutionModeMinIODelete    manifestExecutionMode = "minioDeleteObject"
-	manifestExecutionModeMinIOGetObject manifestExecutionMode = "minioGetObject"
-	manifestExecutionModeMinIOList      manifestExecutionMode = "minioListObjects"
-	manifestExecutionModeMinIOPutText   manifestExecutionMode = "minioPutTextObject"
-	manifestExecutionModePostgresQuery  manifestExecutionMode = "postgresQuery"
+	manifestExecutionModeDiscovery        manifestExecutionMode = "discovery"
+	manifestExecutionModeHTTPProxy        manifestExecutionMode = "httpProxy"
+	manifestExecutionModeMinIODelete      manifestExecutionMode = "minioDeleteObject"
+	manifestExecutionModeMinIOGetObject   manifestExecutionMode = "minioGetObject"
+	manifestExecutionModeMinIOList        manifestExecutionMode = "minioListObjects"
+	manifestExecutionModeMinIOPutText     manifestExecutionMode = "minioPutTextObject"
+	manifestExecutionModeNATSSubscription manifestExecutionMode = "natsSubscription"
+	manifestExecutionModePostgresQuery    manifestExecutionMode = "postgresQuery"
 )
 
 type manifestDocument struct {
@@ -95,6 +102,12 @@ type manifestAuthorization struct {
 	Meta *manifestAuthorizationMeta `json:"_meta,omitempty"`
 }
 
+type manifestAuthorizationAccessMode struct {
+	Type        string `json:"type"`
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
 type manifestTransport struct {
 	Type string `json:"type"`
 	URL  string `json:"url"`
@@ -112,6 +125,16 @@ type manifestPromptArgument struct {
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 	Required    bool   `json:"required,omitempty"`
+}
+
+type manifestPromptMessage struct {
+	Role    string                    `json:"role"`
+	Content manifestPromptMessagePart `json:"content"`
+}
+
+type manifestPromptMessagePart struct {
+	Type string `json:"type"`
+	Text string `json:"text,omitempty"`
 }
 
 type manifestResource struct {
@@ -164,7 +187,9 @@ type manifestToolHints struct {
 }
 
 type manifestAuthorizationMeta struct {
-	ResourceMetadataURL string `json:"resourceMetadataUrl,omitempty"`
+	ResourceMetadataURL string                            `json:"resourceMetadataUrl,omitempty"`
+	AccessModes         []manifestAuthorizationAccessMode `json:"accessModes,omitempty"`
+	Requirement         string                            `json:"requirement,omitempty"`
 }
 
 type manifestOperationMeta struct {
@@ -180,17 +205,19 @@ type manifestOperationMeta struct {
 }
 
 type manifestOperationSource struct {
-	ID          string
-	Primitive   manifestPrimitiveKind
-	RouteName   string
-	Method      string
-	Path        string
-	Summary     string
-	Public      bool
-	ContentMode string
-	Lifecycle   manifestLifecycle
-	InputSchema *manifestSchema
-	Binding     *manifestOperationBinding
+	ID              string
+	Primitive       manifestPrimitiveKind
+	RouteName       string
+	Method          string
+	Path            string
+	Summary         string
+	Public          bool
+	ContentMode     string
+	Lifecycle       manifestLifecycle
+	InputSchema     *manifestSchema
+	PromptArguments []manifestPromptArgument
+	PromptMessages  []manifestPromptMessage
+	Binding         *manifestOperationBinding
 }
 
 type manifestCapabilitySource struct {

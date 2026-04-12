@@ -39,6 +39,15 @@ When `orchestrator` determines a document is new, changed, or needs reprocessing
 
 NATS JetStream is used to trigger work and scale workers, but job completion and system state are still reflected back into Postgres.
 
+The planned notification pattern on top of that job flow is:
+
+- emit `documents.events.minio.stored` when the uploaded document has been written to MinIO and is ready for downstream work
+- emit `documents.events.processor.queued` when the document is queued for processor execution
+- emit `documents.events.processor.started` when the processor claims the work and begins execution
+- emit `documents.events.processor.completed` when processing is finished and derived state has been written back
+
+The Labiraus MCP server should eventually subscribe to that NATS event stream and forward document-specific updates to MCP subscribers as resource notifications.
+
 ### Phase 3
 
 `processor` consumes the job, performs extraction, chunking, and embedding, and writes derived results back to Postgres.
@@ -78,6 +87,7 @@ This design keeps ingestion idempotent and explainable:
 Later phases can add:
 
 - richer retrieval APIs through `external` and `mcp`
+- MCP subscriptions for document lifecycle notifications driven by NATS JetStream
 - reprocessing and versioned derivations
 - citation UX in the UI
 - richer context assembly and graph-style capabilities on top of the same document foundation
