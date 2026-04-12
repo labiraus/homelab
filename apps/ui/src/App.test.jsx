@@ -10,7 +10,8 @@ describe("App", () => {
 		window.location.hash = "";
 	});
 
-	test("renders service controls", async () => {
+	test("renders the github-style header shell and auth menu", async () => {
+		const user = userEvent.setup();
 		global.fetch = vi
 			.fn()
 			.mockResolvedValueOnce({
@@ -33,13 +34,18 @@ describe("App", () => {
 			});
 
 		render(<App />);
-		expect(await screen.findByText("none")).toBeInTheDocument();
 
-		expect(screen.getByRole("heading", { name: /verify labiraus routes/i })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /user count via external api/i })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /log in with google/i })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /use dark mode/i })).toBeInTheDocument();
-		expect(screen.getByText(/client-certificate access for mcp clients/i)).toBeInTheDocument();
+		expect(
+			await screen.findByRole("heading", { name: /inspect the deployed labiraus surface/i }),
+		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /overview/i })).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /^documents$/i })).not.toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: /authentication menu/i }));
+
+		expect(screen.getAllByText("No authenticated identity is present.").length).toBeGreaterThan(0);
+		expect(screen.getByRole("button", { name: /sign in with google/i })).toBeInTheDocument();
+		expect(screen.getByText(/client-certificate authentication/i)).toBeInTheDocument();
 	});
 
 	test("shows API response after a successful request", async () => {
@@ -89,7 +95,7 @@ describe("App", () => {
 		);
 	});
 
-	test("toggles dark mode", async () => {
+	test("toggles dark mode from the auth menu", async () => {
 		const user = userEvent.setup();
 		global.fetch = vi
 			.fn()
@@ -111,17 +117,18 @@ describe("App", () => {
 					],
 				}),
 			});
-		render(<App />);
-		expect(await screen.findByText("none")).toBeInTheDocument();
 
-		const toggle = screen.getByRole("button", { name: /use dark mode/i });
-		await user.click(toggle);
+		render(<App />);
+		await screen.findByRole("heading", { name: /inspect the deployed labiraus surface/i });
+		await user.click(screen.getByRole("button", { name: /authentication menu/i }));
+		await user.click(screen.getByRole("button", { name: /use dark mode/i }));
 
 		expect(document.documentElement.dataset.theme).toBe("dark");
 		expect(screen.getByRole("button", { name: /use light mode/i })).toBeInTheDocument();
 	});
 
-	test("shows recognized auth details after loading", async () => {
+	test("shows recognized auth details and exposes the documents tab", async () => {
+		const user = userEvent.setup();
 		global.fetch = vi
 			.fn()
 			.mockResolvedValueOnce({
@@ -144,18 +151,20 @@ describe("App", () => {
 			});
 
 		render(<App />);
+		expect(await screen.findByRole("button", { name: /^documents$/i })).toBeInTheDocument();
 
-		expect(await screen.findByText("certificate")).toBeInTheDocument();
-		expect(screen.getByText("oliver@labiraus.com")).toBeInTheDocument();
-		expect(screen.getByText("true")).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: /authentication menu/i }));
+		expect(screen.getAllByText("oliver@labiraus.com").length).toBeGreaterThan(0);
+		expect(screen.getByText("certificate")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /sign out/i })).toBeInTheDocument();
 	});
 
-	test("uses the configured federated provider URL for login", async () => {
+	test("uses the configured federated provider URL for sign in", async () => {
 		const user = userEvent.setup();
 		const assign = vi.fn();
 		const originalLocation = window.location;
 		delete window.location;
-		window.location = { assign };
+		window.location = { assign, hash: "" };
 
 		global.fetch = vi
 			.fn()
@@ -179,10 +188,48 @@ describe("App", () => {
 			});
 
 		render(<App />);
-		await screen.findByText("none");
-		await user.click(screen.getByRole("button", { name: /log in with google/i }));
+		await screen.findByRole("heading", { name: /inspect the deployed labiraus surface/i });
+		await user.click(screen.getByRole("button", { name: /authentication menu/i }));
+		await user.click(screen.getByRole("button", { name: /sign in with google/i }));
 
 		expect(assign).toHaveBeenCalledWith("https://accounts.google.com/o/oauth2/v2/auth");
+		window.location = originalLocation;
+	});
+
+	test("uses the oauth2 sign out path when authenticated", async () => {
+		const user = userEvent.setup();
+		const assign = vi.fn();
+		const originalLocation = window.location;
+		delete window.location;
+		window.location = { assign, hash: "" };
+
+		global.fetch = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ mode: "oidc", email: "oliver@labiraus.com", valid: true }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					providers: [
+						{
+							id: "google",
+							name: "Google",
+							issuer: "https://accounts.google.com",
+							authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+							configured: true,
+						},
+					],
+				}),
+			});
+
+		render(<App />);
+		await screen.findByRole("button", { name: /^documents$/i });
+		await user.click(screen.getByRole("button", { name: /authentication menu/i }));
+		await user.click(screen.getByRole("button", { name: /sign out/i }));
+
+		expect(assign).toHaveBeenCalledWith("/oauth2/sign_out");
 		window.location = originalLocation;
 	});
 
@@ -229,16 +276,18 @@ describe("App", () => {
 			});
 
 		render(<App />);
-		await screen.findByText("oliver@labiraus.com");
-		await user.click(screen.getByRole("button", { name: /documents/i }));
+		await screen.findByRole("button", { name: /^documents$/i });
+		await user.click(screen.getByRole("button", { name: /^documents$/i }));
 
 		expect(await screen.findByText(/folder: reports/i)).toBeInTheDocument();
 		expect(screen.getByText(/file: notes.txt/i)).toBeInTheDocument();
-		expect(global.fetch).toHaveBeenCalledWith("/api/documents/tree", expect.objectContaining({ method: "GET" }));
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/tree",
+			expect.objectContaining({ method: "GET" }),
+		);
 	});
 
-	test("requires authentication before loading the documents browser", async () => {
-		const user = userEvent.setup();
+	test("does not show the documents tab before authentication", async () => {
 		global.fetch = vi
 			.fn()
 			.mockResolvedValueOnce({
@@ -261,12 +310,9 @@ describe("App", () => {
 			});
 
 		render(<App />);
-		await screen.findByText("none");
-		await user.click(screen.getByRole("button", { name: /documents/i }));
+		await screen.findByRole("heading", { name: /inspect the deployed labiraus surface/i });
 
-		expect(
-			await screen.findByText(/sign in with a recognized labiraus identity before browsing/i),
-		).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /^documents$/i })).not.toBeInTheDocument();
 		expect(global.fetch).not.toHaveBeenCalledWith(
 			"/api/documents/tree",
 			expect.objectContaining({ method: "GET" }),

@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
+const SIGN_OUT_PATH = "/oauth2/sign_out";
 const THEME_STORAGE_KEY = "homelab-theme";
 const AUTH_STATUS_PATH = "/api/auth/status";
 const AUTH_PROVIDERS_PATH = "/api/auth/providers";
@@ -149,6 +150,27 @@ function providerSummary(provider) {
 	return `${provider.name} sign-in is not configured in the public API yet.`;
 }
 
+function authTone(status, loading) {
+	if (loading) {
+		return "checking";
+	}
+	return status?.valid ? "success" : "warning";
+}
+
+function authLabel(status, loading) {
+	if (loading) {
+		return "Checking authentication";
+	}
+	return status?.valid ? "Authenticated" : "Signed out";
+}
+
+function authInitial(status) {
+	if (status?.email) {
+		return status.email[0].toUpperCase();
+	}
+	return "L";
+}
+
 function isTextContentType(contentType) {
 	if (!contentType) {
 		return false;
@@ -210,6 +232,7 @@ function documentDownloadUrl(objectKey) {
 
 function App() {
 	const [page, setPage] = useState(pageFromHash);
+	const [authMenuOpen, setAuthMenuOpen] = useState(false);
 	const [activeRequest, setActiveRequest] = useState(null);
 	const [message, setMessage] = useState("Choose a service call to verify routing.");
 	const [error, setError] = useState("");
@@ -219,12 +242,23 @@ function App() {
 	const [authProvider, setAuthProvider] = useState(null);
 	const [providerLoading, setProviderLoading] = useState(true);
 	const [providerError, setProviderError] = useState("");
-	const [documentsTree, setDocumentsTree] = useState({ bucket: "documents", prefix: "", breadcrumbs: [], entries: [] });
+	const [documentsTree, setDocumentsTree] = useState({
+		bucket: "documents",
+		prefix: "",
+		breadcrumbs: [],
+		entries: [],
+	});
 	const [documentsLoading, setDocumentsLoading] = useState(false);
 	const [documentsError, setDocumentsError] = useState("");
 	const [currentPrefix, setCurrentPrefix] = useState("");
 	const [selectedDocument, setSelectedDocument] = useState(null);
-	const [preview, setPreview] = useState({ status: "idle", kind: "empty", text: "", url: "", contentType: "" });
+	const [preview, setPreview] = useState({
+		status: "idle",
+		kind: "empty",
+		text: "",
+		url: "",
+		contentType: "",
+	});
 	const [uploadFile, setUploadFile] = useState(null);
 	const [uploadName, setUploadName] = useState("");
 	const [uploading, setUploading] = useState(false);
@@ -242,6 +276,7 @@ function App() {
 
 		return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 	});
+	const authMenuRef = useRef(null);
 	const documentsEnabled = authStatus?.valid === true;
 
 	useEffect(() => {
@@ -272,6 +307,31 @@ function App() {
 		};
 	}, [preview.url]);
 
+	useEffect(() => {
+		if (!authMenuOpen) {
+			return undefined;
+		}
+
+		const handlePointerDown = (event) => {
+			if (authMenuRef.current && !authMenuRef.current.contains(event.target)) {
+				setAuthMenuOpen(false);
+			}
+		};
+
+		const handleKeyDown = (event) => {
+			if (event.key === "Escape") {
+				setAuthMenuOpen(false);
+			}
+		};
+
+		document.addEventListener("mousedown", handlePointerDown);
+		document.addEventListener("keydown", handleKeyDown);
+		return () => {
+			document.removeEventListener("mousedown", handlePointerDown);
+			document.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [authMenuOpen]);
+
 	const loadAuthStatus = async () => {
 		setAuthLoading(true);
 		setAuthError("");
@@ -294,7 +354,8 @@ function App() {
 
 		try {
 			const response = await fetchAuthProviders();
-			const googleProvider = response?.providers?.find((provider) => provider.id === "google") ?? null;
+			const googleProvider =
+				response?.providers?.find((provider) => provider.id === "google") ?? null;
 			setAuthProvider(googleProvider);
 		} catch (requestError) {
 			setProviderError(
@@ -327,6 +388,15 @@ function App() {
 	}, []);
 
 	useEffect(() => {
+		if (!documentsEnabled && page === "documents") {
+			setPage("overview");
+			if (typeof window !== "undefined") {
+				window.location.hash = "#/";
+			}
+		}
+	}, [documentsEnabled, page]);
+
+	useEffect(() => {
 		if (page !== "documents" || !documentsEnabled) {
 			return;
 		}
@@ -341,7 +411,9 @@ function App() {
 			const response = await callApi(action);
 			setMessage(response?.data ?? "Request completed with no response body.");
 		} catch (requestError) {
-			setError(requestError instanceof Error ? requestError.message : "Unknown request failure");
+			setError(
+				requestError instanceof Error ? requestError.message : "Unknown request failure",
+			);
 		} finally {
 			setActiveRequest(null);
 		}
@@ -355,16 +427,13 @@ function App() {
 		window.location.assign(authProvider.authorizationUrl);
 	};
 
-	const navigateToPage = (nextPage) => {
-		if (nextPage === "documents" && !documentsEnabled) {
-			setPage("documents");
-			if (typeof window !== "undefined") {
-				window.location.hash = "#/documents";
-			}
-			return;
-		}
+	const handleSignOut = () => {
+		window.location.assign(SIGN_OUT_PATH);
+	};
 
+	const navigateToPage = (nextPage) => {
 		setPage(nextPage);
+		setAuthMenuOpen(false);
 		if (typeof window === "undefined") {
 			return;
 		}
@@ -379,7 +448,13 @@ function App() {
 
 	const handleSelectDocument = async (entry) => {
 		setSelectedDocument(entry);
-		setPreview({ status: "loading", kind: "loading", text: "", url: "", contentType: entry.contentType ?? "" });
+		setPreview({
+			status: "loading",
+			kind: "loading",
+			text: "",
+			url: "",
+			contentType: entry.contentType ?? "",
+		});
 
 		try {
 			const response = await fetchDocumentObject(entry.objectKey);
@@ -407,7 +482,8 @@ function App() {
 			setPreview({
 				status: "error",
 				kind: "error",
-				text: requestError instanceof Error ? requestError.message : "Could not load preview",
+				text:
+					requestError instanceof Error ? requestError.message : "Could not load preview",
 				url: "",
 				contentType: entry.contentType ?? "",
 			});
@@ -445,301 +521,390 @@ function App() {
 
 	return (
 		<main className="app-shell">
-			<section className="hero">
-				<p className="eyebrow">Labiraus</p>
-				<div className="hero-heading">
-					<h1>Verify Labiraus routes from one place.</h1>
-					<button
-						type="button"
-						className="theme-toggle"
-						onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-						aria-pressed={theme === "dark"}
-					>
-						{theme === "dark" ? "Use Light Mode" : "Use Dark Mode"}
-					</button>
+			<header className="topbar">
+				<div className="topbar-brand">
+					<div className="brand-mark" aria-hidden="true">
+						L
+					</div>
+					<div className="brand-copy">
+						<p className="brand-label">Labiraus</p>
+						<p className="brand-subtitle">Authenticated storage and control plane</p>
+					</div>
 				</div>
-				<p className="intro">
-					This frontend doubles as a quick auth console and document browser: it shows what
-					the gateway and API believe about your identity before you browse the MinIO-backed
-					documents bucket, while the Labiraus MCP server exposes the same storage surface to
-					agents.
-				</p>
-				<div className="page-nav" role="tablist" aria-label="Labiraus pages">
+
+				<nav className="topbar-nav" aria-label="Primary">
 					<button
 						type="button"
-						className={`page-tab ${page === "overview" ? "active" : ""}`}
+						className={`topbar-tab ${page === "overview" ? "active" : ""}`}
 						onClick={() => navigateToPage("overview")}
 					>
 						Overview
 					</button>
-					<button
-						type="button"
-						className={`page-tab ${page === "documents" ? "active" : ""}`}
-						onClick={() => navigateToPage("documents")}
-						aria-disabled={!documentsEnabled}
-					>
-						Documents
-					</button>
-				</div>
-			</section>
-
-			<section className="panel">
-				<div className="panel-header">
-					<div>
-						<h2>Authentication</h2>
-						<p>Inspect the trusted auth state seen by the public Go API.</p>
-					</div>
-					<span className={`status-badge ${authStatus?.valid ? "success" : "warning"}`}>
-						{authLoading ? "Checking auth" : authStatus?.valid ? "Recognized user" : "Not recognized"}
-					</span>
-				</div>
-
-				<div className="auth-grid">
-					<div className="auth-card">
-						<p className="response-label">Auth mode</p>
-						<p className="auth-value">{authStatus?.mode ?? "loading"}</p>
-					</div>
-					<div className="auth-card">
-						<p className="response-label">Valid user</p>
-						<p className="auth-value">{authStatus ? String(authStatus.valid) : "loading"}</p>
-					</div>
-					<div className="auth-card auth-card-wide">
-						<p className="response-label">Authenticated email</p>
-						<p className="auth-value">{authStatus?.email || "No email present"}</p>
-					</div>
-				</div>
-
-				<div className="response-card auth-response" aria-live="polite">
-					<p className="response-label">Current auth state</p>
-					<p className="response-value">{authSummary(authStatus)}</p>
-					{authStatus?.invalidReason ? (
-						<p className="error-text">Reason: {authStatus.invalidReason}</p>
+					{documentsEnabled ? (
+						<button
+							type="button"
+							className={`topbar-tab ${page === "documents" ? "active" : ""}`}
+							onClick={() => navigateToPage("documents")}
+						>
+							Documents
+						</button>
 					) : null}
-					{authError ? <p className="error-text">Status request failed: {authError}</p> : null}
-					<p className="response-label">Federated login</p>
-					<p className="response-value">{providerSummary(authProvider)}</p>
-					{authProvider?.issuer ? (
-						<p className="response-value">Issuer: {authProvider.issuer}</p>
-					) : null}
-					<p className="response-label">MCP access</p>
-					<p className="response-value">
-						Labiraus also accepts trusted client-certificate access for MCP clients.
-					</p>
-					{providerError ? (
-						<p className="error-text">Provider request failed: {providerError}</p>
-					) : null}
-				</div>
+				</nav>
 
-				<div className="auth-actions">
-					<button
-						type="button"
-						className="action-card primary-action"
-						onClick={handleGoogleLogin}
-						disabled={providerLoading || !authProvider?.configured}
-					>
-						<span>{authProvider ? `Log In With ${authProvider.name}` : "Log In With Google"}</span>
-						<small>Start the configured federated OIDC flow directly from provider metadata.</small>
-					</button>
-					<button
-						type="button"
-						className="action-card"
-						onClick={() => {
-							void loadAuthStatus();
-							void loadAuthProviders();
-						}}
-						disabled={authLoading || providerLoading}
-					>
-						<span>Refresh Auth State</span>
-						<small>Re-read the current identity and available federated providers.</small>
-					</button>
-				</div>
-			</section>
+				<div className="topbar-actions">
+					<div className="auth-menu" ref={authMenuRef}>
+						<button
+							type="button"
+							className="auth-toggle"
+							aria-label="Authentication menu"
+							aria-expanded={authMenuOpen}
+							onClick={() => setAuthMenuOpen((value) => !value)}
+						>
+							<span
+								className={`status-dot ${authTone(authStatus, authLoading)}`}
+								aria-hidden="true"
+							/>
+							<span className="auth-toggle-label">{authLabel(authStatus, authLoading)}</span>
+							<span className="auth-avatar" aria-hidden="true">
+								{authInitial(authStatus)}
+							</span>
+						</button>
 
-			{page === "overview" ? (
-				<section className="panel">
-					<div className="panel-header">
-						<div>
-							<h2>Service Checks</h2>
-							<p>Run a request and inspect the latest application response.</p>
-						</div>
-						<span className="status-badge">
-							{activeRequest ? "Request in progress" : "Idle"}
-						</span>
-					</div>
-
-					<div className="actions">
-						{actions.map((action) => (
-							<button
-								key={action.id}
-								type="button"
-								className="action-card"
-								onClick={() => handleAction(action)}
-								disabled={Boolean(activeRequest)}
-							>
-								<span>{action.label}</span>
-								<small>{action.description}</small>
-							</button>
-						))}
-					</div>
-
-					<div className="response-card" aria-live="polite">
-						<p className="response-label">Latest response</p>
-						<p className="response-value">{message}</p>
-						{error ? <p className="error-text">Request failed: {error}</p> : null}
-					</div>
-				</section>
-			) : (
-				<section className="panel">
-					<div className="panel-header">
-						<div>
-							<h2>Documents</h2>
-							<p>Browse the MinIO documents bucket, upload files, preview content, and download originals.</p>
-						</div>
-						<span className={`status-badge ${documentsEnabled ? "" : "warning"}`}>
-							{!documentsEnabled ? "Sign-in required" : documentsLoading ? "Loading" : "Ready"}
-						</span>
-					</div>
-					{!documentsEnabled ? (
-						<div className="response-card auth-response" aria-live="polite">
-							<p className="response-label">Documents access</p>
-							<p className="response-value">
-								Sign in with a recognized Labiraus identity before browsing, uploading, or downloading documents.
-							</p>
-							<p className="response-value">
-								The document browser and the matching MCP MinIO surface are both intended for authenticated access.
-							</p>
-							<button
-								type="button"
-								className="action-card primary-action"
-								onClick={handleGoogleLogin}
-								disabled={providerLoading || !authProvider?.configured}
-							>
-								<span>{authProvider ? `Log In With ${authProvider.name}` : "Log In With Google"}</span>
-								<small>Authenticate first, then return here to browse the documents bucket.</small>
-							</button>
-						</div>
-					) : (
-						<>
-							<div className="breadcrumbs" aria-label="Document path breadcrumbs">
-								{documentsTree.breadcrumbs.map((crumb) => (
+						{authMenuOpen ? (
+							<div className="auth-popover">
+								<div className="auth-popover-header">
+									<div>
+										<p className="popover-title">Authentication</p>
+										<p className="popover-subtitle">{authSummary(authStatus)}</p>
+									</div>
 									<button
-										key={`${crumb.name}-${crumb.prefix}`}
 										type="button"
-										className={`breadcrumb ${crumb.prefix === currentPrefix ? "active" : ""}`}
-										onClick={() => handleOpenFolder(crumb.prefix)}
+										className="theme-toggle"
+										onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+										aria-pressed={theme === "dark"}
 									>
-										{crumb.name}
+										{theme === "dark" ? "Use Light Mode" : "Use Dark Mode"}
 									</button>
-								))}
-							</div>
+								</div>
 
-							<div className="documents-layout">
-								<div className="documents-column">
-									<form className="upload-card" onSubmit={handleUploadSubmit}>
-										<div>
-											<h3>Upload</h3>
-											<p>Upload into {currentPrefix || "the root documents folder"}.</p>
-										</div>
-										<input
-											type="file"
-											onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)}
-										/>
-										<input
-											type="text"
-											value={uploadName}
-											onChange={(event) => setUploadName(event.target.value)}
-											placeholder="Optional file name override"
-										/>
-										<button type="submit" className="action-card" disabled={uploading}>
-											<span>{uploading ? "Uploading..." : "Upload Document"}</span>
-											<small>Files are stored in the external MinIO documents bucket.</small>
+								<div className="auth-meta-grid">
+									<div className="auth-meta-card">
+										<p className="meta-label">Mode</p>
+										<p className="meta-value">{authStatus?.mode ?? "loading"}</p>
+									</div>
+									<div className="auth-meta-card">
+										<p className="meta-label">Valid user</p>
+										<p className="meta-value">
+											{authStatus ? String(authStatus.valid) : "loading"}
+										</p>
+									</div>
+									<div className="auth-meta-card auth-meta-wide">
+										<p className="meta-label">Authenticated email</p>
+										<p className="meta-value">
+											{authStatus?.email || "No email present"}
+										</p>
+									</div>
+								</div>
+
+								<p className="auth-supporting-copy">{providerSummary(authProvider)}</p>
+								<p className="auth-supporting-copy">
+									Labiraus MCP access also accepts trusted client-certificate
+									authentication.
+								</p>
+
+								{authStatus?.invalidReason ? (
+									<p className="error-text">Reason: {authStatus.invalidReason}</p>
+								) : null}
+								{authError ? (
+									<p className="error-text">Status request failed: {authError}</p>
+								) : null}
+								{providerError ? (
+									<p className="error-text">Provider request failed: {providerError}</p>
+								) : null}
+
+								<div className="auth-menu-actions">
+									{documentsEnabled ? (
+										<button
+											type="button"
+											className="menu-action danger"
+											onClick={handleSignOut}
+										>
+											Sign Out
 										</button>
-										{uploadMessage ? <p className="success-text">{uploadMessage}</p> : null}
-										{uploadError ? <p className="error-text">{uploadError}</p> : null}
-									</form>
-
-									<div className="browser-card">
-										<div className="browser-header">
-											<h3>Folder Contents</h3>
-											<button type="button" className="inline-button" onClick={() => void loadDocuments(currentPrefix)}>
-												Refresh
-											</button>
-										</div>
-										{documentsError ? <p className="error-text">{documentsError}</p> : null}
-										{documentsTree.entries.length === 0 && !documentsLoading ? (
-											<p className="empty-state">No folders or files are present here yet.</p>
-										) : null}
-										<div className="document-list" role="list">
-											{documentsTree.entries.map((entry) => (
-												<button
-													key={entry.prefix || entry.objectKey}
-													type="button"
-													role="listitem"
-													className={`document-row ${selectedDocument?.objectKey === entry.objectKey ? "active" : ""}`}
-													onClick={() =>
-														entry.type === "folder"
-															? handleOpenFolder(entry.prefix)
-															: void handleSelectDocument(entry)
-													}
-												>
-													<div>
-														<p className="document-name">
-															{entry.type === "folder" ? "Folder" : "File"}: {entry.name}
-														</p>
-														<p className="document-meta">
-															{entry.type === "folder"
-																? entry.prefix
-																: `${entry.contentType || "Unknown type"} • ${formatBytes(entry.sizeBytes)}`}
-														</p>
-													</div>
-													{entry.type === "file" && entry.lastModified ? (
-														<span className="document-time">{formatTimestamp(entry.lastModified)}</span>
-													) : (
-														<span className="document-time">{entry.type === "folder" ? "Open" : "Preview"}</span>
-													)}
-												</button>
-											))}
-										</div>
-									</div>
-								</div>
-
-								<div className="preview-card">
-									<div className="browser-header">
-										<div>
-											<h3>Preview</h3>
-											<p>{fileDescription(selectedDocument)}</p>
-										</div>
-										{selectedDocument?.objectKey ? (
-											<a className="inline-button" href={documentDownloadUrl(selectedDocument.objectKey)}>
-												Download
-											</a>
-										) : null}
-									</div>
-
-									{preview.status === "loading" ? <p className="empty-state">Loading preview…</p> : null}
-									{preview.status === "error" ? <p className="error-text">{preview.text}</p> : null}
-									{preview.kind === "empty" ? (
-										<p className="empty-state">Choose a file from the browser to inspect it here.</p>
-									) : null}
-									{preview.kind === "text" ? <pre className="preview-text">{preview.text}</pre> : null}
-									{preview.kind === "image" ? (
-										<img className="preview-image" src={preview.url} alt={selectedDocument?.name ?? "Selected document"} />
-									) : null}
-									{preview.kind === "pdf" ? (
-										<iframe className="preview-frame" src={preview.url} title={selectedDocument?.name ?? "Document preview"} />
-									) : null}
-									{preview.kind === "binary" ? (
-										<div className="binary-preview">
-											<p>This file type does not render inline yet.</p>
-											<p>Use the download link to inspect the original document locally.</p>
-										</div>
-									) : null}
+									) : (
+										<button
+											type="button"
+											className="menu-action primary"
+											onClick={handleGoogleLogin}
+											disabled={providerLoading || !authProvider?.configured}
+										>
+											{authProvider ? `Sign In With ${authProvider.name}` : "Sign In"}
+										</button>
+									)}
+									<button
+										type="button"
+										className="menu-action"
+										onClick={() => {
+											void loadAuthStatus();
+											void loadAuthProviders();
+										}}
+										disabled={authLoading || providerLoading}
+									>
+										Refresh Auth
+									</button>
 								</div>
 							</div>
-						</>
-					)}
-				</section>
-			)}
+						) : null}
+					</div>
+				</div>
+			</header>
+
+			<div className="workspace">
+				{page === "overview" ? (
+					<section className="workspace-shell">
+						<header className="workspace-header">
+							<div>
+								<p className="workspace-eyebrow">Overview</p>
+								<h1>Inspect the deployed Labiraus surface.</h1>
+								<p className="workspace-intro">
+									Use the same browser entrypoint your operators see to confirm
+									identity, route wiring, and the public API behavior that sits
+									alongside the MCP server.
+								</p>
+							</div>
+							<div className="header-badge-card">
+								<p className="meta-label">Current auth state</p>
+								<p className="header-badge-value">{authLabel(authStatus, authLoading)}</p>
+								<p className="header-badge-copy">{authSummary(authStatus)}</p>
+							</div>
+						</header>
+
+						<div className="summary-grid">
+							<div className="summary-card">
+								<p className="meta-label">Browser identity</p>
+								<p className="summary-value">
+									{authStatus?.email || "Authenticate to unlock document browsing"}
+								</p>
+								<p className="summary-copy">
+									The `ui` and `external` surfaces sit behind the shared browser
+									login path on `mcp.labiraus.com`.
+								</p>
+							</div>
+							<div className="summary-card">
+								<p className="meta-label">Documents tab</p>
+								<p className="summary-value">
+									{documentsEnabled ? "Available" : "Hidden until sign-in"}
+								</p>
+								<p className="summary-copy">
+									The MinIO-backed browser stays in the header only for recognized
+									users.
+								</p>
+							</div>
+							<div className="summary-card">
+								<p className="meta-label">MCP access</p>
+								<p className="summary-value">Google bearer or client certificate</p>
+								<p className="summary-copy">
+									The same deployment also supports authenticated MCP clients with
+									direct storage access paths.
+								</p>
+							</div>
+						</div>
+
+						<div className="content-grid">
+							<section className="content-panel">
+								<div className="panel-heading">
+									<div>
+										<h2>Service checks</h2>
+										<p>Run a routed request and inspect the latest result.</p>
+									</div>
+									<span className={`status-pill ${activeRequest ? "busy" : ""}`}>
+										{activeRequest ? "Request in progress" : "Idle"}
+									</span>
+								</div>
+
+								<div className="actions-grid">
+									{actions.map((action) => (
+										<button
+											key={action.id}
+											type="button"
+											className="action-card"
+											onClick={() => handleAction(action)}
+											disabled={Boolean(activeRequest)}
+										>
+											<span>{action.label}</span>
+											<small>{action.description}</small>
+										</button>
+									))}
+								</div>
+							</section>
+
+							<section className="response-panel" aria-live="polite">
+								<p className="meta-label">Latest response</p>
+								<p className="response-value">{message}</p>
+								{error ? <p className="error-text">Request failed: {error}</p> : null}
+							</section>
+						</div>
+					</section>
+				) : (
+					<section className="workspace-shell">
+						<header className="workspace-header">
+							<div>
+								<p className="workspace-eyebrow">Documents</p>
+								<h1>Browse the documents bucket.</h1>
+								<p className="workspace-intro">
+									Navigate folders, upload new documents, preview inline-supported
+									types, and download originals from the same authenticated surface.
+								</p>
+							</div>
+							<div className="header-badge-card">
+								<p className="meta-label">Documents access</p>
+								<p className="header-badge-value">
+									{documentsLoading ? "Loading" : "Ready"}
+								</p>
+								<p className="header-badge-copy">
+									Authenticated users can browse the private MinIO-backed storage
+									surface.
+								</p>
+							</div>
+						</header>
+
+						<div className="breadcrumbs" aria-label="Document path breadcrumbs">
+							{documentsTree.breadcrumbs.map((crumb) => (
+								<button
+									key={`${crumb.name}-${crumb.prefix}`}
+									type="button"
+									className={`breadcrumb ${crumb.prefix === currentPrefix ? "active" : ""}`}
+									onClick={() => handleOpenFolder(crumb.prefix)}
+								>
+									{crumb.name}
+								</button>
+							))}
+						</div>
+
+						<div className="documents-layout">
+							<div className="documents-column">
+								<form className="upload-card" onSubmit={handleUploadSubmit}>
+									<div>
+										<h3>Upload</h3>
+										<p>Upload into {currentPrefix || "the root documents folder"}.</p>
+									</div>
+									<input
+										type="file"
+										onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)}
+									/>
+									<input
+										type="text"
+										value={uploadName}
+										onChange={(event) => setUploadName(event.target.value)}
+										placeholder="Optional file name override"
+									/>
+									<button type="submit" className="menu-action primary" disabled={uploading}>
+										{uploading ? "Uploading..." : "Upload Document"}
+									</button>
+									{uploadMessage ? <p className="success-text">{uploadMessage}</p> : null}
+									{uploadError ? <p className="error-text">{uploadError}</p> : null}
+								</form>
+
+								<div className="browser-card">
+									<div className="panel-heading compact">
+										<div>
+											<h3>Folder contents</h3>
+											<p>Immediate folders and files at the current prefix.</p>
+										</div>
+										<button
+											type="button"
+											className="inline-button"
+											onClick={() => void loadDocuments(currentPrefix)}
+										>
+											Refresh
+										</button>
+									</div>
+									{documentsError ? <p className="error-text">{documentsError}</p> : null}
+									{documentsTree.entries.length === 0 && !documentsLoading ? (
+										<p className="empty-state">No folders or files are present here yet.</p>
+									) : null}
+									<div className="document-list" role="list">
+										{documentsTree.entries.map((entry) => (
+											<button
+												key={entry.prefix || entry.objectKey}
+												type="button"
+												role="listitem"
+												className={`document-row ${selectedDocument?.objectKey === entry.objectKey ? "active" : ""}`}
+												onClick={() =>
+													entry.type === "folder"
+														? handleOpenFolder(entry.prefix)
+														: void handleSelectDocument(entry)
+												}
+											>
+												<div>
+													<p className="document-name">
+														{entry.type === "folder" ? "Folder" : "File"}: {entry.name}
+													</p>
+													<p className="document-meta">
+														{entry.type === "folder"
+															? entry.prefix
+															: `${entry.contentType || "Unknown type"} • ${formatBytes(entry.sizeBytes)}`}
+													</p>
+												</div>
+												{entry.type === "file" && entry.lastModified ? (
+													<span className="document-time">
+														{formatTimestamp(entry.lastModified)}
+													</span>
+												) : (
+													<span className="document-time">
+														{entry.type === "folder" ? "Open" : "Preview"}
+													</span>
+												)}
+											</button>
+										))}
+									</div>
+								</div>
+							</div>
+
+							<div className="preview-card">
+								<div className="panel-heading compact">
+									<div>
+										<h3>Preview</h3>
+										<p>{fileDescription(selectedDocument)}</p>
+									</div>
+									{selectedDocument?.objectKey ? (
+										<a className="inline-button" href={documentDownloadUrl(selectedDocument.objectKey)}>
+											Download
+										</a>
+									) : null}
+								</div>
+
+								{preview.status === "loading" ? <p className="empty-state">Loading preview…</p> : null}
+								{preview.status === "error" ? <p className="error-text">{preview.text}</p> : null}
+								{preview.kind === "empty" ? (
+									<p className="empty-state">Choose a file from the browser to inspect it here.</p>
+								) : null}
+								{preview.kind === "text" ? <pre className="preview-text">{preview.text}</pre> : null}
+								{preview.kind === "image" ? (
+									<img
+										className="preview-image"
+										src={preview.url}
+										alt={selectedDocument?.name ?? "Selected document"}
+									/>
+								) : null}
+								{preview.kind === "pdf" ? (
+									<iframe
+										className="preview-frame"
+										src={preview.url}
+										title={selectedDocument?.name ?? "Document preview"}
+									/>
+								) : null}
+								{preview.kind === "binary" ? (
+									<div className="binary-preview">
+										<p>This file type does not render inline yet.</p>
+										<p>Use the download link to inspect the original document locally.</p>
+									</div>
+								) : null}
+							</div>
+						</div>
+					</section>
+				)}
+			</div>
 
 			<footer className="legal-footer">
 				<a href="/privacy-policy.html">Privacy Policy</a>

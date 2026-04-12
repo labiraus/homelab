@@ -8,9 +8,9 @@ Externally, the UI should present itself as Labiraus even though the repo keeps 
 
 The UI exposes:
 
-- an authentication panel backed by `/api/auth/status`
-- a federated login button driven by `/api/auth/providers`
-- copy that explains the parallel certificate-authenticated MCP access path
+- a GitHub-style top bar with an Overview tab and a Documents tab for authenticated users
+- an auth status menu backed by `/api/auth/status` and `/api/auth/providers`
+- sign-in and sign-out actions from the header auth menu
 - `/api/users/count`
 - an authenticated hash-routed documents page that browses `/api/documents/tree`, `/api/documents/object`, and `/api/documents/upload`
 - static public legal pages at `/privacy-policy.html` and `/terms-of-service.html`
