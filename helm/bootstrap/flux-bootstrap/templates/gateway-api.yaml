@@ -23,4 +23,4 @@ spec:
     kind: GitRepository
     name: gateway-api
     namespace: flux-system
-  path: "./config/crd/experimental"
+  path: "./config/crd/standard"

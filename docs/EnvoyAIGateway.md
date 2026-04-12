@@ -21,7 +21,7 @@ Pinned upstream versions in this repo:
 - Envoy Gateway `v1.7.0`
 - Envoy AI Gateway CRDs `v0.5.0`
 - Envoy AI Gateway controller `v0.5.0`
-- Gateway API experimental CRDs `v1.4.1` via `helm/bootstrap/flux-bootstrap/`
+- Gateway API standard CRDs `v1.4.1` via `helm/bootstrap/flux-bootstrap/`
 
 Current repo note:
 
