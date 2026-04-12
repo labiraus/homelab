@@ -84,6 +84,29 @@ releases:
     values:
       meshConfig:
         accessLogFile: /dev/stdout
+        extensionProviders:
+          - name: oauth2-proxy
+            envoyExtAuthzHttp:
+              service: homelab-oauth2-proxy.homelab.svc.cluster.local
+              port: "80"
+              pathPrefix: /oauth2/auth
+              includeRequestHeadersInCheck:
+                - authorization
+                - cookie
+              headersToUpstreamOnAllow:
+                - authorization
+                - path
+                - x-auth-request-user
+                - x-auth-request-email
+                - x-auth-request-access-token
+              headersToDownstreamOnAllow:
+                - set-cookie
+              headersToDownstreamOnDeny:
+                - content-type
+                - set-cookie
+        defaultConfig:
+          gatewayTopology:
+            forwardClientCertDetails: SANITIZE_SET
       pilot:
         autoscaleEnabled: true
         autoscaleMin: 1

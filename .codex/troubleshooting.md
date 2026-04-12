@@ -126,6 +126,7 @@ ss -ant | grep ':6443' | awk '{print $5}' | sed 's/.*ffff://; s/]//; s/\[//' | c
 ### Istio ext-auth drift can look like generic RBAC denies
 
 - If `mcp.labiraus.com` starts returning a plain `RBAC: access denied` instead of redirecting browsers to Google, inspect the Istio `oauth2-proxy` extension provider before debugging the app routes.
+- In the current Flux bootstrap flow, the live top-level `flux-system/istio` HelmRelease is seeded from `helm/bootstrap/flux-bootstrap/values.yaml`. Keeping `helm/bootstrap/istio/values.yaml` correct is not enough if the bootstrap release values omit the same `meshConfig` entries.
 - In this repo, the provider must target the rendered service name `homelab-oauth2-proxy.homelab.svc.cluster.local`, not the unprefixed chart name.
 - The provider must use the Service port `80`, not the container port `4180`.
 - The provider must send checks to `/oauth2/auth`. Hitting `/`, `/oauth2/start`, or another browser endpoint produces the wrong behavior for Envoy external authorization.
