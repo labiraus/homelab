@@ -170,12 +170,12 @@ func TestHandlePromptsGetRendersArguments(t *testing.T) {
 }
 
 func TestHandleToolsCallUsesMinIOAdapter(t *testing.T) {
-	previous := listBucketObjects
+	previous := listFolderEntries
 	t.Cleanup(func() {
-		listBucketObjects = previous
+		listFolderEntries = previous
 	})
 
-	listBucketObjects = func(ctx context.Context, bucket string, arguments map[string]any) (operationResponse, *jsonRPCError) {
+	listFolderEntries = func(ctx context.Context, bucket string, arguments map[string]any) (operationResponse, *jsonRPCError) {
 		if bucket != "documents" {
 			t.Fatalf("expected documents bucket, got %q", bucket)
 		}
@@ -185,7 +185,7 @@ func TestHandleToolsCallUsesMinIOAdapter(t *testing.T) {
 
 		return operationResponse{
 			ContentType: "application/json",
-			Body:        `{"bucket":"documents","objects":[{"key":"inbox/a.txt"}]}`,
+			Body:        `{"bucket":"documents","entries":[{"name":"inbox","type":"folder","prefix":"inbox/"}]}`,
 		}, nil
 	}
 
@@ -195,7 +195,7 @@ func TestHandleToolsCallUsesMinIOAdapter(t *testing.T) {
 		ID:      "1",
 		Method:  "tools/call",
 		Params: mustMarshalParams(t, map[string]any{
-			"name": "minio.documents.listObjects",
+			"name": "minio.documents.listFolder",
 			"arguments": map[string]any{
 				"prefix": "inbox/",
 			},
@@ -224,6 +224,55 @@ func TestHandleToolsCallUsesMinIOAdapter(t *testing.T) {
 	}
 	if structured["bucket"] != "documents" {
 		t.Fatalf("expected documents bucket, got %#v", structured["bucket"])
+	}
+}
+
+func TestHandleToolsCallUploadsBinaryObject(t *testing.T) {
+	previous := writeBucketObject
+	t.Cleanup(func() {
+		writeBucketObject = previous
+	})
+
+	writeBucketObject = func(ctx context.Context, bucket string, objectKey string, payload []byte, contentType string) (operationResponse, *jsonRPCError) {
+		if bucket != "documents" {
+			t.Fatalf("expected documents bucket, got %q", bucket)
+		}
+		if objectKey != "inbox/demo.bin" {
+			t.Fatalf("expected inbox/demo.bin object key, got %q", objectKey)
+		}
+		if string(payload) != "hello" {
+			t.Fatalf("expected decoded payload, got %q", string(payload))
+		}
+		if contentType != "application/octet-stream" {
+			t.Fatalf("expected octet-stream content type, got %q", contentType)
+		}
+		return operationResponse{
+			ContentType: "application/json",
+			Body:        `{"key":"inbox/demo.bin","size":5}`,
+		}, nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "minio.documents.putObject",
+			"arguments": map[string]any{
+				"objectKey": "inbox/demo.bin",
+				"body": map[string]any{
+					"base64": "aGVsbG8=",
+				},
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful tool response, got %#v", responseBody)
 	}
 }
 
@@ -310,6 +359,63 @@ func TestHandleResourcesReadMatchesNestedMinIOObjectKey(t *testing.T) {
 	}
 	if content["text"] != "hello" {
 		t.Fatalf("expected hello body, got %#v", content["text"])
+	}
+}
+
+func TestHandleResourcesReadReturnsBlobForBinaryObject(t *testing.T) {
+	previous := readBucketObject
+	t.Cleanup(func() {
+		readBucketObject = previous
+	})
+
+	readBucketObject = func(ctx context.Context, bucket string, objectKey string) (operationResponse, *jsonRPCError) {
+		return operationResponse{
+			ContentType: "application/pdf",
+			Body:        "%PDF",
+		}, nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "resources/read",
+		Params: mustMarshalParams(t, map[string]any{
+			"uri": "homelab://mcp/minio/documents/objects/report.pdf",
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful resource read, got %#v", responseBody)
+	}
+
+	result, ok := responseBody.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected resource result map, got %#v", responseBody.Result)
+	}
+
+	contents, ok := result["contents"].([]map[string]any)
+	if ok && len(contents) == 1 {
+		if contents[0]["blob"] != "JVBERg==" {
+			t.Fatalf("expected base64 blob content, got %#v", contents[0]["blob"])
+		}
+		return
+	}
+
+	decodedContents, ok := result["contents"].([]any)
+	if !ok || len(decodedContents) != 1 {
+		t.Fatalf("expected one content item, got %#v", result["contents"])
+	}
+
+	content, ok := decodedContents[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected content map, got %#v", decodedContents[0])
+	}
+	if content["blob"] != "JVBERg==" {
+		t.Fatalf("expected base64 blob content, got %#v", content["blob"])
 	}
 }
 

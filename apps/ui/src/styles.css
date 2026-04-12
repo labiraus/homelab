@@ -134,6 +134,48 @@ select {
 	line-height: 1.7;
 }
 
+.page-nav {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	margin-top: 1.5rem;
+}
+
+.page-tab,
+.breadcrumb,
+.inline-button {
+	padding: 0.7rem 1rem;
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.34);
+	color: var(--ink);
+	cursor: pointer;
+	text-decoration: none;
+	transition:
+		transform 160ms ease,
+		border-color 160ms ease,
+		background 160ms ease;
+}
+
+:root[data-theme="dark"] .page-tab,
+:root[data-theme="dark"] .breadcrumb,
+:root[data-theme="dark"] .inline-button {
+	background: rgba(10, 20, 34, 0.72);
+}
+
+.page-tab.active,
+.breadcrumb.active {
+	border-color: rgba(196, 90, 44, 0.4);
+	background: rgba(196, 90, 44, 0.12);
+}
+
+.page-tab:hover,
+.breadcrumb:hover,
+.inline-button:hover {
+	transform: translateY(-1px);
+	border-color: rgba(196, 90, 44, 0.4);
+}
+
 .panel {
 	padding: 1.5rem;
 }
@@ -181,6 +223,173 @@ select {
 
 .auth-actions {
 	margin-top: 1.5rem;
+}
+
+.breadcrumbs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	margin-bottom: 1.5rem;
+}
+
+.documents-layout {
+	display: grid;
+	grid-template-columns: minmax(300px, 1.2fr) minmax(300px, 1fr);
+	gap: 1rem;
+}
+
+.documents-column {
+	display: grid;
+	gap: 1rem;
+}
+
+.upload-card,
+.browser-card,
+.preview-card {
+	padding: 1.25rem;
+	border: 1px solid var(--line);
+	border-radius: 22px;
+	background: rgba(255, 255, 255, 0.42);
+}
+
+:root[data-theme="dark"] .upload-card,
+:root[data-theme="dark"] .browser-card,
+:root[data-theme="dark"] .preview-card {
+	background: rgba(15, 24, 36, 0.82);
+}
+
+.upload-card,
+.preview-card {
+	display: grid;
+	gap: 1rem;
+}
+
+.upload-card h3,
+.browser-header h3 {
+	margin: 0 0 0.35rem;
+}
+
+.upload-card p,
+.browser-header p {
+	margin: 0;
+	color: var(--muted);
+}
+
+.upload-card input[type="file"],
+.upload-card input[type="text"] {
+	width: 100%;
+	padding: 0.85rem 1rem;
+	border: 1px solid var(--line);
+	border-radius: 16px;
+	background: rgba(255, 255, 255, 0.75);
+	color: var(--ink);
+}
+
+:root[data-theme="dark"] .upload-card input[type="file"],
+:root[data-theme="dark"] .upload-card input[type="text"] {
+	background: rgba(6, 12, 21, 0.74);
+}
+
+.browser-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 1rem;
+	margin-bottom: 1rem;
+}
+
+.document-list {
+	display: grid;
+	gap: 0.75rem;
+}
+
+.document-row {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 1rem;
+	border: 1px solid var(--line);
+	border-radius: 18px;
+	background: rgba(255, 255, 255, 0.58);
+	color: var(--ink);
+	cursor: pointer;
+	text-align: left;
+	transition:
+		transform 160ms ease,
+		border-color 160ms ease,
+		box-shadow 160ms ease;
+}
+
+:root[data-theme="dark"] .document-row {
+	background: rgba(8, 16, 28, 0.88);
+}
+
+.document-row:hover,
+.document-row.active {
+	transform: translateY(-1px);
+	border-color: rgba(196, 90, 44, 0.35);
+	box-shadow: 0 10px 30px rgba(16, 32, 51, 0.12);
+}
+
+.document-name,
+.document-meta,
+.document-time,
+.empty-state,
+.binary-preview p,
+.success-text {
+	margin: 0;
+}
+
+.document-name {
+	font-weight: 700;
+}
+
+.document-meta,
+.document-time,
+.empty-state,
+.binary-preview p {
+	color: var(--muted);
+}
+
+.document-meta {
+	margin-top: 0.35rem;
+}
+
+.document-time {
+	flex-shrink: 0;
+	font-size: 0.92rem;
+}
+
+.preview-text {
+	margin: 0;
+	padding: 1rem;
+	border-radius: 18px;
+	background: rgba(16, 32, 51, 0.95);
+	color: #f4efe4;
+	font-size: 0.95rem;
+	line-height: 1.6;
+	overflow: auto;
+	white-space: pre-wrap;
+}
+
+.preview-image,
+.preview-frame {
+	width: 100%;
+	min-height: 420px;
+	border: 1px solid var(--line);
+	border-radius: 18px;
+	background: rgba(255, 255, 255, 0.72);
+}
+
+.binary-preview {
+	padding: 1rem;
+	border: 1px dashed var(--line);
+	border-radius: 18px;
+}
+
+.success-text {
+	color: var(--success);
 }
 
 .auth-card {
@@ -335,6 +544,15 @@ select {
 
 	.panel {
 		padding: 1.2rem;
+	}
+
+	.documents-layout {
+		grid-template-columns: 1fr;
+	}
+
+	.browser-header,
+	.document-row {
+		flex-direction: column;
 	}
 
 	.auth-card-wide {

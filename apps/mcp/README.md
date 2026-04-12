@@ -8,7 +8,7 @@ It exposes one MCP entrypoint that fronts:
 
 - orchestrator actions for document workflows
 - direct Postgres-backed read capabilities
-- direct MinIO-backed document-bucket capabilities
+- direct MinIO-backed document-bucket capabilities, including folder-aware browsing and binary uploads
 - prompt examples for current and planned Labiraus capabilities
 - a planned NATS-backed document notification subscription surface
 
@@ -36,6 +36,15 @@ Live direct-backend capabilities currently expect:
 - `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_USE_SSL`, `MINIO_REGION`, `MINIO_BUCKET` for MinIO-backed capabilities
 
 If Postgres or MinIO configuration is omitted, the service still starts and advertises the relevant capabilities, but live calls against those backends return backend-unavailable errors until configuration is provided.
+
+The live MinIO shape now supports:
+
+- `minio.documents.listFolder` for folder-and-file views of a prefix
+- `minio.documents.listObjects` for flat object inventory
+- `homelab://mcp/minio/documents/objects/{objectKey}` for object reads, including binary-safe blob responses
+- `minio.documents.putObject` for base64-backed binary uploads
+- `minio.documents.putTextObject` for text-first writes
+- `minio.documents.deleteObject` for deletes
 
 ## Auth Surface
 

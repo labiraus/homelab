@@ -1,12 +1,15 @@
 package minioutil
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"log/slog"
+	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -25,6 +28,16 @@ type Config struct {
 type Object struct {
 	Info minio.ObjectInfo
 	Body []byte
+}
+
+type FolderEntry struct {
+	Name         string    `json:"name"`
+	Type         string    `json:"type"`
+	ObjectKey    string    `json:"objectKey,omitempty"`
+	Prefix       string    `json:"prefix,omitempty"`
+	SizeBytes    int64     `json:"sizeBytes,omitempty"`
+	LastModified time.Time `json:"lastModified,omitempty"`
+	ContentType  string    `json:"contentType,omitempty"`
 }
 
 var (
@@ -255,8 +268,90 @@ func PutTextObjectToBucket(ctx context.Context, bucketName string, objectName st
 	return StatObjectInBucket(ctx, bucketName, objectName, minio.StatObjectOptions{})
 }
 
+func PutObjectBytesToBucket(ctx context.Context, bucketName string, objectName string, body []byte, opts minio.PutObjectOptions) (minio.ObjectInfo, error) {
+	if _, err := PutObjectToBucket(
+		ctx,
+		bucketName,
+		objectName,
+		bytes.NewReader(body),
+		int64(len(body)),
+		opts,
+	); err != nil {
+		return minio.ObjectInfo{}, err
+	}
+
+	return StatObjectInBucket(ctx, bucketName, objectName, minio.StatObjectOptions{})
+}
+
 func DeleteObjectFromBucket(ctx context.Context, bucketName string, objectName string) error {
 	return RemoveObjectFromBucket(ctx, bucketName, objectName, minio.RemoveObjectOptions{})
+}
+
+func ListFolderEntriesInBucket(ctx context.Context, bucketName string, prefix string, maxKeys int) ([]FolderEntry, error) {
+	normalizedPrefix := normalizePrefix(prefix)
+	objects, err := ListObjectInfoInBucket(ctx, bucketName, minio.ListObjectsOptions{
+		Prefix:    normalizedPrefix,
+		Recursive: true,
+	}, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	folders := map[string]FolderEntry{}
+	files := []FolderEntry{}
+
+	for _, object := range objects {
+		objectKey := strings.TrimSpace(object.Key)
+		if objectKey == "" || strings.HasSuffix(objectKey, "/") {
+			continue
+		}
+
+		relativeKey := strings.TrimPrefix(objectKey, normalizedPrefix)
+		if relativeKey == "" {
+			continue
+		}
+
+		parts := strings.Split(relativeKey, "/")
+		if len(parts) > 1 {
+			folderPrefix := normalizedPrefix + parts[0] + "/"
+			if _, exists := folders[folderPrefix]; exists {
+				continue
+			}
+			folders[folderPrefix] = FolderEntry{
+				Name:   parts[0],
+				Type:   "folder",
+				Prefix: folderPrefix,
+			}
+			continue
+		}
+
+		files = append(files, FolderEntry{
+			Name:         parts[0],
+			Type:         "file",
+			ObjectKey:    objectKey,
+			SizeBytes:    object.Size,
+			LastModified: object.LastModified.UTC(),
+			ContentType:  object.ContentType,
+		})
+	}
+
+	entries := make([]FolderEntry, 0, len(folders)+len(files))
+	for _, folder := range folders {
+		entries = append(entries, folder)
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].Name < files[j].Name
+	})
+	entries = append(entries, files...)
+
+	if maxKeys > 0 && len(entries) > maxKeys {
+		entries = entries[:maxKeys]
+	}
+
+	return entries, nil
 }
 
 func initClient(ctx context.Context, name string, config Config) (*minio.Client, error) {
@@ -318,4 +413,16 @@ func getTarget(bucketName string) (*minio.Client, string, error) {
 		return nil, "", fmt.Errorf("default minio bucket not configured")
 	}
 	return client, resolvedBucket, nil
+}
+
+func normalizePrefix(prefix string) string {
+	prefix = strings.TrimSpace(strings.ReplaceAll(prefix, "\\", "/"))
+	prefix = strings.TrimPrefix(prefix, "/")
+	if prefix == "" {
+		return ""
+	}
+	if !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
+	}
+	return prefix
 }

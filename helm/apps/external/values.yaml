@@ -79,6 +79,22 @@ generatedSecrets:
         value: "https://mcp.labiraus.com/oauth2/start?rd=https%3A%2F%2Fmcp.labiraus.com%2F"
       OIDC_ISSUER_URL:
         value: "https://accounts.google.com"
+      MINIO_ENDPOINT:
+        value: "svartalfheim.labiraus.com:9000"
+      MINIO_USE_SSL:
+        value: "true"
+      MINIO_BUCKET:
+        value: "documents"
+      MINIO_ACCESS_KEY:
+        fromSecretRef:
+          namespace: homelab
+          name: documents-minio-credentials
+          key: accessKey
+      MINIO_SECRET_KEY:
+        fromSecretRef:
+          namespace: homelab
+          name: documents-minio-credentials
+          key: secretKey
       REDIS_HOST:
         value: redis.data.svc.cluster.local
       REDIS_PORT:
@@ -154,6 +170,12 @@ security:
         ports:
           - protocol: TCP
             port: 6379
+      - to:
+          - ipBlock:
+              cidr: 0.0.0.0/0
+        ports:
+          - protocol: TCP
+            port: 9000
 
 podAnnotations: {}
 podLabels:

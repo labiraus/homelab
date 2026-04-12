@@ -47,6 +47,29 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
+envFromSecrets:
+  - mcp-data-connections
+
+generatedSecrets:
+  - name: mcp-data-connections
+    stringData:
+      MINIO_ENDPOINT:
+        value: "svartalfheim.labiraus.com:9000"
+      MINIO_USE_SSL:
+        value: "true"
+      MINIO_BUCKET:
+        value: "documents"
+      MINIO_ACCESS_KEY:
+        fromSecretRef:
+          namespace: homelab
+          name: documents-minio-credentials
+          key: accessKey
+      MINIO_SECRET_KEY:
+        fromSecretRef:
+          namespace: homelab
+          name: documents-minio-credentials
+          key: secretKey
+
 serviceAccount:
   create: true
   automount: true
@@ -104,6 +127,12 @@ security:
         ports:
           - protocol: TCP
             port: 15012
+      - to:
+          - ipBlock:
+              cidr: 0.0.0.0/0
+        ports:
+          - protocol: TCP
+            port: 9000
 
 podAnnotations: {}
 podLabels:
@@ -155,9 +184,4 @@ env:
   # POSTGRES_PASSWORD: ""
   # POSTGRES_DATABASE: ""
   # POSTGRES_SSLMODE: "disable"
-  # MINIO_ENDPOINT: "svartalfheim.labiraus.com:9000"
-  # MINIO_ACCESS_KEY: ""
-  # MINIO_SECRET_KEY: ""
-  # MINIO_USE_SSL: "true"
   # MINIO_REGION: ""
-  # MINIO_BUCKET: "documents"

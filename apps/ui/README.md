@@ -12,6 +12,7 @@ The UI exposes:
 - a federated login button driven by `/api/auth/providers`
 - copy that explains the parallel certificate-authenticated MCP access path
 - `/api/users/count`
+- an authenticated hash-routed documents page that browses `/api/documents/tree`, `/api/documents/object`, and `/api/documents/upload`
 - static public legal pages at `/privacy-policy.html` and `/terms-of-service.html`
 
 The results are shown in the page so it is easy to confirm browser-to-gateway-to-service routing and inspect the current auth state seen by the API.
@@ -55,6 +56,8 @@ Create the static production build:
 ```bash
 npm run build
 ```
+
+The generated `dist/` output is local build artifact only. It should not be committed; CI and the container build generate production assets from source.
 
 ## Container Build
 

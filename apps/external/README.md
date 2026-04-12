@@ -9,6 +9,9 @@ It is the browser-facing API for `ui` and should remain a stable surface even as
 - `/api/auth/status`
 - `/api/auth/providers`
 - `/api/users/count`
+- `/api/documents/tree`
+- `/api/documents/object`
+- `/api/documents/upload`
 - `/readiness`
 - `/liveness`
 - `/metrics`
@@ -25,3 +28,22 @@ The browser-facing path is published through `oauth2-proxy` at `/api/...`, and t
 - `/api/auth/status` returns the resolved mode, email, validity, and invalid reason
 - `/api/auth/providers` returns the configured federated login providers for browser clients
 - in the current repo choice, `OIDC_LOGIN_URL` should point at the local `oauth2-proxy` browser start URL, not directly at Google
+
+## Document Browser Surface
+
+`external` now also fronts the browser-facing MinIO document browser.
+
+- `/api/documents/tree` returns the immediate folders and files for a prefix in the documents bucket
+- `/api/documents/object` streams a document back for inline preview or download
+- `/api/documents/upload` accepts multipart uploads for the current folder view
+
+These routes expect the standard MinIO runtime configuration:
+
+- `MINIO_ENDPOINT`
+- `MINIO_ACCESS_KEY`
+- `MINIO_SECRET_KEY`
+- `MINIO_USE_SSL`
+- `MINIO_REGION`
+- `MINIO_BUCKET`
+
+The UI treats these document routes as authenticated functionality for recognized users, and the API is expected to stay behind the same trusted auth middleware as the rest of the browser-facing surface.

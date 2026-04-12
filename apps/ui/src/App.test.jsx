@@ -7,6 +7,7 @@ import App from "./App";
 describe("App", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
+		window.location.hash = "";
 	});
 
 	test("renders service controls", async () => {
@@ -152,6 +153,7 @@ describe("App", () => {
 	test("uses the configured federated provider URL for login", async () => {
 		const user = userEvent.setup();
 		const assign = vi.fn();
+		const originalLocation = window.location;
 		delete window.location;
 		window.location = { assign };
 
@@ -181,5 +183,93 @@ describe("App", () => {
 		await user.click(screen.getByRole("button", { name: /log in with google/i }));
 
 		expect(assign).toHaveBeenCalledWith("https://accounts.google.com/o/oauth2/v2/auth");
+		window.location = originalLocation;
+	});
+
+	test("navigates to the documents page and shows folder entries", async () => {
+		const user = userEvent.setup();
+		global.fetch = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ mode: "oidc", email: "oliver@labiraus.com", valid: true }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					providers: [
+						{
+							id: "google",
+							name: "Google",
+							issuer: "https://accounts.google.com",
+							authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+							configured: true,
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					bucket: "documents",
+					prefix: "",
+					breadcrumbs: [{ name: "documents", prefix: "" }],
+					entries: [
+						{ name: "reports", type: "folder", prefix: "reports/" },
+						{
+							name: "notes.txt",
+							type: "file",
+							objectKey: "notes.txt",
+							sizeBytes: 12,
+							contentType: "text/plain",
+							lastModified: "2026-04-12T12:00:00Z",
+						},
+					],
+				}),
+			});
+
+		render(<App />);
+		await screen.findByText("oliver@labiraus.com");
+		await user.click(screen.getByRole("button", { name: /documents/i }));
+
+		expect(await screen.findByText(/folder: reports/i)).toBeInTheDocument();
+		expect(screen.getByText(/file: notes.txt/i)).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith("/api/documents/tree", expect.objectContaining({ method: "GET" }));
+	});
+
+	test("requires authentication before loading the documents browser", async () => {
+		const user = userEvent.setup();
+		global.fetch = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ mode: "none", valid: false, invalidReason: "none" }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					providers: [
+						{
+							id: "google",
+							name: "Google",
+							issuer: "https://accounts.google.com",
+							authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+							configured: true,
+						},
+					],
+				}),
+			});
+
+		render(<App />);
+		await screen.findByText("none");
+		await user.click(screen.getByRole("button", { name: /documents/i }));
+
+		expect(
+			await screen.findByText(/sign in with a recognized labiraus identity before browsing/i),
+		).toBeInTheDocument();
+		expect(global.fetch).not.toHaveBeenCalledWith(
+			"/api/documents/tree",
+			expect.objectContaining({ method: "GET" }),
+		);
 	});
 });

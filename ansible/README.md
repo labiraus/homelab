@@ -85,6 +85,8 @@ export MINIO_VELERO_ACCESS_KEY='...'
 export MINIO_VELERO_SECRET_KEY='...'
 export MINIO_CNPG_ACCESS_KEY='...'
 export MINIO_CNPG_SECRET_KEY='...'
+export MINIO_DOCUMENTS_ACCESS_KEY='...'
+export MINIO_DOCUMENTS_SECRET_KEY='...'
 export MINIO_SITE1_UPLOADER_ACCESS_KEY='...'
 export MINIO_SITE1_UPLOADER_SECRET_KEY='...'
 ```
@@ -248,12 +250,14 @@ Policies:
 
 - `velero-rw`
 - `cnpg-rw`
+- `documents-rw`
 - `static-site-site1-upload`
 
 Users:
 
 - `velero`
 - `cnpg`
+- `documents`
 - `static-site-uploader-site1`
 
 Lifecycle rules:

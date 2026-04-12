@@ -146,10 +146,24 @@ var capabilityCatalog = []manifestCapabilitySource{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `minio.documents.listObjects` tool to inspect the external documents bucket. If you want to narrow the search, start with the `{{prefix}}` prefix, then follow up with `homelab://mcp/minio/documents/objects/{objectKey}` reads for the specific files you need to inspect.",
+							Text: "Use the live `minio.documents.listFolder` tool to inspect the external documents bucket as folders and files. If you want to narrow the search, start with the `{{prefix}}` prefix, then follow up with `homelab://mcp/minio/documents/objects/{objectKey}` reads for the specific files you need to inspect or `minio.documents.putObject` to upload new content.",
 						},
 					},
 				},
+			),
+			liveTool(
+				"minio.documents.listFolder",
+				"listDocumentFolder",
+				http.MethodPost,
+				"/minio/documents/list-folder",
+				"List the folders and files immediately beneath a prefix in the documents bucket.",
+				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendMinIO,
+					ExecutionMode: manifestExecutionModeMinIOListFolder,
+					Bucket:        "documents",
+				},
+				minioListFolderSchema(),
 			),
 			liveTool(
 				"minio.documents.listObjects",
@@ -177,6 +191,20 @@ var capabilityCatalog = []manifestCapabilitySource{
 					ExecutionMode: manifestExecutionModeMinIOGetObject,
 					Bucket:        "documents",
 				},
+			),
+			liveTool(
+				"minio.documents.putObject",
+				"putDocumentObject",
+				http.MethodPut,
+				"/minio/documents/objects/{objectKey}",
+				"Create or replace a binary or text object in the documents bucket from a base64 payload.",
+				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendMinIO,
+					ExecutionMode: manifestExecutionModeMinIOPutObject,
+					Bucket:        "documents",
+				},
+				minioPutObjectSchema(),
 			),
 			liveTool(
 				"minio.documents.putTextObject",
@@ -623,6 +651,35 @@ func minioListObjectsSchema() *manifestSchema {
 			"recursive": {Type: "boolean", Description: "Whether to traverse the prefix recursively."},
 			"maxKeys":   {Type: "integer", Description: "Optional maximum number of objects to return."},
 		},
+	}
+}
+
+func minioListFolderSchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"prefix":  {Type: "string", Description: "Optional folder prefix to inspect."},
+			"maxKeys": {Type: "integer", Description: "Optional maximum number of immediate children to return."},
+		},
+	}
+}
+
+func minioPutObjectSchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"objectKey": {Type: "string", Description: "Object key within the documents bucket."},
+			"body": {
+				Type:        "object",
+				Description: "Object content and metadata.",
+				Properties: map[string]manifestSchema{
+					"base64":      {Type: "string", Description: "Base64-encoded object payload."},
+					"contentType": {Type: "string", Description: "Optional MIME type for the stored object."},
+				},
+				Required: []string{"base64"},
+			},
+		},
+		Required: []string{"objectKey", "body"},
 	}
 }
 

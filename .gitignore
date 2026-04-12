@@ -40,3 +40,16 @@ __pycache__/
 *.py[cod]
 
 *.mkv
+
+# Frontend local artifacts
+apps/ui/node_modules/
+apps/ui/dist/
+apps/ui/coverage/
+apps/ui/.vite/
+apps/ui/.env.local
+apps/ui/.env.development.local
+apps/ui/.env.test.local
+apps/ui/.env.production.local
+apps/ui/npm-debug.log*
+apps/ui/yarn-debug.log*
+apps/ui/yarn-error.log*

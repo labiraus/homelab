@@ -54,6 +54,8 @@ Current limitation:
 - the Samba password and managed MinIO user secrets are not recoverable from `/etc/default/minio`
 - keep those as local-only values in `ansible/.env` until they also get a fetch path from their own source of truth
 
+That includes app-facing MinIO users such as the `documents` bucket credentials used by the `external` browser API and the Labiraus MCP server.
+
 Run the external playbooks through the repo wrapper so both env layers are applied consistently:
 
 ```bash

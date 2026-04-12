@@ -56,7 +56,7 @@ Use this when:
 ### `minio.documents.browse.prompt`
 
 - lifecycle: `live`
-- purpose: show how to browse the documents bucket with the current MinIO tools and resources
+- purpose: show how to browse the documents bucket with the current folder-aware MinIO tools and resources
 - arguments:
   - `prefix` optional
 

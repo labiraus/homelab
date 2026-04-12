@@ -12,6 +12,7 @@ import (
 	"pkg/api"
 	"pkg/base"
 	"pkg/kubernetesutil"
+	"pkg/minioutil"
 	"pkg/postgresutil"
 	"pkg/prometheusutil"
 
@@ -63,11 +64,31 @@ func main() {
 		slog.InfoContext(ctx, "postgres config not provided; user count endpoint will be unavailable")
 	}
 
+	if minioConfigured() {
+		if err = minioutil.Init(ctx, map[string]minioutil.Config{
+			"default": {
+				Endpoint:  base.GetEnv("MINIO_ENDPOINT", ""),
+				AccessKey: base.GetEnv("MINIO_ACCESS_KEY", ""),
+				SecretKey: base.GetEnv("MINIO_SECRET_KEY", ""),
+				UseSSL:    strings.EqualFold(base.GetEnv("MINIO_USE_SSL", "false"), "true"),
+				Region:    base.GetEnv("MINIO_REGION", ""),
+				Bucket:    base.GetEnv("MINIO_BUCKET", "documents"),
+			},
+		}); err != nil {
+			return
+		}
+	} else {
+		slog.InfoContext(ctx, "minio config not provided; document browser endpoints will be unavailable")
+	}
+
 	mux := http.NewServeMux()
 	prometheusutil.Start(mux)
 	mux.HandleFunc("/api/auth/status", authStatusHandler)
 	mux.HandleFunc("/api/auth/providers", authProvidersHandler)
 	mux.HandleFunc("/api/users/count", userCountHandler)
+	mux.HandleFunc("/api/documents/tree", documentsTreeHandler)
+	mux.HandleFunc("/api/documents/object", documentObjectHandler)
+	mux.HandleFunc("/api/documents/upload", documentUploadHandler)
 
 	done := api.Start(ctx, mux, 8080, api.NewAuthMiddleware(api.AuthOptions{
 		OIDCEmailHeader: "X-Forwarded-Email",
@@ -93,6 +114,22 @@ func postgresConfigured() bool {
 		"POSTGRES_USER",
 		"POSTGRES_PASSWORD",
 		"POSTGRES_DATABASE",
+	}
+
+	for _, key := range requiredVars {
+		if strings.TrimSpace(os.Getenv(key)) == "" {
+			return false
+		}
+	}
+
+	return true
+}
+
+func minioConfigured() bool {
+	requiredVars := []string{
+		"MINIO_ENDPOINT",
+		"MINIO_ACCESS_KEY",
+		"MINIO_SECRET_KEY",
 	}
 
 	for _, key := range requiredVars {

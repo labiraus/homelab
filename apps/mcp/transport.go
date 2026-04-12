@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,8 +34,10 @@ var (
 
 	proxyOperationRequest = proxyAPIRequest
 	readPostgresUserCount = postgresUserCount
+	listFolderEntries     = minioListFolderEntries
 	listBucketObjects     = minioListBucketObjects
 	readBucketObject      = minioReadBucketObject
+	writeBucketObject     = minioPutBucketObject
 	writeBucketTextObject = minioWriteBucketTextObject
 	deleteBucketObject    = minioDeleteBucketObject
 )
@@ -312,13 +315,7 @@ func handleResourcesRead(ctx context.Context, r *http.Request, req jsonRPCReques
 		JSONRPC: "2.0",
 		ID:      req.ID,
 		Result: map[string]any{
-			"contents": []map[string]any{
-				{
-					"uri":      resolution.uri,
-					"mimeType": response.ContentType,
-					"text":     response.Body,
-				},
-			},
+			"contents": []map[string]any{resourceContentItem(resolution.uri, response)},
 		},
 	}
 }
@@ -438,8 +435,37 @@ func executeToolOperation(ctx context.Context, r *http.Request, resolution toolR
 
 		contentType, body, upstreamErr := proxyOperationRequest(ctx, r, resolution.operation.Method, path, bodyForToolCall(resolution.operation, arguments))
 		return operationResponse{ContentType: defaultContentType(contentType), Body: body}, upstreamErr
+	case manifestExecutionModeMinIOListFolder:
+		return listFolderEntries(ctx, binding.Bucket, arguments)
 	case manifestExecutionModeMinIOList:
 		return listBucketObjects(ctx, binding.Bucket, arguments)
+	case manifestExecutionModeMinIOPutObject:
+		objectKey, rpcErr := requiredStringArgument(arguments, "objectKey")
+		if rpcErr != nil {
+			return operationResponse{}, rpcErr
+		}
+
+		bodyMap, rpcErr := requiredObjectArgument(arguments, "body")
+		if rpcErr != nil {
+			return operationResponse{}, rpcErr
+		}
+
+		base64Value, rpcErr := requiredStringArgument(bodyMap, "base64")
+		if rpcErr != nil {
+			return operationResponse{}, rpcErr
+		}
+
+		payload, err := base64.StdEncoding.DecodeString(base64Value)
+		if err != nil {
+			return operationResponse{}, &jsonRPCError{
+				Code:    -32602,
+				Message: "body.base64 must be valid base64",
+				Data:    err.Error(),
+			}
+		}
+
+		contentType := optionalStringArgument(bodyMap, "contentType", "application/octet-stream")
+		return writeBucketObject(ctx, binding.Bucket, objectKey, payload, contentType)
 	case manifestExecutionModeMinIOPutText:
 		objectKey, rpcErr := requiredStringArgument(arguments, "objectKey")
 		if rpcErr != nil {
@@ -630,6 +656,38 @@ func minioListBucketObjects(ctx context.Context, bucket string, arguments map[st
 	}, nil
 }
 
+func minioListFolderEntries(ctx context.Context, bucket string, arguments map[string]any) (operationResponse, *jsonRPCError) {
+	entries, err := minioutil.ListFolderEntriesInBucket(ctx, bucket, optionalStringArgument(arguments, "prefix", ""), optionalIntArgument(arguments, "maxKeys", 0))
+	if err != nil {
+		return operationResponse{
+				ContentType: "application/json",
+				Body:        fmt.Sprintf(`{"error":%q}`, err.Error()),
+			}, &jsonRPCError{
+				Code:    -32000,
+				Message: "MinIO folder list operation failed",
+				Data:    err.Error(),
+			}
+	}
+
+	body, err := json.Marshal(map[string]any{
+		"bucket":  bucket,
+		"prefix":  optionalStringArgument(arguments, "prefix", ""),
+		"entries": entries,
+	})
+	if err != nil {
+		return operationResponse{}, &jsonRPCError{
+			Code:    -32000,
+			Message: "Failed to encode MinIO folder list response",
+			Data:    err.Error(),
+		}
+	}
+
+	return operationResponse{
+		ContentType: "application/json",
+		Body:        string(body),
+	}, nil
+}
+
 func minioReadBucketObject(ctx context.Context, bucket string, objectKey string) (operationResponse, *jsonRPCError) {
 	object, err := minioutil.ReadObjectFromBucket(ctx, bucket, objectKey)
 	if err != nil {
@@ -649,6 +707,39 @@ func minioReadBucketObject(ctx context.Context, bucket string, objectKey string)
 	return operationResponse{
 		ContentType: defaultContentType(object.Info.ContentType),
 		Body:        string(object.Body),
+	}, nil
+}
+
+func minioPutBucketObject(ctx context.Context, bucket string, objectKey string, payload []byte, contentType string) (operationResponse, *jsonRPCError) {
+	object, err := minioutil.PutObjectBytesToBucket(ctx, bucket, objectKey, payload, minio.PutObjectOptions{
+		ContentType: contentType,
+	})
+	if err != nil {
+		return operationResponse{
+				ContentType: "application/json",
+				Body:        fmt.Sprintf(`{"error":%q}`, err.Error()),
+			}, &jsonRPCError{
+				Code:    -32000,
+				Message: "MinIO write operation failed",
+				Data: map[string]any{
+					"bucket":    bucket,
+					"objectKey": objectKey,
+				},
+			}
+	}
+
+	body, err := json.Marshal(object)
+	if err != nil {
+		return operationResponse{}, &jsonRPCError{
+			Code:    -32000,
+			Message: "Failed to encode MinIO write response",
+			Data:    err.Error(),
+		}
+	}
+
+	return operationResponse{
+		ContentType: "application/json",
+		Body:        string(body),
 	}, nil
 }
 
@@ -935,6 +1026,27 @@ func decodeStructuredContent(body string, contentType string) (any, bool) {
 	}
 
 	return decoded, true
+}
+
+func resourceContentItem(uri string, response operationResponse) map[string]any {
+	item := map[string]any{
+		"uri":      uri,
+		"mimeType": response.ContentType,
+	}
+	if isTextContentType(response.ContentType) {
+		item["text"] = response.Body
+		return item
+	}
+	item["blob"] = base64.StdEncoding.EncodeToString([]byte(response.Body))
+	return item
+}
+
+func isTextContentType(contentType string) bool {
+	contentType = strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
+	return strings.HasPrefix(contentType, "text/") ||
+		contentType == "application/json" ||
+		contentType == "application/xml" ||
+		contentType == "application/javascript"
 }
 
 func defaultContentType(contentType string) string {
