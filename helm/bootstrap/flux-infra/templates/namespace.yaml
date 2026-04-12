@@ -1,0 +1,16 @@
+{{- $seen := dict -}}
+{{- range $ns := .Values.namespaces }}
+{{- if not (hasKey $seen $ns.name) }}
+{{- $_ := set $seen $ns.name true }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $ns.name }}
+  {{- $labels := merge (dict "istio-injection" "enabled") ($ns.labels | default dict) }}
+  {{- if $labels }}
+  labels:
+{{ toYaml $labels | nindent 4 }}
+  {{- end }}
+---{{ "\n" }}
+{{- end }}
+{{- end }}

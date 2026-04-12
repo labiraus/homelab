@@ -1,12 +1,12 @@
 # Envoy AI Gateway
 
-Envoy AI Gateway is installed through `helm/infra/envoy-ai-gateway/` and reconciled by Flux through the `envoy-ai-gateway` release declared in `helm/bootstrap/flux-apps/values.yaml`.
+Envoy AI Gateway is installed through `helm/infra/envoy-ai-gateway/` and reconciled by Flux through the `envoy-ai-gateway` release declared in `helm/bootstrap/flux-infra/values.yaml`.
 
-The infra stack installs three upstream controller artifacts plus one upstream Git source:
+The infra stack installs two upstream controller artifacts plus two parent-owned CRD sources:
 
 - Envoy Gateway CRDs from the upstream `envoyproxy/gateway` Git repository
 - Envoy Gateway into `envoy-gateway-system`
-- Envoy AI Gateway CRDs into `envoy-ai-gateway-system`
+- Envoy AI Gateway CRDs from the upstream `envoyproxy/ai-gateway-crds-helm` OCI artifact
 - Envoy AI Gateway controller into `envoy-ai-gateway-system`
 
 The Envoy Gateway Helm values include the upstream AI Gateway compatibility settings so Envoy Gateway exposes the Backend API and the xDS translation hooks required by Envoy AI Gateway.
@@ -28,8 +28,8 @@ Pinned upstream versions in this repo:
 Current repo note:
 
 - Gateway API is pinned to `v1.4.1` to stay aligned with the upstream Envoy Gateway `v1.7.x` compatibility matrix used by this repo
-- clean installs split CRD ownership so Flux bootstrap owns Gateway API CRDs, a Flux `GitRepository` + `Kustomization` owns Envoy Gateway CRDs from `envoyproxy/gateway`, and the main Envoy Gateway chart installs with CRD management disabled
-- the top-level `envoy-ai-gateway` wrapper release in `flux-apps` is configured with wait disabled because it bootstraps child Flux objects; readiness is tracked on the child `HelmRelease` and `Kustomization` resources instead of on the wrapper chart itself
+- clean installs split CRD ownership so Flux bootstrap owns Gateway API CRDs, a Flux `GitRepository` + `Kustomization` owns Envoy Gateway CRDs from `envoyproxy/gateway`, a Flux `OCIRepository` + `Kustomization` owns Envoy AI Gateway CRDs from the upstream CRD chart, and the controller HelmReleases install with CRD management disabled
+- the top-level `envoy-ai-gateway` wrapper release in `flux-infra` is configured with wait disabled because it bootstraps child Flux objects; readiness is tracked on the child `HelmRelease` and `Kustomization` resources instead of on the wrapper chart itself
 - operator access to Postgres no longer depends on a permanent Gateway API `TCPRoute`; the supported workflow is local `make postgres` with a temporary `kubectl port-forward`
 
 Upstream references used for this integration:

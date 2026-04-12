@@ -66,6 +66,7 @@ Current behavior note:
 
 - App charts: `helm/apps/`
 - Infra charts: `helm/infra/`
+- Bootstrap child infra chart: `helm/bootstrap/flux-infra/`
 - Browser edge auth chart: `helm/infra/oauth2-proxy/`
 - Bootstrap charts: `helm/bootstrap/`
 - Envoy AI Gateway infra chart: `helm/infra/envoy-ai-gateway/`

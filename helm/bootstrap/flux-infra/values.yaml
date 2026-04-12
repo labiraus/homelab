@@ -17,31 +17,16 @@ imagePullSecret:
     name: ghcr-creds
 min_version: 0.0.0-0
 releases:
-  - name: external
-    type: oci
-    namespace: homelab
-    dependsOn:
-      - postgres
-      - redis
-
-  - name: ui
+  - name: secrets
     type: oci
     namespace: homelab
 
-  - name: mcp
+  - name: oauth2-proxy
     type: oci
     namespace: homelab
 
-  - name: orchestrator
+  - name: envoy-ai-gateway
     type: oci
-    namespace: homelab
-    dependsOn:
-      - nats
-
-  - name: processor
-    type: oci
-    namespace: homelab
-    dependsOn:
-      - nats
-      - postgres
-      - keda
+    targetNamespace: flux-system
+    installDisableWait: true
+    upgradeDisableWait: true
