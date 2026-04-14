@@ -147,6 +147,7 @@ Common signs:
 
 - `OCIRepository` is `Ready=True`, but the `HelmRelease` times out waiting on the Deployment.
 - container logs show `nats.Connect: dial tcp: lookup nats.nats.svc.cluster.local ... no such host`
+- container logs show `flushing nats connection: nats: context requires a deadline`
 - the live broker service is `nats-nats` rather than `nats`
 
 Recovery:

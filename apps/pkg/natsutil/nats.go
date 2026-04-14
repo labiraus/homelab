@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/nats-io/nats.go"
 )
@@ -16,6 +17,8 @@ var (
 	js     nats.JetStreamContext
 	rwMux  sync.RWMutex
 )
+
+const defaultFlushTimeout = 5 * time.Second
 
 type NATSConfig struct {
 	Servers []string
@@ -53,7 +56,15 @@ func Start(ctx context.Context, c NATSConfig) error {
 	if err != nil {
 		return fmt.Errorf("nats.Connect: %w", err)
 	}
-	if err := nc.FlushWithContext(ctx); err != nil {
+
+	flushCtx := ctx
+	cancel := func() {}
+	if _, ok := ctx.Deadline(); !ok {
+		flushCtx, cancel = context.WithTimeout(ctx, defaultFlushTimeout)
+	}
+	defer cancel()
+
+	if err := nc.FlushWithContext(flushCtx); err != nil {
 		return fmt.Errorf("flushing nats connection: %w", err)
 	}
 
