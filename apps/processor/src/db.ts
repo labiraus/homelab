@@ -1,6 +1,12 @@
 import { Pool } from "pg";
 
-import type { Chunk, DocumentEvent, EmbeddingResult } from "./types.js";
+import type {
+	Chunk,
+	DocumentClaimResult,
+	DocumentEvent,
+	DocumentState,
+	EmbeddingResult,
+} from "./types.js";
 
 const statements = [
 	"CREATE EXTENSION IF NOT EXISTS vector",
@@ -64,8 +70,91 @@ export async function ensureSchema(pool: Pool): Promise<void> {
 	}
 }
 
-export async function persistDocument(
+export async function claimDocumentForProcessing(
 	pool: Pool,
+	event: DocumentEvent,
+): Promise<DocumentClaimResult> {
+	const client = await pool.connect();
+	const processingVersion = event.processingVersion ?? 1;
+	try {
+		await client.query("BEGIN");
+		const result = await client.query<DocumentState>(
+			`SELECT
+				id AS "documentPk",
+				status,
+				desired_processing_version AS "desiredProcessingVersion",
+				current_processing_version AS "currentProcessingVersion"
+			FROM rag.documents
+			WHERE document_id = $1
+			FOR UPDATE`,
+			[event.documentId],
+		);
+
+		const state = result.rows[0];
+		const outcome = resolveClaimResult(state ?? null, processingVersion);
+		if (outcome.kind !== "claimed") {
+			await client.query("ROLLBACK");
+			return outcome;
+		}
+
+		const claimed = await client.query(
+			`UPDATE rag.documents
+			SET status = 'processing',
+				updated_at = NOW(),
+				last_error = NULL
+			WHERE id = $1
+			  AND desired_processing_version = $2`,
+			[outcome.documentPk, processingVersion],
+		);
+		if (claimed.rowCount !== 1) {
+			await client.query("ROLLBACK");
+			return { kind: "retry", reason: "document row changed before claim" };
+		}
+
+		await client.query("COMMIT");
+		return outcome;
+	} catch (error) {
+		await client.query("ROLLBACK");
+		throw error;
+	} finally {
+		client.release();
+	}
+}
+
+export function resolveClaimResult(
+	state: DocumentState | null,
+	processingVersion: number,
+): DocumentClaimResult {
+	if (!state) {
+		return { kind: "retry", reason: "document row is not visible yet" };
+	}
+
+	if (state.desiredProcessingVersion < processingVersion) {
+		return { kind: "retry", reason: "document version is not committed yet" };
+	}
+
+	if (state.desiredProcessingVersion > processingVersion) {
+		return { kind: "noop", reason: "document was superseded by a newer version" };
+	}
+
+	if (state.currentProcessingVersion >= processingVersion) {
+		return { kind: "noop", reason: "document version is already processed" };
+	}
+
+	if (state.status === "processing") {
+		return { kind: "retry", reason: "document is already being processed" };
+	}
+
+	return {
+		kind: "claimed",
+		documentPk: state.documentPk,
+		reason: "document claimed for processing",
+	};
+}
+
+export async function persistProcessedDocument(
+	pool: Pool,
+	documentPk: number,
 	event: DocumentEvent,
 	chunks: Chunk[],
 	embeddings: EmbeddingResult[],
@@ -74,62 +163,14 @@ export async function persistDocument(
 	const processingVersion = event.processingVersion ?? 1;
 	try {
 		await client.query("BEGIN");
-		const documentResult = await client.query(
-			`INSERT INTO rag.documents (
-			   document_id,
-			   bucket_name,
-			   object_key,
-			   source_uri,
-			   content_type,
-			   version_marker,
-			   etag,
-			   size_bytes,
-			   last_modified,
-			   status,
-			   metadata,
-			   desired_processing_version,
-			   current_processing_version,
-			   last_reconciled_at,
-			   last_processed_at,
-			   updated_at
-			 )
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'processed', $10, $11, $11, NULL, NOW(), NOW())
-			 ON CONFLICT (document_id)
-			 DO UPDATE SET
-			   bucket_name = EXCLUDED.bucket_name,
-			   object_key = EXCLUDED.object_key,
-			   source_uri = EXCLUDED.source_uri,
-			   content_type = EXCLUDED.content_type,
-			   version_marker = EXCLUDED.version_marker,
-			   etag = EXCLUDED.etag,
-			   size_bytes = EXCLUDED.size_bytes,
-			   last_modified = EXCLUDED.last_modified,
-			   status = EXCLUDED.status,
-			   metadata = EXCLUDED.metadata,
-			   desired_processing_version = EXCLUDED.desired_processing_version,
-			   current_processing_version = EXCLUDED.current_processing_version,
-			   last_processed_at = NOW(),
-			   updated_at = NOW(),
-			   last_error = NULL
-			 RETURNING id`,
-			[
-				event.documentId,
-				event.bucket ?? null,
-				event.objectKey ?? null,
-				event.sourceUri,
-				event.contentType,
-				event.versionMarker ?? null,
-				event.etag ?? null,
-				event.sizeBytes ?? null,
-				event.lastModified ?? null,
-				event.metadata ?? null,
-				processingVersion,
-			],
+		await client.query(
+			"DELETE FROM rag.embeddings WHERE chunk_id IN (SELECT id FROM rag.chunks WHERE document_pk = $1 AND processing_version = $2)",
+			[documentPk, processingVersion],
 		);
-
-		const documentId = documentResult.rows[0]?.id as number;
-		await client.query("DELETE FROM rag.embeddings WHERE chunk_id IN (SELECT id FROM rag.chunks WHERE document_pk = $1)", [documentId]);
-		await client.query("DELETE FROM rag.chunks WHERE document_pk = $1", [documentId]);
+		await client.query("DELETE FROM rag.chunks WHERE document_pk = $1 AND processing_version = $2", [
+			documentPk,
+			processingVersion,
+		]);
 
 		for (const chunk of chunks) {
 			const embedding = embeddings[chunk.index];
@@ -137,7 +178,7 @@ export async function persistDocument(
 				`INSERT INTO rag.chunks (document_pk, processing_version, chunk_index, chunk_text, token_count, content_hash)
 				 VALUES ($1, $2, $3, $4, $5, $6)
 				 RETURNING id`,
-				[documentId, processingVersion, chunk.index, chunk.text, chunk.tokenCount, null],
+				[documentPk, processingVersion, chunk.index, chunk.text, chunk.tokenCount, null],
 			);
 
 			const chunkId = chunkResult.rows[0]?.id as number;
@@ -148,6 +189,20 @@ export async function persistDocument(
 			);
 		}
 
+		await client.query(
+			`UPDATE rag.documents
+			SET current_processing_version = GREATEST(current_processing_version, $2),
+				status = CASE
+					WHEN desired_processing_version > $2 THEN 'pending'
+					ELSE 'processed'
+				END,
+				last_processed_at = NOW(),
+				updated_at = NOW(),
+				last_error = NULL
+			WHERE id = $1`,
+			[documentPk, processingVersion],
+		);
+
 		await client.query("COMMIT");
 	} catch (error) {
 		await client.query("ROLLBACK");
@@ -155,6 +210,24 @@ export async function persistDocument(
 	} finally {
 		client.release();
 	}
+}
+
+export async function markDocumentPendingWithError(
+	pool: Pool,
+	event: DocumentEvent,
+	message: string,
+): Promise<void> {
+	await pool.query(
+		`UPDATE rag.documents
+		SET status = CASE
+			WHEN desired_processing_version > $2 THEN status
+			ELSE 'pending'
+		END,
+			last_error = $3,
+			updated_at = NOW()
+		WHERE document_id = $1`,
+		[event.documentId, event.processingVersion ?? 1, message],
+	);
 }
 
 export function toVectorLiteral(vector: number[]): string {

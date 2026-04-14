@@ -10,6 +10,7 @@
     "test": "node --import tsx --test test/**/*.test.ts"
   },
   "dependencies": {
+    "minio": "^8.0.7",
     "nats": "^2.29.3",
     "pg": "^8.16.3"
   },

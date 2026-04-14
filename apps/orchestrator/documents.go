@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"mime"
 	"net/http"
 	"os"
 	"strings"
@@ -22,7 +23,6 @@ type documentRequest struct {
 	ETag              string                 `json:"etag,omitempty"`
 	SizeBytes         int64                  `json:"sizeBytes,omitempty"`
 	LastModified      string                 `json:"lastModified,omitempty"`
-	Text              string                 `json:"text"`
 	Metadata          map[string]interface{} `json:"metadata,omitempty"`
 	ProcessingVersion int                    `json:"processingVersion,omitempty"`
 }
@@ -37,7 +37,6 @@ type documentEvent struct {
 	ETag              string                 `json:"etag,omitempty"`
 	SizeBytes         int64                  `json:"sizeBytes,omitempty"`
 	LastModified      string                 `json:"lastModified,omitempty"`
-	Text              string                 `json:"text"`
 	Metadata          map[string]interface{} `json:"metadata,omitempty"`
 	RequestedAt       string                 `json:"requestedAt"`
 	ProcessingVersion int                    `json:"processingVersion,omitempty"`
@@ -48,6 +47,7 @@ type errorResponse struct {
 }
 
 var publishDocumentEvent = enqueueDocument
+var queueDocument = queuePendingDocument
 
 func documentsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -76,13 +76,12 @@ func documentsHandler(w http.ResponseWriter, r *http.Request) {
 		ETag:              request.ETag,
 		SizeBytes:         request.SizeBytes,
 		LastModified:      request.LastModified,
-		Text:              request.Text,
 		Metadata:          request.Metadata,
 		RequestedAt:       time.Now().UTC().Format(time.RFC3339),
 		ProcessingVersion: defaultProcessingVersion(request.ProcessingVersion),
 	}
 
-	if err := publishDocumentEvent(r.Context(), event); err != nil {
+	if err := queueDocument(r.Context(), event); err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to enqueue document"})
 		return
 	}
@@ -97,15 +96,29 @@ func validateDocumentRequest(request documentRequest) error {
 	switch {
 	case strings.TrimSpace(request.DocumentID) == "":
 		return fmt.Errorf("documentId is required")
+	case strings.TrimSpace(request.Bucket) == "":
+		return fmt.Errorf("bucket is required")
+	case strings.TrimSpace(request.ObjectKey) == "":
+		return fmt.Errorf("objectKey is required")
 	case strings.TrimSpace(request.SourceURI) == "":
 		return fmt.Errorf("sourceUri is required")
 	case strings.TrimSpace(request.ContentType) == "":
 		return fmt.Errorf("contentType is required")
-	case strings.TrimSpace(request.Text) == "":
-		return fmt.Errorf("text is required")
+	case !supportedTextContentType(request.ContentType):
+		return fmt.Errorf("contentType must be text/* for this endpoint")
 	default:
 		return nil
 	}
+}
+
+func queuePendingDocument(ctx context.Context, event documentEvent) error {
+	return runDocumentTx(ctx, func(txCtx context.Context) error {
+		if err := upsertPendingRecord(txCtx, event); err != nil {
+			return err
+		}
+
+		return publishDocumentEvent(txCtx, event)
+	})
 }
 
 func enqueueDocument(ctx context.Context, event documentEvent) error {
@@ -142,6 +155,15 @@ func defaultProcessingVersion(value int) int {
 		return 1
 	}
 	return value
+}
+
+func supportedTextContentType(value string) bool {
+	mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(value))
+	if err != nil {
+		return false
+	}
+
+	return strings.HasPrefix(strings.ToLower(mediaType), "text/")
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload interface{}) {

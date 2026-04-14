@@ -4,6 +4,12 @@ export interface ProcessorConfig {
 	streamName: string;
 	subject: string;
 	consumerName: string;
+	minioEndpoint: string;
+	minioUseSSL: boolean;
+	minioRegion: string;
+	minioBucket: string;
+	minioAccessKey: string;
+	minioSecretKey: string;
 	embeddingEndpoint: string;
 	embeddingModel: string;
 	chunkSize: number;
@@ -26,6 +32,12 @@ export function loadConfig(): ProcessorConfig {
 		streamName: process.env.NATS_STREAM?.trim() || "documents",
 		subject: process.env.NATS_SUBJECT?.trim() || "documents.ingest",
 		consumerName: process.env.NATS_CONSUMER?.trim() || "processor",
+		minioEndpoint: requireEnv("MINIO_ENDPOINT"),
+		minioUseSSL: process.env.MINIO_USE_SSL?.trim().toLowerCase() === "true",
+		minioRegion: process.env.MINIO_REGION?.trim() || "",
+		minioBucket: process.env.MINIO_BUCKET?.trim() || "documents",
+		minioAccessKey: requireEnv("MINIO_ACCESS_KEY"),
+		minioSecretKey: requireEnv("MINIO_SECRET_KEY"),
 		embeddingEndpoint: requireEnv("EMBEDDING_ENDPOINT"),
 		embeddingModel: process.env.EMBEDDING_MODEL?.trim() || "local-embeddings",
 		chunkSize: Number(process.env.CHUNK_SIZE ?? "1200"),

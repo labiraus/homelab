@@ -5,12 +5,19 @@ import { Pool } from "pg";
 
 import { chunkText } from "./chunking.js";
 import { loadConfig } from "./config.js";
-import { ensureSchema, persistDocument } from "./db.js";
+import {
+	claimDocumentForProcessing,
+	ensureSchema,
+	markDocumentPendingWithError,
+	persistProcessedDocument,
+} from "./db.js";
 import { fetchEmbedding } from "./embedding.js";
+import { createDocumentStorage } from "./storage.js";
 import type { DocumentEvent, EmbeddingResult } from "./types.js";
 
 async function main(): Promise<void> {
 	const config = loadConfig();
+	const storage = createDocumentStorage(config);
 	let ready = false;
 	const server = http.createServer((request, response) => {
 		if (request.url === "/liveness") {
@@ -48,7 +55,18 @@ async function main(): Promise<void> {
 			for await (const message of messages) {
 				try {
 					const event = JSON.parse(message.string()) as DocumentEvent;
-					const chunks = chunkText(event.text, {
+					const claim = await claimDocumentForProcessing(pool, event);
+					if (claim.kind === "noop") {
+						message.ack();
+						continue;
+					}
+					if (claim.kind === "retry" || claim.documentPk == null) {
+						message.nak();
+						continue;
+					}
+
+					const text = await storage.readTextDocument(event.bucket, event.objectKey);
+					const chunks = chunkText(text, {
 						chunkSize: config.chunkSize,
 						chunkOverlap: config.chunkOverlap,
 					});
@@ -58,9 +76,15 @@ async function main(): Promise<void> {
 						embeddings.push(embedding);
 					}
 
-					await persistDocument(pool, event, chunks, embeddings);
+					await persistProcessedDocument(pool, claim.documentPk, event, chunks, embeddings);
 					message.ack();
 				} catch (error) {
+					const event = safeParseDocumentEvent(message.string());
+					if (event) {
+						await markDocumentPendingWithError(pool, event, formatError(error)).catch((persistError) => {
+							console.error(persistError);
+						});
+					}
 					message.nak();
 					console.error(error);
 				}
@@ -136,6 +160,22 @@ function isNotFoundError(error: unknown): boolean {
 
 function delay(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function safeParseDocumentEvent(payload: string): DocumentEvent | null {
+	try {
+		return JSON.parse(payload) as DocumentEvent;
+	} catch {
+		return null;
+	}
+}
+
+function formatError(error: unknown): string {
+	if (error instanceof Error) {
+		return error.message;
+	}
+
+	return String(error);
 }
 
 main().catch((error) => {

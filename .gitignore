@@ -53,3 +53,7 @@ apps/ui/.env.production.local
 apps/ui/npm-debug.log*
 apps/ui/yarn-debug.log*
 apps/ui/yarn-error.log*
+
+# Processor local artifacts
+apps/processor/dist/
+apps/processor/npm-debug.log*

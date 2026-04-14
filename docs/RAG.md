@@ -13,6 +13,13 @@ This repo is taking an async-first path to document ingestion and retrieval.
 Near-term scope is the document, chunk, and embedding foundation.
 CAG and graph-style knowledge layers are future phases built on top of that base rather than separate immediate datastores.
 
+The current ingestion slice is reference-based:
+
+- `orchestrator` accepts MinIO document references, not inline text payloads
+- accepted documents are currently limited to `text/*`
+- `rag.documents.status` moves through `pending`, `processing`, and `processed`
+- `processor` reads the raw object from MinIO and writes chunks plus embeddings back to Postgres
+
 ```mermaid
 flowchart LR
   U[User in browser] --> UI[ui]
@@ -39,7 +46,7 @@ flowchart LR
   NATS --> PROC
   NATS -->|document lifecycle notifications| MCP
   KEDA -. scales .-> PROC
-  PROC -->|read or receive content| MINIO
+  PROC -->|read referenced text object| MINIO
   PROC -->|write chunks + embeddings| PG
 
   EXT -->|query metadata and retrieval state| PG

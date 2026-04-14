@@ -65,6 +65,22 @@ generatedSecrets:
         value: documents
       NATS_SUBJECT:
         value: documents.ingest
+      POSTGRES_HOST:
+        value: app-db-rw.data.svc.cluster.local
+      POSTGRES_PORT:
+        value: "5432"
+      POSTGRES_DATABASE:
+        value: app
+      POSTGRES_USER:
+        fromSecretRef:
+          namespace: data
+          name: app-db-bootstrap
+          key: username
+      POSTGRES_PASSWORD:
+        fromSecretRef:
+          namespace: data
+          name: app-db-bootstrap
+          key: password
 
 security:
   istio:
@@ -113,6 +129,16 @@ security:
         ports:
           - protocol: TCP
             port: 4222
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: data
+            podSelector:
+              matchLabels:
+                cnpg.io/cluster: app-db
+        ports:
+          - protocol: TCP
+            port: 5432
 
 podAnnotations: {}
 podLabels:

@@ -30,6 +30,15 @@ Use this when:
 - an agent needs a concrete ingestion payload shape
 - you want prompt-first guidance before calling the live tool
 
+The current example should point at a MinIO-backed reference payload with:
+
+- `bucket`
+- `objectKey`
+- `sourceUri`
+- `contentType`
+
+This live ingestion path currently supports `text/*` documents only.
+
 ### `documents.scanBucket.plan`
 
 - lifecycle: `planned`

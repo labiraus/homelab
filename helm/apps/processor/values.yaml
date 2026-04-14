@@ -67,6 +67,22 @@ generatedSecrets:
         value: documents.ingest
       NATS_CONSUMER:
         value: processor
+      MINIO_ENDPOINT:
+        value: "svartalfheim:9000"
+      MINIO_USE_SSL:
+        value: "false"
+      MINIO_BUCKET:
+        value: "documents"
+      MINIO_ACCESS_KEY:
+        fromSecretRef:
+          namespace: homelab
+          name: documents-minio-credentials
+          key: accessKey
+      MINIO_SECRET_KEY:
+        fromSecretRef:
+          namespace: homelab
+          name: documents-minio-credentials
+          key: secretKey
       EMBEDDING_ENDPOINT:
         value: http://embeddings.homelab.svc.cluster.local/v1/embeddings
       EMBEDDING_MODEL:
@@ -146,6 +162,12 @@ security:
         ports:
           - protocol: TCP
             port: 5432
+      - to:
+          - ipBlock:
+              cidr: 0.0.0.0/0
+        ports:
+          - protocol: TCP
+            port: 9000
 
 podAnnotations: {}
 podLabels:

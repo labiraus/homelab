@@ -39,6 +39,13 @@ When `orchestrator` determines a document is new, changed, or needs reprocessing
 
 NATS JetStream is used to trigger work and scale workers, but job completion and system state are still reflected back into Postgres.
 
+The current request-driven slice is:
+
+- `POST /documents` receives a MinIO-backed document reference
+- `orchestrator` upserts the row in `rag.documents` as `pending`
+- the same request flow publishes a JetStream job before committing
+- if publish fails, the pending-row write is rolled back with the request
+
 The planned notification pattern on top of that job flow is:
 
 - emit `documents.events.minio.stored` when the uploaded document has been written to MinIO and is ready for downstream work
@@ -58,6 +65,16 @@ This includes:
 - embedding rows
 - processing timestamps
 - updated processing state on the owning document row
+
+The current processor lifecycle is:
+
+- claim `pending -> processing`
+- fetch the referenced MinIO object
+- decode UTF-8 text for supported `text/*` documents
+- create chunks and embeddings
+- mark the row `processed`
+
+If the processor sees a message before the orchestrator commit is visible, or if the job has been superseded by a newer processing version, it retries or no-ops instead of duplicating derived data.
 
 ## Boundary Rules
 
