@@ -184,6 +184,7 @@ describe("App", () => {
 
 		render(<App />);
 		expect(await screen.findByRole("button", { name: /^documents$/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /^search$/i })).toBeInTheDocument();
 
 		await user.click(screen.getByRole("button", { name: /authentication menu/i }));
 		expect(screen.getAllByText("oliver@labiraus.com").length).toBeGreaterThan(0);
@@ -263,6 +264,74 @@ describe("App", () => {
 
 		expect(assign).toHaveBeenCalledWith("/oauth2/sign_out");
 		window.location = originalLocation;
+	});
+
+	test("searches processed chunks from the search tab", async () => {
+		const user = userEvent.setup();
+		global.fetch = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ mode: "oidc", email: "oliver@labiraus.com", valid: true }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					providers: [
+						{
+							id: "google",
+							name: "Google",
+							issuer: "https://accounts.google.com",
+							authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+							configured: true,
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					query: "refresh kubeconfig",
+					hits: [
+						{
+							documentId: "doc-1",
+							objectKey: "scripts/refresh-kubeconfig.sh",
+							contentType: "text/x-shellscript",
+							chunkId: 42,
+							chunkIndex: 0,
+							chunkText: "aws eks update-kubeconfig --name homelab",
+							similarity: 0.92,
+							lastProcessedAt: "2026-04-14T12:00:00Z",
+						},
+					],
+				}),
+			});
+
+		render(<App />);
+		await user.click(await screen.findByRole("button", { name: /^search$/i }));
+		await user.type(
+			screen.getByRole("textbox", { name: /search query/i }),
+			"refresh kubeconfig",
+		);
+		await user.type(
+			screen.getByRole("textbox", { name: /optional prefix filter/i }),
+			"scripts/",
+		);
+		await user.click(screen.getByRole("button", { name: /search chunks/i }));
+
+		expect(await screen.findByText("scripts/refresh-kubeconfig.sh")).toBeInTheDocument();
+		expect(screen.getByText(/aws eks update-kubeconfig/i)).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/search",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					query: "refresh kubeconfig",
+					prefix: "scripts/",
+					limit: 8,
+				}),
+			}),
+		);
 	});
 
 	test("navigates to the documents page and shows folder entries", async () => {

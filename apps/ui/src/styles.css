@@ -374,7 +374,9 @@ a {
 .response-panel,
 .upload-card,
 .browser-card,
-.preview-card {
+.preview-card,
+.search-card,
+.search-results-card {
 	border: 1px solid var(--line);
 	border-radius: 1rem;
 	background: var(--surface);
@@ -544,7 +546,9 @@ a {
 .response-panel,
 .upload-card,
 .browser-card,
-.preview-card {
+.preview-card,
+.search-card,
+.search-results-card {
 	padding: 1.15rem;
 }
 
@@ -655,20 +659,98 @@ a {
 	align-items: start;
 }
 
+.search-layout {
+	display: grid;
+	grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.3fr);
+	gap: 1rem;
+	align-items: start;
+}
+
 .upload-card,
-.preview-card {
+.preview-card,
+.search-card {
 	display: grid;
 	gap: 0.95rem;
 }
 
 .upload-card input[type="file"],
-.upload-card input[type="text"] {
+.upload-card input[type="text"],
+.search-card input[type="text"],
+.search-card textarea {
 	width: 100%;
 	padding: 0.78rem 0.92rem;
 	border: 1px solid var(--line);
 	border-radius: 0.75rem;
 	background: var(--surface-muted);
 	color: var(--ink);
+}
+
+.search-card textarea {
+	resize: vertical;
+	min-height: 8rem;
+}
+
+.field-group {
+	display: grid;
+	gap: 0.45rem;
+}
+
+.field-group span {
+	font-size: 0.88rem;
+	font-weight: 700;
+}
+
+.search-actions,
+.search-result-list {
+	display: grid;
+	gap: 0.85rem;
+}
+
+.search-result-card {
+	display: grid;
+	gap: 0.9rem;
+	padding: 1rem;
+	border: 1px solid var(--line);
+	border-radius: 0.9rem;
+	background: var(--surface-muted);
+}
+
+.search-result-header,
+.search-result-footer {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 0.75rem;
+}
+
+.search-result-title,
+.search-result-text,
+.search-result-meta {
+	margin: 0;
+}
+
+.search-result-title {
+	font-weight: 700;
+}
+
+.search-result-text {
+	line-height: 1.65;
+	white-space: pre-wrap;
+}
+
+.search-result-meta {
+	color: var(--muted);
+	font-size: 0.9rem;
+}
+
+.search-score-pill {
+	padding: 0.45rem 0.7rem;
+	border-radius: 999px;
+	background: rgba(47, 129, 247, 0.12);
+	color: var(--brand-strong);
+	font-size: 0.86rem;
+	font-weight: 700;
 }
 
 .document-list {
@@ -772,7 +854,8 @@ a {
 @media (max-width: 1024px) {
 	.workspace-header,
 	.content-grid,
-	.documents-layout {
+	.documents-layout,
+	.search-layout {
 		grid-template-columns: 1fr;
 	}
 }

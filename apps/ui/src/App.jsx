@@ -9,6 +9,7 @@ const DOCUMENTS_TREE_PATH = "/api/documents/tree";
 const DOCUMENT_OBJECT_PATH = "/api/documents/object";
 const DOCUMENT_UPLOAD_PATH = "/api/documents/upload";
 const DOCUMENT_EVENTS_PATH = "/api/documents/events";
+const DOCUMENT_SEARCH_PATH = "/api/documents/search";
 const TOAST_DISMISS_MS = 6000;
 
 const actions = [
@@ -25,7 +26,14 @@ function pageFromHash() {
 	if (typeof window === "undefined") {
 		return "overview";
 	}
-	return window.location.hash === "#/documents" ? "documents" : "overview";
+	switch (window.location.hash) {
+		case "#/documents":
+			return "documents";
+		case "#/search":
+			return "search";
+		default:
+			return "overview";
+	}
 }
 
 function apiUrl(path) {
@@ -122,6 +130,14 @@ async function uploadDocument(file, prefix, objectName) {
 	}
 
 	return payload;
+}
+
+async function searchDocuments(request) {
+	return callApi({
+		method: "POST",
+		path: DOCUMENT_SEARCH_PATH,
+		body: request,
+	});
 }
 
 function authSummary(status) {
@@ -232,6 +248,23 @@ function documentDownloadUrl(objectKey) {
 	return apiUrl(`${DOCUMENT_OBJECT_PATH}?${params.toString()}`);
 }
 
+function formatSimilarity(value) {
+	if (typeof value !== "number" || Number.isNaN(value)) {
+		return "0%";
+	}
+	return `${Math.round(value * 100)}%`;
+}
+
+function searchSubtitle(resultCount, loading) {
+	if (loading) {
+		return "Searching processed chunks";
+	}
+	if (resultCount === 1) {
+		return "1 matching chunk";
+	}
+	return `${resultCount} matching chunks`;
+}
+
 function lifecycleTone(subject) {
 	switch (subject) {
 		case "documents.events.processor.completed":
@@ -321,6 +354,12 @@ function App() {
 	const [uploading, setUploading] = useState(false);
 	const [uploadMessage, setUploadMessage] = useState("");
 	const [uploadError, setUploadError] = useState("");
+	const [searchQuery, setSearchQuery] = useState("");
+	const [searchPrefix, setSearchPrefix] = useState("");
+	const [searchLoading, setSearchLoading] = useState(false);
+	const [searchError, setSearchError] = useState("");
+	const [searchResults, setSearchResults] = useState([]);
+	const [submittedQuery, setSubmittedQuery] = useState("");
 	const [toasts, setToasts] = useState([]);
 	const [theme, setTheme] = useState(() => {
 		if (typeof window === "undefined") {
@@ -481,7 +520,7 @@ function App() {
 	}, []);
 
 	useEffect(() => {
-		if (!documentsEnabled && page === "documents") {
+		if (!documentsEnabled && (page === "documents" || page === "search")) {
 			setPage("overview");
 			if (typeof window !== "undefined") {
 				window.location.hash = "#/";
@@ -552,7 +591,8 @@ function App() {
 		if (typeof window === "undefined") {
 			return;
 		}
-		window.location.hash = nextPage === "documents" ? "#/documents" : "#/";
+		window.location.hash =
+			nextPage === "documents" ? "#/documents" : nextPage === "search" ? "#/search" : "#/";
 	};
 
 	const handleOpenFolder = (prefix) => {
@@ -634,6 +674,33 @@ function App() {
 		}
 	};
 
+	const handleSearchSubmit = async (event) => {
+		event.preventDefault();
+		const query = searchQuery.trim();
+		if (!query) {
+			setSearchError("Enter a search phrase first.");
+			return;
+		}
+
+		setSearchLoading(true);
+		setSearchError("");
+
+		try {
+			const response = await searchDocuments({
+				query,
+				prefix: searchPrefix.trim(),
+				limit: 8,
+			});
+			setSubmittedQuery(query);
+			setSearchResults(response?.hits ?? []);
+		} catch (requestError) {
+			setSearchError(requestError instanceof Error ? requestError.message : "Search failed");
+			setSearchResults([]);
+		} finally {
+			setSearchLoading(false);
+		}
+	};
+
 	return (
 		<main className="app-shell">
 			<div className="toast-stack" aria-live="polite" aria-label="Document notifications">
@@ -674,6 +741,15 @@ function App() {
 					>
 						Overview
 					</button>
+					{documentsEnabled ? (
+						<button
+							type="button"
+							className={`topbar-tab ${page === "search" ? "active" : ""}`}
+							onClick={() => navigateToPage("search")}
+						>
+							Search
+						</button>
+					) : null}
 					{documentsEnabled ? (
 						<button
 							type="button"
@@ -877,6 +953,144 @@ function App() {
 								<p className="response-value">{message}</p>
 								{error ? <p className="error-text">Request failed: {error}</p> : null}
 							</section>
+						</div>
+					</section>
+				) : page === "search" ? (
+					<section className="workspace-shell">
+						<header className="workspace-header">
+							<div>
+								<p className="workspace-eyebrow">Search</p>
+								<h1>Search processed document chunks.</h1>
+								<p className="workspace-intro">
+									Enter a natural-language query, optionally narrow it to a folder
+									prefix, and inspect the nearest matching chunks stored in Postgres.
+								</p>
+							</div>
+							<div className="header-badge-card">
+								<p className="meta-label">Retrieval status</p>
+								<p className="header-badge-value">
+									{searchSubtitle(searchResults.length, searchLoading)}
+								</p>
+								<p className="header-badge-copy">
+									Results come from pgvector similarity search over processed
+									document chunks.
+								</p>
+							</div>
+						</header>
+
+						<div className="search-layout">
+							<form className="search-card" onSubmit={handleSearchSubmit}>
+								<div className="panel-heading compact">
+									<div>
+										<h3>Semantic query</h3>
+										<p>Use the same embedding model family as ingestion.</p>
+									</div>
+								</div>
+
+								<label className="field-group">
+									<span>Search query</span>
+									<textarea
+										value={searchQuery}
+										onChange={(event) => setSearchQuery(event.target.value)}
+										placeholder="How do we refresh kubeconfig for the cluster?"
+										rows={4}
+									/>
+								</label>
+
+								<label className="field-group">
+									<span>Optional prefix filter</span>
+									<input
+										type="text"
+										value={searchPrefix}
+										onChange={(event) => setSearchPrefix(event.target.value)}
+										placeholder="scripts/ or docs/"
+									/>
+								</label>
+
+								<div className="search-actions">
+									<button
+										type="submit"
+										className="menu-action primary"
+										disabled={searchLoading}
+									>
+										{searchLoading ? "Searching..." : "Search Chunks"}
+									</button>
+									<button
+										type="button"
+										className="menu-action"
+										onClick={() => {
+											setSearchQuery("");
+											setSearchPrefix("");
+											setSearchResults([]);
+											setSearchError("");
+											setSubmittedQuery("");
+										}}
+										disabled={searchLoading}
+									>
+										Clear
+									</button>
+								</div>
+
+								{searchError ? <p className="error-text">{searchError}</p> : null}
+							</form>
+
+							<div className="search-results-card">
+								<div className="panel-heading compact">
+									<div>
+										<h3>Results</h3>
+										<p>
+											{submittedQuery
+												? `Ranked matches for "${submittedQuery}".`
+												: "Run a query to inspect matching chunks."}
+										</p>
+									</div>
+								</div>
+
+								{!searchLoading && searchResults.length === 0 && !searchError ? (
+									<p className="empty-state">
+										{submittedQuery
+											? "No processed chunks matched this query yet."
+											: "Search results will appear here."}
+									</p>
+								) : null}
+
+								<div className="search-result-list">
+									{searchResults.map((result) => (
+										<article
+											key={`${result.documentId}-${result.chunkId}`}
+											className="search-result-card"
+										>
+											<div className="search-result-header">
+												<div>
+													<p className="search-result-title">{result.objectKey || result.documentId}</p>
+													<p className="search-result-meta">
+														{result.contentType || "Unknown type"} • chunk {result.chunkIndex}
+													</p>
+												</div>
+												<div className="search-score-pill">
+													{formatSimilarity(result.similarity)}
+												</div>
+											</div>
+
+											<p className="search-result-text">{result.chunkText}</p>
+
+											<div className="search-result-footer">
+												<p className="search-result-meta">
+													Document ID: {result.documentId}
+													{result.lastProcessedAt
+														? ` • Indexed ${formatTimestamp(result.lastProcessedAt)}`
+														: ""}
+												</p>
+												{result.objectKey ? (
+													<a className="inline-button" href={documentDownloadUrl(result.objectKey)}>
+														Download
+													</a>
+												) : null}
+											</div>
+										</article>
+									))}
+								</div>
+							</div>
 						</div>
 					</section>
 				) : (

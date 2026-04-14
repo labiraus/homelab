@@ -13,6 +13,7 @@ It is the browser-facing API for `ui` and should remain a stable surface even as
 - `/api/documents/object`
 - `/api/documents/upload`
 - `/api/documents/events`
+- `/api/documents/search`
 - `/readiness`
 - `/liveness`
 - `/metrics`
@@ -37,6 +38,7 @@ The browser-facing path is published through `oauth2-proxy` at `/api/...`, and t
 - `/api/documents/tree` returns the immediate folders and files for a prefix in the documents bucket
 - `/api/documents/object` streams a document back for inline preview or download
 - `/api/documents/upload` accepts multipart uploads for the current folder view
+- `/api/documents/search` embeds a natural-language query, runs pgvector similarity search against processed chunks, and returns ranked matches with document metadata
 
 These routes expect the standard MinIO runtime configuration:
 
@@ -48,6 +50,13 @@ These routes expect the standard MinIO runtime configuration:
 - `MINIO_BUCKET`
 
 The UI treats these document routes as authenticated functionality for recognized users, and the API is expected to stay behind the same trusted auth middleware as the rest of the browser-facing surface.
+
+Semantic search also expects:
+
+- `EMBEDDING_ENDPOINT`
+- `EMBEDDING_MODEL`
+
+The retrieval flow uses the same embedding model family as the processor so query vectors and stored chunk vectors remain comparable.
 
 ## Document Event Stream
 

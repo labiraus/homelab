@@ -68,3 +68,11 @@ CREATE TABLE IF NOT EXISTS rag.embeddings (
 
 CREATE INDEX IF NOT EXISTS rag_embeddings_chunk_id_idx
     ON rag.embeddings (chunk_id);
+
+CREATE INDEX IF NOT EXISTS rag_embeddings_model_idx
+    ON rag.embeddings (model);
+
+CREATE INDEX IF NOT EXISTS rag_embeddings_vector_cosine_idx
+    ON rag.embeddings
+    USING hnsw (vector vector_cosine_ops)
+    WHERE vector IS NOT NULL;

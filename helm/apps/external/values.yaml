@@ -81,6 +81,10 @@ generatedSecrets:
           namespace: data
           name: app-db-bootstrap
           key: password
+      EMBEDDING_ENDPOINT:
+        value: http://embeddings.homelab.svc.cluster.local/v1/embeddings
+      EMBEDDING_MODEL:
+        value: local-embeddings
       OIDC_LOGIN_URL:
         value: "https://mcp.labiraus.com/oauth2/start?rd=https%3A%2F%2Fmcp.labiraus.com%2F"
       OIDC_ISSUER_URL:
@@ -183,6 +187,13 @@ security:
         ports:
           - protocol: TCP
             port: 6379
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: homelab
+        ports:
+          - protocol: TCP
+            port: 80
       - to:
           - ipBlock:
               cidr: 0.0.0.0/0

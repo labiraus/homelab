@@ -164,12 +164,122 @@ func TestDocumentUploadHandlerStoresFile(t *testing.T) {
 	}
 }
 
+func TestDocumentSearchHandlerReturnsRankedHits(t *testing.T) {
+	setEmbeddingEnv(t)
+	setPostgresEnv(t)
+	base.ServiceName = "external_test_" + t.Name()
+	prometheusutil.Start(http.NewServeMux())
+
+	previousEmbedding := fetchQueryEmbedding
+	previousSearch := searchDocuments
+	t.Cleanup(func() {
+		fetchQueryEmbedding = previousEmbedding
+		searchDocuments = previousSearch
+	})
+
+	fetchQueryEmbedding = func(ctx context.Context, input string) ([]float64, string, error) {
+		if input != "refresh kubeconfig" {
+			t.Fatalf("expected search query to be forwarded, got %q", input)
+		}
+		return []float64{0.1, 0.2, 0.3}, "local-embeddings", nil
+	}
+	searchDocuments = func(ctx context.Context, embedding []float64, model string, request DocumentSearchRequest, limit int) ([]DocumentSearchHit, error) {
+		if model != "local-embeddings" {
+			t.Fatalf("expected embedding model, got %q", model)
+		}
+		if request.Prefix != "scripts/" {
+			t.Fatalf("expected normalized prefix, got %q", request.Prefix)
+		}
+		if limit != 5 {
+			t.Fatalf("expected explicit limit, got %d", limit)
+		}
+		return []DocumentSearchHit{
+			{
+				DocumentID:        "doc-1",
+				ObjectKey:         "scripts/refresh-kubeconfig.sh",
+				ContentType:       "text/x-shellscript",
+				ChunkID:           42,
+				ChunkIndex:        0,
+				ChunkText:         "aws eks update-kubeconfig --name homelab",
+				ProcessingVersion: 1,
+				Distance:          0.08,
+				Similarity:        0.92,
+				LastProcessedAt:   "2026-04-14T12:00:00Z",
+			},
+		}, nil
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api/documents/search", strings.NewReader(`{"query":"refresh kubeconfig","prefix":"scripts","limit":5}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	documentSearchHandler(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+
+	var response DocumentSearchResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected valid json response: %v", err)
+	}
+
+	if response.Query != "refresh kubeconfig" {
+		t.Fatalf("expected query echo, got %q", response.Query)
+	}
+	if len(response.Hits) != 1 {
+		t.Fatalf("expected one hit, got %#v", response.Hits)
+	}
+	if response.Hits[0].DocumentID != "doc-1" {
+		t.Fatalf("expected doc-1 hit, got %#v", response.Hits[0])
+	}
+}
+
+func TestDocumentSearchHandlerValidatesRequest(t *testing.T) {
+	setEmbeddingEnv(t)
+	setPostgresEnv(t)
+	base.ServiceName = "external_test_" + t.Name()
+	prometheusutil.Start(http.NewServeMux())
+
+	request := httptest.NewRequest(http.MethodPost, "/api/documents/search", strings.NewReader(`{"query":" "}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	documentSearchHandler(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", recorder.Code)
+	}
+
+	var response ErrorResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected valid json response: %v", err)
+	}
+	if response.Error != "query is required" {
+		t.Fatalf("expected validation error, got %q", response.Error)
+	}
+}
+
 func setMinIOEnv(t *testing.T) {
 	t.Helper()
 	t.Setenv("MINIO_ENDPOINT", "svartalfheim:9000")
 	t.Setenv("MINIO_ACCESS_KEY", "test-access")
 	t.Setenv("MINIO_SECRET_KEY", "test-secret")
 	t.Setenv("MINIO_BUCKET", "documents")
+}
+
+func setEmbeddingEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("EMBEDDING_ENDPOINT", "http://embeddings.homelab.svc.cluster.local/v1/embeddings")
+	t.Setenv("EMBEDDING_MODEL", "local-embeddings")
+}
+
+func setPostgresEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("POSTGRES_HOST", "app-db-rw.data.svc.cluster.local")
+	t.Setenv("POSTGRES_USER", "app")
+	t.Setenv("POSTGRES_PASSWORD", "secret")
+	t.Setenv("POSTGRES_DATABASE", "app")
 }
 
 func minioObjectInfo(key string, contentType string, lastModified time.Time) minio.ObjectInfo {
