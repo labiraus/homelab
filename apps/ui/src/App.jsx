@@ -8,6 +8,8 @@ const AUTH_PROVIDERS_PATH = "/api/auth/providers";
 const DOCUMENTS_TREE_PATH = "/api/documents/tree";
 const DOCUMENT_OBJECT_PATH = "/api/documents/object";
 const DOCUMENT_UPLOAD_PATH = "/api/documents/upload";
+const DOCUMENT_EVENTS_PATH = "/api/documents/events";
+const TOAST_DISMISS_MS = 6000;
 
 const actions = [
 	{
@@ -230,6 +232,61 @@ function documentDownloadUrl(objectKey) {
 	return apiUrl(`${DOCUMENT_OBJECT_PATH}?${params.toString()}`);
 }
 
+function lifecycleTone(subject) {
+	switch (subject) {
+		case "documents.events.processor.completed":
+			return "success";
+		case "documents.events.processor.failed":
+			return "error";
+		default:
+			return "info";
+	}
+}
+
+function lifecycleTitle(subject) {
+	switch (subject) {
+		case "documents.events.minio.stored":
+			return "Document stored";
+		case "documents.events.processor.queued":
+			return "Processing queued";
+		case "documents.events.processor.started":
+			return "Processing started";
+		case "documents.events.processor.completed":
+			return "Processing completed";
+		case "documents.events.processor.failed":
+			return "Processing failed";
+		default:
+			return "Document updated";
+	}
+}
+
+function lifecycleDescription(event) {
+	const target = event.objectKey || event.documentId || "document";
+	switch (event.subject) {
+		case "documents.events.processor.failed":
+			return `${target}: ${event.error || "processing failed"}`;
+		case "documents.events.processor.completed":
+			return `${target} is ready for retrieval.`;
+		case "documents.events.processor.started":
+			return `${target} is being processed now.`;
+		case "documents.events.processor.queued":
+			return `${target} is waiting for the processor.`;
+		case "documents.events.minio.stored":
+			return `${target} was written to storage.`;
+		default:
+			return target;
+	}
+}
+
+function createToastFromLifecycleEvent(event) {
+	return {
+		id: `${event.subject}-${event.documentId}-${event.occurredAt}`,
+		title: lifecycleTitle(event.subject),
+		description: lifecycleDescription(event),
+		tone: lifecycleTone(event.subject),
+	};
+}
+
 function App() {
 	const [page, setPage] = useState(pageFromHash);
 	const [authMenuOpen, setAuthMenuOpen] = useState(false);
@@ -264,6 +321,7 @@ function App() {
 	const [uploading, setUploading] = useState(false);
 	const [uploadMessage, setUploadMessage] = useState("");
 	const [uploadError, setUploadError] = useState("");
+	const [toasts, setToasts] = useState([]);
 	const [theme, setTheme] = useState(() => {
 		if (typeof window === "undefined") {
 			return "light";
@@ -277,7 +335,33 @@ function App() {
 		return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 	});
 	const authMenuRef = useRef(null);
+	const toastTimersRef = useRef(new Map());
 	const documentsEnabled = authStatus?.valid === true;
+
+	const dismissToast = (toastId) => {
+		const timer = toastTimersRef.current.get(toastId);
+		if (timer) {
+			window.clearTimeout(timer);
+			toastTimersRef.current.delete(toastId);
+		}
+		setToasts((current) => current.filter((toast) => toast.id !== toastId));
+	};
+
+	const pushToast = (toast) => {
+		setToasts((current) => {
+			const next = [...current.filter((item) => item.id !== toast.id), toast];
+			return next.slice(-4);
+		});
+		const existingTimer = toastTimersRef.current.get(toast.id);
+		if (existingTimer) {
+			window.clearTimeout(existingTimer);
+		}
+		const timer = window.setTimeout(() => {
+			toastTimersRef.current.delete(toast.id);
+			setToasts((current) => current.filter((item) => item.id !== toast.id));
+		}, TOAST_DISMISS_MS);
+		toastTimersRef.current.set(toast.id, timer);
+	};
 
 	useEffect(() => {
 		document.documentElement.dataset.theme = theme;
@@ -306,6 +390,15 @@ function App() {
 			URL.revokeObjectURL(preview.url);
 		};
 	}, [preview.url]);
+
+	useEffect(() => {
+		return () => {
+			for (const timer of toastTimersRef.current.values()) {
+				window.clearTimeout(timer);
+			}
+			toastTimersRef.current.clear();
+		};
+	}, []);
 
 	useEffect(() => {
 		if (!authMenuOpen) {
@@ -402,6 +495,28 @@ function App() {
 		}
 		void loadDocuments(currentPrefix);
 	}, [page, currentPrefix, documentsEnabled]);
+
+	useEffect(() => {
+		if (!documentsEnabled || typeof window === "undefined" || typeof EventSource === "undefined") {
+			return undefined;
+		}
+
+		const stream = new EventSource(apiUrl(DOCUMENT_EVENTS_PATH));
+		const handleDocumentEvent = (message) => {
+			try {
+				const event = JSON.parse(message.data);
+				pushToast(createToastFromLifecycleEvent(event));
+			} catch {
+				// Ignore malformed events so the stream stays alive.
+			}
+		};
+
+		stream.addEventListener("document", handleDocumentEvent);
+		return () => {
+			stream.removeEventListener("document", handleDocumentEvent);
+			stream.close();
+		};
+	}, [documentsEnabled]);
 
 	const handleAction = async (action) => {
 		setActiveRequest(action.id);
@@ -521,6 +636,25 @@ function App() {
 
 	return (
 		<main className="app-shell">
+			<div className="toast-stack" aria-live="polite" aria-label="Document notifications">
+				{toasts.map((toast) => (
+					<article key={toast.id} className={`toast-card ${toast.tone}`}>
+						<div>
+							<p className="toast-title">{toast.title}</p>
+							<p className="toast-copy">{toast.description}</p>
+						</div>
+						<button
+							type="button"
+							className="toast-dismiss"
+							aria-label={`Dismiss ${toast.title}`}
+							onClick={() => dismissToast(toast.id)}
+						>
+							Close
+						</button>
+					</article>
+				))}
+			</div>
+
 			<header className="topbar">
 				<div className="topbar-brand">
 					<div className="brand-mark" aria-hidden="true">

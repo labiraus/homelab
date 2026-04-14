@@ -86,6 +86,10 @@ func handleMCPRequest(ctx context.Context, r *http.Request, req jsonRPCRequest) 
 		return handleResourceTemplatesList(ctx, r, req)
 	case "resources/read":
 		return handleResourcesRead(ctx, r, req)
+	case "resources/subscribe":
+		return handleResourcesSubscribe(r, req)
+	case "resources/unsubscribe":
+		return handleResourcesUnsubscribe(r, req)
 	case "tools/list":
 		return handleToolsList(ctx, r, req)
 	case "tools/call":
@@ -126,9 +130,11 @@ func handleInitialize(req jsonRPCRequest) (int, *jsonRPCResponse) {
 		Result: map[string]any{
 			"protocolVersion": protocolVersion,
 			"capabilities": map[string]any{
-				"prompts":   map[string]any{},
-				"resources": map[string]any{},
-				"tools":     map[string]any{},
+				"prompts": map[string]any{},
+				"resources": map[string]any{
+					"subscribe": true,
+				},
+				"tools": map[string]any{},
 			},
 			"serverInfo": map[string]any{
 				"name":    "labiraus",
@@ -320,6 +326,82 @@ func handleResourcesRead(ctx context.Context, r *http.Request, req jsonRPCReques
 	}
 }
 
+func handleResourcesSubscribe(r *http.Request, req jsonRPCRequest) (int, *jsonRPCResponse) {
+	var params subscribeResourceParams
+
+	if err := json.Unmarshal(req.Params, &params); err != nil || strings.TrimSpace(params.URI) == "" {
+		return http.StatusOK, &jsonRPCResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Error: &jsonRPCError{
+				Code:    -32602,
+				Message: "Invalid resources/subscribe params",
+			},
+		}
+	}
+
+	resolution, ok := findResourceOperationByURI(params.URI)
+	if !ok || resolution.operation.Binding == nil || resolution.operation.Binding.ExecutionMode != manifestExecutionModeNATSSubscription {
+		return http.StatusOK, &jsonRPCResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Error: &jsonRPCError{
+				Code:    -32602,
+				Message: "Unknown subscribable resource URI",
+			},
+		}
+	}
+
+	if !sessionRegistry.subscribe(sessionIDFromRequest(r), params.URI) {
+		return http.StatusOK, &jsonRPCResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Error: &jsonRPCError{
+				Code:    -32600,
+				Message: "MCP session is not available",
+			},
+		}
+	}
+
+	return http.StatusOK, &jsonRPCResponse{
+		JSONRPC: "2.0",
+		ID:      req.ID,
+		Result:  map[string]any{},
+	}
+}
+
+func handleResourcesUnsubscribe(r *http.Request, req jsonRPCRequest) (int, *jsonRPCResponse) {
+	var params unsubscribeResourceParams
+
+	if err := json.Unmarshal(req.Params, &params); err != nil || strings.TrimSpace(params.URI) == "" {
+		return http.StatusOK, &jsonRPCResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Error: &jsonRPCError{
+				Code:    -32602,
+				Message: "Invalid resources/unsubscribe params",
+			},
+		}
+	}
+
+	if !sessionRegistry.unsubscribe(sessionIDFromRequest(r), params.URI) {
+		return http.StatusOK, &jsonRPCResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Error: &jsonRPCError{
+				Code:    -32600,
+				Message: "MCP session is not available",
+			},
+		}
+	}
+
+	return http.StatusOK, &jsonRPCResponse{
+		JSONRPC: "2.0",
+		ID:      req.ID,
+		Result:  map[string]any{},
+	}
+}
+
 func handleToolsCall(ctx context.Context, r *http.Request, req jsonRPCRequest) (int, *jsonRPCResponse) {
 	var params callToolParams
 
@@ -399,6 +481,15 @@ func executeResourceOperation(ctx context.Context, r *http.Request, resolution r
 	switch binding.ExecutionMode {
 	case manifestExecutionModePostgresQuery:
 		return readPostgresUserCount(ctx, binding.Query)
+	case manifestExecutionModeNATSSubscription:
+		documentID, ok := resolution.params["documentId"]
+		if !ok || strings.TrimSpace(documentID) == "" {
+			return operationResponse{}, &jsonRPCError{
+				Code:    -32602,
+				Message: "Resource URI is missing documentId",
+			}
+		}
+		return readDocumentNotificationResource(ctx, documentID)
 	case manifestExecutionModeMinIOGetObject:
 		objectKey, ok := resolution.params["objectKey"]
 		if !ok || strings.TrimSpace(objectKey) == "" {
@@ -619,6 +710,53 @@ func postgresUserCount(ctx context.Context, query string) (operationResponse, *j
 	return operationResponse{
 		ContentType: "application/json",
 		Body:        string(body),
+	}, nil
+}
+
+func readDocumentNotificationResource(ctx context.Context, documentID string) (operationResponse, *jsonRPCError) {
+	if postgresutil.QueryRow == nil {
+		return operationResponse{
+				ContentType: "application/json",
+				Body:        `{"error":"postgres is not initialized"}`,
+			}, &jsonRPCError{
+				Code:    -32000,
+				Message: "Postgres backend is unavailable",
+			}
+	}
+
+	var payload string
+	if err := postgresutil.QueryRow(
+		ctx,
+		`SELECT json_build_object(
+			'documentId', document_id,
+			'bucket', bucket_name,
+			'objectKey', object_key,
+			'contentType', content_type,
+			'status', status,
+			'desiredProcessingVersion', desired_processing_version,
+			'currentProcessingVersion', current_processing_version,
+			'lastProcessedAt', last_processed_at,
+			'lastEventSubject', last_event_subject,
+			'lastEventAt', last_event_at,
+			'lastError', last_error
+		)::text
+		FROM rag.documents
+		WHERE document_id = $1`,
+		documentID,
+	).Scan(&payload); err != nil {
+		return operationResponse{
+				ContentType: "application/json",
+				Body:        fmt.Sprintf(`{"error":%q}`, err.Error()),
+			}, &jsonRPCError{
+				Code:    -32000,
+				Message: "Document notification resource read failed",
+				Data:    documentID,
+			}
+	}
+
+	return operationResponse{
+		ContentType: "application/json",
+		Body:        payload,
 	}, nil
 }
 

@@ -37,6 +37,14 @@ type readResourceParams struct {
 	URI string `json:"uri"`
 }
 
+type subscribeResourceParams struct {
+	URI string `json:"uri"`
+}
+
+type unsubscribeResourceParams struct {
+	URI string `json:"uri"`
+}
+
 type callToolParams struct {
 	Name      string         `json:"name"`
 	Arguments map[string]any `json:"arguments,omitempty"`

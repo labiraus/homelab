@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"pkg/prometheusutil"
+	"strings"
 	"time"
 )
 
@@ -36,8 +37,33 @@ func mcpGetAPI(w http.ResponseWriter, r *http.Request) {
 
 	slog.DebugContext(ctx, fmt.Sprintf("%v called", mcpGetHandlerName))
 
-	w.Header().Set("Allow", http.MethodPost)
-	w.WriteHeader(http.StatusMethodNotAllowed)
+	if status, response := validateOriginRequest(r); response != nil {
+		writeJSONRPC(w, status, response)
+		return
+	}
+
+	if !strings.Contains(strings.ToLower(r.Header.Get("Accept")), "text/event-stream") {
+		w.Header().Set("Allow", http.MethodPost)
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	sessionID, _, status, response := validateSessionRequest(r)
+	if response != nil {
+		writeJSONRPC(w, status, response)
+		return
+	}
+
+	if err = serveSessionStream(w, r, sessionID); err != nil {
+		writeJSONRPC(w, http.StatusInternalServerError, &jsonRPCResponse{
+			JSONRPC: "2.0",
+			Error: &jsonRPCError{
+				Code:    -32000,
+				Message: "Failed to open MCP event stream",
+			},
+		})
+		return
+	}
 
 	slog.DebugContext(ctx, fmt.Sprintf("%v complete", mcpGetHandlerName))
 }

@@ -132,7 +132,7 @@ Deliverables:
 - orchestrator emits processing work based on Postgres-backed state
 - processor consumes jobs and performs extraction, chunking, embedding, and persistence
 - processing results are written back to Postgres, not treated as JetStream-owned state
-- define document lifecycle notification subjects so MCP can eventually forward NATS-backed updates to subscribers
+- define and emit document lifecycle notification subjects so MCP and the browser-facing API can forward NATS-backed updates to subscribers
 
 ### Phase 4 — Retrieval Through `external` And `mcp`
 
@@ -142,7 +142,7 @@ Deliverables:
 - `mcp` exposes the same capabilities in an AI-native shape for agents
 - both surfaces read from Postgres-backed state and hide pipeline internals
 - `mcp` publishes prompt guidance for current and planned capabilities
-- `mcp` grows a subscription pattern for document lifecycle notifications sourced from NATS JetStream
+- `mcp` maintains a subscription pattern for document lifecycle notifications sourced from NATS JetStream
 
 ### Phase 5 — Editing, Reprocessing, Citations, And Richer Context
 

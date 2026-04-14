@@ -22,10 +22,24 @@ type NATSConfig struct {
 	Streams map[string]Stream
 }
 
+type RetentionPolicy string
+
+const (
+	RetentionWorkQueue RetentionPolicy = "workqueue"
+	RetentionLimits    RetentionPolicy = "limits"
+	RetentionInterest  RetentionPolicy = "interest"
+)
+
 type Stream struct {
-	Name     string
-	Subject  string
-	Replicas int
+	Name      string
+	Subject   string
+	Replicas  int
+	Retention RetentionPolicy
+}
+
+type Message struct {
+	Subject string
+	Data    []byte
 }
 
 func Start(ctx context.Context, c NATSConfig) error {
@@ -53,6 +67,11 @@ func Start(ctx context.Context, c NATSConfig) error {
 	js = streamContext
 	rwMux.Unlock()
 
+	go func() {
+		<-ctx.Done()
+		nc.Close()
+	}()
+
 	slog.Info("initializing nats jetstream", "servers", strings.Join(config.Servers, ","))
 
 	for streamID, streamConfig := range config.Streams {
@@ -70,20 +89,52 @@ func Publish(ctx context.Context, streamID string, value []byte) error {
 		return err
 	}
 
+	return PublishSubject(ctx, streamID, streamConfig.Subject, value)
+}
+
+func PublishSubject(ctx context.Context, streamID string, subject string, value []byte) error {
+	if _, err := getStreamConfig(streamID); err != nil {
+		return err
+	}
+
 	streamContext, err := getJetStreamContext()
 	if err != nil {
 		return err
 	}
 
 	_, err = streamContext.PublishMsg(&nats.Msg{
-		Subject: streamConfig.Subject,
+		Subject: subject,
 		Data:    value,
 	})
 	if err != nil {
-		return fmt.Errorf("publishing to subject %s: %w", streamConfig.Subject, err)
+		return fmt.Errorf("publishing to subject %s: %w", subject, err)
 	}
 
 	return nil
+}
+
+func Subscribe(streamID string, handler func(Message)) (func() error, error) {
+	streamConfig, err := getStreamConfig(streamID)
+	if err != nil {
+		return nil, err
+	}
+
+	nc, err := getConn()
+	if err != nil {
+		return nil, err
+	}
+
+	subscription, err := nc.Subscribe(streamConfig.Subject, func(msg *nats.Msg) {
+		handler(Message{
+			Subject: msg.Subject,
+			Data:    append([]byte(nil), msg.Data...),
+		})
+	})
+	if err != nil {
+		return nil, fmt.Errorf("subscribing to subject %s: %w", streamConfig.Subject, err)
+	}
+
+	return subscription.Unsubscribe, nil
 }
 
 func getStreamConfig(streamID string) (Stream, error) {
@@ -111,6 +162,17 @@ func getJetStreamContext() (nats.JetStreamContext, error) {
 	return js, nil
 }
 
+func getConn() (*nats.Conn, error) {
+	rwMux.RLock()
+	defer rwMux.RUnlock()
+
+	if conn == nil {
+		return nil, fmt.Errorf("nats connection not initialized")
+	}
+
+	return conn, nil
+}
+
 func ensureStream(streamID string, streamConfig Stream) error {
 	streamContext, err := getJetStreamContext()
 	if err != nil {
@@ -120,7 +182,7 @@ func ensureStream(streamID string, streamConfig Stream) error {
 	desired := &nats.StreamConfig{
 		Name:      streamConfig.Name,
 		Subjects:  []string{streamConfig.Subject},
-		Retention: nats.WorkQueuePolicy,
+		Retention: toRetentionPolicy(streamConfig.Retention),
 		Storage:   nats.FileStorage,
 		Replicas:  defaultInt(streamConfig.Replicas, 1),
 	}
@@ -147,6 +209,17 @@ func defaultInt(value int, fallback int) int {
 		return fallback
 	}
 	return value
+}
+
+func toRetentionPolicy(policy RetentionPolicy) nats.RetentionPolicy {
+	switch policy {
+	case RetentionLimits:
+		return nats.LimitsPolicy
+	case RetentionInterest:
+		return nats.InterestPolicy
+	default:
+		return nats.WorkQueuePolicy
+	}
 }
 
 func cleanServers(servers []string) []string {

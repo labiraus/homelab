@@ -14,6 +14,7 @@ type txContextKey struct{}
 var (
 	runDocumentTx       = withDocumentTx
 	upsertPendingRecord = upsertPendingDocument
+	recordLastEvent     = updateLastDocumentEvent
 )
 
 func withDocumentTx(ctx context.Context, fn func(context.Context) error) error {
@@ -103,4 +104,23 @@ func nullableInt64(value int64) any {
 		return nil
 	}
 	return value
+}
+
+func updateLastDocumentEvent(ctx context.Context, documentID string, subject string, occurredAt string) error {
+	if postgresutil.Exec == nil {
+		return fmt.Errorf("postgres is not initialized")
+	}
+
+	_, err := postgresutil.Exec(
+		ctx,
+		`UPDATE rag.documents
+		SET last_event_subject = $2,
+			last_event_at = $3::timestamptz,
+			updated_at = NOW()
+		WHERE document_id = $1`,
+		documentID,
+		subject,
+		occurredAt,
+	)
+	return err
 }

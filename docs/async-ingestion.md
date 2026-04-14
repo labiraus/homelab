@@ -46,14 +46,16 @@ The current request-driven slice is:
 - the same request flow publishes a JetStream job before committing
 - if publish fails, the pending-row write is rolled back with the request
 
-The planned notification pattern on top of that job flow is:
+The current notification pattern on top of that job flow is:
 
-- emit `documents.events.minio.stored` when the uploaded document has been written to MinIO and is ready for downstream work
 - emit `documents.events.processor.queued` when the document is queued for processor execution
 - emit `documents.events.processor.started` when the processor claims the work and begins execution
 - emit `documents.events.processor.completed` when processing is finished and derived state has been written back
+- emit `documents.events.processor.failed` when processing fails and the document is returned to a retryable state
 
-The Labiraus MCP server should eventually subscribe to that NATS event stream and forward document-specific updates to MCP subscribers as resource notifications.
+`documents.events.minio.stored` remains reserved for a future ingest-boundary emitter rather than part of the current browser upload path.
+
+The Labiraus MCP server now subscribes to that NATS event stream and forwards document-specific updates to MCP subscribers as resource notifications. The browser-facing `external` service also fans the same lifecycle events out to authenticated UI clients over SSE at `/api/documents/events`.
 
 ### Phase 3
 
@@ -75,6 +77,8 @@ The current processor lifecycle is:
 - mark the row `processed`
 
 If the processor sees a message before the orchestrator commit is visible, or if the job has been superseded by a newer processing version, it retries or no-ops instead of duplicating derived data.
+
+Lifecycle notifications are intentionally best-effort. A failure to publish or fan out a notification must not roll back the durable document state or block processing completion.
 
 ## Boundary Rules
 
@@ -104,7 +108,7 @@ This design keeps ingestion idempotent and explainable:
 Later phases can add:
 
 - richer retrieval APIs through `external` and `mcp`
-- MCP subscriptions for document lifecycle notifications driven by NATS JetStream
+- an ingest-boundary emitter for `documents.events.minio.stored`
 - reprocessing and versioned derivations
 - citation UX in the UI
 - richer context assembly and graph-style capabilities on top of the same document foundation

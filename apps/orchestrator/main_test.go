@@ -84,10 +84,12 @@ func TestQueuePendingDocumentDoesNotCommitOnPublishFailure(t *testing.T) {
 	originalRunTx := runDocumentTx
 	originalUpsert := upsertPendingRecord
 	originalPublish := publishDocumentEvent
+	originalLifecycle := publishLifecycleNotification
 	t.Cleanup(func() {
 		runDocumentTx = originalRunTx
 		upsertPendingRecord = originalUpsert
 		publishDocumentEvent = originalPublish
+		publishLifecycleNotification = originalLifecycle
 	})
 
 	committed := false
@@ -105,6 +107,9 @@ func TestQueuePendingDocumentDoesNotCommitOnPublishFailure(t *testing.T) {
 	publishDocumentEvent = func(ctx context.Context, event documentEvent) error {
 		return errors.New("boom")
 	}
+	publishLifecycleNotification = func(ctx context.Context, event documentEvent) error {
+		return nil
+	}
 
 	err := queuePendingDocument(context.Background(), documentEvent{
 		DocumentID:  "doc-1",
@@ -118,5 +123,103 @@ func TestQueuePendingDocumentDoesNotCommitOnPublishFailure(t *testing.T) {
 	}
 	if committed {
 		t.Fatalf("expected transaction to stay uncommitted on publish failure")
+	}
+}
+
+func TestQueuePendingDocumentPublishesLifecycleEventAfterCommit(t *testing.T) {
+	originalRunTx := runDocumentTx
+	originalUpsert := upsertPendingRecord
+	originalPublish := publishDocumentEvent
+	originalLifecycle := publishLifecycleNotification
+	t.Cleanup(func() {
+		runDocumentTx = originalRunTx
+		upsertPendingRecord = originalUpsert
+		publishDocumentEvent = originalPublish
+		publishLifecycleNotification = originalLifecycle
+	})
+
+	committed := false
+	runDocumentTx = func(ctx context.Context, fn func(context.Context) error) error {
+		if err := fn(ctx); err != nil {
+			return err
+		}
+		committed = true
+		return nil
+	}
+
+	upsertPendingRecord = func(ctx context.Context, event documentEvent) error {
+		return nil
+	}
+	publishDocumentEvent = func(ctx context.Context, event documentEvent) error {
+		return nil
+	}
+
+	lifecyclePublished := false
+	publishLifecycleNotification = func(ctx context.Context, event documentEvent) error {
+		if !committed {
+			t.Fatal("expected lifecycle notification to publish after commit")
+		}
+		lifecyclePublished = true
+		return nil
+	}
+
+	err := queuePendingDocument(context.Background(), documentEvent{
+		DocumentID:  "doc-1",
+		Bucket:      "documents",
+		ObjectKey:   "incoming/doc-1.txt",
+		SourceURI:   "s3://documents/incoming/doc-1.txt",
+		ContentType: "text/plain",
+	})
+	if err != nil {
+		t.Fatalf("expected queue to succeed: %v", err)
+	}
+	if !lifecyclePublished {
+		t.Fatal("expected lifecycle notification to be published")
+	}
+}
+
+func TestQueuePendingDocumentIgnoresLifecyclePublishFailureAfterCommit(t *testing.T) {
+	originalRunTx := runDocumentTx
+	originalUpsert := upsertPendingRecord
+	originalPublish := publishDocumentEvent
+	originalLifecycle := publishLifecycleNotification
+	t.Cleanup(func() {
+		runDocumentTx = originalRunTx
+		upsertPendingRecord = originalUpsert
+		publishDocumentEvent = originalPublish
+		publishLifecycleNotification = originalLifecycle
+	})
+
+	committed := false
+	runDocumentTx = func(ctx context.Context, fn func(context.Context) error) error {
+		if err := fn(ctx); err != nil {
+			return err
+		}
+		committed = true
+		return nil
+	}
+
+	upsertPendingRecord = func(ctx context.Context, event documentEvent) error {
+		return nil
+	}
+	publishDocumentEvent = func(ctx context.Context, event documentEvent) error {
+		return nil
+	}
+	publishLifecycleNotification = func(ctx context.Context, event documentEvent) error {
+		if !committed {
+			t.Fatal("expected lifecycle notification after commit")
+		}
+		return errors.New("boom")
+	}
+
+	err := queuePendingDocument(context.Background(), documentEvent{
+		DocumentID:  "doc-1",
+		Bucket:      "documents",
+		ObjectKey:   "incoming/doc-1.txt",
+		SourceURI:   "s3://documents/incoming/doc-1.txt",
+		ContentType: "text/plain",
+	})
+	if err != nil {
+		t.Fatalf("expected queue to succeed when lifecycle publish fails: %v", err)
 	}
 }

@@ -247,14 +247,14 @@ var capabilityCatalog = []manifestCapabilitySource{
 	{
 		ID:      "documents.notifications",
 		Title:   "Document Notifications",
-		Summary: "Follow planned document lifecycle notifications that will be forwarded from NATS JetStream to MCP subscribers.",
+		Summary: "Follow live document lifecycle notifications that are forwarded from NATS JetStream to MCP subscribers.",
 		Backend: manifestBackendNATS,
 		Operations: []manifestOperationSource{
-			plannedPrompt(
+			livePrompt(
 				"documents.notifications.subscribe.prompt",
 				"documentNotificationsPrompt",
 				"/prompts/documents/notifications/subscribe",
-				"Describe the planned NATS-backed subscription flow for document lifecycle notifications.",
+				"Describe the live NATS-backed subscription flow for document lifecycle notifications.",
 				false,
 				[]manifestPromptArgument{
 					{Name: "documentId", Description: "Document identifier to follow through storage and processing.", Required: true},
@@ -264,17 +264,17 @@ var capabilityCatalog = []manifestCapabilitySource{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Plan the future Labiraus subscription flow for `{{documentId}}`. The MCP server should subscribe to a NATS JetStream event stream, filter lifecycle events for the document, and forward matching updates to MCP subscribers in order: `documents.events.minio.stored`, `documents.events.processor.queued`, `documents.events.processor.started`, and `documents.events.processor.completed`.",
+							Text: "Describe the live Labiraus subscription flow for `{{documentId}}`. The MCP server exposes `homelab://mcp/documents/notifications/{{documentId}}`, accepts `resources/subscribe` and `resources/unsubscribe`, maintains a Streamable HTTP session with `MCP-Session-Id`, and forwards matching NATS lifecycle updates over `GET /mcp` SSE. The current event sequence is `documents.events.processor.queued`, `documents.events.processor.started`, `documents.events.processor.completed`, and `documents.events.processor.failed`, with `documents.events.minio.stored` reserved for a future ingest-boundary emitter.",
 						},
 					},
 				},
 			),
-			plannedResourceTemplate(
+			liveResourceTemplate(
 				"documents.notifications.stream",
 				"documentNotificationStream",
 				http.MethodGet,
 				"/documents/notifications/{documentId}",
-				"Subscribe to future document lifecycle notifications for a specific document as NATS-backed updates are forwarded through MCP.",
+				"Subscribe to document lifecycle notifications for a specific document as NATS-backed updates are forwarded through MCP.",
 				false,
 				&manifestOperationBinding{
 					Backend:       manifestBackendNATS,

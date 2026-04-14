@@ -76,29 +76,30 @@ Use this when:
 
 ### `documents.notifications.subscribe.prompt`
 
-- lifecycle: `planned`
-- purpose: define the future document-lifecycle subscription flow driven by NATS JetStream
+- lifecycle: `live`
+- purpose: explain the current document-lifecycle subscription flow driven by NATS JetStream and Streamable HTTP sessions
 - arguments:
   - `documentId` required
 
 Use this when:
 
-- designing the notification resource and subscription behavior
+- subscribing to the notification resource for a specific document
 - validating that event naming stays aligned across `orchestrator`, `processor`, and `mcp`
 
 ## Notification Pattern
 
-The planned document notification flow is:
+The current document notification flow is:
 
-1. `documents.events.minio.stored`
-2. `documents.events.processor.queued`
-3. `documents.events.processor.started`
-4. `documents.events.processor.completed`
+1. `documents.events.processor.queued`
+2. `documents.events.processor.started`
+3. `documents.events.processor.completed`
+4. `documents.events.processor.failed`
 
-The intended shape is:
+The live shape is:
 
-- `orchestrator` and the MinIO-ingest boundary emit the lifecycle events onto NATS JetStream
-- `mcp` subscribes to that event stream
-- `mcp` forwards document-specific updates to MCP subscribers for a resource shaped like `homelab://mcp/documents/notifications/{documentId}`
+- `orchestrator` and `processor` emit lifecycle events onto NATS JetStream under `documents.events.>`
+- `mcp` exposes `homelab://mcp/documents/notifications/{documentId}` as a live resource template
+- MCP clients call `resources/subscribe` and keep a `GET /mcp` SSE stream open for the session identified by `MCP-Session-Id`
+- `mcp` forwards matching updates as `notifications/resources/updated`
 
-This notification surface is still planned, but the prompt exists now so the repo can build toward it intentionally.
+`documents.events.minio.stored` remains reserved for a future ingest-boundary emitter. The prompt now documents the live subscription pattern rather than a future-only design.

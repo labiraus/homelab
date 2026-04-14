@@ -3,6 +3,8 @@ export interface ProcessorConfig {
 	natsServers: string[];
 	streamName: string;
 	subject: string;
+	eventsStreamName: string;
+	eventsSubject: string;
 	consumerName: string;
 	minioEndpoint: string;
 	minioUseSSL: boolean;
@@ -31,6 +33,8 @@ export function loadConfig(): ProcessorConfig {
 		natsServers: requireEnv("NATS_URLS").split(",").map((value) => value.trim()).filter(Boolean),
 		streamName: process.env.NATS_STREAM?.trim() || "documents",
 		subject: process.env.NATS_SUBJECT?.trim() || "documents.ingest",
+		eventsStreamName: process.env.NATS_EVENTS_STREAM?.trim() || "document-events",
+		eventsSubject: process.env.NATS_EVENTS_SUBJECT?.trim() || "documents.events.>",
 		consumerName: process.env.NATS_CONSUMER?.trim() || "processor",
 		minioEndpoint: requireEnv("MINIO_ENDPOINT"),
 		minioUseSSL: process.env.MINIO_USE_SSL?.trim().toLowerCase() === "true",

@@ -53,6 +53,12 @@ envFromSecrets:
 generatedSecrets:
   - name: mcp-data-connections
     stringData:
+      NATS_URLS:
+        value: nats://nats.nats.svc.cluster.local:4222
+      NATS_EVENTS_STREAM:
+        value: document-events
+      NATS_EVENTS_SUBJECT:
+        value: documents.events.>
       MINIO_ENDPOINT:
         value: "svartalfheim:9000"
       MINIO_USE_SSL:
@@ -127,6 +133,13 @@ security:
         ports:
           - protocol: TCP
             port: 15012
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: nats
+        ports:
+          - protocol: TCP
+            port: 4222
       - to:
           - ipBlock:
               cidr: 0.0.0.0/0

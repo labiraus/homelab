@@ -4,10 +4,42 @@ import { vi } from "vitest";
 
 import App from "./App";
 
+class MockEventSource {
+	static instances = [];
+
+	constructor(url) {
+		this.url = url;
+		this.listeners = new Map();
+		this.close = vi.fn();
+		MockEventSource.instances.push(this);
+	}
+
+	addEventListener(type, listener) {
+		const current = this.listeners.get(type) ?? [];
+		current.push(listener);
+		this.listeners.set(type, current);
+	}
+
+	removeEventListener(type, listener) {
+		const current = this.listeners.get(type) ?? [];
+		this.listeners.set(
+			type,
+			current.filter((entry) => entry !== listener),
+		);
+	}
+
+	emit(type, payload) {
+		for (const listener of this.listeners.get(type) ?? []) {
+			listener({ data: JSON.stringify(payload) });
+		}
+	}
+}
+
 describe("App", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 		window.location.hash = "";
+		MockEventSource.instances = [];
 	});
 
 	test("renders the github-style header shell and auth menu", async () => {
@@ -317,5 +349,83 @@ describe("App", () => {
 			"/api/documents/tree",
 			expect.objectContaining({ method: "GET" }),
 		);
+	});
+
+	test("subscribes to document events for authenticated users and shows toast notifications", async () => {
+		const originalEventSource = global.EventSource;
+		global.EventSource = MockEventSource;
+
+		global.fetch = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ mode: "oidc", email: "oliver@labiraus.com", valid: true }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					providers: [
+						{
+							id: "google",
+							name: "Google",
+							issuer: "https://accounts.google.com",
+							authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+							configured: true,
+						},
+					],
+				}),
+			});
+
+		const { unmount } = render(<App />);
+		await screen.findByRole("button", { name: /^documents$/i });
+
+		expect(MockEventSource.instances).toHaveLength(1);
+		expect(MockEventSource.instances[0].url).toBe("/api/documents/events");
+
+		MockEventSource.instances[0].emit("document", {
+			subject: "documents.events.processor.completed",
+			documentId: "doc-1",
+			objectKey: "reports/doc-1.txt",
+			occurredAt: "2026-04-14T10:00:00Z",
+		});
+
+		expect(await screen.findByText("Processing completed")).toBeInTheDocument();
+		expect(screen.getByText("reports/doc-1.txt is ready for retrieval.")).toBeInTheDocument();
+
+		unmount();
+		expect(MockEventSource.instances[0].close).toHaveBeenCalled();
+		global.EventSource = originalEventSource;
+	});
+
+	test("does not subscribe to document events when the user is not authenticated", async () => {
+		const originalEventSource = global.EventSource;
+		global.EventSource = MockEventSource;
+
+		global.fetch = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ mode: "none", valid: false, invalidReason: "none" }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					providers: [
+						{
+							id: "google",
+							name: "Google",
+							issuer: "https://accounts.google.com",
+							authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+							configured: true,
+						},
+					],
+				}),
+			});
+
+		render(<App />);
+		await screen.findByRole("heading", { name: /inspect the deployed labiraus surface/i });
+
+		expect(MockEventSource.instances).toHaveLength(0);
+		global.EventSource = originalEventSource;
 	});
 });

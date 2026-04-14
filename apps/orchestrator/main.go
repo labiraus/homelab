@@ -10,6 +10,7 @@ import (
 
 	"pkg/api"
 	"pkg/base"
+	"pkg/documentevents"
 	"pkg/natsutil"
 	"pkg/postgresutil"
 	"pkg/prometheusutil"
@@ -74,9 +75,16 @@ func startNATS(ctx context.Context) error {
 		Servers: strings.Split(strings.TrimSpace(os.Getenv("NATS_URLS")), ","),
 		Streams: map[string]natsutil.Stream{
 			"documents": {
-				Name:     streamName(),
-				Subject:  subjectName(),
-				Replicas: 3,
+				Name:      streamName(),
+				Subject:   subjectName(),
+				Replicas:  3,
+				Retention: natsutil.RetentionWorkQueue,
+			},
+			documentevents.StreamID: {
+				Name:      documentEventsStreamName(),
+				Subject:   documentEventsSubject(),
+				Replicas:  3,
+				Retention: natsutil.RetentionLimits,
 			},
 		},
 	})

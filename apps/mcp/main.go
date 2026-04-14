@@ -66,6 +66,11 @@ func main() {
 	mux.HandleFunc(mcpGetHandlerName, mcpGetAPI)
 	mux.HandleFunc(mcpPostHandlerName, mcpPostAPI)
 
+	if err := startDocumentNotifications(ctx); err != nil {
+		slog.ErrorContext(ctx, err.Error())
+		return
+	}
+
 	done := api.Start(ctx, mux, 8080, api.NewAuthMiddleware(api.AuthOptions{}))
 
 	close(base.Ready)

@@ -12,6 +12,7 @@ It is the browser-facing API for `ui` and should remain a stable surface even as
 - `/api/documents/tree`
 - `/api/documents/object`
 - `/api/documents/upload`
+- `/api/documents/events`
 - `/readiness`
 - `/liveness`
 - `/metrics`
@@ -47,3 +48,20 @@ These routes expect the standard MinIO runtime configuration:
 - `MINIO_BUCKET`
 
 The UI treats these document routes as authenticated functionality for recognized users, and the API is expected to stay behind the same trusted auth middleware as the rest of the browser-facing surface.
+
+## Document Event Stream
+
+`external` also exposes an authenticated server-sent events stream at `/api/documents/events`.
+
+- authenticated browser clients connect with `Accept: text/event-stream`
+- each event payload is the raw lifecycle JSON emitted on NATS under `documents.events.>`
+- the current lifecycle subjects are `documents.events.processor.queued`, `documents.events.processor.started`, `documents.events.processor.completed`, and `documents.events.processor.failed`
+- the handler sends keepalives so long-lived browser connections stay open through the edge
+
+The document event bridge expects:
+
+- `NATS_URLS`
+- `NATS_EVENTS_STREAM` with a default of `document-events`
+- `NATS_EVENTS_SUBJECT` with a default of `documents.events.>`
+
+Lifecycle delivery to the browser is best-effort. The document processing path remains successful even if the notification fan-out path is temporarily unavailable.

@@ -13,6 +13,17 @@ export interface DocumentEvent {
 	processingVersion?: number;
 }
 
+export interface DocumentLifecycleEvent {
+	subject: string;
+	documentId: string;
+	bucket?: string;
+	objectKey?: string;
+	contentType?: string;
+	processingVersion?: number;
+	occurredAt: string;
+	error?: string;
+}
+
 export interface Chunk {
 	index: number;
 	text: string;

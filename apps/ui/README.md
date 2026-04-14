@@ -13,11 +13,14 @@ The UI exposes:
 - sign-in and sign-out actions from the header auth menu
 - `/api/users/count`
 - an authenticated hash-routed documents page that browses `/api/documents/tree`, `/api/documents/object`, and `/api/documents/upload`
+- a global toast stack backed by `/api/documents/events` for document lifecycle notifications
 - static public legal pages at `/privacy-policy.html` and `/terms-of-service.html`
 
 The results are shown in the page so it is easy to confirm browser-to-gateway-to-service routing and inspect the current auth state seen by the API.
 
 In the current repo choice, the shared-host browser path is fronted by `oauth2-proxy`: `/` is proxied to `ui`, `/api/...` is proxied to `external`, and the login URL published by `/api/auth/providers` points at the local `oauth2-proxy` start endpoint rather than directly at Google.
+
+When `authStatus.valid === true`, the app opens an `EventSource` to `/api/documents/events`, shows toast notifications for lifecycle updates, and tears the stream down again on sign-out or unmount. Toast copy is derived from the document lifecycle subject and document identifiers, with success, info, and error tones.
 
 ## Local Development
 

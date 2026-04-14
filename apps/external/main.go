@@ -89,6 +89,7 @@ func main() {
 	mux.HandleFunc("/api/documents/tree", documentsTreeHandler)
 	mux.HandleFunc("/api/documents/object", documentObjectHandler)
 	mux.HandleFunc("/api/documents/upload", documentUploadHandler)
+	mux.HandleFunc("/api/documents/events", documentEventsHandler)
 
 	done := api.Start(ctx, mux, 8080, api.NewAuthMiddleware(api.AuthOptions{
 		OIDCEmailHeader: "X-Forwarded-Email",
@@ -101,6 +102,10 @@ func main() {
 	}
 	if !kubeAccess {
 		slog.InfoContext(ctx, "kubernetes access not available")
+	}
+
+	if err = startDocumentEvents(ctx); err != nil {
+		return
 	}
 
 	close(base.Ready)

@@ -39,6 +39,11 @@ func mcpPostAPI(w http.ResponseWriter, r *http.Request) {
 
 	slog.DebugContext(ctx, fmt.Sprintf("%v called", mcpPostHandlerName))
 
+	if status, response := validateOriginRequest(r); response != nil {
+		writeJSONRPC(w, status, response)
+		return
+	}
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		err = fmt.Errorf("body unreadable: %w", err)
@@ -113,10 +118,27 @@ func mcpPostAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Method != "initialize" {
+		_, _, status, response := validateSessionRequest(r)
+		if response != nil {
+			writeJSONRPC(w, status, response)
+			return
+		}
+	}
+
 	responseStatus, responseBody := handleMCPRequest(ctx, r, req)
 	if responseBody == nil {
 		w.WriteHeader(responseStatus)
 		return
+	}
+
+	if req.Method == "initialize" && responseBody.Error == nil {
+		var params initializeParams
+		if err := json.Unmarshal(req.Params, &params); err == nil {
+			protocolVersion := negotiateProtocolVersion(params.ProtocolVersion)
+			session := sessionRegistry.create(protocolVersion)
+			w.Header().Set(mcpSessionHeader, session.ID)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

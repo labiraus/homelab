@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"mime"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
+	"pkg/documentevents"
 	"pkg/natsutil"
 )
 
@@ -47,6 +49,7 @@ type errorResponse struct {
 }
 
 var publishDocumentEvent = enqueueDocument
+var publishLifecycleNotification = publishQueuedLifecycleEvent
 var queueDocument = queuePendingDocument
 
 func documentsHandler(w http.ResponseWriter, r *http.Request) {
@@ -112,13 +115,21 @@ func validateDocumentRequest(request documentRequest) error {
 }
 
 func queuePendingDocument(ctx context.Context, event documentEvent) error {
-	return runDocumentTx(ctx, func(txCtx context.Context) error {
+	if err := runDocumentTx(ctx, func(txCtx context.Context) error {
 		if err := upsertPendingRecord(txCtx, event); err != nil {
 			return err
 		}
 
 		return publishDocumentEvent(txCtx, event)
-	})
+	}); err != nil {
+		return err
+	}
+
+	if err := publishLifecycleNotification(ctx, event); err != nil {
+		slog.ErrorContext(ctx, "failed to publish queued lifecycle notification", "error", err, "documentId", event.DocumentID)
+	}
+
+	return nil
 }
 
 func enqueueDocument(ctx context.Context, event documentEvent) error {
@@ -134,6 +145,28 @@ func enqueueDocument(ctx context.Context, event documentEvent) error {
 	return nil
 }
 
+func publishQueuedLifecycleEvent(ctx context.Context, event documentEvent) error {
+	lifecycleEvent := documentevents.NewLifecycleEvent(
+		documentevents.SubjectProcessorQueued,
+		event.DocumentID,
+		event.Bucket,
+		event.ObjectKey,
+		event.ContentType,
+		defaultProcessingVersion(event.ProcessingVersion),
+	)
+
+	payload, err := json.Marshal(lifecycleEvent)
+	if err != nil {
+		return err
+	}
+
+	if err := natsutil.PublishSubject(ctx, documentevents.StreamID, lifecycleEvent.Subject, payload); err != nil {
+		return err
+	}
+
+	return recordLastEvent(ctx, event.DocumentID, lifecycleEvent.Subject, lifecycleEvent.OccurredAt)
+}
+
 func streamName() string {
 	stream := strings.TrimSpace(os.Getenv("NATS_STREAM"))
 	if stream == "" {
@@ -146,6 +179,22 @@ func subjectName() string {
 	subject := strings.TrimSpace(os.Getenv("NATS_SUBJECT"))
 	if subject == "" {
 		return "documents.ingest"
+	}
+	return subject
+}
+
+func documentEventsStreamName() string {
+	stream := strings.TrimSpace(os.Getenv("NATS_EVENTS_STREAM"))
+	if stream == "" {
+		return documentevents.DefaultStreamName
+	}
+	return stream
+}
+
+func documentEventsSubject() string {
+	subject := strings.TrimSpace(os.Getenv("NATS_EVENTS_SUBJECT"))
+	if subject == "" {
+		return documentevents.DefaultStreamSubject
 	}
 	return subject
 }

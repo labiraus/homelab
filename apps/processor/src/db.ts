@@ -28,10 +28,14 @@ const statements = [
 		current_processing_version INTEGER NOT NULL DEFAULT 0,
 		last_reconciled_at TIMESTAMPTZ,
 		last_processed_at TIMESTAMPTZ,
+		last_event_subject TEXT,
+		last_event_at TIMESTAMPTZ,
 		last_error TEXT,
 		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 		updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 	)`,
+	"ALTER TABLE IF EXISTS rag.documents ADD COLUMN IF NOT EXISTS last_event_subject TEXT",
+	"ALTER TABLE IF EXISTS rag.documents ADD COLUMN IF NOT EXISTS last_event_at TIMESTAMPTZ",
 	`CREATE UNIQUE INDEX IF NOT EXISTS rag_documents_bucket_object_key_idx
 		ON rag.documents (bucket_name, object_key)
 		WHERE bucket_name IS NOT NULL AND object_key IS NOT NULL`,
@@ -227,6 +231,22 @@ export async function markDocumentPendingWithError(
 			updated_at = NOW()
 		WHERE document_id = $1`,
 		[event.documentId, event.processingVersion ?? 1, message],
+	);
+}
+
+export async function recordLifecycleEvent(
+	pool: Pool,
+	documentId: string,
+	subject: string,
+	occurredAt: string,
+): Promise<void> {
+	await pool.query(
+		`UPDATE rag.documents
+		SET last_event_subject = $2,
+			last_event_at = $3::timestamptz,
+			updated_at = NOW()
+		WHERE document_id = $1`,
+		[documentId, subject, occurredAt],
 	);
 }
 
