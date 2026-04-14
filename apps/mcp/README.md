@@ -31,7 +31,7 @@ Prompt discovery and retrieval are exposed through the MCP transport with `promp
 Live direct-backend capabilities currently expect:
 
 - `OIDC_ISSUER_URL` for federated identity discovery. Defaults to `https://accounts.google.com`, so bearer-capable MCP clients can use standard Google/OIDC authorization discovery instead of a service-local login path.
-- `API_BASE_URL` for orchestrator-backed HTTP proxy operations
+- `API_BASE_URL` for orchestrator-backed HTTP proxy operations. Defaults to `http://homelab-orchestrator.homelab.svc.cluster.local`, and the Helm chart sets that in-cluster service URL explicitly.
 - `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DATABASE`, `POSTGRES_SSLMODE` for Postgres-backed capabilities
 - `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_USE_SSL`, `MINIO_REGION`, `MINIO_BUCKET` for MinIO-backed capabilities
 - `NATS_URLS`, `NATS_EVENTS_STREAM`, and `NATS_EVENTS_SUBJECT` for document lifecycle subscriptions and resource notifications

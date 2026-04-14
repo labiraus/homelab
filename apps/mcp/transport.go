@@ -20,6 +20,7 @@ import (
 )
 
 const defaultTimeout = 30 * time.Second
+const defaultAPIBaseURL = "http://homelab-orchestrator.homelab.svc.cluster.local"
 
 var supportedProtocolVersions = []string{
 	"2025-11-25",
@@ -591,7 +592,12 @@ func executeToolOperation(ctx context.Context, r *http.Request, resolution toolR
 }
 
 func proxyAPIRequest(ctx context.Context, r *http.Request, method string, path string, body any) (string, string, *jsonRPCError) {
-	url := strings.TrimRight(base.GetEnv("API_BASE_URL", "http://bff:8080"), "/") + path
+	apiBaseURL := strings.TrimSpace(base.GetEnv("API_BASE_URL", ""))
+	if apiBaseURL == "" {
+		apiBaseURL = defaultAPIBaseURL
+	}
+
+	url := strings.TrimRight(apiBaseURL, "/") + path
 
 	var requestBody io.Reader
 

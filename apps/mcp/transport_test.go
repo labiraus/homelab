@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -227,6 +228,46 @@ func TestHandleToolsCallUsesMinIOAdapter(t *testing.T) {
 	}
 }
 
+func TestProxyAPIRequestDefaultsToOrchestratorService(t *testing.T) {
+	previous := mcpHTTPClient
+	t.Cleanup(func() {
+		mcpHTTPClient = previous
+	})
+
+	mcpHTTPClient = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if req.URL.String() != "http://homelab-orchestrator.homelab.svc.cluster.local/documents" {
+				t.Fatalf("expected orchestrator default upstream, got %q", req.URL.String())
+			}
+
+			return &http.Response{
+				StatusCode: http.StatusAccepted,
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: io.NopCloser(strings.NewReader(`{"status":"queued"}`)),
+			}, nil
+		}),
+	}
+
+	t.Setenv("API_BASE_URL", "")
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+
+	contentType, body, rpcErr := proxyAPIRequest(context.Background(), request, http.MethodPost, "/documents", map[string]any{
+		"documentId": "doc-1",
+	})
+
+	if rpcErr != nil {
+		t.Fatalf("expected successful proxy request, got %#v", rpcErr)
+	}
+	if contentType != "application/json" {
+		t.Fatalf("expected application/json content type, got %q", contentType)
+	}
+	if body != `{"status":"queued"}` {
+		t.Fatalf("expected queued response body, got %q", body)
+	}
+}
+
 func TestHandleToolsCallUploadsBinaryObject(t *testing.T) {
 	previous := writeBucketObject
 	t.Cleanup(func() {
@@ -274,6 +315,12 @@ func TestHandleToolsCallUploadsBinaryObject(t *testing.T) {
 	if responseBody == nil || responseBody.Error != nil {
 		t.Fatalf("expected successful tool response, got %#v", responseBody)
 	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (fn roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return fn(req)
 }
 
 func TestHandleResourcesReadRejectsPlannedCapability(t *testing.T) {
