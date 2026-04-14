@@ -60,7 +60,7 @@ generatedSecrets:
   - name: external-data-connections
     stringData:
       NATS_URLS:
-        value: nats://nats.nats.svc.cluster.local:4222
+        value: nats://nats-nats.nats.svc.cluster.local:4222
       NATS_EVENTS_STREAM:
         value: document-events
       NATS_EVENTS_SUBJECT:

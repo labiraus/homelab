@@ -60,7 +60,7 @@ generatedSecrets:
   - name: processor-config
     stringData:
       NATS_URLS:
-        value: nats://nats.nats.svc.cluster.local:4222
+        value: nats://nats-nats.nats.svc.cluster.local:4222
       NATS_STREAM:
         value: documents
       NATS_SUBJECT:
@@ -201,7 +201,7 @@ keda:
   pollingInterval: 30
   cooldownPeriod: 300
   natsJetStream:
-    natsServerMonitoringEndpoint: nats.nats.svc.cluster.local:8222
+    natsServerMonitoringEndpoint: nats-nats.nats.svc.cluster.local:8222
     account: $G
     stream: documents
     consumer: processor

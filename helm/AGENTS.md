@@ -48,6 +48,7 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 - Bootstrap Flux charts create `OCIRepository` and `HelmRelease` resources that point at published chart artifacts, typically using the `ghcr-creds` secret for authenticated GHCR access.
 - The `helm-all.yml` workflow tests charts on non-main branches and publishes them to GHCR on `main` and `dev`.
 - If a chart directory contains `values-ghcr.yaml`, the Helm CI pipeline uses that file for GHCR packaging; otherwise it falls back to `values.yaml`.
+- The upstream NATS chart deployed here uses Helm release name `nats` in namespace `nats`, which yields service DNS like `nats-nats.nats.svc.cluster.local`; do not assume the broker service is `nats.nats.svc.cluster.local`.
 
 ## Safety Notes
 

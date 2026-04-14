@@ -60,7 +60,7 @@ generatedSecrets:
   - name: orchestrator-config
     stringData:
       NATS_URLS:
-        value: nats://nats.nats.svc.cluster.local:4222
+        value: nats://nats-nats.nats.svc.cluster.local:4222
       NATS_STREAM:
         value: documents
       NATS_SUBJECT:

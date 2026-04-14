@@ -123,6 +123,46 @@ kubectl -n flux-system get helmrelease <release-name> -o jsonpath='{.status.last
 flux get helmrelease <release-name> -n flux-system
 ```
 
+### App releases time out with `Deployment ... status: 'InProgress'` after NATS-dependent startup changes
+
+Use this when app `HelmRelease` objects like `external`, `mcp`, `orchestrator`, or `processor` stop reconciling even though their `OCIRepository` is healthy.
+
+Detect:
+
+```bash
+# 1) Confirm Flux fetched the chart but the rollout stalled
+flux get source oci -n flux-system
+flux get helmrelease -n flux-system
+kubectl describe helmrelease -n flux-system <release-name>
+
+# 2) Check the newest pod revision
+kubectl -n homelab get deploy,pod | grep <release-name>
+kubectl -n homelab logs deploy/homelab-<release-name> --all-pods --previous --tail=100
+
+# 3) Check the actual NATS service name
+kubectl -n nats get svc
+```
+
+Common signs:
+
+- `OCIRepository` is `Ready=True`, but the `HelmRelease` times out waiting on the Deployment.
+- container logs show `nats.Connect: dial tcp: lookup nats.nats.svc.cluster.local ... no such host`
+- the live broker service is `nats-nats` rather than `nats`
+
+Recovery:
+
+```bash
+# Update app chart values to use the real in-cluster DNS name
+nats://nats-nats.nats.svc.cluster.local:4222
+
+# For processor monitoring, also use:
+nats-nats.nats.svc.cluster.local:8222
+
+# Then publish the chart and let Flux retry, or reconcile manually after publication
+flux reconcile source oci <release-name> -n flux-system --timeout=3m
+flux reconcile helmrelease <release-name> -n flux-system --with-source --timeout=10m
+```
+
 ### Helm upgrade fails after switching a workload to `Recreate`
 
 Use this when a `HelmRelease` starts failing with an error like `spec.strategy.rollingUpdate: Forbidden` after a chart changes a Deployment from `RollingUpdate` to `Recreate`.
