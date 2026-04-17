@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$#" -ne 1 ]; then
+  echo "Usage: minecraft-switch <server>" >&2
+  exit 1
+fi
+
+server="$1"
+
+case "$server" in
+{% for server_name, server in minecraft_vm_servers | dictsort %}
+  {{ server_name }})
+    data_target="{{ server.data_dir }}"
+    backup_target="{{ server.backup_dir }}"
+    ;;
+{% endfor %}
+  *)
+    echo "Unknown Minecraft server profile: $server" >&2
+    echo "Available profiles: {{ minecraft_vm_servers.keys() | list | sort | join(', ') }}" >&2
+    exit 1
+    ;;
+esac
+
+config_root="{{ minecraft_vm_servers_config_dir }}"
+env_target="${config_root}/${server}.env"
+runtime_target="${config_root}/${server}.runtime.env"
+env_link="{{ minecraft_vm_active_env_link }}"
+runtime_link="{{ minecraft_vm_active_runtime_link }}"
+data_link="{{ minecraft_vm_legacy_data_dir }}"
+backup_link="{{ minecraft_vm_legacy_backup_dir }}"
+active_server_file="{{ minecraft_vm_active_server_file }}"
+service_name="{{ minecraft_vm_service_name }}"
+
+for required_path in "$env_target" "$runtime_target" "$data_target" "$backup_target"; do
+  if [ ! -e "$required_path" ]; then
+    echo "Required path missing for profile $server: $required_path" >&2
+    exit 1
+  fi
+done
+
+update_link() {
+  local target="$1"
+  local link="$2"
+  local tmp_link
+  tmp_link="${link}.tmp.$$"
+  rm -f "$tmp_link"
+  ln -s "$target" "$tmp_link"
+  mv -Tf "$tmp_link" "$link"
+}
+
+update_link "$env_target" "$env_link"
+update_link "$runtime_target" "$runtime_link"
+update_link "$data_target" "$data_link"
+update_link "$backup_target" "$backup_link"
+
+tmp_active_server_file="${active_server_file}.tmp.$$"
+printf '%s\n' "$server" > "$tmp_active_server_file"
+mv -f "$tmp_active_server_file" "$active_server_file"
+
+systemctl restart "$service_name"
+echo "Active Minecraft server: $server"

@@ -189,22 +189,34 @@ If you omit `LIMIT`, the target runs against the full `kubernetes_terraform_node
 make ansible-kubernetes-worker
 ```
 
-The Minecraft VM playbook expects `MINECRAFT_CURSEFORGE_API_KEY` to be available from `ansible/.env` or your shell environment so `itzg/minecraft-server` can bootstrap the ATM10 Sky pack.
+The Minecraft VM playbook expects `MINECRAFT_CURSEFORGE_API_KEY` to be available from `ansible/.env` or your shell environment so `itzg/minecraft-server` can bootstrap the managed modpack profiles.
 
 Managed Minecraft VM state:
 
 - installs `docker.io`
-- creates `/srv/minecraft/data` and `/srv/minecraft/backups`
+- creates per-profile data under `/srv/minecraft/servers/<profile>/data`
+- creates per-profile backups under `/srv/minecraft/servers/<profile>/backups`
 - makes `/srv/minecraft` writable by the `ubuntu` login user for direct SFTP uploads
-- renders `/etc/minecraft/minecraft.env`
+- renders per-profile container env and runtime metadata under `/etc/minecraft/servers`
+- keeps `/etc/minecraft/minecraft.env`, `/etc/minecraft/runtime.env`, `/srv/minecraft/data`, and `/srv/minecraft/backups` pointed at the active profile
 - enforces selected `server.properties` values such as `sync-chunk-writes=false`
 - manages a `minecraft.service` systemd unit that runs `itzg/minecraft-server:java21`
+- installs `minecraft-switch` on the VM so operators can swap profiles locally without editing repo vars
 - exposes the game directly on TCP `25565`
+
+Current seeded profiles:
+
+- `atm11` is the repo-authoritative active profile and is pinned with `CF_SLUG=all-the-mods-11` and `CF_FILENAME_MATCHER=0.0.4`
+- `atm10_tts` preserves the older ATM10 To The Sky world with `CF_SLUG=all-the-mods-10-sky` and `CF_FILENAME_MATCHER=2.0.2`
+
+The first multi-profile rollout migrates the old single-server `/srv/minecraft/data` and `/srv/minecraft/backups` directories into the `atm10_tts` profile before repointing the active links to `atm11`.
 
 For world restores or other bulk file copies, prefer direct SFTP to the VM rather than port-forwarding through Kubernetes. The Minecraft VM has its own LAN IP and the playbook makes `/srv/minecraft` writable by `ubuntu`, so you can upload straight to:
 
-- `/srv/minecraft/data` for live server data
-- `/srv/minecraft/backups` for staged restore archives
+- `/srv/minecraft/data` for the currently active server data
+- `/srv/minecraft/backups` for the currently active server backups
+- `/srv/minecraft/servers/<profile>/data` for a specific active or inactive profile
+- `/srv/minecraft/servers/<profile>/backups` for a specific profile's staged restore archives
 
 Example:
 
@@ -212,6 +224,15 @@ Example:
 sftp ubuntu@nidavellir
 put -r ./world /srv/minecraft/data/world
 ```
+
+Switch profiles directly on the VM:
+
+```bash
+ssh nidavellir 'sudo minecraft-switch atm10_tts'
+ssh nidavellir 'sudo minecraft-switch atm11'
+```
+
+The repo remains authoritative. Rerunning `make ansible-minecraft-vm` reapplies the configured `minecraft_vm_active_server`, which currently switches the active profile back to `atm11`.
 
 For large world replacements, stop the service first so files are consistent:
 

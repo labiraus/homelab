@@ -10,10 +10,11 @@ Restart=always
 RestartSec=10
 TimeoutStartSec=0
 TimeoutStopSec=90
-ExecStartPre=-/usr/bin/docker rm -f {{ minecraft_vm_container_name }}
-ExecStartPre=/usr/bin/docker pull {{ minecraft_vm_image }}
-ExecStart=/usr/bin/docker run --name {{ minecraft_vm_container_name }} --rm -p {{ minecraft_vm_port }}:25565 -v {{ minecraft_vm_data_dir }}:/data -v {{ minecraft_vm_backup_dir }}:/backups --env-file /etc/minecraft/minecraft.env {{ minecraft_vm_image }}
-ExecStop=/usr/bin/docker stop -t 60 {{ minecraft_vm_container_name }}
+EnvironmentFile={{ minecraft_vm_active_runtime_link }}
+ExecStartPre=-/usr/bin/docker rm -f ${CONTAINER_NAME}
+ExecStartPre=/usr/bin/docker pull ${IMAGE}
+ExecStart=/usr/bin/docker run --name ${CONTAINER_NAME} --rm -p ${PORT}:25565 -v ${DATA_DIR}:/data -v ${BACKUP_DIR}:/backups --env-file {{ minecraft_vm_active_env_link }} ${IMAGE}
+ExecStop=-/usr/bin/docker stop -t 60 ${CONTAINER_NAME}
 
 [Install]
 WantedBy=multi-user.target

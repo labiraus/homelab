@@ -1,14 +1,20 @@
 minecraft_vm_packages:
   - docker.io
 
-minecraft_vm_dirs:
-  - "{{ minecraft_vm_root }}"
-  - "{{ minecraft_vm_data_dir }}"
-  - "{{ minecraft_vm_backup_dir }}"
-
 minecraft_vm_dir_owner: "{{ minecraft_vm_upload_user }}"
 minecraft_vm_dir_group: "{{ minecraft_vm_upload_user }}"
 minecraft_vm_dir_mode: "0775"
+
+minecraft_vm_etc_dir: /etc/minecraft
+minecraft_vm_servers_config_dir: "{{ minecraft_vm_etc_dir }}/servers"
+minecraft_vm_active_server_file: "{{ minecraft_vm_etc_dir }}/active-server"
+minecraft_vm_active_env_link: "{{ minecraft_vm_etc_dir }}/minecraft.env"
+minecraft_vm_active_runtime_link: "{{ minecraft_vm_etc_dir }}/runtime.env"
+minecraft_vm_switch_script_path: /usr/local/bin/minecraft-switch
+
+minecraft_vm_legacy_server_name: atm10_tts
+minecraft_vm_legacy_data_dir: "{{ minecraft_vm_root }}/data"
+minecraft_vm_legacy_backup_dir: "{{ minecraft_vm_root }}/backups"
 
 minecraft_vm_server_properties:
   sync-chunk-writes: "false"

@@ -1,27 +1,35 @@
 minecraft_vm_service_name: minecraft
 minecraft_vm_container_name: minecraft
-minecraft_vm_image: "itzg/minecraft-server:java21"
 minecraft_vm_root: /srv/minecraft
-minecraft_vm_data_dir: "{{ minecraft_vm_root }}/data"
-minecraft_vm_backup_dir: "{{ minecraft_vm_root }}/backups"
+minecraft_vm_servers_root: "{{ minecraft_vm_root }}/servers"
 minecraft_vm_upload_user: ubuntu
 minecraft_vm_port: 25565
-minecraft_vm_memory: 10G
-minecraft_vm_init_memory: 2G
-minecraft_vm_type: NEOFORGE
-minecraft_vm_version: "1.21.1"
-minecraft_vm_timezone: UTC
-minecraft_vm_mod_platform: AUTO_CURSEFORGE
-minecraft_vm_curseforge_slug: all-the-mods-10-sky
-minecraft_vm_curseforge_filename_matcher: "2.0.2"
+minecraft_vm_image_default: "itzg/minecraft-server:java21"
 minecraft_vm_curseforge_api_key_env: MINECRAFT_CURSEFORGE_API_KEY
-minecraft_vm_env:
+
+minecraft_vm_common_runtime_env: &minecraft_vm_common_runtime_env
   EULA: "TRUE"
-  TYPE: "{{ minecraft_vm_type }}"
-  VERSION: "{{ minecraft_vm_version }}"
-  MEMORY: "{{ minecraft_vm_memory }}"
-  INIT_MEMORY: "{{ minecraft_vm_init_memory }}"
-  TZ: "{{ minecraft_vm_timezone }}"
-  MOD_PLATFORM: "{{ minecraft_vm_mod_platform }}"
-  CF_SLUG: "{{ minecraft_vm_curseforge_slug }}"
-  CF_FILENAME_MATCHER: "{{ minecraft_vm_curseforge_filename_matcher }}"
+  MEMORY: 10G
+  INIT_MEMORY: 2G
+  TZ: UTC
+  TYPE: NEOFORGE
+  VERSION: "1.21.1"
+  MOD_PLATFORM: AUTO_CURSEFORGE
+
+minecraft_vm_active_server: atm11
+
+minecraft_vm_servers:
+  atm10_tts:
+    data_dir: "{{ minecraft_vm_servers_root }}/atm10_tts/data"
+    backup_dir: "{{ minecraft_vm_servers_root }}/atm10_tts/backups"
+    runtime_env:
+      <<: *minecraft_vm_common_runtime_env
+      CF_SLUG: all-the-mods-10-sky
+      CF_FILENAME_MATCHER: "2.0.2"
+  atm11:
+    data_dir: "{{ minecraft_vm_servers_root }}/atm11/data"
+    backup_dir: "{{ minecraft_vm_servers_root }}/atm11/backups"
+    runtime_env:
+      <<: *minecraft_vm_common_runtime_env
+      CF_SLUG: all-the-mods-11
+      CF_FILENAME_MATCHER: "0.0.4"

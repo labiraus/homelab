@@ -1,16 +1,44 @@
 ---
+- name: Require active Minecraft server to exist
+  ansible.builtin.assert:
+    that:
+      - minecraft_vm_active_server in minecraft_vm_servers
+    fail_msg: >-
+      minecraft_vm_active_server={{ minecraft_vm_active_server }} is not defined in
+      minecraft_vm_servers.
+
+- name: Require legacy Minecraft migration target to exist
+  ansible.builtin.assert:
+    that:
+      - minecraft_vm_legacy_server_name in minecraft_vm_servers
+    fail_msg: >-
+      minecraft_vm_legacy_server_name={{ minecraft_vm_legacy_server_name }} is not defined in
+      minecraft_vm_servers.
+
 - name: Resolve CurseForge API key from environment
   ansible.builtin.set_fact:
     minecraft_vm_curseforge_api_key: "{{ lookup('ansible.builtin.env', minecraft_vm_curseforge_api_key_env) }}"
   no_log: true
 
+- name: Identify AUTO_CURSEFORGE Minecraft profiles
+  ansible.builtin.set_fact:
+    minecraft_vm_auto_curseforge_servers: >-
+      {{
+        minecraft_vm_servers
+        | dict2items
+        | selectattr('value.runtime_env.MOD_PLATFORM', 'defined')
+        | selectattr('value.runtime_env.MOD_PLATFORM', 'equalto', 'AUTO_CURSEFORGE')
+        | map(attribute='key')
+        | list
+      }}
+
 - name: Require CurseForge API key when AUTO_CURSEFORGE is enabled
   ansible.builtin.assert:
     that:
-      - minecraft_vm_mod_platform != "AUTO_CURSEFORGE" or (minecraft_vm_curseforge_api_key | length > 0)
+      - minecraft_vm_auto_curseforge_servers | length == 0 or (minecraft_vm_curseforge_api_key | length > 0)
     fail_msg: >-
       MINECRAFT_CURSEFORGE_API_KEY must be set in the environment or ansible/.env when
-      minecraft_vm_mod_platform is AUTO_CURSEFORGE.
+      minecraft_vm_servers uses AUTO_CURSEFORGE.
   no_log: true
 
 - name: Install Minecraft VM packages
@@ -25,30 +53,221 @@
     enabled: true
     state: started
 
-- name: Ensure Minecraft directories exist
+- name: Ensure Minecraft root directories exist
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
     owner: "{{ minecraft_vm_dir_owner }}"
     group: "{{ minecraft_vm_dir_group }}"
     mode: "{{ minecraft_vm_dir_mode }}"
-  loop: "{{ minecraft_vm_dirs }}"
+  loop:
+    - "{{ minecraft_vm_root }}"
+    - "{{ minecraft_vm_servers_root }}"
 
-- name: Ensure Minecraft config directory exists
+- name: Ensure per-server parent directories exist
   ansible.builtin.file:
-    path: /etc/minecraft
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ minecraft_vm_dir_owner }}"
+    group: "{{ minecraft_vm_dir_group }}"
+    mode: "{{ minecraft_vm_dir_mode }}"
+  loop: >-
+    {{
+      (
+        (
+          minecraft_vm_servers
+          | dict2items
+          | map(attribute='value.data_dir')
+          | map('dirname')
+          | list
+        )
+        +
+        (
+          minecraft_vm_servers
+          | dict2items
+          | map(attribute='value.backup_dir')
+          | map('dirname')
+          | list
+        )
+      )
+      | unique
+    }}
+
+- name: Ensure Minecraft config directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
     state: directory
     owner: root
     group: root
     mode: "0755"
+  loop:
+    - "{{ minecraft_vm_etc_dir }}"
+    - "{{ minecraft_vm_servers_config_dir }}"
 
-- name: Render Minecraft environment file
+- name: Check legacy single-server data directory
+  ansible.builtin.stat:
+    path: "{{ minecraft_vm_legacy_data_dir }}"
+    follow: false
+  register: minecraft_vm_legacy_data_dir_stat
+
+- name: Check legacy single-server backup directory
+  ansible.builtin.stat:
+    path: "{{ minecraft_vm_legacy_backup_dir }}"
+    follow: false
+  register: minecraft_vm_legacy_backup_dir_stat
+
+- name: Check migrated legacy data target
+  ansible.builtin.stat:
+    path: "{{ minecraft_vm_servers[minecraft_vm_legacy_server_name].data_dir }}"
+    follow: false
+  register: minecraft_vm_legacy_target_data_dir_stat
+
+- name: Check migrated legacy backup target
+  ansible.builtin.stat:
+    path: "{{ minecraft_vm_servers[minecraft_vm_legacy_server_name].backup_dir }}"
+    follow: false
+  register: minecraft_vm_legacy_target_backup_dir_stat
+
+- name: Refuse conflicting legacy data migration state
+  ansible.builtin.assert:
+    that:
+      - >-
+        not (
+          minecraft_vm_legacy_data_dir_stat.stat.exists
+          and not (minecraft_vm_legacy_data_dir_stat.stat.islnk | default(false))
+          and minecraft_vm_legacy_target_data_dir_stat.stat.exists
+        )
+    fail_msg: >-
+      Both legacy Minecraft data directory {{ minecraft_vm_legacy_data_dir }} and migrated target
+      {{ minecraft_vm_servers[minecraft_vm_legacy_server_name].data_dir }} exist. Resolve this
+      manually before rerunning the playbook to avoid overwriting data.
+
+- name: Refuse conflicting legacy backup migration state
+  ansible.builtin.assert:
+    that:
+      - >-
+        not (
+          minecraft_vm_legacy_backup_dir_stat.stat.exists
+          and not (minecraft_vm_legacy_backup_dir_stat.stat.islnk | default(false))
+          and minecraft_vm_legacy_target_backup_dir_stat.stat.exists
+        )
+    fail_msg: >-
+      Both legacy Minecraft backup directory {{ minecraft_vm_legacy_backup_dir }} and migrated
+      target {{ minecraft_vm_servers[minecraft_vm_legacy_server_name].backup_dir }} exist.
+      Resolve this manually before rerunning the playbook to avoid overwriting data.
+
+- name: Migrate legacy Minecraft data directory into profile storage
+  ansible.builtin.command:
+    argv:
+      - mv
+      - "{{ minecraft_vm_legacy_data_dir }}"
+      - "{{ minecraft_vm_servers[minecraft_vm_legacy_server_name].data_dir }}"
+  when:
+    - minecraft_vm_legacy_data_dir_stat.stat.exists
+    - not (minecraft_vm_legacy_data_dir_stat.stat.islnk | default(false))
+    - not minecraft_vm_legacy_target_data_dir_stat.stat.exists
+
+- name: Migrate legacy Minecraft backup directory into profile storage
+  ansible.builtin.command:
+    argv:
+      - mv
+      - "{{ minecraft_vm_legacy_backup_dir }}"
+      - "{{ minecraft_vm_servers[minecraft_vm_legacy_server_name].backup_dir }}"
+  when:
+    - minecraft_vm_legacy_backup_dir_stat.stat.exists
+    - not (minecraft_vm_legacy_backup_dir_stat.stat.islnk | default(false))
+    - not minecraft_vm_legacy_target_backup_dir_stat.stat.exists
+
+- name: Ensure per-server Minecraft data directories exist
+  ansible.builtin.file:
+    path: "{{ item.value.data_dir }}"
+    state: directory
+    owner: "{{ minecraft_vm_dir_owner }}"
+    group: "{{ minecraft_vm_dir_group }}"
+    mode: "{{ minecraft_vm_dir_mode }}"
+  loop: "{{ minecraft_vm_servers | dict2items }}"
+
+- name: Ensure per-server Minecraft backup directories exist
+  ansible.builtin.file:
+    path: "{{ item.value.backup_dir }}"
+    state: directory
+    owner: "{{ minecraft_vm_dir_owner }}"
+    group: "{{ minecraft_vm_dir_group }}"
+    mode: "{{ minecraft_vm_dir_mode }}"
+  loop: "{{ minecraft_vm_servers | dict2items }}"
+
+- name: Render per-server Minecraft environment files
   ansible.builtin.template:
     src: minecraft.env.j2
-    dest: /etc/minecraft/minecraft.env
+    dest: "{{ minecraft_vm_servers_config_dir }}/{{ item.key }}.env"
     owner: root
     group: root
     mode: "0600"
+  loop: "{{ minecraft_vm_servers | dict2items }}"
+  vars:
+    minecraft_vm_server_name: "{{ item.key }}"
+    minecraft_vm_server: "{{ item.value }}"
+  notify: Restart minecraft
+
+- name: Render per-server Minecraft runtime metadata files
+  ansible.builtin.template:
+    src: minecraft.runtime.env.j2
+    dest: "{{ minecraft_vm_servers_config_dir }}/{{ item.key }}.runtime.env"
+    owner: root
+    group: root
+    mode: "0600"
+  loop: "{{ minecraft_vm_servers | dict2items }}"
+  vars:
+    minecraft_vm_server_name: "{{ item.key }}"
+    minecraft_vm_server: "{{ item.value }}"
+  notify: Restart minecraft
+
+- name: Render Minecraft switch helper
+  ansible.builtin.template:
+    src: minecraft-switch.j2
+    dest: "{{ minecraft_vm_switch_script_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Record repo-authoritative active Minecraft server
+  ansible.builtin.copy:
+    content: "{{ minecraft_vm_active_server }}\n"
+    dest: "{{ minecraft_vm_active_server_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Point active Minecraft environment link
+  ansible.builtin.file:
+    src: "{{ minecraft_vm_servers_config_dir }}/{{ minecraft_vm_active_server }}.env"
+    path: "{{ minecraft_vm_active_env_link }}"
+    state: link
+    force: true
+  notify: Restart minecraft
+
+- name: Point active Minecraft runtime metadata link
+  ansible.builtin.file:
+    src: "{{ minecraft_vm_servers_config_dir }}/{{ minecraft_vm_active_server }}.runtime.env"
+    path: "{{ minecraft_vm_active_runtime_link }}"
+    state: link
+    force: true
+  notify: Restart minecraft
+
+- name: Point active Minecraft data link
+  ansible.builtin.file:
+    src: "{{ minecraft_vm_servers[minecraft_vm_active_server].data_dir }}"
+    path: "{{ minecraft_vm_legacy_data_dir }}"
+    state: link
+    force: true
+  notify: Restart minecraft
+
+- name: Point active Minecraft backup link
+  ansible.builtin.file:
+    src: "{{ minecraft_vm_servers[minecraft_vm_active_server].backup_dir }}"
+    path: "{{ minecraft_vm_legacy_backup_dir }}"
+    state: link
+    force: true
   notify: Restart minecraft
 
 - name: Render Minecraft systemd service
@@ -68,16 +287,30 @@
     enabled: true
     state: started
 
+- name: Apply pending Minecraft restarts before server tuning
+  ansible.builtin.meta: flush_handlers
+
 - name: Wait for Minecraft server.properties to exist
   ansible.builtin.wait_for:
-    path: "{{ minecraft_vm_data_dir }}/server.properties"
+    path: "{{ minecraft_vm_servers[minecraft_vm_active_server].data_dir }}/server.properties"
     state: present
     timeout: 900
 
+- name: Combine shared and active-profile server.properties overrides
+  ansible.builtin.set_fact:
+    minecraft_vm_active_server_properties: >-
+      {{
+        minecraft_vm_server_properties
+        | combine(minecraft_vm_servers[minecraft_vm_active_server].server_properties | default({}))
+      }}
+
 - name: Manage Minecraft server.properties overrides
   ansible.builtin.lineinfile:
-    path: "{{ minecraft_vm_data_dir }}/server.properties"
+    path: "{{ minecraft_vm_servers[minecraft_vm_active_server].data_dir }}/server.properties"
     regexp: "^{{ item.key | regex_escape }}="
     line: "{{ item.key }}={{ item.value }}"
-  loop: "{{ minecraft_vm_server_properties | dict2items }}"
+  loop: "{{ minecraft_vm_active_server_properties | dict2items }}"
   notify: Restart minecraft
+
+- name: Apply final Minecraft restart after server.properties changes
+  ansible.builtin.meta: flush_handlers

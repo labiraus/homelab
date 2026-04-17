@@ -11,6 +11,7 @@ Use this file as the Codex memory for recurring issues and fixes specific to the
 - guest IP: `192.168.8.126`
 - service manager: `systemd`
 - runtime: Docker container `itzg/minecraft-server:java21`
+- active-profile model: one running container at a time, switched by repo-managed symlinks
 - port: `25565/tcp`
 - mod loader: NeoForge
 - modpack delivery: CurseForge via `MOD_PLATFORM=AUTO_CURSEFORGE`
@@ -22,6 +23,8 @@ ssh nidavellir 'systemctl status --no-pager minecraft'
 ssh nidavellir 'docker ps --filter name=minecraft'
 ssh nidavellir 'docker logs --tail=200 minecraft'
 ssh nidavellir 'ss -ltnp | grep 25565'
+ssh nidavellir 'cat /etc/minecraft/active-server'
+ssh nidavellir 'readlink -f /srv/minecraft/data'
 ```
 
 ## Provisioning And Config
@@ -33,19 +36,35 @@ make ansible-minecraft-vm
 ```
 
 The Terraform layer provisions the VM.
-The Ansible playbook installs Docker, renders `/etc/minecraft/minecraft.env`, creates `/srv/minecraft/data` and `/srv/minecraft/backups`, and manages `minecraft.service`.
+The Ansible playbook installs Docker, renders per-profile files under `/etc/minecraft/servers`, keeps active symlinks at `/etc/minecraft/minecraft.env`, `/etc/minecraft/runtime.env`, `/srv/minecraft/data`, and `/srv/minecraft/backups`, and manages `minecraft.service`.
 
 ## Runtime Defaults
 
-- `MEMORY=10G`
-- `INIT_MEMORY=2G`
-- `TYPE=NEOFORGE`
-- `VERSION=1.21.1`
-- `MOD_PLATFORM=AUTO_CURSEFORGE`
-- `CF_SLUG=all-the-mods-10-sky`
-- `CF_FILENAME_MATCHER=2.0.2`
+- active profile: `atm11`
+- alternate preserved profile: `atm10_tts`
+- shared defaults:
+  - `MEMORY=10G`
+  - `INIT_MEMORY=2G`
+  - `TYPE=NEOFORGE`
+  - `VERSION=1.21.1`
+  - `MOD_PLATFORM=AUTO_CURSEFORGE`
+- `atm11`:
+  - `CF_SLUG=all-the-mods-11`
+  - `CF_FILENAME_MATCHER=0.0.4`
+- `atm10_tts`:
+  - `CF_SLUG=all-the-mods-10-sky`
+  - `CF_FILENAME_MATCHER=2.0.2`
 
 `MINECRAFT_CURSEFORGE_API_KEY` must be present in `ansible/.env` or the operator environment before running the Ansible playbook.
+
+Switch profiles locally:
+
+```bash
+ssh nidavellir 'sudo minecraft-switch atm10_tts'
+ssh nidavellir 'sudo minecraft-switch atm11'
+```
+
+The next `make ansible-minecraft-vm` reapplies the repo-selected active profile.
 
 ## Lag Notes
 
