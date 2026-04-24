@@ -178,6 +178,7 @@ This worker playbook:
 - reconnects to the Terraform-created VM over SSH
 - ensures the Kubernetes prerequisites and services are in place
 - fetches a fresh `kubeadm join` command from `yggdrasil`
+- checks that the control plane has signed the fresh bootstrap token into `kube-public/cluster-info` before attempting `kubeadm join`
 - joins the node only when `/etc/kubernetes/kubelet.conf` does not already exist
 - reapplies the repo's per-node labels for all Terraform-managed workers through host vars
 - can enable NVIDIA runtime support on selected Terraform-managed GPU workers such as `helheim`
@@ -194,19 +195,22 @@ The Minecraft VM playbook expects `MINECRAFT_CURSEFORGE_API_KEY` to be available
 Managed Minecraft VM state:
 
 - installs `docker.io`
+- adds the `ubuntu` operator user to the `docker` group for direct container inspection over SSH
 - creates per-profile data under `/srv/minecraft/servers/<profile>/data`
 - creates per-profile backups under `/srv/minecraft/servers/<profile>/backups`
 - makes `/srv/minecraft` writable by the `ubuntu` login user for direct SFTP uploads
 - renders per-profile container env and runtime metadata under `/etc/minecraft/servers`
 - keeps `/etc/minecraft/minecraft.env`, `/etc/minecraft/runtime.env`, `/srv/minecraft/data`, and `/srv/minecraft/backups` pointed at the active profile
 - enforces selected `server.properties` values such as `sync-chunk-writes=false`
-- manages a `minecraft.service` systemd unit that runs `itzg/minecraft-server:java21`
+- manages a `minecraft.service` systemd unit that runs the active profile's image
+- keeps the shared image default at `itzg/minecraft-server:java21`, while `atm11` overrides to `itzg/minecraft-server:java25` because current NeoForge server builds require Java 25 there
+- pins `atm11` to `NEOFORGE_VERSION=26.1.2.17-beta` and starts it via the already-installed `/data/run.sh` script because the image's AUTO_CURSEFORGE NeoForge bootstrap currently re-resolves ATM11 to incompatible `26.1.2.22-beta`
 - installs `minecraft-switch` on the VM so operators can swap profiles locally without editing repo vars
 - exposes the game directly on TCP `25565`
 
 Current seeded profiles:
 
-- `atm11` is the repo-authoritative active profile and is pinned with `CF_SLUG=all-the-mods-11` and `CF_FILENAME_MATCHER=0.0.4`
+- `atm11` is the repo-authoritative active profile and is pinned with `CF_SLUG=all-the-mods-11`, `CF_FILENAME_MATCHER=0.0.6`, `NEOFORGE_VERSION=26.1.2.17-beta`, and `start_mode=preinstalled_run_script`
 - `atm10_tts` preserves the older ATM10 To The Sky world with `CF_SLUG=all-the-mods-10-sky` and `CF_FILENAME_MATCHER=2.0.2`
 
 The first multi-profile rollout migrates the old single-server `/srv/minecraft/data` and `/srv/minecraft/backups` directories into the `atm10_tts` profile before repointing the active links to `atm11`.
@@ -234,12 +238,32 @@ ssh nidavellir 'sudo minecraft-switch atm11'
 
 The repo remains authoritative. Rerunning `make ansible-minecraft-vm` reapplies the configured `minecraft_vm_active_server`, which currently switches the active profile back to `atm11`.
 
+After the playbook adds or refreshes Docker group membership for `ubuntu`, start a new SSH session before relying on plain `docker ps` or `docker logs`. Until then, use `sudo docker ...`.
+
 For large world replacements, stop the service first so files are consistent:
 
 ```bash
 ssh nidavellir 'sudo systemctl stop minecraft'
 sftp ubuntu@nidavellir
 ssh nidavellir 'sudo systemctl start minecraft'
+```
+
+To roll a managed modpack profile forward, stop the service, archive the profile data, copy that tarball to `svartalfheim`, then bump the profile's `CF_FILENAME_MATCHER` in `ansible/inventory/group_vars/minecraft_vm.yml` and rerun `make ansible-minecraft-vm`.
+
+Example for `atm11` moving from `0.0.5` to `0.0.6`:
+
+```bash
+ssh nidavellir 'sudo systemctl stop minecraft'
+ssh nidavellir '\
+  ts=$(date -u +%Y%m%dT%H%M%SZ) && \
+  mkdir -p /srv/minecraft/archives && \
+  tar -C /srv/minecraft/servers/atm11 -czf /srv/minecraft/archives/atm11-${ts}.tar.gz data'
+ssh svartalfheim 'mkdir -p /srv/minio/backups/minecraft'
+ssh nidavellir '\
+  latest=$(ls -t /srv/minecraft/archives/atm11-*.tar.gz | head -n1) && \
+  scp "$latest" svartalfheim:/srv/minio/backups/minecraft/'
+make ansible-minecraft-vm
+ssh nidavellir 'systemctl status --no-pager minecraft'
 ```
 
 The make targets call `scripts/ansible-run-playbook.sh`, which sources:

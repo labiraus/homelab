@@ -10,7 +10,11 @@ proxmox = {
 
 vm = {
   cpu_cores    = 12
-  memory_mb    = 24576
+  # proxmox-node1 has 32 GiB installed RAM, but it also runs the dedicated
+  # Minecraft VM `nidavellir` at 14336 MiB and needs host headroom for Proxmox,
+  # QEMU, and Intel iGPU passthrough overhead. Keep `jotunheim` within the
+  # remaining safe budget so both guests can coexist and boot reliably.
+  memory_mb    = 12288
   disk_size_gb = 280
   ssh_username = "ubuntu"
   bios         = "ovmf"

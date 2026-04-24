@@ -306,6 +306,49 @@
   when: not kubernetes_manual_node_kubelet_conf.stat.exists
   no_log: true
 
+- name: Extract the bootstrap token ID from the join command
+  ansible.builtin.set_fact:
+    kubernetes_manual_node_join_token_id: >-
+      {{
+        (
+          kubernetes_manual_node_join_command.stdout
+          | regex_search('--token\\s+([^.\\s]+)\\.[^\\s]+', '\\1')
+          | first
+        )
+      }}
+  when: not kubernetes_manual_node_kubelet_conf.stat.exists
+  no_log: true
+
+- name: Read the cluster-info ConfigMap before joining
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - -n
+      - kube-public
+      - get
+      - configmap
+      - cluster-info
+      - -o
+      - yaml
+  delegate_to: localhost
+  become: false
+  register: kubernetes_manual_node_cluster_info
+  changed_when: false
+  when: not kubernetes_manual_node_kubelet_conf.stat.exists
+
+- name: Fail fast when the fresh bootstrap token is not signed into cluster-info
+  ansible.builtin.fail:
+    msg: >-
+      kubeadm join cannot continue for {{ inventory_hostname }} because the fresh
+      bootstrap token ID {{ kubernetes_manual_node_join_token_id }} is missing
+      from kube-public/cluster-info. This usually means the control plane is not
+      signing bootstrap tokens into that ConfigMap yet. Check
+      `.codex/troubleshooting.md` for the bootstrap-token JWS recovery note, then
+      rerun the worker playbook.
+  when:
+    - not kubernetes_manual_node_kubelet_conf.stat.exists
+    - "'jws-kubeconfig-' ~ kubernetes_manual_node_join_token_id not in kubernetes_manual_node_cluster_info.stdout"
+
 - name: Join the node to the cluster
   ansible.builtin.command: "{{ kubernetes_manual_node_join_command.stdout }}"
   when: not kubernetes_manual_node_kubelet_conf.stat.exists

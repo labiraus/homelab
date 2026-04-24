@@ -53,6 +53,12 @@
     enabled: true
     state: started
 
+- name: Ensure Minecraft upload user can access Docker
+  ansible.builtin.user:
+    name: "{{ minecraft_vm_upload_user }}"
+    groups: docker
+    append: true
+
 - name: Ensure Minecraft root directories exist
   ansible.builtin.file:
     path: "{{ item }}"

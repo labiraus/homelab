@@ -159,6 +159,7 @@ make ansible-kubernetes-worker LIMIT=<node-name>
 
 - Check `cloud-init` first. If it is still running, wait before intervening.
 - If `cloud-init` finished but the node did not join, run `make ansible-kubernetes-worker LIMIT=<node-name>`.
+- If that Ansible run now fails early with a message about `kube-public/cluster-info` missing `jws-kubeconfig-<token-id>`, the control plane is creating bootstrap tokens but not signing them into the discovery ConfigMap yet. Fix that control-plane issue first; repeating `kubeadm join` on the worker will not help until the JWS entry exists.
 - If the old Kubernetes `Node` object still exists, delete it before trying to register the rebuilt VM.
 - If the worker joined once, then the node object was deleted and kubelet is stuck in an identity mismatch, stop trying to patch around it. Run:
 

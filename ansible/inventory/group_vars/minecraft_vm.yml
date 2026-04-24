@@ -29,7 +29,10 @@ minecraft_vm_servers:
   atm11:
     data_dir: "{{ minecraft_vm_servers_root }}/atm11/data"
     backup_dir: "{{ minecraft_vm_servers_root }}/atm11/backups"
+    image: "itzg/minecraft-server:java25"
+    start_mode: preinstalled_run_script
     runtime_env:
       <<: *minecraft_vm_common_runtime_env
       CF_SLUG: all-the-mods-11
-      CF_FILENAME_MATCHER: "0.0.4"
+      CF_FILENAME_MATCHER: "0.0.6"
+      NEOFORGE_VERSION: "26.1.2.17-beta"

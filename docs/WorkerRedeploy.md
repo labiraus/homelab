@@ -170,7 +170,9 @@ Leave headroom on the Proxmox host for the host OS and QEMU overhead. Do not siz
 
 For example, `proxmox-node2` has about `15 GiB` of RAM total, so `memory_mb = 15032` was too aggressive and caused QEMU to be killed by the host OOM killer during startup. Reducing the worker to `12288` MB left enough headroom for the host and allowed the VM to boot.
 
-Likewise, `jotunheim` on `proxmox-node1` was too large at `memory_mb = 30064` on a host with about `31 GiB` total RAM, especially with Intel iGPU passthrough enabled. That combination led to the host OOM killer terminating QEMU during VM startup. Reducing `jotunheim` to `24576` MB restored enough headroom for the host and the passthrough-backed guest to start cleanly.
+Likewise, `jotunheim` on `proxmox-node1` was too large at `memory_mb = 30064` on a host with about `31 GiB` usable RAM, especially with Intel iGPU passthrough enabled. That combination led to the host OOM killer terminating QEMU during VM startup. Reducing `jotunheim` to `24576` MB was temporarily workable while it was the only large guest on that host.
+
+Current reality on `proxmox-node1` is tighter because it also runs the dedicated Minecraft VM `nidavellir` at `14336` MB. With both guests sharing the same 32 GiB laptop host, `jotunheim = 24576` MB plus `nidavellir = 14336` MB is too large and can again trigger host OOM kills during autostart. The current safer split is to keep `nidavellir` at `14336` MB for Minecraft and size `jotunheim` to `12288` MB so the host still has several GiB left for Proxmox and passthrough overhead.
 
 ## Finish The Maintenance
 

@@ -10,7 +10,7 @@ Use this file as the Codex memory for recurring issues and fixes specific to the
 - guest hostname: `nidavellir`
 - guest IP: `192.168.8.126`
 - service manager: `systemd`
-- runtime: Docker container `itzg/minecraft-server:java21`
+- runtime: active profile image managed by Ansible symlinks
 - active-profile model: one running container at a time, switched by repo-managed symlinks
 - port: `25565/tcp`
 - mod loader: NeoForge
@@ -20,12 +20,14 @@ Use this file as the Codex memory for recurring issues and fixes specific to the
 
 ```bash
 ssh nidavellir 'systemctl status --no-pager minecraft'
-ssh nidavellir 'docker ps --filter name=minecraft'
-ssh nidavellir 'docker logs --tail=200 minecraft'
+ssh nidavellir 'sudo docker ps --filter name=minecraft'
+ssh nidavellir 'sudo docker logs --tail=200 minecraft'
 ssh nidavellir 'ss -ltnp | grep 25565'
-ssh nidavellir 'cat /etc/minecraft/active-server'
+ssh nidavellir 'sudo cat /etc/minecraft/active-server'
 ssh nidavellir 'readlink -f /srv/minecraft/data'
 ```
+
+If plain `docker ...` fails with `permission denied` on `/var/run/docker.sock`, the SSH user session does not currently have Docker group access. The repo fix is to rerun `make ansible-minecraft-vm`, which appends `ubuntu` to the `docker` group on `nidavellir`, then reconnect SSH. `sudo docker ...` remains a valid immediate check.
 
 ## Provisioning And Config
 
@@ -48,9 +50,13 @@ The Ansible playbook installs Docker, renders per-profile files under `/etc/mine
   - `TYPE=NEOFORGE`
   - `VERSION=1.21.1`
   - `MOD_PLATFORM=AUTO_CURSEFORGE`
+- shared image default: `itzg/minecraft-server:java21`
 - `atm11`:
+  - `image=itzg/minecraft-server:java25`
   - `CF_SLUG=all-the-mods-11`
-  - `CF_FILENAME_MATCHER=0.0.4`
+  - `CF_FILENAME_MATCHER=0.0.6`
+  - `NEOFORGE_VERSION=26.1.2.17-beta`
+  - `start_mode=preinstalled_run_script`
 - `atm10_tts`:
   - `CF_SLUG=all-the-mods-10-sky`
   - `CF_FILENAME_MATCHER=2.0.2`
@@ -65,6 +71,17 @@ ssh nidavellir 'sudo minecraft-switch atm11'
 ```
 
 The next `make ansible-minecraft-vm` reapplies the repo-selected active profile.
+
+## Startup Failure Notes
+
+- Symptom: `minecraft.service` keeps restarting and `journalctl -u minecraft` shows `UnsupportedClassVersionError` for `net.neoforged.fml.startup.Server`.
+- Meaning: the selected container image is running an older Java major version than the downloaded NeoForge server bootstrap needs.
+- April 17, 2026 finding: `atm11` failed under `itzg/minecraft-server:java21` because the downloaded NeoForge server classes were compiled for class-file version `69` while Java 21 only supports up to `65`.
+- Repo fix: pin `atm11` to `itzg/minecraft-server:java25` and rerun `make ansible-minecraft-vm`.
+- Symptom: `minecraft.service` keeps restarting and `docker logs` shows many mods failing with `NoClassDefFoundError: net/neoforged/neoforge/event/level/BlockEvent$BreakEvent`.
+- April 21, 2026 finding: ATM11 `0.0.5` on `nidavellir` booted with NeoForge `26.1.2.22-beta`, while `.curseforge-manifest.json` declared `modLoaderId=neoforge-26.1.2.17-beta`. That newer loader broke mods including `occultism`, `lootr`, `refinedstorage`, `pylons`, and several Balm-based mods.
+- Extra finding: even with `NEOFORGE_VERSION=26.1.2.17-beta` present in the container environment, the `itzg/minecraft-server` AUTO_CURSEFORGE startup path still reinstalled NeoForge `26.1.2.22-beta`.
+- Repo workaround: install NeoForge `26.1.2.17-beta` directly with `mc-image-helper`, then run the generated `/data/run.sh` from the container entrypoint by setting `atm11.start_mode=preinstalled_run_script`.
 
 ## Lag Notes
 
