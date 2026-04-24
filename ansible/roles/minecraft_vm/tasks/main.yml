@@ -228,6 +228,70 @@
     minecraft_vm_server: "{{ item.value }}"
   notify: Restart minecraft
 
+- name: Check preinstalled AUTO_CURSEFORGE profile state
+  ansible.builtin.shell: |
+    set -euo pipefail
+    data_dir={{ item.value.data_dir | quote }}
+    expected_pack={{ item.value.runtime_env.CF_FILENAME_MATCHER | quote }}
+    expected_loader={{ item.value.runtime_env.NEOFORGE_VERSION | quote }}
+    run_sh="${data_dir}/run.sh"
+    manifest="${data_dir}/.curseforge-manifest.json"
+
+    actual_run="$(
+      sed -n 's#.*libraries/net/neoforged/neoforge/\([^/]*\)/unix_args.txt.*#\1#p' "${run_sh}" \
+      | head -n1
+    )"
+    actual_pack="$(
+      sed -n 's/.*"modpackVersion":"\([^"]*\)".*/\1/p' "${manifest}" \
+      | head -n1
+    )"
+    actual_loader="$(
+      sed -n 's/.*"modLoaderId":"neoforge-\([^"]*\)".*/\1/p' "${manifest}" \
+      | head -n1
+    )"
+
+    test "${actual_run}" = "${expected_loader}" \
+      && test "${actual_pack}" = "${expected_pack}" \
+      && test "${actual_loader}" = "${expected_loader}"
+  args:
+    executable: /bin/bash
+  register: minecraft_vm_preinstalled_profile_state
+  changed_when: false
+  failed_when: false
+  loop: "{{ minecraft_vm_servers | dict2items }}"
+  when:
+    - item.value.start_mode | default('bootstrap') == 'preinstalled_run_script'
+    - item.value.runtime_env.MOD_PLATFORM | default('') == 'AUTO_CURSEFORGE'
+    - item.value.runtime_env.CF_FILENAME_MATCHER is defined
+    - item.value.runtime_env.NEOFORGE_VERSION is defined
+
+- name: Refresh preinstalled AUTO_CURSEFORGE profile files when pinned version drifts
+  ansible.builtin.command:
+    argv:
+      - docker
+      - run
+      - --rm
+      - --name
+      - "minecraft-{{ item.item.key }}-setup"
+      - --env-file
+      - "{{ minecraft_vm_servers_config_dir }}/{{ item.item.key }}.env"
+      - -e
+      - SETUP_ONLY=true
+      - -e
+      - CF_FORCE_SYNCHRONIZE=true
+      - -e
+      - CF_FORCE_REINSTALL_MODLOADER=true
+      - -v
+      - "{{ item.item.value.data_dir }}:/data"
+      - -v
+      - "{{ item.item.value.backup_dir }}:/backups"
+      - "{{ item.item.value.image | default(minecraft_vm_image_default) }}"
+  loop: "{{ minecraft_vm_preinstalled_profile_state.results | default([]) }}"
+  when:
+    - item.rc is defined
+    - item.rc != 0
+  notify: Restart minecraft
+
 - name: Render Minecraft switch helper
   ansible.builtin.template:
     src: minecraft-switch.j2

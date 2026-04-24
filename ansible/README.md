@@ -204,13 +204,14 @@ Managed Minecraft VM state:
 - enforces selected `server.properties` values such as `sync-chunk-writes=false`
 - manages a `minecraft.service` systemd unit that runs the active profile's image
 - keeps the shared image default at `itzg/minecraft-server:java21`, while `atm11` overrides to `itzg/minecraft-server:java25` because current NeoForge server builds require Java 25 there
-- pins `atm11` to `NEOFORGE_VERSION=26.1.2.17-beta` and starts it via the already-installed `/data/run.sh` script because the image's AUTO_CURSEFORGE NeoForge bootstrap currently re-resolves ATM11 to incompatible `26.1.2.22-beta`
+- pins `atm11` to `NEOFORGE_VERSION=26.1.2.22-beta`, mirrors that into `CF_MOD_LOADER_VERSION` for AUTO_CURSEFORGE installs, and starts it via the already-installed `/data/run.sh` script so the VM keeps using the repo-selected NeoForge build
+- refreshes preinstalled AUTO_CURSEFORGE profile files when the generated `run.sh` or `.curseforge-manifest.json` drift away from the repo-pinned modpack or NeoForge version
 - installs `minecraft-switch` on the VM so operators can swap profiles locally without editing repo vars
 - exposes the game directly on TCP `25565`
 
 Current seeded profiles:
 
-- `atm11` is the repo-authoritative active profile and is pinned with `CF_SLUG=all-the-mods-11`, `CF_FILENAME_MATCHER=0.0.6`, `NEOFORGE_VERSION=26.1.2.17-beta`, and `start_mode=preinstalled_run_script`
+- `atm11` is the repo-authoritative active profile and is pinned with `CF_SLUG=all-the-mods-11`, `CF_FILENAME_MATCHER=0.0.6`, `NEOFORGE_VERSION=26.1.2.22-beta`, and `start_mode=preinstalled_run_script`
 - `atm10_tts` preserves the older ATM10 To The Sky world with `CF_SLUG=all-the-mods-10-sky` and `CF_FILENAME_MATCHER=2.0.2`
 
 The first multi-profile rollout migrates the old single-server `/srv/minecraft/data` and `/srv/minecraft/backups` directories into the `atm10_tts` profile before repointing the active links to `atm11`.

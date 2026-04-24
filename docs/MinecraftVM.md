@@ -20,8 +20,10 @@ Minecraft runs outside Kubernetes on a dedicated Ubuntu VM on `proxmox-node1`.
 - available managed server profiles: `atm11`, `atm10_tts`
 - shared default image: `itzg/minecraft-server:java21`
 - `atm11` overrides to `itzg/minecraft-server:java25` because its current NeoForge server bootstrap requires Java 25
-- `atm11` also pins `NEOFORGE_VERSION=26.1.2.17-beta`
-- `atm11` starts from the installed `/data/run.sh` script instead of re-running the image's AUTO_CURSEFORGE NeoForge bootstrap on every restart, because that bootstrap currently forces ATM11 to incompatible `26.1.2.22-beta`
+- `atm11` also pins `NEOFORGE_VERSION=26.1.2.22-beta`
+- `atm11` mirrors that pin into `CF_MOD_LOADER_VERSION` so the CurseForge installer refreshes the server with the same NeoForge build instead of resolving a newer one
+- `atm11` starts from the installed `/data/run.sh` script instead of re-running the image's AUTO_CURSEFORGE NeoForge bootstrap on every restart, so the guest keeps using the repo-selected NeoForge build
+- when a preinstalled AUTO_CURSEFORGE profile drifts, Ansible reruns the image once with `SETUP_ONLY=true` to refresh `run.sh`, `.curseforge-manifest.json`, and the installed NeoForge loader before restarting the service
 - Minecraft heap remains `MEMORY=10G` and `INIT_MEMORY=2G`
 
 ## Service management
