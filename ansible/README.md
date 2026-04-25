@@ -211,7 +211,7 @@ Managed Minecraft VM state:
 
 Current seeded profiles:
 
-- `atm11` is the repo-authoritative active profile and is pinned with `CF_SLUG=all-the-mods-11`, `CF_FILENAME_MATCHER=0.0.6`, `NEOFORGE_VERSION=26.1.2.22-beta`, and `start_mode=preinstalled_run_script`
+- `atm11` is the repo-authoritative active profile and is pinned with `CF_SLUG=all-the-mods-11`, `CF_FILENAME_MATCHER=0.0.7`, `NEOFORGE_VERSION=26.1.2.22-beta`, and `start_mode=preinstalled_run_script`
 - `atm10_tts` preserves the older ATM10 To The Sky world with `CF_SLUG=all-the-mods-10-sky` and `CF_FILENAME_MATCHER=2.0.2`
 
 The first multi-profile rollout migrates the old single-server `/srv/minecraft/data` and `/srv/minecraft/backups` directories into the `atm10_tts` profile before repointing the active links to `atm11`.
@@ -251,7 +251,7 @@ ssh nidavellir 'sudo systemctl start minecraft'
 
 To roll a managed modpack profile forward, stop the service, archive the profile data, copy that tarball to `svartalfheim`, then bump the profile's `CF_FILENAME_MATCHER` in `ansible/inventory/group_vars/minecraft_vm.yml` and rerun `make ansible-minecraft-vm`.
 
-Example for `atm11` moving from `0.0.5` to `0.0.6`:
+Example for `atm11` moving from `0.0.5` to `0.0.7`:
 
 ```bash
 ssh nidavellir 'sudo systemctl stop minecraft'
