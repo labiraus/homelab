@@ -121,14 +121,14 @@ lsmod | grep vfio
 
 Do not blacklist `i915` on these hosts as part of the base setup. Each current Proxmox node only has an integrated Intel GPU, and blacklisting the host driver too early can remove local console output before you have verified passthrough on a rebuilt worker VM.
 
-For `helheim` host noise management on `proxmox-node3`, use the helper script in this repo:
+For `helheim` host heat management on `proxmox-node3`, use the helper script in this repo:
 
 ```bash
 ./scripts/helheim-performance.sh down
 ./scripts/helheim-performance.sh up
 ```
 
-`down` switches the Proxmox host toward a quieter idle policy by preferring the `quiet` platform profile when available, setting the CPU governor to `powersave`, and disabling turbo. `up` restores the host to `performance` mode for heavier GPU or VM work.
+`down` reduces host power draw by preferring the `low-power` platform profile when available, falling back to a non-quiet profile such as `balanced`, setting the CPU governor to `powersave`, and disabling turbo. Avoid using the `quiet` platform profile for this host because it can suppress fan response instead of only reducing heat generation. `up` restores the host to `performance` mode for heavier GPU or VM work.
 
 ## SSH
 

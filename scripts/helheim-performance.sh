@@ -10,7 +10,7 @@ up:
   Restore proxmox-node3 to the high-performance host policy used for GPU-heavy work.
 
 down:
-  Lower proxmox-node3 host performance to reduce heat and fan noise while helheim is idle.
+  Lower proxmox-node3 host power draw to reduce heat while helheim is idle.
 
 Environment:
   HELHEIM_PERFORMANCE_HOST
@@ -33,7 +33,7 @@ case "$mode" in
     target_no_turbo="0"
     ;;
   down)
-    target_profile="quiet"
+    target_profile="low-power"
     target_governor="powersave"
     target_no_turbo="1"
     ;;
@@ -142,6 +142,7 @@ print_state() {
 choose_profile() {
   local requested="$1"
   local choices
+  local candidate
 
   choices="$(read_file "$choices_path" || true)"
   if [[ -z "$choices" ]]; then
@@ -150,19 +151,38 @@ choose_profile() {
   fi
 
   case "$requested" in
-    quiet)
-      if grep -qw quiet <<<"$choices"; then
-        printf 'quiet'
-      elif grep -qw balanced <<<"$choices"; then
-        printf 'balanced'
-      else
-        printf '%s' "$requested"
-      fi
+    low-power)
+      for candidate in low-power balanced balanced-performance performance; do
+        if grep -qw "$candidate" <<<"$choices"; then
+          printf '%s' "$candidate"
+          return 0
+        fi
+      done
+      ;;
+    performance)
+      for candidate in performance balanced-performance balanced; do
+        if grep -qw "$candidate" <<<"$choices"; then
+          printf '%s' "$candidate"
+          return 0
+        fi
+      done
       ;;
     *)
-      printf '%s' "$requested"
+      if grep -qw "$requested" <<<"$choices"; then
+        printf '%s' "$requested"
+        return 0
+      fi
       ;;
   esac
+
+  for candidate in $choices; do
+    if [[ "$candidate" != "quiet" ]]; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+
+  printf '%s' "$requested"
 }
 
 apply_mode() {
