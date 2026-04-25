@@ -75,21 +75,14 @@ ip link set dev <uplink> promisc on
 - On April 9, 2026, `external`, `mcp`, and `ui` were stuck because Flux had already fetched newer bad OCI chart tags even though the local templates rendered cleanly again.
 - The practical live workaround was to patch the `OCIRepository.spec.ref` from semver tracking to an exact known-good `tag`, then reconcile the source and `HelmRelease`.
 - `oauth2-proxy` was a separate packaging bug: the upstream image tags use a leading `v`, so `quay.io/oauth2-proxy/oauth2-proxy:7.12.0` failed with `ErrImagePull` while `v7.12.0` was the valid tag shape.
-- On April 12, 2026, `processor` was red even though the workspace had already switched to NATS JetStream because the live `OCIRepository` was still pinned to an older Kafka-based chart digest. The tell was a `ScaledObject` with:
-
-```yaml
-type: kafka
-bootstrapServers: homelab-kafka.kafka.svc.cluster.local:9092
-```
-
-- while the repo had already moved the chart to:
+- On April 12, 2026, `processor` was red even though the workspace had already switched to NATS JetStream because the live `OCIRepository` was still pinned to an older pre-NATS chart digest. The tell was a `ScaledObject` that did not match the current chart values, while the repo had already moved the chart to:
 
 ```yaml
 type: nats-jetstream
 natsServerMonitoringEndpoint: nats.nats.svc.cluster.local:8222
 ```
 
-- If that mismatch appears again, the fix is not in the current workspace templates; it is to publish or repoint Flux at the newer processor chart artifact so KEDA stops waiting on a dead Kafka scaler.
+- If that mismatch appears again, the fix is not in the current workspace templates; it is to publish or repoint Flux at the newer processor chart artifact so KEDA uses the NATS JetStream scaler.
 
 ### Parent-owned CRDs reduce child release drift
 
