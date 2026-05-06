@@ -252,8 +252,43 @@ kubectl get volumes.longhorn.io -n longhorn-system
 
 Repo note:
 
+- Keep the upstream Longhorn chart pinned in `helm/bootstrap/flux-bootstrap/values.yaml`; bump it intentionally rather than letting Flux follow every latest chart release.
 - Keep `helm/bootstrap/flux-bootstrap/values.yaml` aligned with the live Longhorn setting so Flux does not drift the storage threshold back on the next bootstrap upgrade.
 - Treat `DiskFilesystemChanged` as a likely post-redeploy VM identity problem before treating it as generic storage exhaustion. In this repo, the March 22, 2026 worker redeploys regenerated `/var/lib/longhorn/longhorn-disk.cfg` with new `diskUUID` values and made Longhorn reject the rebuilt node disks until the expected UUIDs were restored.
+
+### Control plane lease timeouts during reconciliation
+
+Use this when controllers repeatedly restart or lose leader election with API requests timing out against the local apiserver, for example `kube-controller-manager` or `kube-scheduler` logs showing `failed to renew lease` / `context deadline exceeded`.
+
+Detect:
+
+```bash
+kubectl get pods -n kube-system -o wide
+kubectl get --raw='/readyz?verbose'
+kubectl logs -n kube-system kube-controller-manager-yggdrasil --previous --tail=120
+kubectl logs -n kube-system etcd-yggdrasil --since=30m --tail=120
+kubectl exec -n kube-system etcd-yggdrasil -- etcdctl \
+  --command-timeout=30s \
+  --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+  --cert=/etc/kubernetes/pki/etcd/server.crt \
+  --key=/etc/kubernetes/pki/etcd/server.key \
+  endpoint status --write-out=table
+```
+
+Recovery:
+
+```bash
+kubectl exec -n kube-system etcd-yggdrasil -- etcdctl \
+  --command-timeout=30s \
+  --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+  --cert=/etc/kubernetes/pki/etcd/server.crt \
+  --key=/etc/kubernetes/pki/etcd/server.key \
+  defrag
+```
+
+After defrag, re-check `endpoint health` and wait for the static control-plane pods to clear their CrashLoopBackOff backoff window. On May 6, 2026, etcd defrag reduced `yggdrasil` etcd DB size from 60 MB to 25 MB and endpoint health latency from about 1.15s to about 265ms, which allowed controller reconciliation to resume.
 
 ### Worker GPU passthrough current state
 

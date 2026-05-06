@@ -139,6 +139,7 @@ releases:
       name: longhorn
       url: https://charts.longhorn.io
     chart: longhorn
+    version: 1.11.2
     targetNamespace: longhorn-system
     values:
       defaultSettings:
