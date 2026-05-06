@@ -253,6 +253,7 @@ kubectl get volumes.longhorn.io -n longhorn-system
 Repo note:
 
 - Keep the upstream Longhorn chart pinned in `helm/bootstrap/flux-bootstrap/values.yaml`; bump it intentionally rather than letting Flux follow every latest chart release.
+- Keep the Longhorn HelmRelease timeout explicit and generous; chart upgrades pull manager, CSI, engine, and instance-manager images across every active storage node, and a 10 minute Helm timeout can fail even when the cluster is recovering normally.
 - Keep `helm/bootstrap/flux-bootstrap/values.yaml` aligned with the live Longhorn setting so Flux does not drift the storage threshold back on the next bootstrap upgrade.
 - Treat `DiskFilesystemChanged` as a likely post-redeploy VM identity problem before treating it as generic storage exhaustion. In this repo, the March 22, 2026 worker redeploys regenerated `/var/lib/longhorn/longhorn-disk.cfg` with new `diskUUID` values and made Longhorn reject the rebuilt node disks until the expected UUIDs were restored.
 
@@ -289,6 +290,8 @@ kubectl exec -n kube-system etcd-yggdrasil -- etcdctl \
 ```
 
 After defrag, re-check `endpoint health` and wait for the static control-plane pods to clear their CrashLoopBackOff backoff window. On May 6, 2026, etcd defrag reduced `yggdrasil` etcd DB size from 60 MB to 25 MB and endpoint health latency from about 1.15s to about 265ms, which allowed controller reconciliation to resume.
+
+If you edit static pod manifests on `yggdrasil`, do not leave backup files under `/etc/kubernetes/manifests`. Kubelet treats that directory as live input, so a `*.yaml.bak` copy with the same pod name can race the intended manifest and make kubelet revert to the old static-pod hash. Move backups to a sibling directory such as `/etc/kubernetes/manifest-backups/<date>/`.
 
 ### Worker GPU passthrough current state
 

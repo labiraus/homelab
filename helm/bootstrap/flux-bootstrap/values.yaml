@@ -135,6 +135,7 @@ releases:
   - name: longhorn-system
     type: helm
     interval: 1h
+    timeout: 30m
     repository:
       name: longhorn
       url: https://charts.longhorn.io
