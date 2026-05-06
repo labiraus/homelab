@@ -54,8 +54,8 @@ The Ansible playbook installs Docker, renders per-profile files under `/etc/mine
 - `atm11`:
   - `image=itzg/minecraft-server:java25`
   - `CF_SLUG=all-the-mods-11`
-  - `CF_FILENAME_MATCHER=0.0.7`
-  - `NEOFORGE_VERSION=26.1.2.22-beta`
+  - `CF_FILENAME_MATCHER=0.0.13`
+  - `NEOFORGE_VERSION=26.1.2.30-beta`
   - `start_mode=preinstalled_run_script`
 - `atm10_tts`:
   - `CF_SLUG=all-the-mods-10-sky`
@@ -79,7 +79,7 @@ The next `make ansible-minecraft-vm` reapplies the repo-selected active profile.
 - April 17, 2026 finding: `atm11` failed under `itzg/minecraft-server:java21` because the downloaded NeoForge server classes were compiled for class-file version `69` while Java 21 only supports up to `65`.
 - Repo fix: pin `atm11` to `itzg/minecraft-server:java25` and rerun `make ansible-minecraft-vm`.
 - Symptom: `minecraft.service` rejects players with `Incompatible client! Please use NeoForge 26.1.2.17-beta` after the managed client pack and repo config have moved on.
-- April 24, 2026 update: the repo-authoritative ATM11 pin is now `NEOFORGE_VERSION=26.1.2.22-beta`.
+- April 24, 2026 update: the repo-authoritative ATM11 pin is now `NEOFORGE_VERSION=26.1.2.29-beta`.
 - April 24, 2026 finding: `start_mode=preinstalled_run_script` can leave `/data/run.sh` and `.curseforge-manifest.json` pinned to an older NeoForge install even after `/etc/minecraft/minecraft.env` is updated.
 - April 24, 2026 extra finding: `itzg/minecraft-server` AUTO_CURSEFORGE uses `CF_MOD_LOADER_VERSION` when refreshing a CurseForge pack; `NEOFORGE_VERSION` alone does not constrain the mod-loader reinstall path.
 - Repo fix: have the Ansible role inspect the installed prebuilt files and rerun the image with `SETUP_ONLY=true`, `CF_FORCE_SYNCHRONIZE=true`, and `CF_FORCE_REINSTALL_MODLOADER=true` whenever the generated profile files drift from the repo pin.

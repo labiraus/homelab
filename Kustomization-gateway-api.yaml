@@ -1,0 +1,111 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  annotations:
+    meta.helm.sh/release-name: flux-bootstrap
+    meta.helm.sh/release-namespace: flux-system
+    reconcile.fluxcd.io/requestedAt: "2026-04-12T13:24:23.391307663Z"
+  creationTimestamp: "2026-03-01T18:47:47Z"
+  finalizers:
+  - finalizers.fluxcd.io
+  generation: 5
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    helm.toolkit.fluxcd.io/name: flux-bootstrap
+    helm.toolkit.fluxcd.io/namespace: flux-system
+  name: gateway-api
+  namespace: flux-system
+  resourceVersion: "31058954"
+  uid: 19cdcad8-651e-44ff-b366-50170c5d6e91
+spec:
+  force: false
+  interval: 1h
+  path: ./config/crd/standard
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: gateway-api
+    namespace: flux-system
+  timeout: 10m
+  wait: true
+status:
+  conditions:
+  - lastTransitionTime: "2026-04-26T17:52:54Z"
+    message: Detecting drift for revision v1.4.1@sha1:477d172e6ac5eccb82b65781ddb8f924afec4170
+      with a timeout of 10m0s
+    observedGeneration: 5
+    reason: ProgressingWithRetry
+    status: "True"
+    type: Reconciling
+  - lastTransitionTime: "2026-04-26T17:52:54Z"
+    message: |
+      CustomResourceDefinition/httproutes.gateway.networking.k8s.io dry-run failed (Timeout): Timeout: request did not complete within requested timeout - context deadline exceeded
+    observedGeneration: 5
+    reason: ReconciliationFailed
+    status: "False"
+    type: Ready
+  - lastTransitionTime: "2026-04-26T17:12:02Z"
+    # message: Health check passed in 690.17381ms
+    observedGeneration: 5
+    reason: Succeeded
+    status: "True"
+    type: Healthy
+  history:
+  - digest: sha256:05e45c013db03329e0e6e9dd345380749b93939ce2446b62859630e91367cb95
+    firstReconciled: "2026-04-12T10:09:44Z"
+    lastReconciled: "2026-04-26T17:52:54Z"
+    lastReconciledDuration: 1m2.758077159s
+    lastReconciledStatus: ReconciliationFailed
+    metadata:
+      revision: v1.4.1@sha1:477d172e6ac5eccb82b65781ddb8f924afec4170
+    totalReconciliations: 24
+  - digest: sha256:05e45c013db03329e0e6e9dd345380749b93939ce2446b62859630e91367cb95
+    firstReconciled: "2026-04-12T10:12:01Z"
+    lastReconciled: "2026-04-26T17:12:03Z"
+    lastReconciledDuration: 8.968164532s
+    lastReconciledStatus: ReconciliationSucceeded
+    metadata:
+      revision: v1.4.1@sha1:477d172e6ac5eccb82b65781ddb8f924afec4170
+    totalReconciliations: 358
+  - digest: sha256:054fc0606a8944f3af62544a943ca4440a6c1f828918da32c5d2a138218d4e7e
+    firstReconciled: "2026-03-17T13:34:03Z"
+    lastReconciled: "2026-04-12T09:07:38Z"
+    lastReconciledDuration: 2m23.002081254s
+    lastReconciledStatus: ReconciliationSucceeded
+    metadata:
+      revision: v1.5.1@sha1:e7677b70ae75d14a4448fba94870e7deea6cf0ad
+    totalReconciliations: 567
+  - digest: sha256:054fc0606a8944f3af62544a943ca4440a6c1f828918da32c5d2a138218d4e7e
+    firstReconciled: "2026-03-17T14:35:21Z"
+    lastReconciled: "2026-04-10T18:21:46Z"
+    lastReconciledDuration: 39.658987374s
+    lastReconciledStatus: ReconciliationFailed
+    metadata:
+      revision: v1.5.1@sha1:e7677b70ae75d14a4448fba94870e7deea6cf0ad
+    totalReconciliations: 63
+  - digest: sha256:86bcb8c57ad01b7a791e9f47406ddb4ca02b5f3cfdd1a59a85d34ae88de5573a
+    firstReconciled: "2026-03-17T13:32:50Z"
+    lastReconciled: "2026-03-17T13:32:50Z"
+    lastReconciledDuration: 1m3.907589277s
+    lastReconciledStatus: ReconciliationSucceeded
+    metadata:
+      revision: v1.4.1@sha1:477d172e6ac5eccb82b65781ddb8f924afec4170
+    totalReconciliations: 1
+  inventory:
+    entries:
+    - id: _backendtlspolicies.gateway.networking.k8s.io_apiextensions.k8s.io_CustomResourceDefinition
+      v: v1
+    - id: _gatewayclasses.gateway.networking.k8s.io_apiextensions.k8s.io_CustomResourceDefinition
+      v: v1
+    - id: _gateways.gateway.networking.k8s.io_apiextensions.k8s.io_CustomResourceDefinition
+      v: v1
+    - id: _grpcroutes.gateway.networking.k8s.io_apiextensions.k8s.io_CustomResourceDefinition
+      v: v1
+    - id: _httproutes.gateway.networking.k8s.io_apiextensions.k8s.io_CustomResourceDefinition
+      v: v1
+    - id: _referencegrants.gateway.networking.k8s.io_apiextensions.k8s.io_CustomResourceDefinition
+      v: v1
+  lastAppliedRevision: v1.4.1@sha1:477d172e6ac5eccb82b65781ddb8f924afec4170
+  lastAttemptedRevision: v1.4.1@sha1:477d172e6ac5eccb82b65781ddb8f924afec4170
+  lastHandledReconcileAt: "2026-04-12T13:24:23.391307663Z"
+  observedGeneration: 5
