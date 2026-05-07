@@ -68,6 +68,7 @@ Document lifecycle notifications are live through the Streamable HTTP transport:
 - successful initialization returns `MCP-Session-Id`
 - subsequent `POST /mcp` requests require `MCP-Session-Id`
 - `MCP-Protocol-Version` is honored when present and must match the session, but clients that omit it use the version negotiated during `initialize`
+- legacy `2024-11-05` negotiation is accepted for Codex/RMCP client compatibility
 - `GET /mcp` opens the server-to-client SSE stream for that session
 - `resources/subscribe` and `resources/unsubscribe` control subscriptions for `homelab://mcp/documents/notifications/{documentId}`
 - matching lifecycle events emit `notifications/resources/updated`

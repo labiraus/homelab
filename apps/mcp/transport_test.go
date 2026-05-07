@@ -86,6 +86,33 @@ func TestInitializeUsesLabirausServerInfo(t *testing.T) {
 	}
 }
 
+func TestInitializeNegotiatesLegacyCodexProtocolVersion(t *testing.T) {
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "initialize",
+		Params: mustMarshalParams(t, map[string]any{
+			"protocolVersion": "2024-11-05",
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful initialize response, got %#v", responseBody)
+	}
+
+	result, ok := responseBody.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected initialize result map, got %#v", responseBody.Result)
+	}
+	if result["protocolVersion"] != "2024-11-05" {
+		t.Fatalf("expected legacy protocol negotiation, got %#v", result["protocolVersion"])
+	}
+}
+
 func TestMCPPostAcceptsInitializedNotificationWithoutProtocolHeader(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/initialized"}`)
@@ -125,7 +152,7 @@ func TestMCPPostRejectsMismatchedProtocolHeader(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
 	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, "2024-11-05")
+	request.Header.Set(mcpProtocolVersionHeader, "1999-01-01")
 
 	mcpPostAPI(recorder, request)
 
