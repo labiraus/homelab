@@ -12,11 +12,24 @@ Use node labels to make workload placement explicit for game servers and future 
 
 Current intended values:
 
+- `yggdrasil`: bare-metal Chromebook control plane; keep tainted `node-role.kubernetes.io/control-plane:NoSchedule` and do not schedule normal workloads there
 - `jotunheim`: `node-performance=high`, `node-gpu=passthrough`, `node-llm=none`, `node-llm-class=igpu`, `node-llm-vram=shared`
 - `alfheim`: `node-performance=standard`, `node-gpu=passthrough`, `node-llm=none`, `node-llm-class=igpu`, `node-llm-vram=shared`
 - `helheim`: `node-performance=standard`, `node-gpu=passthrough`, `node-llm=gpu`, `node-llm-class=consumer-gpu`, `node-llm-vram=8gb`
 - `niflheim`: `node-performance=standard`, `node-gpu=passthrough`, `node-llm=none`, `node-llm-class=igpu`, `node-llm-vram=shared`
 - `midgard`: manual bare-metal GPU worker, intentionally intermittent; when powered on, classify from the actual exposed accelerator rather than assuming it matches the Intel iGPU workers
+
+## Control-plane node
+
+`yggdrasil` is a fixed-size bare-metal Chromebook dedicated to Kubernetes control-plane duties. It cannot be resized; if it is under sustained pressure, replacement is the capacity fix.
+
+Working rule for this repo:
+
+- keep the `node-role.kubernetes.io/control-plane:NoSchedule` taint on `yggdrasil`
+- expect only static control-plane pods plus required node plumbing there: `etcd`, `kube-apiserver`, `kube-controller-manager`, `kube-scheduler`, `kubelet`, `containerd`, `kube-proxy`, and Cilium node agents
+- keep avoidable cluster services off the control plane; CoreDNS and the Cilium operator should use node affinity that excludes control-plane nodes
+- keep MetalLB speakers off the control plane by setting upstream chart value `speaker.tolerateMaster=false`
+- run `yggdrasil` as a headless server profile; desktop/audio/printing/bluetooth/snap desktop integration services should stay disabled unless there is a specific maintenance reason
 
 ## Intermittent GPU workers
 

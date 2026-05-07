@@ -1,4 +1,4 @@
 controller:
   replicaCount: 1
 speaker:
-  tolerateMaster: true
+  tolerateMaster: false

@@ -73,6 +73,17 @@ rm "cilium-linux-${CLI_ARCH}.tar.gz" "cilium-linux-${CLI_ARCH}.tar.gz.sha256sum"
 cilium install --set ipam.operator.clusterPoolIPv4PodCIDRList="10.244.0.0/16"
 cilium status --wait
 
+# Keep the control-plane node focused on API/etcd duties. CNI and kube-proxy
+# still run there as node plumbing, but avoid scheduling CoreDNS and operators.
+kubectl -n kube-system patch deployment coredns --type='merge' -p '
+{"spec":{"template":{"spec":{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"node-role.kubernetes.io/control-plane","operator":"DoesNotExist"}]}]}}}}}}}'
+
+kubectl -n kube-system patch deployment cilium-operator --type='merge' -p '
+{"spec":{"template":{"spec":{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"node-role.kubernetes.io/control-plane","operator":"DoesNotExist"}]}]}}}}}}}'
+
+kubectl -n kube-system rollout status deploy/coredns --timeout=5m
+kubectl -n kube-system rollout status deploy/cilium-operator --timeout=5m
+
 # Install Kubernetes Gateway API CRDs
 kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/latest/download/standard-install.yaml
 

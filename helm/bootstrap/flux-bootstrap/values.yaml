@@ -131,6 +131,9 @@ releases:
         chart: metallb
         version: 0.15.x
         targetNamespace: metallb-system
+        values:
+          speaker:
+            tolerateMaster: false
 
   - name: longhorn-system
     type: helm
