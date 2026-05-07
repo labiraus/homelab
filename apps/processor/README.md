@@ -15,3 +15,5 @@ The current lifecycle for a claimed job is:
 5. finalize the owning `rag.documents` row as `processed`
 
 If work fails after claim, the worker records `last_error`, returns the document to `pending`, and lets JetStream retry the message.
+
+Embeddings are stored in `rag.embeddings.vector` as `vector(384)` so the pgvector HNSW cosine index can be built. If `EMBEDDING_MODEL` changes to a model with a different vector size, update the processor bootstrap schema and `sql/rag/schema.pgsql` together.

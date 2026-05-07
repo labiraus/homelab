@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS rag.embeddings (
     id BIGSERIAL PRIMARY KEY,
     chunk_id BIGINT NOT NULL REFERENCES rag.chunks(id) ON DELETE CASCADE,
     model TEXT NOT NULL,
-    vector vector,
+    vector vector(384),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (chunk_id, model)
 );

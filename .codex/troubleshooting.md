@@ -79,10 +79,12 @@ ip link set dev <uplink> promisc on
 
 ```yaml
 type: nats-jetstream
-natsServerMonitoringEndpoint: nats.nats.svc.cluster.local:8222
+natsServerMonitoringEndpoint: nats-nats.nats.svc.cluster.local:8222
 ```
 
 - If that mismatch appears again, the fix is not in the current workspace templates; it is to publish or repoint Flux at the newer processor chart artifact so KEDA uses the NATS JetStream scaler.
+- On May 7, 2026, `orchestrator` and `processor` were crash looping because their live child `HelmRelease` and `OCIRepository` objects retained stale Kafka-era fields even though the parent `flux-apps` chart rendered `values: {}` and semver-tracking OCI sources. The live repair was to replace each child `spec.values` with `{}`, remove `spec.ref.digest` from the paired app `OCIRepository`, then annotate both the source and release with a fresh `reconcile.fluxcd.io/requestedAt` value.
+- If `processor` starts but logs `column does not have dimensions` while creating `rag_embeddings_vector_cosine_idx`, check `rag.embeddings.vector`. pgvector HNSW indexes require a fixed dimension such as `vector(384)`, not an unconstrained `vector` column.
 
 ### Parent-owned CRDs reduce child release drift
 
