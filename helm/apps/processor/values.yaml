@@ -201,7 +201,7 @@ keda:
   pollingInterval: 30
   cooldownPeriod: 300
   natsJetStream:
-    natsServerMonitoringEndpoint: nats-nats.nats.svc.cluster.local:8222
+    natsServerMonitoringEndpoint: nats-nats-headless.nats.svc.cluster.local:8222
     account: $G
     stream: documents
     consumer: processor

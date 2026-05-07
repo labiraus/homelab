@@ -157,7 +157,7 @@ Recovery:
 nats://nats-nats.nats.svc.cluster.local:4222
 
 # For processor monitoring, also use:
-nats-nats.nats.svc.cluster.local:8222
+nats-nats-headless.nats.svc.cluster.local:8222
 
 # Then publish the chart and let Flux retry, or reconcile manually after publication
 flux reconcile source oci <release-name> -n flux-system --timeout=3m

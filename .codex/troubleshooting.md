@@ -79,7 +79,7 @@ ip link set dev <uplink> promisc on
 
 ```yaml
 type: nats-jetstream
-natsServerMonitoringEndpoint: nats-nats.nats.svc.cluster.local:8222
+natsServerMonitoringEndpoint: nats-nats-headless.nats.svc.cluster.local:8222
 ```
 
 - If that mismatch appears again, the fix is not in the current workspace templates; it is to publish or repoint Flux at the newer processor chart artifact so KEDA uses the NATS JetStream scaler.

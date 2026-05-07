@@ -23,3 +23,7 @@ networkPolicy:
       podSelector:
         matchLabels:
           app.kubernetes.io/instance: homelab-processor
+    - namespace: homelab
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/instance: homelab-orchestrator
