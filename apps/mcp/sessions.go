@@ -60,6 +60,27 @@ func (manager *mcpSessionManager) get(id string) (*mcpSession, bool) {
 	return session, ok
 }
 
+func (manager *mcpSessionManager) restore(sessionID string, protocolVersion string) (*mcpSession, bool) {
+	if _, err := uuid.Parse(sessionID); err != nil {
+		return nil, false
+	}
+
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+
+	if session, ok := manager.sessions[sessionID]; ok {
+		return session, true
+	}
+
+	session := &mcpSession{
+		ID:              sessionID,
+		ProtocolVersion: protocolVersion,
+		Subscriptions:   map[string]struct{}{},
+	}
+	manager.sessions[session.ID] = session
+	return session, true
+}
+
 func (manager *mcpSessionManager) setProtocolVersion(sessionID string, protocolVersion string) bool {
 	manager.mu.Lock()
 	defer manager.mu.Unlock()
@@ -216,24 +237,8 @@ func validateSessionRequest(r *http.Request) (string, *mcpSession, int, *jsonRPC
 		}
 	}
 
-	session, ok := sessionRegistry.get(sessionID)
-	if !ok {
-		return "", nil, http.StatusNotFound, &jsonRPCResponse{
-			JSONRPC: "2.0",
-			Error: &jsonRPCError{
-				Code:    -32600,
-				Message: "Unknown MCP session",
-			},
-		}
-	}
-
 	protocolVersion := protocolVersionFromHeader(r)
-	if protocolVersion == "" {
-		// Some Streamable HTTP clients preserve the session header but omit this
-		// protocol header after initialize; use the session's negotiated version.
-		return sessionID, session, 0, nil
-	}
-	if negotiateProtocolVersion(protocolVersion) != protocolVersion {
+	if protocolVersion != "" && negotiateProtocolVersion(protocolVersion) != protocolVersion {
 		return "", nil, http.StatusBadRequest, &jsonRPCResponse{
 			JSONRPC: "2.0",
 			ID:      nil,
@@ -242,6 +247,32 @@ func validateSessionRequest(r *http.Request) (string, *mcpSession, int, *jsonRPC
 				Message: "Unsupported MCP protocol version",
 			},
 		}
+	}
+
+	session, ok := sessionRegistry.get(sessionID)
+	if !ok {
+		recoveredProtocolVersion := supportedProtocolVersions[0]
+		if protocolVersion != "" {
+			recoveredProtocolVersion = protocolVersion
+		}
+
+		session, ok = sessionRegistry.restore(sessionID, recoveredProtocolVersion)
+		if !ok {
+			return "", nil, http.StatusNotFound, &jsonRPCResponse{
+				JSONRPC: "2.0",
+				Error: &jsonRPCError{
+					Code:    -32600,
+					Message: "Unknown MCP session",
+				},
+			}
+		}
+		return sessionID, session, 0, nil
+	}
+
+	if protocolVersion == "" {
+		// Some Streamable HTTP clients preserve the session header but omit this
+		// protocol header after initialize; use the session's negotiated version.
+		return sessionID, session, 0, nil
 	}
 
 	return sessionID, session, 0, nil

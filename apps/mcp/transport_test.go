@@ -324,6 +324,70 @@ func TestMCPPostAcceptsSupportedProtocolHeaderDrift(t *testing.T) {
 	}
 }
 
+func TestMCPPostRestoresUnknownUUIDSession(t *testing.T) {
+	sessionID := "11111111-1111-4111-8111-111111111111"
+	sessionRegistry.delete(sessionID)
+
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
+	request.Header.Set(mcpSessionHeader, sessionID)
+	request.Header.Set(mcpProtocolVersionHeader, "2025-03-26")
+
+	mcpPostAPI(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d with body %q", http.StatusOK, recorder.Code, recorder.Body.String())
+	}
+
+	session, ok := sessionRegistry.get(sessionID)
+	if !ok {
+		t.Fatalf("expected unknown UUID session to be restored")
+	}
+	if session.ProtocolVersion != "2025-03-26" {
+		t.Fatalf("expected restored protocol version, got %q", session.ProtocolVersion)
+	}
+}
+
+func TestValidateSessionRequestRestoresUnknownUUIDForStream(t *testing.T) {
+	sessionID := "22222222-2222-4222-8222-222222222222"
+	sessionRegistry.delete(sessionID)
+
+	request, _ := httptestJSONRequest(t, http.MethodGet, "/mcp", "")
+	request.Header.Set(mcpSessionHeader, sessionID)
+	request.Header.Set(mcpProtocolVersionHeader, "2025-06-18")
+
+	restoredSessionID, session, status, response := validateSessionRequest(request)
+
+	if response != nil {
+		t.Fatalf("expected session validation to succeed, got status %d response %#v", status, response)
+	}
+	if restoredSessionID != sessionID {
+		t.Fatalf("expected restored session id %q, got %q", sessionID, restoredSessionID)
+	}
+	if session == nil || session.ProtocolVersion != "2025-06-18" {
+		t.Fatalf("expected restored stream session with protocol version, got %#v", session)
+	}
+}
+
+func TestMCPPostRejectsMalformedUnknownSessionID(t *testing.T) {
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
+	request.Header.Set(mcpSessionHeader, "not-a-session-id")
+	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+
+	mcpPostAPI(recorder, request)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d with body %q", http.StatusNotFound, recorder.Code, recorder.Body.String())
+	}
+
+	var response jsonRPCResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected valid json-rpc error response: %v", err)
+	}
+	if response.Error == nil || response.Error.Message != "Unknown MCP session" {
+		t.Fatalf("expected unknown session error, got %#v", response.Error)
+	}
+}
+
 func TestMCPPostRejectsUnsupportedProtocolHeader(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)

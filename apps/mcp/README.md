@@ -72,6 +72,7 @@ Document lifecycle notifications are live through the Streamable HTTP transport:
 - successful initialization returns `MCP-Session-Id`
 - subsequent `POST /mcp` requests require `MCP-Session-Id`
 - `DELETE /mcp` terminates a session and closes any attached stream
+- UUID-shaped session IDs are restored on demand after pod restarts so native clients with cached stream sessions can recover without manual intervention
 - `MCP-Protocol-Version` is honored when present; clients that omit it use the version negotiated during `initialize`, and supported-version header drift is tolerated for native client compatibility
 - legacy `2024-11-05` negotiation is accepted for Codex/RMCP client compatibility
 - JSON-RPC notifications, `id: null` notification variants, response-only messages, and response-only batches receive a parseable JSON-RPC acknowledgement because some native clients close the transport when the initialized-notification response body is empty
