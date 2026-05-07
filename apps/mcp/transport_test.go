@@ -128,6 +128,62 @@ func TestMCPPostAcceptsInitializedNotificationWithoutProtocolHeader(t *testing.T
 	}
 }
 
+func TestMCPPostAcceptsUnknownNotificationWithoutResponseBody(t *testing.T) {
+	session := sessionRegistry.create(supportedProtocolVersions[0])
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":"1"}}`)
+	request.Header.Set(mcpSessionHeader, session.ID)
+	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+
+	mcpPostAPI(recorder, request)
+
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("expected status %d, got %d with body %q", http.StatusAccepted, recorder.Code, recorder.Body.String())
+	}
+	if recorder.Body.Len() != 0 {
+		t.Fatalf("expected empty notification response body, got %q", recorder.Body.String())
+	}
+}
+
+func TestMCPPostAcceptsOneWayBatchWithoutResponseBody(t *testing.T) {
+	session := sessionRegistry.create(supportedProtocolVersions[0])
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `[
+		{"jsonrpc":"2.0","method":"notifications/initialized"},
+		{"jsonrpc":"2.0","id":"server-request-1","result":{}}
+	]`)
+	request.Header.Set(mcpSessionHeader, session.ID)
+	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+
+	mcpPostAPI(recorder, request)
+
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("expected status %d, got %d with body %q", http.StatusAccepted, recorder.Code, recorder.Body.String())
+	}
+	if recorder.Body.Len() != 0 {
+		t.Fatalf("expected empty batch response body, got %q", recorder.Body.String())
+	}
+}
+
+func TestMCPPostRejectsBatchContainingRequest(t *testing.T) {
+	session := sessionRegistry.create(supportedProtocolVersions[0])
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `[{"jsonrpc":"2.0","id":"1","method":"resources/list"}]`)
+	request.Header.Set(mcpSessionHeader, session.ID)
+	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+
+	mcpPostAPI(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d with body %q", http.StatusBadRequest, recorder.Code, recorder.Body.String())
+	}
+
+	var response jsonRPCResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected valid json-rpc error response: %v", err)
+	}
+	if response.Error == nil || response.Error.Message != "JSON-RPC batch requests with callable methods are not supported" {
+		t.Fatalf("expected batch request error, got %#v", response.Error)
+	}
+}
+
 func TestMCPPostAcceptsSessionRequestWithoutProtocolHeader(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
@@ -148,7 +204,28 @@ func TestMCPPostAcceptsSessionRequestWithoutProtocolHeader(t *testing.T) {
 	}
 }
 
-func TestMCPPostRejectsMismatchedProtocolHeader(t *testing.T) {
+func TestMCPPostAcceptsSupportedProtocolHeaderDrift(t *testing.T) {
+	session := sessionRegistry.create("2024-11-05")
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
+	request.Header.Set(mcpSessionHeader, session.ID)
+	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+
+	mcpPostAPI(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d with body %q", http.StatusOK, recorder.Code, recorder.Body.String())
+	}
+
+	var response jsonRPCResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected valid json-rpc response: %v", err)
+	}
+	if response.Error != nil {
+		t.Fatalf("expected resources/list to succeed, got %#v", response.Error)
+	}
+}
+
+func TestMCPPostRejectsUnsupportedProtocolHeader(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
 	request.Header.Set(mcpSessionHeader, session.ID)

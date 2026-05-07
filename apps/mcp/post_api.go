@@ -79,14 +79,22 @@ func mcpPostAPI(w http.ResponseWriter, r *http.Request) {
 
 	trimmedBody := bytes.TrimSpace(body)
 	if len(trimmedBody) > 0 && trimmedBody[0] == '[' {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
+		accepted, status, response := validateOneWayBatchRequest(r, trimmedBody)
+		if response != nil {
+			writeJSONRPC(w, status, response)
+			return
+		}
+		if accepted {
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
 
-		_ = json.NewEncoder(w).Encode(jsonRPCResponse{
+		writeJSONRPC(w, http.StatusBadRequest, &jsonRPCResponse{
 			JSONRPC: "2.0",
+			ID:      nil,
 			Error: &jsonRPCError{
 				Code:    -32600,
-				Message: "JSON-RPC batch requests are not supported",
+				Message: "JSON-RPC batch requests with callable methods are not supported",
 			},
 		})
 
@@ -113,7 +121,21 @@ func mcpPostAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	hasID := jsonRPCMessageHasID(body)
 	if req.Method == "" {
+		w.WriteHeader(http.StatusAccepted)
+		return
+	}
+
+	if !hasID {
+		if req.Method != "initialize" {
+			_, _, status, response := validateSessionRequest(r)
+			if response != nil {
+				writeJSONRPC(w, status, response)
+				return
+			}
+		}
+
 		w.WriteHeader(http.StatusAccepted)
 		return
 	}
@@ -154,4 +176,73 @@ func mcpPostAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slog.DebugContext(ctx, fmt.Sprintf("%v complete", mcpPostHandlerName))
+}
+
+type jsonRPCMessageShape struct {
+	ID     json.RawMessage `json:"id"`
+	Method string          `json:"method"`
+}
+
+func validateOneWayBatchRequest(r *http.Request, body []byte) (bool, int, *jsonRPCResponse) {
+	var messages []json.RawMessage
+	if err := json.Unmarshal(body, &messages); err != nil || len(messages) == 0 {
+		return false, http.StatusBadRequest, &jsonRPCResponse{
+			JSONRPC: "2.0",
+			ID:      nil,
+			Error: &jsonRPCError{
+				Code:    -32600,
+				Message: "Invalid JSON-RPC batch payload",
+			},
+		}
+	}
+
+	for _, message := range messages {
+		oneWay, err := isOneWayJSONRPCMessage(message)
+		if err != nil {
+			return false, http.StatusBadRequest, &jsonRPCResponse{
+				JSONRPC: "2.0",
+				ID:      nil,
+				Error: &jsonRPCError{
+					Code:    -32600,
+					Message: "Invalid JSON-RPC batch item",
+				},
+			}
+		}
+		if !oneWay {
+			return false, 0, nil
+		}
+	}
+
+	_, _, status, response := validateSessionRequest(r)
+	if response != nil {
+		return false, status, response
+	}
+
+	return true, 0, nil
+}
+
+func isOneWayJSONRPCMessage(message []byte) (bool, error) {
+	trimmed := bytes.TrimSpace(message)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return false, fmt.Errorf("json-rpc batch item must be an object")
+	}
+
+	var shape jsonRPCMessageShape
+	if err := json.Unmarshal(message, &shape); err != nil {
+		return false, err
+	}
+
+	if shape.Method == "" {
+		return true, nil
+	}
+
+	return shape.ID == nil, nil
+}
+
+func jsonRPCMessageHasID(body []byte) bool {
+	var shape jsonRPCMessageShape
+	if err := json.Unmarshal(body, &shape); err != nil {
+		return false
+	}
+	return shape.ID != nil
 }

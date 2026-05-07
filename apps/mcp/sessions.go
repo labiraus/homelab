@@ -185,9 +185,10 @@ func validateSessionRequest(r *http.Request) (string, *mcpSession, int, *jsonRPC
 		// protocol header after initialize; use the session's negotiated version.
 		return sessionID, session, 0, nil
 	}
-	if negotiateProtocolVersion(protocolVersion) != protocolVersion || protocolVersion != session.ProtocolVersion {
+	if negotiateProtocolVersion(protocolVersion) != protocolVersion {
 		return "", nil, http.StatusBadRequest, &jsonRPCResponse{
 			JSONRPC: "2.0",
+			ID:      nil,
 			Error: &jsonRPCError{
 				Code:    -32600,
 				Message: "Unsupported MCP protocol version",

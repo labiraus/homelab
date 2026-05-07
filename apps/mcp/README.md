@@ -67,8 +67,9 @@ Document lifecycle notifications are live through the Streamable HTTP transport:
 - `initialize` advertises `resources.subscribe`
 - successful initialization returns `MCP-Session-Id`
 - subsequent `POST /mcp` requests require `MCP-Session-Id`
-- `MCP-Protocol-Version` is honored when present and must match the session, but clients that omit it use the version negotiated during `initialize`
+- `MCP-Protocol-Version` is honored when present; clients that omit it use the version negotiated during `initialize`, and supported-version header drift is tolerated for native client compatibility
 - legacy `2024-11-05` negotiation is accepted for Codex/RMCP client compatibility
+- JSON-RPC notifications and response-only batches return `202 Accepted` with no body, including unknown notification methods, so strict clients do not receive invalid notification responses
 - `GET /mcp` opens the server-to-client SSE stream for that session
 - `resources/subscribe` and `resources/unsubscribe` control subscriptions for `homelab://mcp/documents/notifications/{documentId}`
 - matching lifecycle events emit `notifications/resources/updated`
