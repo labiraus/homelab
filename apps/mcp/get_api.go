@@ -37,7 +37,7 @@ func mcpGetAPI(w http.ResponseWriter, r *http.Request) {
 
 	slog.DebugContext(ctx, fmt.Sprintf("%v called", mcpGetHandlerName))
 
-	if status, response := validateOriginRequest(r); response != nil {
+	if status, response := prepareOriginResponse(w, r, []string{http.MethodPost, http.MethodGet, http.MethodDelete, http.MethodOptions}); response != nil {
 		writeJSONRPC(w, status, response)
 		return
 	}

@@ -20,6 +20,11 @@ var (
 	mcpEventIDCounter    uint64
 )
 
+type sessionStreamOptions struct {
+	Endpoint        string
+	UseMessageEvent bool
+}
+
 func startDocumentNotifications(ctx context.Context) error {
 	if !natsConfigured() {
 		slog.InfoContext(ctx, "nats config not provided; MCP document notifications will be unavailable")
@@ -72,6 +77,10 @@ func documentEventsSubject() string {
 }
 
 func serveSessionStream(w http.ResponseWriter, r *http.Request, sessionID string) error {
+	return serveSessionStreamWithOptions(w, r, sessionID, sessionStreamOptions{})
+}
+
+func serveSessionStreamWithOptions(w http.ResponseWriter, r *http.Request, sessionID string, options sessionStreamOptions) error {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		return fmt.Errorf("streaming is unavailable")
@@ -89,8 +98,14 @@ func serveSessionStream(w http.ResponseWriter, r *http.Request, sessionID string
 	w.Header().Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
 
-	if _, err := fmt.Fprintf(w, "id: %d\ndata:\n\n", nextMCPEventID()); err != nil {
-		return err
+	if options.Endpoint != "" {
+		if _, err := fmt.Fprintf(w, "event: endpoint\ndata: %s\n\n", options.Endpoint); err != nil {
+			return err
+		}
+	} else {
+		if _, err := fmt.Fprintf(w, "id: %d\ndata:\n\n", nextMCPEventID()); err != nil {
+			return err
+		}
 	}
 	flusher.Flush()
 
@@ -110,7 +125,11 @@ func serveSessionStream(w http.ResponseWriter, r *http.Request, sessionID string
 			if !ok {
 				return nil
 			}
-			if _, err := fmt.Fprintf(w, "id: %d\ndata: %s\n\n", nextMCPEventID(), message); err != nil {
+			eventName := ""
+			if options.UseMessageEvent {
+				eventName = "event: message\n"
+			}
+			if _, err := fmt.Fprintf(w, "id: %d\n%sdata: %s\n\n", nextMCPEventID(), eventName, message); err != nil {
 				return err
 			}
 			flusher.Flush()

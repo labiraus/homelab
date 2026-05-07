@@ -339,6 +339,10 @@ func newManifestDocument(r *http.Request) manifestDocument {
 				Type: "streamable-http",
 				URL:  baseURL + "/mcp",
 			},
+			{
+				Type: "sse",
+				URL:  baseURL + "/sse",
+			},
 		},
 		Prompts:           []manifestPrompt{},
 		Resources:         []manifestResource{},
@@ -550,10 +554,66 @@ func toManifestAnnotations(operation manifestOperationSource) *manifestAnnotatio
 func toManifestToolHints(capability manifestCapabilitySource, operation manifestOperationSource) *manifestToolHints {
 	return &manifestToolHints{
 		Title:           capability.Title,
-		ReadOnlyHint:    operation.Method == http.MethodGet,
-		DestructiveHint: operation.Method == http.MethodDelete,
-		IdempotentHint:  operation.Method == http.MethodPut || operation.Method == http.MethodDelete,
+		ReadOnlyHint:    operationIsReadOnly(operation),
+		DestructiveHint: operationIsDestructive(operation),
+		IdempotentHint:  operationIsIdempotent(operation),
 		OpenWorldHint:   false,
+	}
+}
+
+func operationIsReadOnly(operation manifestOperationSource) bool {
+	if operation.Method == http.MethodGet {
+		return true
+	}
+	if operation.Binding == nil {
+		return false
+	}
+
+	switch operation.Binding.ExecutionMode {
+	case manifestExecutionModeDiscovery,
+		manifestExecutionModeMinIOListFolder,
+		manifestExecutionModeMinIOList,
+		manifestExecutionModePostgresQuery:
+		return true
+	default:
+		return false
+	}
+}
+
+func operationIsDestructive(operation manifestOperationSource) bool {
+	if operation.Method == http.MethodDelete {
+		return true
+	}
+	if operation.Binding == nil {
+		return false
+	}
+
+	switch operation.Binding.ExecutionMode {
+	case manifestExecutionModeMinIODelete,
+		manifestExecutionModeMinIOPutObject,
+		manifestExecutionModeMinIOPutText:
+		return true
+	default:
+		return false
+	}
+}
+
+func operationIsIdempotent(operation manifestOperationSource) bool {
+	if operation.Method == http.MethodGet || operation.Method == http.MethodPut || operation.Method == http.MethodDelete {
+		return true
+	}
+	if operation.Binding == nil {
+		return false
+	}
+
+	switch operation.Binding.ExecutionMode {
+	case manifestExecutionModeDiscovery,
+		manifestExecutionModeMinIOListFolder,
+		manifestExecutionModeMinIOList,
+		manifestExecutionModePostgresQuery:
+		return true
+	default:
+		return false
 	}
 }
 

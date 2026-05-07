@@ -15,7 +15,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - Devcontainer config, mounted kubeconfig, SSH config, env file
 - `apps/`
   - `external/`: public Go service
-  - `mcp/`: public Go MCP service
+  - `mcp/`: public Go MCP service; see `apps/mcp/AGENTS.md` for transport/client-compatibility rules
   - `orchestrator/`: internal Go document service
   - `processor/`: internal TypeScript NATS JetStream worker
   - `ui/`: Vite frontend

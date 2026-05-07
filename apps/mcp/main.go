@@ -63,8 +63,17 @@ func main() {
 	prometheusutil.Start(mux)
 	mux.HandleFunc(wellKnownHandlerName, wellKnownAPI)
 	mux.HandleFunc(oauthProtectedResourceHandlerName, oauthProtectedResourceAPI)
+	mux.HandleFunc(oauthProtectedResourceForMCPHandlerName, oauthProtectedResourceAPI)
 	mux.HandleFunc(mcpGetHandlerName, mcpGetAPI)
 	mux.HandleFunc(mcpPostHandlerName, mcpPostAPI)
+	mux.HandleFunc(mcpDeleteHandlerName, mcpDeleteAPI)
+	mux.HandleFunc(mcpOptionsHandlerName, mcpOptionsAPI)
+	mux.HandleFunc(legacySSEHandlerName, legacyMCPSSEAPI)
+	mux.HandleFunc(legacyMessagesHandlerName, legacyMCPMessageAPI)
+	mux.HandleFunc(legacyMessageHandlerName, legacyMCPMessageAPI)
+	mux.HandleFunc(legacySSEOptionsHandlerName, legacyMCPOptionsAPI)
+	mux.HandleFunc(legacyMessagesOptionsHandlerName, legacyMCPOptionsAPI)
+	mux.HandleFunc(legacyMessageOptionsHandlerName, legacyMCPOptionsAPI)
 
 	if err := startDocumentNotifications(ctx); err != nil {
 		slog.ErrorContext(ctx, err.Error())

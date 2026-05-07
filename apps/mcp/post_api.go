@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"pkg/prometheusutil"
+	"strings"
 	"time"
 )
 
@@ -39,7 +40,7 @@ func mcpPostAPI(w http.ResponseWriter, r *http.Request) {
 
 	slog.DebugContext(ctx, fmt.Sprintf("%v called", mcpPostHandlerName))
 
-	if status, response := validateOriginRequest(r); response != nil {
+	if status, response := prepareOriginResponse(w, r, []string{http.MethodPost, http.MethodGet, http.MethodDelete, http.MethodOptions}); response != nil {
 		writeJSONRPC(w, status, response)
 		return
 	}
@@ -123,11 +124,11 @@ func mcpPostAPI(w http.ResponseWriter, r *http.Request) {
 
 	hasID := jsonRPCMessageHasID(body)
 	if req.Method == "" {
-		w.WriteHeader(http.StatusAccepted)
+		writeJSONAck(w)
 		return
 	}
 
-	if !hasID {
+	if !hasID || isJSONRPCNotificationMethod(req.Method) {
 		if req.Method != "initialize" {
 			_, _, status, response := validateSessionRequest(r)
 			if response != nil {
@@ -236,6 +237,10 @@ func isOneWayJSONRPCMessage(message []byte) (bool, error) {
 		return true, nil
 	}
 
+	if isJSONRPCNotificationMethod(shape.Method) {
+		return true, nil
+	}
+
 	return shape.ID == nil, nil
 }
 
@@ -245,6 +250,10 @@ func jsonRPCMessageHasID(body []byte) bool {
 		return false
 	}
 	return shape.ID != nil
+}
+
+func isJSONRPCNotificationMethod(method string) bool {
+	return strings.HasPrefix(method, "notifications/")
 }
 
 func writeJSONAck(w http.ResponseWriter) {

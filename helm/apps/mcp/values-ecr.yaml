@@ -12,9 +12,17 @@ ingress:
       paths:
         - path: /mcp
           pathType: PathPrefix
+        - path: /sse
+          pathType: Exact
+        - path: /messages
+          pathType: Exact
+        - path: /message
+          pathType: Exact
         - path: /.well-known/mcp.json
           pathType: Exact
         - path: /.well-known/oauth-protected-resource
+          pathType: Exact
+        - path: /.well-known/oauth-protected-resource/mcp
           pathType: Exact
 
 tolerations:

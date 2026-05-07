@@ -60,6 +60,54 @@ func (manager *mcpSessionManager) get(id string) (*mcpSession, bool) {
 	return session, ok
 }
 
+func (manager *mcpSessionManager) setProtocolVersion(sessionID string, protocolVersion string) bool {
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+
+	session, ok := manager.sessions[sessionID]
+	if !ok {
+		return false
+	}
+
+	session.ProtocolVersion = protocolVersion
+	return true
+}
+
+func (manager *mcpSessionManager) delete(sessionID string) bool {
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+
+	session, ok := manager.sessions[sessionID]
+	if !ok {
+		return false
+	}
+
+	if session.Stream != nil {
+		close(session.Stream.messages)
+		session.Stream = nil
+	}
+
+	delete(manager.sessions, sessionID)
+	return true
+}
+
+func (manager *mcpSessionManager) send(sessionID string, message []byte) bool {
+	manager.mu.RLock()
+	defer manager.mu.RUnlock()
+
+	session, ok := manager.sessions[sessionID]
+	if !ok || session.Stream == nil {
+		return false
+	}
+
+	select {
+	case session.Stream.messages <- message:
+		return true
+	default:
+		return false
+	}
+}
+
 func (manager *mcpSessionManager) subscribe(sessionID string, uri string) bool {
 	manager.mu.Lock()
 	defer manager.mu.Unlock()

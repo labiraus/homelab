@@ -102,7 +102,7 @@ The repo now carries:
   - publishes `OIDC_LOGIN_URL` as the local `/oauth2/start` URL
 - `helm/apps/mcp/values.yaml`
   - sets `OIDC_ISSUER_URL` to Google for protected-resource discovery
-  - exposes both `/.well-known/mcp.json` and `/.well-known/oauth-protected-resource` on the shared host
+  - exposes `/.well-known/mcp.json`, `/.well-known/oauth-protected-resource`, `/.well-known/oauth-protected-resource/mcp`, and the MCP compatibility transport paths on the shared host
 
 ## Required Cluster Secret
 

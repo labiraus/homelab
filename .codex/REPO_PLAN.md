@@ -25,6 +25,7 @@ The intended platform shape is:
 - Mongo is not part of the active plan
 - browser authentication currently standardizes on `oauth2-proxy + Google` on the shared public host
 - certificate authentication is already part of the Labiraus MCP access story and currently sits alongside the shared Google-backed path as the all-or-nothing access choice for deployed MCP clients
+- the Labiraus MCP server targets native client compatibility across Streamable HTTP clients and older HTTP+SSE clients while keeping `/mcp` as the primary endpoint
 
 ## Current Repo Reality
 
@@ -176,6 +177,7 @@ CAG and semantic graph ambitions remain later phases, not the initial implementa
 - keep docs aligned with the chosen app boundaries
 - keep the chosen `oauth2-proxy + Google` browser-auth path aligned across Helm, `ui`, `external`, and docs
 - keep the client-certificate MCP access story aligned with the manifest metadata and auth docs
+- keep MCP client compatibility broad across Codex, Claude, VS Code/Copilot, Cursor, Windsurf, and legacy SSE clients without weakening Origin validation or edge auth assumptions
 - establish the initial `rag` Postgres schema for document inventory and future processing state
 - shape orchestrator and processor around clean control-plane versus data-plane boundaries
 - keep public access flowing through `external` and `mcp`

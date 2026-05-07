@@ -17,13 +17,17 @@ The capability catalog in [manifest.go](/workspaces/homelab/apps/mcp/manifest.go
 ## Endpoints
 
 - `/mcp`
+- `/sse`
+- `/messages`
+- `/message`
 - `/.well-known/mcp.json`
 - `/.well-known/oauth-protected-resource`
+- `/.well-known/oauth-protected-resource/mcp`
 - `/readiness`
 - `/liveness`
 
 The health endpoints are provided by [pkg/api](/workspaces/homelab/apps/pkg/api).
-The shared host route also needs to publish the two `/.well-known/*` discovery endpoints, not only `/mcp`, or MCP clients cannot discover the advertised OAuth protected-resource metadata.
+The shared host route also needs to publish the `/.well-known/*` discovery endpoints and legacy SSE paths, not only `/mcp`, or MCP clients cannot discover the advertised OAuth protected-resource metadata and older 2024 clients cannot fall back to HTTP+SSE.
 Prompt discovery and retrieval are exposed through the MCP transport with `prompts/list` and `prompts/get`.
 
 ## Runtime Configuration
@@ -67,12 +71,17 @@ Document lifecycle notifications are live through the Streamable HTTP transport:
 - `initialize` advertises `resources.subscribe`
 - successful initialization returns `MCP-Session-Id`
 - subsequent `POST /mcp` requests require `MCP-Session-Id`
+- `DELETE /mcp` terminates a session and closes any attached stream
 - `MCP-Protocol-Version` is honored when present; clients that omit it use the version negotiated during `initialize`, and supported-version header drift is tolerated for native client compatibility
 - legacy `2024-11-05` negotiation is accepted for Codex/RMCP client compatibility
-- JSON-RPC notifications and response-only batches receive a parseable JSON-RPC acknowledgement because some native clients close the transport when the initialized-notification response body is empty
+- JSON-RPC notifications, `id: null` notification variants, response-only messages, and response-only batches receive a parseable JSON-RPC acknowledgement because some native clients close the transport when the initialized-notification response body is empty
 - `GET /mcp` opens the server-to-client SSE stream for that session
 - `resources/subscribe` and `resources/unsubscribe` control subscriptions for `homelab://mcp/documents/notifications/{documentId}`
 - matching lifecycle events emit `notifications/resources/updated`
+
+For clients that still use the deprecated 2024-11-05 HTTP+SSE transport, `GET /sse` creates a legacy session and emits an `endpoint` event pointing at `/messages?sessionId=...`. Client JSON-RPC requests sent to that message endpoint are accepted with HTTP 202 and their JSON-RPC responses are delivered back as SSE `message` events. `/message` is kept as a compatibility alias for clients that use the singular endpoint name.
+
+Browser-based MCP clients can preflight `/mcp`, `/sse`, `/messages`, and `/message`; CORS responses use the same `MCP_ALLOWED_ORIGINS` allowlist as Origin validation and expose `MCP-Session-Id` for Streamable HTTP clients.
 
 The current event sequence is:
 

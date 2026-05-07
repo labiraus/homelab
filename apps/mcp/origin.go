@@ -31,6 +31,52 @@ func validateOriginRequest(r *http.Request) (int, *jsonRPCResponse) {
 	return http.StatusForbidden, originValidationError()
 }
 
+func prepareOriginResponse(w http.ResponseWriter, r *http.Request, methods []string) (int, *jsonRPCResponse) {
+	status, response := validateOriginRequest(r)
+	if response != nil {
+		return status, response
+	}
+
+	applyCORSHeaders(w, r, methods)
+	return 0, nil
+}
+
+func writeCORSPreflight(w http.ResponseWriter, r *http.Request, methods []string) {
+	status, response := prepareOriginResponse(w, r, methods)
+	if response != nil {
+		writeJSONRPC(w, status, response)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func applyCORSHeaders(w http.ResponseWriter, r *http.Request, methods []string) {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		return
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", origin)
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Set("Access-Control-Allow-Methods", strings.Join(methods, ", "))
+	w.Header().Set("Access-Control-Allow-Headers", strings.Join([]string{
+		"Accept",
+		"Authorization",
+		"Content-Type",
+		"Last-Event-ID",
+		mcpProtocolVersionHeader,
+		mcpSessionHeader,
+	}, ", "))
+	w.Header().Set("Access-Control-Expose-Headers", strings.Join([]string{
+		mcpProtocolVersionHeader,
+		mcpSessionHeader,
+		"WWW-Authenticate",
+	}, ", "))
+	w.Header().Set("Access-Control-Max-Age", "3600")
+	w.Header().Add("Vary", "Origin")
+}
+
 func writeJSONRPC(w http.ResponseWriter, status int, response *jsonRPCResponse) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

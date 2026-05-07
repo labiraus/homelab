@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) {
@@ -30,6 +31,12 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 	if len(manifest.Prompts) == 0 {
 		t.Fatalf("expected prompts to be published in the manifest")
 	}
+	if !manifestHasTransport(manifest, "streamable-http", "https://mcp.labiraus.com/mcp") {
+		t.Fatalf("expected streamable-http transport in manifest, got %#v", manifest.Transports)
+	}
+	if !manifestHasTransport(manifest, "sse", "https://mcp.labiraus.com/sse") {
+		t.Fatalf("expected legacy sse transport in manifest, got %#v", manifest.Transports)
+	}
 
 	liveTool := findToolInManifest(t, manifest, "documents.submit")
 	if liveTool.Meta.Lifecycle != manifestLifecycleLive {
@@ -37,6 +44,11 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 	}
 	if liveTool.Meta.Backend != manifestBackendOrchestrator {
 		t.Fatalf("expected orchestrator backend, got %q", liveTool.Meta.Backend)
+	}
+
+	listTool := findToolInManifest(t, manifest, "minio.documents.listFolder")
+	if listTool.Annotations == nil || !listTool.Annotations.ReadOnlyHint {
+		t.Fatalf("expected folder listing tool to be marked read-only, got %#v", listTool.Annotations)
 	}
 
 	plannedTool := findToolInManifest(t, manifest, "documents.scanBucket")
@@ -164,6 +176,39 @@ func TestMCPPostWritesJSONAckForUnknownNotification(t *testing.T) {
 	assertRecorderJSONAckResponse(t, recorder, http.StatusOK)
 }
 
+func TestMCPPostWritesJSONAckForNotificationWithNullID(t *testing.T) {
+	session := sessionRegistry.create(supportedProtocolVersions[0])
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":null,"method":"notifications/initialized"}`)
+	request.Header.Set(mcpSessionHeader, session.ID)
+	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+
+	mcpPostAPI(recorder, request)
+
+	assertRecorderJSONAckResponse(t, recorder, http.StatusOK)
+}
+
+func TestMCPPostWritesJSONAckForNotificationWithNonNullID(t *testing.T) {
+	session := sessionRegistry.create(supportedProtocolVersions[0])
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"init-note","method":"notifications/initialized"}`)
+	request.Header.Set(mcpSessionHeader, session.ID)
+	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+
+	mcpPostAPI(recorder, request)
+
+	assertRecorderJSONAckResponse(t, recorder, http.StatusOK)
+}
+
+func TestMCPPostWritesJSONAckForResponseOnlyMessage(t *testing.T) {
+	session := sessionRegistry.create(supportedProtocolVersions[0])
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"server-request-1","result":{}}`)
+	request.Header.Set(mcpSessionHeader, session.ID)
+	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+
+	mcpPostAPI(recorder, request)
+
+	assertRecorderJSONAckResponse(t, recorder, http.StatusOK)
+}
+
 func TestMCPPostWritesJSONAckForLegacyUnknownNotification(t *testing.T) {
 	session := sessionRegistry.create("2024-11-05")
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":"1"}}`)
@@ -179,6 +224,20 @@ func TestMCPPostWritesJSONAckForOneWayBatch(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `[
 		{"jsonrpc":"2.0","method":"notifications/initialized"},
+		{"jsonrpc":"2.0","id":"server-request-1","result":{}}
+	]`)
+	request.Header.Set(mcpSessionHeader, session.ID)
+	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+
+	mcpPostAPI(recorder, request)
+
+	assertRecorderJSONAckResponse(t, recorder, http.StatusOK)
+}
+
+func TestMCPPostWritesJSONAckForOneWayBatchWithNotificationID(t *testing.T) {
+	session := sessionRegistry.create(supportedProtocolVersions[0])
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `[
+		{"jsonrpc":"2.0","id":null,"method":"notifications/initialized"},
 		{"jsonrpc":"2.0","id":"server-request-1","result":{}}
 	]`)
 	request.Header.Set(mcpSessionHeader, session.ID)
@@ -283,6 +342,83 @@ func TestMCPPostRejectsUnsupportedProtocolHeader(t *testing.T) {
 	}
 	if response.Error == nil || response.Error.Message != "Unsupported MCP protocol version" {
 		t.Fatalf("expected unsupported protocol error, got %#v", response.Error)
+	}
+}
+
+func TestMCPDeleteTerminatesSession(t *testing.T) {
+	session := sessionRegistry.create(supportedProtocolVersions[0])
+	request, recorder := httptestJSONRequest(t, http.MethodDelete, "/mcp", "")
+	request.Header.Set(mcpSessionHeader, session.ID)
+
+	mcpDeleteAPI(recorder, request)
+
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("expected status %d, got %d with body %q", http.StatusAccepted, recorder.Code, recorder.Body.String())
+	}
+
+	if _, ok := sessionRegistry.get(session.ID); ok {
+		t.Fatalf("expected session to be deleted")
+	}
+}
+
+func TestMCPOptionsAllowsConfiguredOrigin(t *testing.T) {
+	t.Setenv(mcpAllowedOriginsEnv, "https://client.example")
+	request, recorder := httptestJSONRequest(t, http.MethodOptions, "/mcp", "")
+	request.Header.Set("Origin", "https://client.example")
+
+	mcpOptionsAPI(recorder, request)
+
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("expected status %d, got %d", http.StatusNoContent, recorder.Code)
+	}
+	if recorder.Header().Get("Access-Control-Allow-Origin") != "https://client.example" {
+		t.Fatalf("expected CORS origin header, got %q", recorder.Header().Get("Access-Control-Allow-Origin"))
+	}
+}
+
+func TestLegacyMCPMessageSendsInitializeResponseOverSSE(t *testing.T) {
+	session := sessionRegistry.create("2024-11-05")
+	stream, ok := sessionRegistry.registerStream(session.ID)
+	if !ok {
+		t.Fatalf("expected stream registration to succeed")
+	}
+	t.Cleanup(func() {
+		sessionRegistry.unregisterStream(session.ID, stream)
+	})
+
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/messages?sessionId="+session.ID, `{"jsonrpc":"2.0","id":"1","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"legacy-client","version":"test"}}}`)
+
+	legacyMCPMessageAPI(recorder, request)
+
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("expected status %d, got %d with body %q", http.StatusAccepted, recorder.Code, recorder.Body.String())
+	}
+
+	select {
+	case message := <-stream.messages:
+		var response jsonRPCResponse
+		if err := json.Unmarshal(message, &response); err != nil {
+			t.Fatalf("expected JSON-RPC response on SSE stream: %v", err)
+		}
+		if response.ID != "1" || response.Error != nil {
+			t.Fatalf("expected initialize response with id 1, got %#v", response)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("expected initialize response to be queued on SSE stream")
+	}
+}
+
+func TestLegacyMCPMessageAcceptsOneWayNotificationBatch(t *testing.T) {
+	session := sessionRegistry.create("2024-11-05")
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/messages?sessionId="+session.ID, `[
+		{"jsonrpc":"2.0","id":null,"method":"notifications/initialized"},
+		{"jsonrpc":"2.0","id":"server-request-1","result":{}}
+	]`)
+
+	legacyMCPMessageAPI(recorder, request)
+
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("expected status %d, got %d with body %q", http.StatusAccepted, recorder.Code, recorder.Body.String())
 	}
 }
 
@@ -690,6 +826,15 @@ func findResourceTemplateInManifest(t *testing.T, manifest manifestDocument, nam
 
 	t.Fatalf("resource template %q not found", name)
 	return manifestResourceTemplate{}
+}
+
+func manifestHasTransport(manifest manifestDocument, transportType string, url string) bool {
+	for _, transport := range manifest.Transports {
+		if transport.Type == transportType && transport.URL == url {
+			return true
+		}
+	}
+	return false
 }
 
 func mustMarshalParams(t *testing.T, value any) json.RawMessage {

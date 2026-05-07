@@ -13,14 +13,17 @@ import (
 )
 
 const oauthProtectedResourceHandlerName = "GET /.well-known/oauth-protected-resource"
+const oauthProtectedResourceForMCPHandlerName = "GET /.well-known/oauth-protected-resource/mcp"
 
 type oauthProtectedResourceDocument struct {
-	Resource             string                            `json:"resource"`
-	AuthorizationServers []string                          `json:"authorization_servers"`
-	ScopesSupported      []string                          `json:"scopes_supported,omitempty"`
-	BearerMethods        []string                          `json:"bearer_methods_supported,omitempty"`
-	AccessModes          []manifestAuthorizationAccessMode `json:"access_modes,omitempty"`
-	AccessRequirement    string                            `json:"access_requirement,omitempty"`
+	Resource              string                            `json:"resource"`
+	ResourceName          string                            `json:"resource_name,omitempty"`
+	ResourceDocumentation string                            `json:"resource_documentation,omitempty"`
+	AuthorizationServers  []string                          `json:"authorization_servers"`
+	ScopesSupported       []string                          `json:"scopes_supported,omitempty"`
+	BearerMethods         []string                          `json:"bearer_methods_supported,omitempty"`
+	AccessModes           []manifestAuthorizationAccessMode `json:"access_modes,omitempty"`
+	AccessRequirement     string                            `json:"access_requirement,omitempty"`
 }
 
 func oauthProtectedResourceAPI(w http.ResponseWriter, r *http.Request) {
@@ -49,10 +52,12 @@ func oauthProtectedResourceAPI(w http.ResponseWriter, r *http.Request) {
 	issuerURL := strings.TrimSpace(base.GetEnv("OIDC_ISSUER_URL", "https://accounts.google.com"))
 	baseURL := requestBaseURL(r)
 	document := oauthProtectedResourceDocument{
-		Resource:             baseURL + "/mcp",
-		AuthorizationServers: []string{issuerURL},
-		ScopesSupported:      []string{"openid", "email", "profile"},
-		BearerMethods:        []string{"header"},
+		Resource:              baseURL + "/mcp",
+		ResourceName:          "Labiraus MCP",
+		ResourceDocumentation: baseURL + "/.well-known/mcp.json",
+		AuthorizationServers:  []string{issuerURL},
+		ScopesSupported:       []string{"openid", "email", "profile"},
+		BearerMethods:         []string{"header"},
 		AccessModes: []manifestAuthorizationAccessMode{
 			{
 				Type:        "bearer",
