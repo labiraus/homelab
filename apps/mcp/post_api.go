@@ -79,17 +79,13 @@ func mcpPostAPI(w http.ResponseWriter, r *http.Request) {
 
 	trimmedBody := bytes.TrimSpace(body)
 	if len(trimmedBody) > 0 && trimmedBody[0] == '[' {
-		accepted, session, status, response := validateOneWayBatchRequest(r, trimmedBody)
+		accepted, _, status, response := validateOneWayBatchRequest(r, trimmedBody)
 		if response != nil {
 			writeJSONRPC(w, status, response)
 			return
 		}
 		if accepted {
-			if shouldWriteJSONAck(session) {
-				writeJSONAck(w)
-				return
-			}
-			w.WriteHeader(http.StatusAccepted)
+			writeJSONAck(w)
 			return
 		}
 
@@ -132,22 +128,15 @@ func mcpPostAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !hasID {
-		var session *mcpSession
 		if req.Method != "initialize" {
-			_, validatedSession, status, response := validateSessionRequest(r)
+			_, _, status, response := validateSessionRequest(r)
 			if response != nil {
 				writeJSONRPC(w, status, response)
 				return
 			}
-			session = validatedSession
 		}
 
-		if shouldWriteJSONAck(session) {
-			writeJSONAck(w)
-			return
-		}
-
-		w.WriteHeader(http.StatusAccepted)
+		writeJSONAck(w)
 		return
 	}
 
@@ -256,10 +245,6 @@ func jsonRPCMessageHasID(body []byte) bool {
 		return false
 	}
 	return shape.ID != nil
-}
-
-func shouldWriteJSONAck(session *mcpSession) bool {
-	return session != nil && session.ProtocolVersion == "2024-11-05"
 }
 
 func writeJSONAck(w http.ResponseWriter) {

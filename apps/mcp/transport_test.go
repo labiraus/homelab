@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -113,31 +114,20 @@ func TestInitializeNegotiatesLegacyCodexProtocolVersion(t *testing.T) {
 	}
 }
 
-func TestMCPPostAcceptsInitializedNotificationWithoutProtocolHeader(t *testing.T) {
+func TestMCPPostWritesJSONAckForInitializedNotificationWithoutProtocolHeader(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/initialized"}`)
 	request.Header.Set(mcpSessionHeader, session.ID)
 
 	mcpPostAPI(recorder, request)
 
-	if recorder.Code != http.StatusAccepted {
-		t.Fatalf("expected status %d, got %d with body %q", http.StatusAccepted, recorder.Code, recorder.Body.String())
-	}
-	if recorder.Body.Len() != 0 {
-		t.Fatalf("expected empty notification response body, got %q", recorder.Body.String())
-	}
+	assertRecorderJSONAckResponse(t, recorder, http.StatusOK)
 }
 
-func TestMCPPostWritesJSONAckForLegacyInitializedNotification(t *testing.T) {
-	session := sessionRegistry.create("2024-11-05")
-	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/initialized"}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
-
-	mcpPostAPI(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d with body %q", http.StatusOK, recorder.Code, recorder.Body.String())
+func assertRecorderJSONAckResponse(t *testing.T, recorder *httptest.ResponseRecorder, status int) {
+	t.Helper()
+	if recorder.Code != status {
+		t.Fatalf("expected status %d, got %d with body %q", status, recorder.Code, recorder.Body.String())
 	}
 
 	var response jsonRPCResponse
@@ -152,7 +142,18 @@ func TestMCPPostWritesJSONAckForLegacyInitializedNotification(t *testing.T) {
 	}
 }
 
-func TestMCPPostAcceptsUnknownNotificationWithoutResponseBody(t *testing.T) {
+func TestMCPPostWritesJSONAckForLegacyInitializedNotification(t *testing.T) {
+	session := sessionRegistry.create("2024-11-05")
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/initialized"}`)
+	request.Header.Set(mcpSessionHeader, session.ID)
+	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+
+	mcpPostAPI(recorder, request)
+
+	assertRecorderJSONAckResponse(t, recorder, http.StatusOK)
+}
+
+func TestMCPPostWritesJSONAckForUnknownNotification(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":"1"}}`)
 	request.Header.Set(mcpSessionHeader, session.ID)
@@ -160,12 +161,7 @@ func TestMCPPostAcceptsUnknownNotificationWithoutResponseBody(t *testing.T) {
 
 	mcpPostAPI(recorder, request)
 
-	if recorder.Code != http.StatusAccepted {
-		t.Fatalf("expected status %d, got %d with body %q", http.StatusAccepted, recorder.Code, recorder.Body.String())
-	}
-	if recorder.Body.Len() != 0 {
-		t.Fatalf("expected empty notification response body, got %q", recorder.Body.String())
-	}
+	assertRecorderJSONAckResponse(t, recorder, http.StatusOK)
 }
 
 func TestMCPPostWritesJSONAckForLegacyUnknownNotification(t *testing.T) {
@@ -176,20 +172,10 @@ func TestMCPPostWritesJSONAckForLegacyUnknownNotification(t *testing.T) {
 
 	mcpPostAPI(recorder, request)
 
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d with body %q", http.StatusOK, recorder.Code, recorder.Body.String())
-	}
-
-	var response jsonRPCResponse
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("expected valid json-rpc ack response: %v", err)
-	}
-	if response.Error != nil {
-		t.Fatalf("expected ack response without error, got %#v", response.Error)
-	}
+	assertRecorderJSONAckResponse(t, recorder, http.StatusOK)
 }
 
-func TestMCPPostAcceptsOneWayBatchWithoutResponseBody(t *testing.T) {
+func TestMCPPostWritesJSONAckForOneWayBatch(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `[
 		{"jsonrpc":"2.0","method":"notifications/initialized"},
@@ -200,12 +186,7 @@ func TestMCPPostAcceptsOneWayBatchWithoutResponseBody(t *testing.T) {
 
 	mcpPostAPI(recorder, request)
 
-	if recorder.Code != http.StatusAccepted {
-		t.Fatalf("expected status %d, got %d with body %q", http.StatusAccepted, recorder.Code, recorder.Body.String())
-	}
-	if recorder.Body.Len() != 0 {
-		t.Fatalf("expected empty batch response body, got %q", recorder.Body.String())
-	}
+	assertRecorderJSONAckResponse(t, recorder, http.StatusOK)
 }
 
 func TestMCPPostWritesJSONAckForLegacyOneWayBatch(t *testing.T) {
@@ -219,17 +200,7 @@ func TestMCPPostWritesJSONAckForLegacyOneWayBatch(t *testing.T) {
 
 	mcpPostAPI(recorder, request)
 
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d with body %q", http.StatusOK, recorder.Code, recorder.Body.String())
-	}
-
-	var response jsonRPCResponse
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("expected valid json-rpc ack response: %v", err)
-	}
-	if response.Error != nil {
-		t.Fatalf("expected ack response without error, got %#v", response.Error)
-	}
+	assertRecorderJSONAckResponse(t, recorder, http.StatusOK)
 }
 
 func TestMCPPostRejectsBatchContainingRequest(t *testing.T) {
