@@ -181,13 +181,9 @@ func validateSessionRequest(r *http.Request) (string, *mcpSession, int, *jsonRPC
 
 	protocolVersion := protocolVersionFromHeader(r)
 	if protocolVersion == "" {
-		return "", nil, http.StatusBadRequest, &jsonRPCResponse{
-			JSONRPC: "2.0",
-			Error: &jsonRPCError{
-				Code:    -32600,
-				Message: "MCP-Protocol-Version header is required",
-			},
-		}
+		// Some Streamable HTTP clients preserve the session header but omit this
+		// protocol header after initialize; use the session's negotiated version.
+		return sessionID, session, 0, nil
 	}
 	if negotiateProtocolVersion(protocolVersion) != protocolVersion || protocolVersion != session.ProtocolVersion {
 		return "", nil, http.StatusBadRequest, &jsonRPCResponse{
