@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"pkg/base"
+	"pkg/documentevents"
 	"pkg/minioutil"
 	"pkg/prometheusutil"
 
@@ -108,8 +109,10 @@ func TestDocumentUploadHandlerStoresFile(t *testing.T) {
 	prometheusutil.Start(http.NewServeMux())
 
 	previous := putDocumentObject
+	previousPublish := publishStoredDocumentEvent
 	t.Cleanup(func() {
 		putDocumentObject = previous
+		publishStoredDocumentEvent = previousPublish
 	})
 
 	putDocumentObject = func(ctx context.Context, objectKey string, body []byte, contentType string) (uploadedDocument, error) {
@@ -124,6 +127,11 @@ func TestDocumentUploadHandlerStoresFile(t *testing.T) {
 			SizeBytes:   int64(len(body)),
 			ContentType: contentType,
 		}, nil
+	}
+	var published uploadedDocument
+	publishStoredDocumentEvent = func(ctx context.Context, uploaded uploadedDocument) error {
+		published = uploaded
+		return nil
 	}
 
 	var payload bytes.Buffer
@@ -161,6 +169,84 @@ func TestDocumentUploadHandlerStoresFile(t *testing.T) {
 	}
 	if !strings.Contains(response.ContentType, "text/plain") {
 		t.Fatalf("expected text content type, got %q", response.ContentType)
+	}
+	if published.ObjectKey != "reports/demo.txt" || published.SizeBytes != int64(len("hello")) {
+		t.Fatalf("expected stored lifecycle event for uploaded object, got %+v", published)
+	}
+}
+
+func TestDocumentUploadHandlerIgnoresStoredNotificationFailure(t *testing.T) {
+	setMinIOEnv(t)
+	base.ServiceName = "external_test_" + t.Name()
+	prometheusutil.Start(http.NewServeMux())
+
+	previousPut := putDocumentObject
+	previousPublish := publishStoredDocumentEvent
+	t.Cleanup(func() {
+		putDocumentObject = previousPut
+		publishStoredDocumentEvent = previousPublish
+	})
+
+	putDocumentObject = func(ctx context.Context, objectKey string, body []byte, contentType string) (uploadedDocument, error) {
+		return uploadedDocument{
+			ObjectKey:   objectKey,
+			SizeBytes:   int64(len(body)),
+			ContentType: contentType,
+		}, nil
+	}
+	publishStoredDocumentEvent = func(ctx context.Context, uploaded uploadedDocument) error {
+		return context.Canceled
+	}
+
+	var payload bytes.Buffer
+	writer := multipart.NewWriter(&payload)
+	fileWriter, err := writer.CreateFormFile("file", "demo.txt")
+	if err != nil {
+		t.Fatalf("failed to create multipart file: %v", err)
+	}
+	if _, err := fileWriter.Write([]byte("hello")); err != nil {
+		t.Fatalf("failed to write file body: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("failed to close multipart writer: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api/documents/upload", &payload)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	recorder := httptest.NewRecorder()
+
+	documentUploadHandler(recorder, request)
+
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("expected status 201 despite notification failure, got %d", recorder.Code)
+	}
+}
+
+func TestStoredDocumentLifecycleEventUsesS3DocumentID(t *testing.T) {
+	setMinIOEnv(t)
+
+	event, ok := storedDocumentLifecycleEvent(uploadedDocument{
+		ObjectKey:   "reports/demo.txt",
+		ContentType: "text/plain; charset=utf-8",
+	})
+
+	if !ok {
+		t.Fatal("expected stored lifecycle event")
+	}
+	if event.Subject != documentevents.SubjectMinIOStored {
+		t.Fatalf("expected minio stored subject, got %q", event.Subject)
+	}
+	if event.DocumentID != "s3://documents/reports/demo.txt" || event.Bucket != "documents" || event.ObjectKey != "reports/demo.txt" {
+		t.Fatalf("unexpected object identity: %+v", event)
+	}
+	if event.ContentType != "text/plain; charset=utf-8" {
+		t.Fatalf("expected content type in event, got %q", event.ContentType)
+	}
+	if event.ProcessingVersion != 0 {
+		t.Fatalf("stored event should not claim a processing version, got %d", event.ProcessingVersion)
+	}
+	if event.OccurredAt == "" {
+		t.Fatal("expected occurredAt timestamp")
 	}
 }
 

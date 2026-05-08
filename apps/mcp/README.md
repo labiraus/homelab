@@ -100,9 +100,10 @@ Browser-based MCP clients can preflight `/mcp`, `/sse`, `/messages`, and `/messa
 
 The current event sequence is:
 
+- `documents.events.minio.stored`
 - `documents.events.processor.queued`
 - `documents.events.processor.started`
 - `documents.events.processor.completed`
 - `documents.events.processor.failed`
 
-`documents.events.minio.stored` remains reserved for a future ingest-boundary emitter. Notification fan-out is best-effort and does not block the underlying document queue or processing path.
+`documents.events.minio.stored` is emitted by the browser-facing upload path after the raw object is written to MinIO. Notification fan-out is best-effort and does not block the underlying document upload, queue, or processing path.

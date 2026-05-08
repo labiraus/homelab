@@ -39,6 +39,7 @@ The repo already includes:
 - SQL bootstrap under `sql/`
 - external MinIO management through Ansible on `svartalfheim`
 - orchestrator-backed `documents.scanBucket` reconciliation that inventories MinIO objects into Postgres and queues new or changed text objects for processing
+- browser uploads emit `documents.events.minio.stored` after raw objects are written to MinIO
 - a built-in deterministic `local-embeddings` fallback used by processor, `external`, and `mcp` when no external embedding endpoint is configured
 
 Documentation must stay aligned with implementation as these pieces evolve.
@@ -174,6 +175,7 @@ Current status:
 - `mcp` inventory reads include the document metadata object
 - `external` and `mcp` search the current processed chunk version and include citation objects; the UI displays citation labels with source and download actions
 - `external` and `mcp` expose read-only context assembly that packages current-version retrieval hits into cited context blocks
+- `external` emits the ingest-boundary `documents.events.minio.stored` notification for successful browser uploads
 
 ## Near-Term Non-Goals
 

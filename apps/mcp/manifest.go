@@ -443,7 +443,7 @@ var capabilityCatalog = []manifestCapabilitySource{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Describe the live Labiraus subscription flow for `{{documentId}}`. The MCP server exposes `homelab://mcp/documents/notifications/{{documentId}}`, accepts `resources/subscribe` and `resources/unsubscribe`, maintains a Streamable HTTP session with `MCP-Session-Id`, and forwards matching NATS lifecycle updates over `GET /mcp` SSE. The current event sequence is `documents.events.processor.queued`, `documents.events.processor.started`, `documents.events.processor.completed`, and `documents.events.processor.failed`, with `documents.events.minio.stored` reserved for a future ingest-boundary emitter.",
+							Text: "Describe the live Labiraus subscription flow for `{{documentId}}`. The MCP server exposes `homelab://mcp/documents/notifications/{{documentId}}`, accepts `resources/subscribe` and `resources/unsubscribe`, maintains a Streamable HTTP session with `MCP-Session-Id`, and forwards matching NATS lifecycle updates over `GET /mcp` SSE. The current event sequence is `documents.events.minio.stored`, `documents.events.processor.queued`, `documents.events.processor.started`, `documents.events.processor.completed`, and `documents.events.processor.failed`.",
 						},
 					},
 				},

@@ -66,7 +66,8 @@ When `EMBEDDING_MODEL=local-embeddings` and `EMBEDDING_ENDPOINT` is empty, `exte
 
 - authenticated browser clients connect with `Accept: text/event-stream`
 - each event payload is the raw lifecycle JSON emitted on NATS under `documents.events.>`
-- the current lifecycle subjects are `documents.events.processor.queued`, `documents.events.processor.started`, `documents.events.processor.completed`, and `documents.events.processor.failed`
+- successful browser uploads publish `documents.events.minio.stored` after the raw object is written to MinIO
+- the current lifecycle subjects are `documents.events.minio.stored`, `documents.events.processor.queued`, `documents.events.processor.started`, `documents.events.processor.completed`, and `documents.events.processor.failed`
 - the handler sends keepalives so long-lived browser connections stay open through the edge
 
 The document event bridge expects:

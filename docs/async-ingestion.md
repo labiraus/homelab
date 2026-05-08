@@ -58,12 +58,11 @@ The current reprocess-driven slice also uses that queue path. `POST /documents/r
 
 The current notification pattern on top of that job flow is:
 
+- emit `documents.events.minio.stored` when the browser-facing upload path writes the raw object to MinIO
 - emit `documents.events.processor.queued` when the document is queued for processor execution
 - emit `documents.events.processor.started` when the processor claims the work and begins execution
 - emit `documents.events.processor.completed` when processing is finished and derived state has been written back
 - emit `documents.events.processor.failed` when processing fails and the document is returned to a retryable state
-
-`documents.events.minio.stored` remains reserved for a future ingest-boundary emitter rather than part of the current browser upload path.
 
 The Labiraus MCP server now subscribes to that NATS event stream and forwards document-specific updates to MCP subscribers as resource notifications. The browser-facing `external` service also fans the same lifecycle events out to authenticated UI clients over SSE at `/api/documents/events`.
 
@@ -122,7 +121,6 @@ This design keeps ingestion idempotent and explainable:
 Later phases can add:
 
 - richer retrieval APIs beyond the current `external` search and MCP inventory/search tools
-- an ingest-boundary emitter for `documents.events.minio.stored`
 - richer versioned-derivation history beyond the current explicit reprocess queue path
 - richer citation UX beyond the current search-result citation labels and source links
 - graph-style capabilities on top of the same document foundation

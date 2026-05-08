@@ -139,16 +139,17 @@ Use this when:
 
 The current document notification flow is:
 
-1. `documents.events.processor.queued`
-2. `documents.events.processor.started`
-3. `documents.events.processor.completed`
-4. `documents.events.processor.failed`
+1. `documents.events.minio.stored`
+2. `documents.events.processor.queued`
+3. `documents.events.processor.started`
+4. `documents.events.processor.completed`
+5. `documents.events.processor.failed`
 
 The live shape is:
 
-- `orchestrator` and `processor` emit lifecycle events onto NATS JetStream under `documents.events.>`
+- `external`, `orchestrator`, and `processor` emit lifecycle events onto NATS JetStream under `documents.events.>`
 - `mcp` exposes `homelab://mcp/documents/notifications/{documentId}` as a live resource template
 - MCP clients call `resources/subscribe` and keep a `GET /mcp` SSE stream open for the session identified by `MCP-Session-Id`
 - `mcp` forwards matching updates as `notifications/resources/updated`
 
-`documents.events.minio.stored` remains reserved for a future ingest-boundary emitter. The prompt now documents the live subscription pattern rather than a future-only design.
+`documents.events.minio.stored` is emitted by the browser-facing upload path after the raw object is written to MinIO. The prompt documents the live subscription pattern rather than a future-only design.

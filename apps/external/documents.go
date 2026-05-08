@@ -170,6 +170,9 @@ func documentUploadHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return json.NewEncoder(w).Encode(ErrorResponse{Error: "could not upload document"})
 		}
+		if err := publishStoredDocumentEvent(r.Context(), uploaded); err != nil {
+			slog.ErrorContext(r.Context(), "failed to publish stored document lifecycle notification", "error", err, "objectKey", uploaded.ObjectKey)
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
