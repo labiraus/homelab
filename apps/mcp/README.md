@@ -41,7 +41,7 @@ Live direct-backend capabilities currently expect:
 - `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_USE_SSL`, `MINIO_REGION`, `MINIO_BUCKET` for MinIO-backed capabilities
 - `NATS_URLS`, `NATS_EVENTS_STREAM`, and `NATS_EVENTS_SUBJECT` for document lifecycle subscriptions and resource notifications
 
-The Helm chart populates the live Postgres settings from the CNPG `data/app-db-bootstrap` secret and points `POSTGRES_HOST` at `app-db-rw.data.svc.cluster.local`. Its NetworkPolicy also allows egress to the CNPG `app-db` pods on port `5432`.
+The Helm chart populates the live Postgres settings from the CNPG `data/app-db-bootstrap` secret and points `POSTGRES_HOST` at `app-db-rw.data.svc.cluster.local`. Its NetworkPolicy also allows egress to the CNPG `app-db` pods on port `5432` and to the orchestrator pods on port `8080` for HTTP proxy tools.
 
 For Streamable HTTP hardening, `mcp` validates the `Origin` header on incoming MCP requests against the request origin by default. Set `MCP_ALLOWED_ORIGINS` to a comma-separated list only if the deployment intentionally needs additional browser origins.
 
