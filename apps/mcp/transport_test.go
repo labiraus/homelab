@@ -126,6 +126,20 @@ func TestInitializeNegotiatesLegacyCodexProtocolVersion(t *testing.T) {
 	}
 }
 
+func TestMCPPostInitializeReturnsSSEMessageEventAndSession(t *testing.T) {
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"codex-test","version":"0"}}}`)
+
+	mcpPostAPI(recorder, request)
+
+	response := assertRecorderJSONRPCEventResponse(t, recorder, http.StatusOK)
+	if response.ID != "1" || response.Error != nil {
+		t.Fatalf("expected initialize response with id 1, got %#v", response)
+	}
+	if recorder.Header().Get(mcpSessionHeader) == "" {
+		t.Fatalf("expected initialize response to include %s", mcpSessionHeader)
+	}
+}
+
 func TestMCPPostAcceptsInitializedNotificationWithoutProtocolHeader(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/initialized"}`)
@@ -153,6 +167,29 @@ func assertRecorderAcceptedNoBody(t *testing.T, recorder *httptest.ResponseRecor
 	if recorder.Body.Len() != 0 {
 		t.Fatalf("expected empty response body, got %q", recorder.Body.String())
 	}
+}
+
+func assertRecorderJSONRPCEventResponse(t *testing.T, recorder *httptest.ResponseRecorder, status int) jsonRPCResponse {
+	t.Helper()
+	if recorder.Code != status {
+		t.Fatalf("expected status %d, got %d with body %q", status, recorder.Code, recorder.Body.String())
+	}
+	if contentType := strings.TrimSpace(strings.Split(recorder.Header().Get("Content-Type"), ";")[0]); contentType != "text/event-stream" {
+		t.Fatalf("expected text/event-stream content type, got %q", recorder.Header().Get("Content-Type"))
+	}
+
+	body := recorder.Body.String()
+	const prefix = "event: message\ndata: "
+	if !strings.HasPrefix(body, prefix) || !strings.HasSuffix(body, "\n\n") {
+		t.Fatalf("expected JSON-RPC SSE message event, got body %q", body)
+	}
+
+	payload := strings.TrimSuffix(strings.TrimPrefix(body, prefix), "\n\n")
+	var response jsonRPCResponse
+	if err := json.Unmarshal([]byte(payload), &response); err != nil {
+		t.Fatalf("expected valid json-rpc response in SSE data: %v", err)
+	}
+	return response
 }
 
 type cancelOnFlushRecorder struct {
@@ -371,16 +408,21 @@ func TestMCPPostAcceptsStatelessResourcesListWithoutSessionHeader(t *testing.T) 
 
 	mcpPostAPI(recorder, request)
 
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d with body %q", http.StatusOK, recorder.Code, recorder.Body.String())
-	}
-
-	var response jsonRPCResponse
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("expected valid json-rpc response: %v", err)
-	}
+	response := assertRecorderJSONRPCEventResponse(t, recorder, http.StatusOK)
 	if response.Error != nil {
 		t.Fatalf("expected resources/list to succeed, got %#v", response.Error)
+	}
+}
+
+func TestMCPPostReturnsJSONRPCMethodErrorAsSSEMessageEvent(t *testing.T) {
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"unknown/method"}`)
+	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+
+	mcpPostAPI(recorder, request)
+
+	response := assertRecorderJSONRPCEventResponse(t, recorder, http.StatusOK)
+	if response.Error == nil || response.Error.Message != "Method not found" {
+		t.Fatalf("expected method-not-found response in SSE event, got %#v", response.Error)
 	}
 }
 
@@ -410,14 +452,7 @@ func TestMCPPostAcceptsSessionRequestWithoutProtocolHeader(t *testing.T) {
 
 	mcpPostAPI(recorder, request)
 
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d with body %q", http.StatusOK, recorder.Code, recorder.Body.String())
-	}
-
-	var response jsonRPCResponse
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("expected valid json-rpc response: %v", err)
-	}
+	response := assertRecorderJSONRPCEventResponse(t, recorder, http.StatusOK)
 	if response.Error != nil {
 		t.Fatalf("expected resources/list to succeed, got %#v", response.Error)
 	}
@@ -431,14 +466,7 @@ func TestMCPPostAcceptsSupportedProtocolHeaderDrift(t *testing.T) {
 
 	mcpPostAPI(recorder, request)
 
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d with body %q", http.StatusOK, recorder.Code, recorder.Body.String())
-	}
-
-	var response jsonRPCResponse
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("expected valid json-rpc response: %v", err)
-	}
+	response := assertRecorderJSONRPCEventResponse(t, recorder, http.StatusOK)
 	if response.Error != nil {
 		t.Fatalf("expected resources/list to succeed, got %#v", response.Error)
 	}
@@ -473,9 +501,7 @@ func TestMCPPostRestoresUnknownUUIDSession(t *testing.T) {
 
 	mcpPostAPI(recorder, request)
 
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d with body %q", http.StatusOK, recorder.Code, recorder.Body.String())
-	}
+	assertRecorderJSONRPCEventResponse(t, recorder, http.StatusOK)
 
 	session, ok := sessionRegistry.get(sessionID)
 	if !ok {

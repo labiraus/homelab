@@ -170,19 +170,34 @@ func mcpPostAPI(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(responseStatus)
-
-	err = json.NewEncoder(w).Encode(responseBody)
-	if err != nil {
-		err = fmt.Errorf("failed to write response: %w", err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-
+	if err = writeJSONRPCEvent(w, responseStatus, responseBody); err != nil {
+		err = fmt.Errorf("failed to write response event: %w", err)
 		return
 	}
 
 	slog.DebugContext(ctx, fmt.Sprintf("%v complete", mcpPostHandlerName))
+}
+
+func writeJSONRPCEvent(w http.ResponseWriter, status int, response *jsonRPCResponse) error {
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		return err
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.WriteHeader(status)
+
+	if _, err := fmt.Fprintf(w, "event: message\ndata: %s\n\n", responseBytes); err != nil {
+		return err
+	}
+
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+
+	return nil
 }
 
 func validateSessionForMethod(r *http.Request, method string) (int, *jsonRPCResponse) {
