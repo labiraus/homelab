@@ -38,7 +38,7 @@ The browser-facing path is published through `oauth2-proxy` at `/api/...`, and t
 - `/api/documents/tree` returns the immediate folders and files for a prefix in the documents bucket
 - `/api/documents/object` streams a document back for inline preview or download
 - `/api/documents/upload` accepts multipart uploads for the current folder view
-- `/api/documents/search` embeds a natural-language query, runs pgvector similarity search against processed chunks, and returns ranked matches with document metadata and citation objects for the source URI plus chunk identity
+- `/api/documents/search` embeds a natural-language query, runs pgvector similarity search against the current processed chunk version, and returns ranked matches with document metadata and citation objects for the source URI plus chunk identity
 
 These routes expect the standard MinIO runtime configuration:
 

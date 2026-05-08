@@ -182,24 +182,7 @@ func queryDocumentSearch(
 		return nil, fmt.Errorf("postgres is not initialized")
 	}
 
-	query := `
-SELECT
-	d.document_id,
-	d.source_uri,
-	COALESCE(d.object_key, ''),
-	COALESCE(d.content_type, ''),
-	c.id,
-	c.chunk_index,
-	c.chunk_text,
-	c.processing_version,
-	e.vector <=> $1::vector AS distance,
-	d.last_processed_at
-FROM rag.embeddings e
-JOIN rag.chunks c ON c.id = e.chunk_id
-JOIN rag.documents d ON d.id = c.document_pk
-WHERE d.status = 'processed'
-	AND e.model = $2
-	AND e.vector IS NOT NULL`
+	query := documentSearchBaseQuery()
 
 	args := []any{toVectorLiteral(embedding), model}
 	nextArg := 3
@@ -263,6 +246,28 @@ WHERE d.status = 'processed'
 	}
 
 	return hits, rows.Err()
+}
+
+func documentSearchBaseQuery() string {
+	return `
+SELECT
+	d.document_id,
+	d.source_uri,
+	COALESCE(d.object_key, ''),
+	COALESCE(d.content_type, ''),
+	c.id,
+	c.chunk_index,
+	c.chunk_text,
+	c.processing_version,
+	e.vector <=> $1::vector AS distance,
+	d.last_processed_at
+FROM rag.embeddings e
+JOIN rag.chunks c ON c.id = e.chunk_id
+JOIN rag.documents d ON d.id = c.document_pk
+WHERE d.status = 'processed'
+	AND e.model = $2
+	AND c.processing_version = d.current_processing_version
+	AND e.vector IS NOT NULL`
 }
 
 func buildDocumentCitation(row documentSearchRow) *DocumentCitation {

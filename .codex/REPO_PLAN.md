@@ -167,7 +167,7 @@ Current status:
 
 - `orchestrator` exposes `POST /documents/reprocess` for queueing an existing inventory document at a newer processing version
 - `mcp` exposes that reprocessing flow as `documents.reprocess`
-- `external` and `mcp` search results include citation objects; the UI displays citation labels with source and download actions
+- `external` and `mcp` search the current processed chunk version and include citation objects; the UI displays citation labels with source and download actions
 
 ## Near-Term Non-Goals
 

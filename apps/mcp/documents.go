@@ -292,25 +292,7 @@ func postgresDocumentSearch(ctx context.Context, arguments map[string]any) (oper
 }
 
 func queryDocumentChunks(ctx context.Context, embedding []float64, model string, arguments map[string]any, limit int) ([]map[string]any, *jsonRPCError) {
-	query := `
-SELECT
-	d.document_id,
-	d.source_uri,
-	COALESCE(d.object_key, ''),
-	COALESCE(d.content_type, ''),
-	c.id,
-	c.chunk_index,
-	c.chunk_text,
-	c.processing_version,
-	e.vector <=> $1::vector AS distance,
-	d.last_processed_at
-FROM rag.embeddings e
-JOIN rag.chunks c ON c.id = e.chunk_id
-JOIN rag.documents d ON d.id = c.document_pk
-WHERE d.status = 'processed'
-	AND e.model = $2
-	AND e.vector IS NOT NULL`
-
+	query := documentChunkSearchBaseQuery()
 	args := []any{toVectorLiteral(embedding), model}
 	nextArg := 3
 
@@ -387,6 +369,28 @@ WHERE d.status = 'processed'
 	}
 
 	return hits, nil
+}
+
+func documentChunkSearchBaseQuery() string {
+	return `
+SELECT
+	d.document_id,
+	d.source_uri,
+	COALESCE(d.object_key, ''),
+	COALESCE(d.content_type, ''),
+	c.id,
+	c.chunk_index,
+	c.chunk_text,
+	c.processing_version,
+	e.vector <=> $1::vector AS distance,
+	d.last_processed_at
+FROM rag.embeddings e
+JOIN rag.chunks c ON c.id = e.chunk_id
+JOIN rag.documents d ON d.id = c.document_pk
+WHERE d.status = 'processed'
+	AND e.model = $2
+	AND c.processing_version = d.current_processing_version
+	AND e.vector IS NOT NULL`
 }
 
 func buildDocumentCitation(row documentSearchRow) map[string]any {

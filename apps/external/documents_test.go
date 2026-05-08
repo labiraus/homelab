@@ -248,6 +248,12 @@ func TestDocumentSearchHandlerReturnsRankedHits(t *testing.T) {
 	}
 }
 
+func TestDocumentSearchBaseQueryUsesCurrentProcessingVersion(t *testing.T) {
+	if !strings.Contains(documentSearchBaseQuery(), "c.processing_version = d.current_processing_version") {
+		t.Fatalf("expected search query to filter chunks to the document current processing version")
+	}
+}
+
 func TestDocumentSearchHandlerValidatesRequest(t *testing.T) {
 	setEmbeddingEnv(t)
 	setPostgresEnv(t)

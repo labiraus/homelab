@@ -1026,6 +1026,12 @@ func TestHandleToolsCallSearchesDocuments(t *testing.T) {
 	}
 }
 
+func TestDocumentChunkSearchBaseQueryUsesCurrentProcessingVersion(t *testing.T) {
+	if !strings.Contains(documentChunkSearchBaseQuery(), "c.processing_version = d.current_processing_version") {
+		t.Fatalf("expected search query to filter chunks to the document current processing version")
+	}
+}
+
 func TestLocalSearchEmbeddingFallback(t *testing.T) {
 	t.Setenv("EMBEDDING_ENDPOINT", "")
 	t.Setenv("EMBEDDING_MODEL", "local-embeddings")
