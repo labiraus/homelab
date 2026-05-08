@@ -80,7 +80,7 @@ func mcpPostAPI(w http.ResponseWriter, r *http.Request) {
 
 	trimmedBody := bytes.TrimSpace(body)
 	if len(trimmedBody) > 0 && trimmedBody[0] == '[' {
-		accepted, _, status, response := validateOneWayBatchRequest(r, trimmedBody)
+		accepted, status, response := validateOneWayBatchRequest(r, trimmedBody)
 		if response != nil {
 			writeJSONRPC(w, status, response)
 			return
@@ -124,7 +124,7 @@ func mcpPostAPI(w http.ResponseWriter, r *http.Request) {
 
 	hasID := jsonRPCMessageHasID(body)
 	if req.Method == "" {
-		_, _, status, response := validateSessionRequest(r)
+		status, response := validateOptionalSessionRequest(r)
 		if response != nil {
 			writeJSONRPC(w, status, response)
 			return
@@ -136,7 +136,7 @@ func mcpPostAPI(w http.ResponseWriter, r *http.Request) {
 
 	if !hasID || isJSONRPCNotificationMethod(req.Method) {
 		if req.Method != "initialize" {
-			_, _, status, response := validateSessionRequest(r)
+			status, response := validateOptionalSessionRequest(r)
 			if response != nil {
 				writeJSONRPC(w, status, response)
 				return
@@ -148,7 +148,7 @@ func mcpPostAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Method != "initialize" {
-		_, _, status, response := validateSessionRequest(r)
+		status, response := validateSessionForMethod(r, req.Method)
 		if response != nil {
 			writeJSONRPC(w, status, response)
 			return
@@ -185,15 +185,53 @@ func mcpPostAPI(w http.ResponseWriter, r *http.Request) {
 	slog.DebugContext(ctx, fmt.Sprintf("%v complete", mcpPostHandlerName))
 }
 
+func validateSessionForMethod(r *http.Request, method string) (int, *jsonRPCResponse) {
+	if methodRequiresSession(method) || sessionIDFromRequest(r) != "" {
+		_, _, status, response := validateSessionRequest(r)
+		return status, response
+	}
+
+	return validateProtocolHeader(r)
+}
+
+func validateOptionalSessionRequest(r *http.Request) (int, *jsonRPCResponse) {
+	if sessionIDFromRequest(r) != "" {
+		_, _, status, response := validateSessionRequest(r)
+		return status, response
+	}
+
+	return validateProtocolHeader(r)
+}
+
+func validateProtocolHeader(r *http.Request) (int, *jsonRPCResponse) {
+	protocolVersion := protocolVersionFromHeader(r)
+	if protocolVersion != "" && negotiateProtocolVersion(protocolVersion) != protocolVersion {
+		return http.StatusBadRequest, &jsonRPCResponse{
+			JSONRPC: "2.0",
+			ID:      nil,
+			Error: &jsonRPCError{
+				Code:    -32600,
+				Message: "Unsupported MCP protocol version",
+			},
+		}
+	}
+
+	return 0, nil
+}
+
+func methodRequiresSession(method string) bool {
+	return method == "resources/subscribe" || method == "resources/unsubscribe"
+}
+
 type jsonRPCMessageShape struct {
 	ID     json.RawMessage `json:"id"`
 	Method string          `json:"method"`
 }
 
-func validateOneWayBatchRequest(r *http.Request, body []byte) (bool, *mcpSession, int, *jsonRPCResponse) {
+func validateOneWayBatchRequest(r *http.Request, body []byte) (bool, int, *jsonRPCResponse) {
 	var messages []json.RawMessage
 	if err := json.Unmarshal(body, &messages); err != nil || len(messages) == 0 {
-		return false, nil, http.StatusBadRequest, &jsonRPCResponse{
+		return false, http.StatusBadRequest, &jsonRPCResponse{
 			JSONRPC: "2.0",
 			ID:      nil,
 			Error: &jsonRPCError{
@@ -206,7 +244,7 @@ func validateOneWayBatchRequest(r *http.Request, body []byte) (bool, *mcpSession
 	for _, message := range messages {
 		oneWay, err := isOneWayJSONRPCMessage(message)
 		if err != nil {
-			return false, nil, http.StatusBadRequest, &jsonRPCResponse{
+			return false, http.StatusBadRequest, &jsonRPCResponse{
 				JSONRPC: "2.0",
 				ID:      nil,
 				Error: &jsonRPCError{
@@ -216,16 +254,16 @@ func validateOneWayBatchRequest(r *http.Request, body []byte) (bool, *mcpSession
 			}
 		}
 		if !oneWay {
-			return false, nil, 0, nil
+			return false, 0, nil
 		}
 	}
 
-	_, session, status, response := validateSessionRequest(r)
+	status, response := validateOptionalSessionRequest(r)
 	if response != nil {
-		return false, nil, status, response
+		return false, status, response
 	}
 
-	return true, session, 0, nil
+	return true, 0, nil
 }
 
 func isOneWayJSONRPCMessage(message []byte) (bool, error) {

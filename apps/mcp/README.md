@@ -70,7 +70,7 @@ Document lifecycle notifications are live through the Streamable HTTP transport:
 
 - `initialize` advertises `resources.subscribe`
 - successful initialization returns `MCP-Session-Id`
-- subsequent `POST /mcp` requests require `MCP-Session-Id`
+- subsequent session-bound `POST /mcp` requests require `MCP-Session-Id`, but the transport tolerates sessionless one-way messages and stateless request methods such as `resources/list` for native clients that drop the session header during startup
 - `DELETE /mcp` terminates a session and closes any attached stream
 - UUID-shaped session IDs are restored on demand after pod restarts so native clients with cached stream sessions can recover without manual intervention
 - `MCP-Protocol-Version` is honored when present; clients that omit it use the version negotiated during `initialize`, and supported-version header drift is tolerated for native client compatibility

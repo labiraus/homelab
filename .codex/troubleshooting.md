@@ -139,6 +139,7 @@ ss -ant | grep ':6443' | awk '{print $5}' | sed 's/.*ffff://; s/]//; s/\[//' | c
   - `/.well-known/oauth-protected-resource`
 - If Codex/RMCP can `initialize` against `/mcp` but then reports that the transport closed while sending `notifications/initialized`, check that Streamable HTTP one-way messages return `202 Accepted` with an empty body. A JSON-RPC ack body for notifications can be treated as an unexpected response and close the client transport.
 - For the same symptom, also check `GET /mcp` with `Accept: text/event-stream`: the stream should open with an SSE comment rather than a synthetic empty `data:` event, because strict clients may parse that empty event as an invalid JSON-RPC server message and some proxies will not flush headers until at least one body byte is written.
+- Also verify that sessionless startup fallback still works: `notifications/initialized`, response-only messages, one-way batches, and stateless requests such as `resources/list` should not require `MCP-Session-Id`; subscription and stream operations should still require a session.
 
 ### Recreated workers now need post-provision Ansible join
 
