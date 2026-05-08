@@ -122,6 +122,47 @@ var capabilityCatalog = []manifestCapabilitySource{
 		},
 	},
 	{
+		ID:      "documents.editing",
+		Title:   "Document Editing",
+		Summary: "Edit existing text documents through the orchestrator control plane and queue derived-state refreshes.",
+		Backend: manifestBackendOrchestrator,
+		Operations: []manifestOperationSource{
+			livePrompt(
+				"documents.editText.prompt",
+				"editDocumentTextPrompt",
+				"/prompts/documents/edit-text",
+				"Show how to overwrite an existing text document and queue a fresh processing version.",
+				false,
+				[]manifestPromptArgument{
+					{Name: "documentId", Description: "Existing document identifier from inventory or search results.", Required: true},
+				},
+				[]manifestPromptMessage{
+					{
+						Role: "user",
+						Content: manifestPromptMessagePart{
+							Type: "text",
+							Text: "Use the live `documents.editText` tool on Labiraus to update the raw text for `{{documentId}}`. Send a body with `documentId`, `text`, and optional `contentType`, `metadata`, or `processingVersion`. The orchestrator overwrites the existing MinIO text object, records edit metadata, and queues a newer processing version so retrieval uses refreshed chunks after processing completes.",
+						},
+					},
+				},
+			),
+			liveTool(
+				"documents.editText",
+				"editDocumentText",
+				http.MethodPost,
+				"/documents/edit-text",
+				"Overwrite an existing text document object and queue a newer processing version.",
+				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendOrchestrator,
+					ExecutionMode: manifestExecutionModeHTTPProxy,
+					Path:          "/documents/edit-text",
+				},
+				documentEditTextSchema(),
+			),
+		},
+	},
+	{
 		ID:      "documents.retrieval",
 		Title:   "Document Retrieval",
 		Summary: "Inspect indexed document state and search processed chunks from Postgres-backed retrieval data.",
@@ -689,6 +730,9 @@ func operationIsDestructive(operation manifestOperationSource) bool {
 	if operation.Method == http.MethodDelete {
 		return true
 	}
+	if operation.ID == "documents.editText" {
+		return true
+	}
 	if operation.Binding == nil {
 		return false
 	}
@@ -838,6 +882,27 @@ func documentCurationSchema() *manifestSchema {
 					"replace":    {Type: "boolean", Description: "Replace the full metadata object instead of merging fields."},
 				},
 				Required: []string{"documentId", "metadata"},
+			},
+		},
+		Required: []string{"body"},
+	}
+}
+
+func documentEditTextSchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"body": {
+				Type:        "object",
+				Description: "Existing text document edit request.",
+				Properties: map[string]manifestSchema{
+					"documentId":        {Type: "string", Description: "Existing document identifier from inventory or search results."},
+					"text":              {Type: "string", Description: "Replacement text body for the existing MinIO object."},
+					"contentType":       {Type: "string", Description: "Optional replacement MIME type. Defaults to the current document content type and must be text/*."},
+					"metadata":          {Type: "object", Description: "Optional metadata fields to merge into the document inventory record.", AdditionalProperties: true},
+					"processingVersion": {Type: "integer", Description: "Optional explicit processing version. Defaults to the next version after the current desired version."},
+				},
+				Required: []string{"documentId", "text"},
 			},
 		},
 		Required: []string{"body"},

@@ -10,6 +10,7 @@ The current implementation accepts MinIO-backed document references, reconciles 
 
 - `POST /documents`
 - `POST /documents/curation`
+- `POST /documents/edit-text`
 - `POST /documents/scan-bucket`
 - `POST /documents/reprocess`
 - `/readiness`
@@ -70,6 +71,23 @@ Required fields:
 Optional fields:
 
 - `replace`, defaulting to `false`. When omitted, the metadata object is merged into existing `rag.documents.metadata`; when true, it replaces the full metadata object.
+
+## Text Edit Contract
+
+`POST /documents/edit-text` overwrites the raw MinIO text object for an existing inventory document and queues a newer processing version.
+
+Required fields:
+
+- `documentId`
+- `text`, which may be an empty string when intentionally clearing a text object
+
+Optional fields:
+
+- `contentType`, defaulting to the current document content type and still limited to `text/*`
+- `metadata`, merged into existing document metadata alongside `editedBy: orchestrator.editText`
+- `processingVersion`, defaulting to the next version after the current desired or completed version
+
+The endpoint rejects non-`text/*` inventory rows, writes the replacement object to the existing bucket and object key, captures the new object ETag/version metadata, and reuses the normal pending-row plus JetStream queue path.
 
 ## Reprocess Contract
 

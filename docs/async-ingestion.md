@@ -52,6 +52,8 @@ The current scan-driven slice uses the same queue path for new or changed `text/
 
 The current curation slice is metadata-only. `POST /documents/curation`, exposed through MCP as the `documents.curation.update` tool, updates `rag.documents.metadata` for an existing inventory row without changing raw MinIO objects, chunks, embeddings, or lifecycle status.
 
+The current edit slice is text-only. `POST /documents/edit-text`, exposed through MCP as the `documents.editText` tool, overwrites the existing MinIO object for an inventory row, merges edit metadata, and queues a newer processing version through the same control-plane path. It intentionally edits only existing `text/*` inventory rows so object identity, access assumptions, and derived-state refreshes stay explicit.
+
 The current reprocess-driven slice also uses that queue path. `POST /documents/reprocess`, exposed through MCP as the `documents.reprocess` tool, accepts an existing `documentId` and optional `processingVersion`; when the version is omitted, `orchestrator` queues the next processing version after the current desired or completed version.
 
 The current notification pattern on top of that job flow is:

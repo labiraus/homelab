@@ -10,6 +10,7 @@ The manifest currently lists these prompt names:
 
 - `documents.submit.example`
 - `documents.scanBucket.plan`
+- `documents.editText.prompt`
 - `documents.search.prompt`
 - `postgres.auth.userCount.prompt`
 - `minio.documents.browse.prompt`
@@ -53,6 +54,20 @@ Use this when:
 - reviewing how bucket reconciliation decides what should be queued
 
 The live scan upserts document inventory rows, marks non-`text/*` objects as `unsupported`, preserves unchanged known object status, and queues new or changed text objects through the orchestrator/processor path.
+
+### `documents.editText.prompt`
+
+- lifecycle: `live`
+- purpose: show how to overwrite an existing text object and queue refreshed derived state
+- arguments:
+  - `documentId` required
+
+Use this when:
+
+- an agent needs to edit a known `text/*` inventory document
+- the edit should trigger a newer processing version without a separate scan or reprocess call
+
+The live `documents.editText` tool writes replacement text to the existing MinIO bucket/object key, merges optional metadata into `rag.documents.metadata`, marks the edit with `editedBy: orchestrator.editText`, and queues processor work for the next processing version by default.
 
 ### `documents.search.prompt`
 

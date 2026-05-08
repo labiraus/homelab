@@ -60,6 +60,7 @@ func main() {
 	prometheusutil.Start(mux)
 	mux.HandleFunc("/documents", documentsHandler)
 	mux.HandleFunc("/documents/curation", documentCurationHandler)
+	mux.HandleFunc("/documents/edit-text", editTextDocumentHandler)
 	mux.HandleFunc("/documents/scan-bucket", scanBucketHandler)
 	mux.HandleFunc("/documents/reprocess", reprocessDocumentHandler)
 

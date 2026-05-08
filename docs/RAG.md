@@ -22,6 +22,7 @@ The current ingestion slice is reference-based:
 - `external` exposes semantic search for the UI
 - `mcp` exposes document inventory and semantic search for agents
 - `orchestrator` exposes document metadata curation for existing inventory rows
+- `orchestrator` exposes text-object editing for existing inventory rows and queues a newer processing version after the raw object write
 - `orchestrator` exposes explicit reprocessing for existing inventory documents through the same queue path
 - retrieval responses search the document's current processed chunk version and include citation objects that identify the source URI and chunk identity for each match
 - `local-embeddings` uses a built-in deterministic 384-dimensional embedding function when no external embedding endpoint is configured
@@ -47,6 +48,7 @@ flowchart LR
   end
 
   ORCH -->|reconcile raw objects| MINIO
+  ORCH -->|edit existing text objects| MINIO
   ORCH -->|upsert inventory and state| PG
   ORCH -->|enqueue processing work| NATS
   NATS --> PROC

@@ -166,8 +166,10 @@ Deliverables:
 Current status:
 
 - `orchestrator` exposes `POST /documents/curation` for metadata-only curation of existing inventory rows
+- `orchestrator` exposes `POST /documents/edit-text` for text-only edits of existing inventory rows that overwrite the raw MinIO object and queue a newer processing version
 - `orchestrator` exposes `POST /documents/reprocess` for queueing an existing inventory document at a newer processing version
 - `mcp` exposes that curation flow as `documents.curation.update`
+- `mcp` exposes that text editing flow as `documents.editText`
 - `mcp` exposes that reprocessing flow as `documents.reprocess`
 - `mcp` inventory reads include the document metadata object
 - `external` and `mcp` search the current processed chunk version and include citation objects; the UI displays citation labels with source and download actions

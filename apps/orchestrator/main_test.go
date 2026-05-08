@@ -148,6 +148,157 @@ func TestDocumentCurationHandlerReturnsNotFound(t *testing.T) {
 	}
 }
 
+func TestEditTextDocumentHandlerWritesObjectAndQueuesNextVersion(t *testing.T) {
+	originalLookup := lookupReprocessRecord
+	originalWrite := writeTextObjectForEdit
+	originalQueue := queueDocument
+	t.Cleanup(func() {
+		lookupReprocessRecord = originalLookup
+		writeTextObjectForEdit = originalWrite
+		queueDocument = originalQueue
+	})
+
+	lookupReprocessRecord = func(ctx context.Context, documentID string) (reprocessDocumentRecord, bool, error) {
+		if documentID != "doc-1" {
+			t.Fatalf("expected doc-1 lookup, got %q", documentID)
+		}
+		return reprocessDocumentRecord{
+			DocumentID:               "doc-1",
+			Bucket:                   "documents",
+			ObjectKey:                "campaign/doc-1.md",
+			SourceURI:                "s3://documents/campaign/doc-1.md",
+			ContentType:              "text/markdown; charset=utf-8",
+			Metadata:                 map[string]interface{}{"source": "session-notes"},
+			DesiredProcessingVersion: 2,
+			CurrentProcessingVersion: 2,
+		}, true, nil
+	}
+
+	modified := time.Date(2026, 5, 8, 20, 30, 0, 0, time.UTC)
+	writeTextObjectForEdit = func(ctx context.Context, bucket string, objectKey string, text string, contentType string) (minio.ObjectInfo, error) {
+		if bucket != "documents" || objectKey != "campaign/doc-1.md" {
+			t.Fatalf("unexpected edit target: %s/%s", bucket, objectKey)
+		}
+		if text != "edited notes" {
+			t.Fatalf("unexpected text payload: %q", text)
+		}
+		if contentType != "text/markdown; charset=utf-8" {
+			t.Fatalf("unexpected content type: %q", contentType)
+		}
+		return minio.ObjectInfo{
+			Key:          objectKey,
+			ETag:         "etag-edited",
+			Size:         int64(len(text)),
+			LastModified: modified,
+			VersionID:    "version-edited",
+		}, nil
+	}
+
+	var queued documentEvent
+	queueDocument = func(ctx context.Context, event documentEvent) error {
+		queued = event
+		return nil
+	}
+
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/documents/edit-text", `{"documentId":"doc-1","text":"edited notes","metadata":{"summary":"edited"}}`)
+	editTextDocumentHandler(recorder, request)
+
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("expected status %d, got %d", http.StatusAccepted, recorder.Code)
+	}
+	if queued.DocumentID != "doc-1" || queued.ProcessingVersion != 3 {
+		t.Fatalf("expected document to be queued at version 3, got %+v", queued)
+	}
+	if queued.ETag != "etag-edited" || queued.VersionMarker != "version-edited" || queued.SizeBytes != int64(len("edited notes")) {
+		t.Fatalf("expected edited object metadata in queued event, got %+v", queued)
+	}
+	if queued.Metadata["source"] != "session-notes" || queued.Metadata["summary"] != "edited" || queued.Metadata["editedBy"] != "orchestrator.editText" {
+		t.Fatalf("expected merged edit metadata, got %+v", queued.Metadata)
+	}
+
+	var response editTextDocumentResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected edit response: %v", err)
+	}
+	if response.Status != "queued" || response.ProcessingVersion != 3 || response.ETag != "etag-edited" {
+		t.Fatalf("unexpected edit response: %+v", response)
+	}
+}
+
+func TestEditTextDocumentHandlerAllowsEmptyText(t *testing.T) {
+	originalLookup := lookupReprocessRecord
+	originalWrite := writeTextObjectForEdit
+	originalQueue := queueDocument
+	t.Cleanup(func() {
+		lookupReprocessRecord = originalLookup
+		writeTextObjectForEdit = originalWrite
+		queueDocument = originalQueue
+	})
+
+	lookupReprocessRecord = func(ctx context.Context, documentID string) (reprocessDocumentRecord, bool, error) {
+		return reprocessDocumentRecord{
+			DocumentID:               documentID,
+			Bucket:                   "documents",
+			ObjectKey:                "campaign/doc-1.txt",
+			SourceURI:                "s3://documents/campaign/doc-1.txt",
+			ContentType:              "text/plain",
+			DesiredProcessingVersion: 1,
+			CurrentProcessingVersion: 1,
+		}, true, nil
+	}
+	writeTextObjectForEdit = func(ctx context.Context, bucket string, objectKey string, text string, contentType string) (minio.ObjectInfo, error) {
+		if text != "" {
+			t.Fatalf("expected empty text edit, got %q", text)
+		}
+		return minio.ObjectInfo{Key: objectKey, Size: 0}, nil
+	}
+	queueDocument = func(ctx context.Context, event documentEvent) error {
+		return nil
+	}
+
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/documents/edit-text", `{"documentId":"doc-1","text":""}`)
+	editTextDocumentHandler(recorder, request)
+
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("expected status %d, got %d", http.StatusAccepted, recorder.Code)
+	}
+}
+
+func TestEditTextDocumentHandlerValidatesText(t *testing.T) {
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/documents/edit-text", `{"documentId":"doc-1"}`)
+	editTextDocumentHandler(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, recorder.Code)
+	}
+}
+
+func TestEditTextDocumentHandlerRejectsUnsupportedInventory(t *testing.T) {
+	originalLookup := lookupReprocessRecord
+	t.Cleanup(func() {
+		lookupReprocessRecord = originalLookup
+	})
+
+	lookupReprocessRecord = func(ctx context.Context, documentID string) (reprocessDocumentRecord, bool, error) {
+		return reprocessDocumentRecord{
+			DocumentID:               documentID,
+			Bucket:                   "documents",
+			ObjectKey:                "campaign/map.pdf",
+			SourceURI:                "s3://documents/campaign/map.pdf",
+			ContentType:              "application/pdf",
+			DesiredProcessingVersion: 1,
+			CurrentProcessingVersion: 0,
+		}, true, nil
+	}
+
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/documents/edit-text", `{"documentId":"doc-1","text":"edited"}`)
+	editTextDocumentHandler(recorder, request)
+
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("expected status %d, got %d", http.StatusConflict, recorder.Code)
+	}
+}
+
 func TestReprocessDocumentHandlerQueuesNextVersion(t *testing.T) {
 	originalLookup := lookupReprocessRecord
 	originalQueue := queueDocument

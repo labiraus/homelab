@@ -51,6 +51,7 @@ The live MinIO shape now supports:
 
 - `documents.scanBucket` for orchestrator-backed bucket inventory reconciliation and queueing of new or changed text objects
 - `documents.curation.update` for orchestrator-backed curation of document inventory metadata
+- `documents.editText` for orchestrator-backed text-object edits that queue a newer processing version
 - `documents.reprocess` for orchestrator-backed requeueing of an existing inventory document at a newer processing version
 - `documents.inventory.list` for Postgres-backed document inventory, curated metadata, and processing-state reads
 - `documents.search` for pgvector semantic search over the current processed chunk version, including citation objects with source URI and chunk identity

@@ -67,6 +67,17 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 		t.Fatalf("expected curation tool to proxy to orchestrator, got %q", curationTool.Meta.ExecutionMode)
 	}
 
+	editTool := findToolInManifest(t, manifest, "documents.editText")
+	if editTool.Meta.Lifecycle != manifestLifecycleLive {
+		t.Fatalf("expected live edit tool lifecycle, got %q", editTool.Meta.Lifecycle)
+	}
+	if editTool.Meta.ExecutionMode != manifestExecutionModeHTTPProxy {
+		t.Fatalf("expected edit tool to proxy to orchestrator, got %q", editTool.Meta.ExecutionMode)
+	}
+	if editTool.Annotations == nil || !editTool.Annotations.DestructiveHint {
+		t.Fatalf("expected edit tool to be marked destructive, got %#v", editTool.Annotations)
+	}
+
 	reprocessTool := findToolInManifest(t, manifest, "documents.reprocess")
 	if reprocessTool.Meta.Lifecycle != manifestLifecycleLive {
 		t.Fatalf("expected live reprocess tool lifecycle, got %q", reprocessTool.Meta.Lifecycle)
@@ -864,6 +875,53 @@ func TestProxyAPIRequestDefaultsToOrchestratorService(t *testing.T) {
 	}
 	if body != `{"status":"queued"}` {
 		t.Fatalf("expected queued response body, got %q", body)
+	}
+}
+
+func TestHandleToolsCallProxiesDocumentEditText(t *testing.T) {
+	previous := proxyOperationRequest
+	t.Cleanup(func() {
+		proxyOperationRequest = previous
+	})
+
+	proxyOperationRequest = func(ctx context.Context, r *http.Request, method string, path string, body any) (string, string, *jsonRPCError) {
+		if method != http.MethodPost {
+			t.Fatalf("expected POST, got %q", method)
+		}
+		if path != "/documents/edit-text" {
+			t.Fatalf("expected edit-text path, got %q", path)
+		}
+		bodyMap, ok := body.(map[string]any)
+		if !ok {
+			t.Fatalf("expected proxy body map, got %#v", body)
+		}
+		if bodyMap["documentId"] != "doc-1" || bodyMap["text"] != "edited notes" {
+			t.Fatalf("unexpected proxy body: %#v", bodyMap)
+		}
+		return "application/json", `{"status":"queued","documentId":"doc-1","processingVersion":3}`, nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "documents.editText",
+			"arguments": map[string]any{
+				"body": map[string]any{
+					"documentId": "doc-1",
+					"text":       "edited notes",
+				},
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful tool response, got %#v", responseBody)
 	}
 }
 
