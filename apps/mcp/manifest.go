@@ -50,29 +50,35 @@ var capabilityCatalog = []manifestCapabilitySource{
 				},
 				documentSubmitSchema(),
 			),
-			plannedTool(
+			liveTool(
 				"documents.scanBucket",
 				"scanDocumentsBucket",
 				http.MethodPost,
 				"/documents/scan-bucket",
 				"Scan the documents bucket and reconcile inventory into the document control plane.",
 				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendOrchestrator,
+					ExecutionMode: manifestExecutionModeHTTPProxy,
+					Path:          "/documents/scan-bucket",
+				},
+				documentScanBucketSchema(),
 			),
-			plannedPrompt(
+			livePrompt(
 				"documents.scanBucket.plan",
 				"scanDocumentsBucketPlan",
 				"/prompts/documents/scan-bucket-plan",
-				"Describe the planned bucket-reconciliation flow that will scan MinIO and upsert document inventory into Postgres.",
+				"Describe the bucket-reconciliation flow that scans MinIO and upserts document inventory into Postgres.",
 				false,
 				[]manifestPromptArgument{
-					{Name: "prefix", Description: "Optional MinIO prefix to constrain the future scan scope."},
+					{Name: "prefix", Description: "Optional MinIO prefix to constrain the scan scope."},
 				},
 				[]manifestPromptMessage{
 					{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Plan the future `documents.scanBucket` workflow for the Labiraus MCP surface. The end state should scan the external MinIO documents bucket, optionally constrain reconciliation to the `{{prefix}}` prefix, upsert control-plane inventory into Postgres, and only then decide whether processor work should be queued.",
+							Text: "Use the live `documents.scanBucket` tool on Labiraus to reconcile the external MinIO documents bucket. Optionally constrain reconciliation to the `{{prefix}}` prefix. The scan upserts control-plane inventory into Postgres, marks non-text objects as unsupported, and queues new or changed `text/*` objects for processor work.",
 						},
 					},
 				},
@@ -699,6 +705,24 @@ func documentSubmitSchema() *manifestSchema {
 			},
 		},
 		Required: []string{"body"},
+	}
+}
+
+func documentScanBucketSchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"body": {
+				Type:        "object",
+				Description: "Bucket reconciliation request.",
+				Properties: map[string]manifestSchema{
+					"bucket":            {Type: "string", Description: "Optional bucket name. Defaults to the configured documents bucket."},
+					"prefix":            {Type: "string", Description: "Optional object prefix to scan."},
+					"maxKeys":           {Type: "integer", Description: "Optional maximum number of objects to scan."},
+					"processingVersion": {Type: "integer", Description: "Optional desired processing version for queued text documents."},
+				},
+			},
+		},
 	}
 }
 

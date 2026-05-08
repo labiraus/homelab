@@ -51,9 +51,12 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 		t.Fatalf("expected folder listing tool to be marked read-only, got %#v", listTool.Annotations)
 	}
 
-	plannedTool := findToolInManifest(t, manifest, "documents.scanBucket")
-	if plannedTool.Meta.Lifecycle != manifestLifecyclePlanned {
-		t.Fatalf("expected planned tool lifecycle, got %q", plannedTool.Meta.Lifecycle)
+	scanTool := findToolInManifest(t, manifest, "documents.scanBucket")
+	if scanTool.Meta.Lifecycle != manifestLifecycleLive {
+		t.Fatalf("expected live scan tool lifecycle, got %q", scanTool.Meta.Lifecycle)
+	}
+	if scanTool.Meta.ExecutionMode != manifestExecutionModeHTTPProxy {
+		t.Fatalf("expected scan tool to proxy to orchestrator, got %q", scanTool.Meta.ExecutionMode)
 	}
 
 	template := findResourceTemplateInManifest(t, manifest, "minio.documents.object")

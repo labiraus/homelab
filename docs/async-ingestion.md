@@ -33,6 +33,8 @@ The initial inventory record should capture:
 
 At this stage, the important outcome is durable document state in Postgres, not immediate extraction.
 
+The current live scan endpoint is `POST /documents/scan-bucket`, also exposed through MCP as the `documents.scanBucket` tool. It accepts optional `bucket`, `prefix`, `maxKeys`, and `processingVersion` fields. Non-text objects are inventoried with status `unsupported`; unchanged known objects keep their current lifecycle status while refreshing reconciliation metadata.
+
 ### Phase 2
 
 When `orchestrator` determines a document is new, changed, or needs reprocessing, it emits a NATS JetStream job.
@@ -45,6 +47,8 @@ The current request-driven slice is:
 - `orchestrator` upserts the row in `rag.documents` as `pending`
 - the same request flow publishes a JetStream job before committing
 - if publish fails, the pending-row write is rolled back with the request
+
+The current scan-driven slice uses the same queue path for new or changed `text/*` objects discovered during bucket reconciliation.
 
 The current notification pattern on top of that job flow is:
 

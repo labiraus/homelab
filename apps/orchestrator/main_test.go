@@ -6,6 +6,9 @@ import (
 	"errors"
 	"net/http"
 	"testing"
+	"time"
+
+	"github.com/minio/minio-go/v7"
 )
 
 func TestDocumentsHandlerValidatesPayload(t *testing.T) {
@@ -221,5 +224,188 @@ func TestQueuePendingDocumentIgnoresLifecyclePublishFailureAfterCommit(t *testin
 	})
 	if err != nil {
 		t.Fatalf("expected queue to succeed when lifecycle publish fails: %v", err)
+	}
+}
+
+func TestScanBucketQueuesNewTextObjectsAndMarksUnsupported(t *testing.T) {
+	originalList := listBucketObjectsForScan
+	originalFind := findInventoryRecord
+	originalUpsert := upsertInventoryRecord
+	originalQueue := queueDocument
+	t.Cleanup(func() {
+		listBucketObjectsForScan = originalList
+		findInventoryRecord = originalFind
+		upsertInventoryRecord = originalUpsert
+		queueDocument = originalQueue
+	})
+
+	listBucketObjectsForScan = func(ctx context.Context, bucket string, prefix string, maxKeys int) ([]minio.ObjectInfo, error) {
+		if bucket != "documents" {
+			t.Fatalf("expected documents bucket, got %q", bucket)
+		}
+		if prefix != "campaign/" {
+			t.Fatalf("expected campaign prefix, got %q", prefix)
+		}
+		return []minio.ObjectInfo{
+			{
+				Key:          "campaign/notes.md",
+				ETag:         "etag-1",
+				Size:         128,
+				LastModified: time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC),
+			},
+			{
+				Key:         "campaign/map.pdf",
+				ContentType: "application/pdf",
+				ETag:        "etag-2",
+				Size:        256,
+			},
+		}, nil
+	}
+	findInventoryRecord = func(ctx context.Context, bucket string, objectKey string) (documentInventoryRecord, bool, error) {
+		return documentInventoryRecord{}, false, nil
+	}
+
+	var unsupported []documentEvent
+	upsertInventoryRecord = func(ctx context.Context, event documentEvent, status string, preserveStatus bool) error {
+		if status != "unsupported" {
+			t.Fatalf("expected unsupported status, got %q", status)
+		}
+		if preserveStatus {
+			t.Fatal("expected unsupported upsert to overwrite status")
+		}
+		unsupported = append(unsupported, event)
+		return nil
+	}
+
+	var queued []documentEvent
+	queueDocument = func(ctx context.Context, event documentEvent) error {
+		queued = append(queued, event)
+		return nil
+	}
+
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/documents/scan-bucket", `{"prefix":"/campaign","maxKeys":20}`)
+	scanBucketHandler(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if len(queued) != 1 {
+		t.Fatalf("expected one queued document, got %+v", queued)
+	}
+	if queued[0].DocumentID != "s3://documents/campaign/notes.md" {
+		t.Fatalf("expected source URI document id, got %q", queued[0].DocumentID)
+	}
+	if queued[0].ContentType != "text/markdown; charset=utf-8" {
+		t.Fatalf("expected markdown content type, got %q", queued[0].ContentType)
+	}
+	if len(unsupported) != 1 || unsupported[0].ObjectKey != "campaign/map.pdf" {
+		t.Fatalf("expected pdf to be marked unsupported, got %+v", unsupported)
+	}
+
+	var response scanBucketResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected scan response: %v", err)
+	}
+	if response.Scanned != 2 || response.Created != 2 || response.Queued != 1 || response.Unsupported != 1 {
+		t.Fatalf("unexpected scan response: %+v", response)
+	}
+}
+
+func TestScanBucketSkipsUnchangedInventory(t *testing.T) {
+	originalList := listBucketObjectsForScan
+	originalFind := findInventoryRecord
+	originalUpsert := upsertInventoryRecord
+	originalQueue := queueDocument
+	t.Cleanup(func() {
+		listBucketObjectsForScan = originalList
+		findInventoryRecord = originalFind
+		upsertInventoryRecord = originalUpsert
+		queueDocument = originalQueue
+	})
+
+	modified := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	listBucketObjectsForScan = func(ctx context.Context, bucket string, prefix string, maxKeys int) ([]minio.ObjectInfo, error) {
+		return []minio.ObjectInfo{
+			{
+				Key:          "campaign/notes.txt",
+				ContentType:  "text/plain",
+				ETag:         "etag-1",
+				Size:         128,
+				LastModified: modified,
+			},
+		}, nil
+	}
+	findInventoryRecord = func(ctx context.Context, bucket string, objectKey string) (documentInventoryRecord, bool, error) {
+		return documentInventoryRecord{
+			DocumentID:               "existing-doc",
+			ETag:                     "etag-1",
+			SizeBytes:                128,
+			LastModified:             modified,
+			HasLastModified:          true,
+			Status:                   "processed",
+			CurrentProcessingVersion: 1,
+		}, true, nil
+	}
+
+	upserted := false
+	upsertInventoryRecord = func(ctx context.Context, event documentEvent, status string, preserveStatus bool) error {
+		upserted = true
+		if event.DocumentID != "existing-doc" {
+			t.Fatalf("expected existing document id, got %q", event.DocumentID)
+		}
+		if !preserveStatus {
+			t.Fatal("expected unchanged inventory upsert to preserve status")
+		}
+		return nil
+	}
+	queueDocument = func(ctx context.Context, event documentEvent) error {
+		t.Fatalf("did not expect unchanged document to be queued: %+v", event)
+		return nil
+	}
+
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/documents/scan-bucket", `{}`)
+	scanBucketHandler(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !upserted {
+		t.Fatal("expected unchanged inventory to refresh reconciliation timestamp")
+	}
+
+	var response scanBucketResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected scan response: %v", err)
+	}
+	if response.Skipped != 1 || response.Queued != 0 {
+		t.Fatalf("unexpected scan response: %+v", response)
+	}
+}
+
+func TestDocumentNeedsQueueDoesNotDuplicatePendingWork(t *testing.T) {
+	modified := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	record := documentInventoryRecord{
+		ETag:                     "etag-1",
+		SizeBytes:                128,
+		LastModified:             modified,
+		HasLastModified:          true,
+		Status:                   "pending",
+		DesiredProcessingVersion: 1,
+		CurrentProcessingVersion: 0,
+	}
+	event := documentEvent{
+		ETag:              "etag-1",
+		SizeBytes:         128,
+		LastModified:      modified.Format(time.RFC3339Nano),
+		ProcessingVersion: 1,
+	}
+
+	if documentNeedsQueue(record, event) {
+		t.Fatal("expected unchanged pending work not to be queued again")
+	}
+
+	event.ETag = "etag-2"
+	if !documentNeedsQueue(record, event) {
+		t.Fatal("expected changed pending source to be queued")
 	}
 }

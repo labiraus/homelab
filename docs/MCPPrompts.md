@@ -41,15 +41,17 @@ This live ingestion path currently supports `text/*` documents only.
 
 ### `documents.scanBucket.plan`
 
-- lifecycle: `planned`
-- purpose: describe the future MinIO scan and Postgres reconciliation flow
+- lifecycle: `live`
+- purpose: describe the MinIO scan and Postgres reconciliation flow
 - arguments:
   - `prefix` optional
 
 Use this when:
 
-- planning the first bucket-reconciliation implementation
-- reviewing how the future `documents.scanBucket` tool should behave
+- preparing a live `documents.scanBucket` call
+- reviewing how bucket reconciliation decides what should be queued
+
+The live scan upserts document inventory rows, marks non-`text/*` objects as `unsupported`, preserves unchanged known object status, and queues new or changed text objects through the orchestrator/processor path.
 
 ### `postgres.auth.userCount.prompt`
 

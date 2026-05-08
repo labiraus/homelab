@@ -38,6 +38,7 @@ The repo already includes:
 - the `ui`, `external`, `mcp`, `orchestrator`, and `processor` apps under `apps/`
 - SQL bootstrap under `sql/`
 - external MinIO management through Ansible on `svartalfheim`
+- orchestrator-backed `documents.scanBucket` reconciliation that inventories MinIO objects into Postgres and queues new or changed text objects for processing
 
 Documentation must stay aligned with implementation as these pieces evolve.
 

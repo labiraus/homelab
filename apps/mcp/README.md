@@ -48,6 +48,7 @@ If Postgres or MinIO configuration is omitted, the service still starts and adve
 
 The live MinIO shape now supports:
 
+- `documents.scanBucket` for orchestrator-backed bucket inventory reconciliation and queueing of new or changed text objects
 - `minio.documents.listFolder` for folder-and-file views of a prefix
 - `minio.documents.listObjects` for flat object inventory
 - `homelab://mcp/minio/documents/objects/{objectKey}` for object reads, including binary-safe blob responses

@@ -82,12 +82,12 @@ Current behavior note:
 - Public API entry point: `apps/external/main.go`
 - MCP entry point: `apps/mcp/main.go`
 - Orchestrator entry point: `apps/orchestrator/main.go`
-- Orchestrator request and async contract shapes: `apps/orchestrator/documents.go`
+- Orchestrator request, scan, and async contract shapes: `apps/orchestrator/documents.go` and `apps/orchestrator/scan.go`
 - Shared HTTP server and probes: `apps/pkg/api/api.go`
 - Logging and readiness wiring: `apps/pkg/base/base.go`
 - Metrics: `apps/pkg/prometheusutil/prometheus.go`
 - NATS JetStream helpers: `apps/pkg/natsutil/nats.go`
-- S3 / MinIO helpers: `apps/pkg/s3util/s3.go`
+- S3 / MinIO helpers: `apps/pkg/minioutil/minio.go`
 - Postgres helpers: `apps/pkg/postgresutil/postgres.go`
 
 Current behavior note:
