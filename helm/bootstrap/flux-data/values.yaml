@@ -50,6 +50,25 @@ releases:
   - name: postgres
     type: oci
     timeout: 30m
+    values:
+      networkPolicy:
+        allowedClients:
+          - namespace: homelab
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: homelab-external
+          - namespace: homelab
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: homelab-processor
+          - namespace: homelab
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: homelab-orchestrator
+          - namespace: homelab
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: homelab-mcp
     dependsOn:
       - longhorn-system
     dependencies:
