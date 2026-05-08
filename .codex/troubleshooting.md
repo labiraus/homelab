@@ -138,6 +138,7 @@ ss -ant | grep ':6443' | awk '{print $5}' | sed 's/.*ffff://; s/]//; s/\[//' | c
   - `/.well-known/mcp.json`
   - `/.well-known/oauth-protected-resource`
 - If Codex/RMCP can `initialize` against `/mcp` but then reports that the transport closed while sending `notifications/initialized`, check that Streamable HTTP one-way messages return `202 Accepted` with an empty body. A JSON-RPC ack body for notifications can be treated as an unexpected response and close the client transport.
+- For the same symptom, also check `GET /mcp` with `Accept: text/event-stream`: the stream should open without sending a synthetic empty `data:` event, because strict clients may parse that as an invalid JSON-RPC server message.
 
 ### Recreated workers now need post-provision Ansible join
 

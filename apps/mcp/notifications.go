@@ -102,10 +102,6 @@ func serveSessionStreamWithOptions(w http.ResponseWriter, r *http.Request, sessi
 		if _, err := fmt.Fprintf(w, "event: endpoint\ndata: %s\n\n", options.Endpoint); err != nil {
 			return err
 		}
-	} else {
-		if _, err := fmt.Fprintf(w, "id: %d\ndata:\n\n", nextMCPEventID()); err != nil {
-			return err
-		}
 	}
 	flusher.Flush()
 

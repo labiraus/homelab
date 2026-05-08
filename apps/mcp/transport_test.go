@@ -146,6 +146,66 @@ func assertRecorderAcceptedNoBody(t *testing.T, recorder *httptest.ResponseRecor
 	}
 }
 
+type cancelOnFlushRecorder struct {
+	*httptest.ResponseRecorder
+	cancel context.CancelFunc
+}
+
+func (recorder *cancelOnFlushRecorder) Flush() {
+	recorder.ResponseRecorder.Flush()
+	if recorder.cancel != nil {
+		recorder.cancel()
+		recorder.cancel = nil
+	}
+}
+
+func TestStreamableHTTPGetDoesNotEmitSyntheticEmptyEvent(t *testing.T) {
+	session := sessionRegistry.create(supportedProtocolVersions[0])
+	ctx, cancel := context.WithCancel(context.Background())
+	request, _ := httptestJSONRequest(t, http.MethodGet, "/mcp", "")
+	request = request.WithContext(ctx)
+	recorder := &cancelOnFlushRecorder{
+		ResponseRecorder: httptest.NewRecorder(),
+		cancel:           cancel,
+	}
+
+	if err := serveSessionStream(recorder, request, session.ID); err != nil {
+		t.Fatalf("expected stream to close cleanly after context cancellation: %v", err)
+	}
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if body := recorder.Body.String(); body != "" {
+		t.Fatalf("expected stream to flush headers without a synthetic event, got body %q", body)
+	}
+}
+
+func TestLegacySSEStillEmitsEndpointEvent(t *testing.T) {
+	session := sessionRegistry.create("2024-11-05")
+	ctx, cancel := context.WithCancel(context.Background())
+	request, _ := httptestJSONRequest(t, http.MethodGet, "/sse", "")
+	request = request.WithContext(ctx)
+	recorder := &cancelOnFlushRecorder{
+		ResponseRecorder: httptest.NewRecorder(),
+		cancel:           cancel,
+	}
+
+	if err := serveSessionStreamWithOptions(recorder, request, session.ID, sessionStreamOptions{
+		Endpoint:        "/messages?sessionId=" + session.ID,
+		UseMessageEvent: true,
+	}); err != nil {
+		t.Fatalf("expected legacy stream to close cleanly after context cancellation: %v", err)
+	}
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if body := recorder.Body.String(); !strings.Contains(body, "event: endpoint\n") || !strings.Contains(body, "/messages?sessionId="+session.ID) {
+		t.Fatalf("expected legacy endpoint event, got body %q", body)
+	}
+}
+
 func TestMCPPostAcceptsLegacyInitializedNotification(t *testing.T) {
 	session := sessionRegistry.create("2024-11-05")
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/initialized"}`)
