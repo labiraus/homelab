@@ -10,9 +10,10 @@ import (
 
 const mcpAllowedOriginsEnv = "MCP_ALLOWED_ORIGINS"
 
-func validateOriginRequest(r *http.Request) (int, *jsonRPCResponse) {
+func prepareOriginResponse(w http.ResponseWriter, r *http.Request, methods []string) (int, *jsonRPCResponse) {
 	origin := strings.TrimSpace(r.Header.Get("Origin"))
 	if origin == "" {
+		applyCORSHeaders(w, r, methods)
 		return 0, nil
 	}
 
@@ -24,21 +25,12 @@ func validateOriginRequest(r *http.Request) (int, *jsonRPCResponse) {
 	allowedOrigins := allowedOrigins(r)
 	for _, allowedOrigin := range allowedOrigins {
 		if sameOrigin(originURL, allowedOrigin) {
+			applyCORSHeaders(w, r, methods)
 			return 0, nil
 		}
 	}
 
 	return http.StatusForbidden, originValidationError()
-}
-
-func prepareOriginResponse(w http.ResponseWriter, r *http.Request, methods []string) (int, *jsonRPCResponse) {
-	status, response := validateOriginRequest(r)
-	if response != nil {
-		return status, response
-	}
-
-	applyCORSHeaders(w, r, methods)
-	return 0, nil
 }
 
 func writeCORSPreflight(w http.ResponseWriter, r *http.Request, methods []string) {
@@ -65,12 +57,12 @@ func applyCORSHeaders(w http.ResponseWriter, r *http.Request, methods []string) 
 		"Authorization",
 		"Content-Type",
 		"Last-Event-ID",
-		mcpProtocolVersionHeader,
-		mcpSessionHeader,
+		"MCP-Protocol-Version",
+		"MCP-Session-Id",
 	}, ", "))
 	w.Header().Set("Access-Control-Expose-Headers", strings.Join([]string{
-		mcpProtocolVersionHeader,
-		mcpSessionHeader,
+		"MCP-Protocol-Version",
+		"MCP-Session-Id",
 		"WWW-Authenticate",
 	}, ", "))
 	w.Header().Set("Access-Control-Max-Age", "3600")
@@ -85,8 +77,9 @@ func writeJSONRPC(w http.ResponseWriter, status int, response *jsonRPCResponse) 
 
 func allowedOrigins(r *http.Request) []*url.URL {
 	configured := strings.TrimSpace(os.Getenv(mcpAllowedOriginsEnv))
+	requestOrigin, _ := url.Parse(requestBaseURL(r))
 	if configured == "" {
-		return []*url.URL{mustParseOrigin(requestBaseURL(r))}
+		return []*url.URL{requestOrigin}
 	}
 
 	origins := []*url.URL{}
@@ -98,14 +91,9 @@ func allowedOrigins(r *http.Request) []*url.URL {
 		origins = append(origins, parsed)
 	}
 	if len(origins) == 0 {
-		return []*url.URL{mustParseOrigin(requestBaseURL(r))}
+		return []*url.URL{requestOrigin}
 	}
 	return origins
-}
-
-func mustParseOrigin(value string) *url.URL {
-	parsed, _ := url.Parse(value)
-	return parsed
 }
 
 func sameOrigin(left *url.URL, right *url.URL) bool {

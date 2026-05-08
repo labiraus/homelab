@@ -135,15 +135,15 @@ func TestMCPPostInitializeReturnsSSEMessageEventAndSession(t *testing.T) {
 	if response.ID != "1" || response.Error != nil {
 		t.Fatalf("expected initialize response with id 1, got %#v", response)
 	}
-	if recorder.Header().Get(mcpSessionHeader) == "" {
-		t.Fatalf("expected initialize response to include %s", mcpSessionHeader)
+	if recorder.Header().Get("MCP-Session-Id") == "" {
+		t.Fatalf("expected initialize response to include %s", "MCP-Session-Id")
 	}
 }
 
 func TestMCPPostAcceptsInitializedNotificationWithoutProtocolHeader(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/initialized"}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
+	request.Header.Set("MCP-Session-Id", session.ID)
 
 	mcpPostAPI(recorder, request)
 
@@ -152,7 +152,7 @@ func TestMCPPostAcceptsInitializedNotificationWithoutProtocolHeader(t *testing.T
 
 func TestMCPPostAcceptsInitializedNotificationWithoutSessionHeader(t *testing.T) {
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/initialized"}`)
-	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+	request.Header.Set("MCP-Protocol-Version", supportedProtocolVersions[0])
 
 	mcpPostAPI(recorder, request)
 
@@ -255,8 +255,8 @@ func TestLegacySSEStillEmitsEndpointEvent(t *testing.T) {
 func TestMCPPostAcceptsLegacyInitializedNotification(t *testing.T) {
 	session := sessionRegistry.create("2024-11-05")
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/initialized"}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -266,8 +266,8 @@ func TestMCPPostAcceptsLegacyInitializedNotification(t *testing.T) {
 func TestMCPPostAcceptsUnknownNotification(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":"1"}}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -277,8 +277,8 @@ func TestMCPPostAcceptsUnknownNotification(t *testing.T) {
 func TestMCPPostAcceptsNotificationWithNullID(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":null,"method":"notifications/initialized"}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -288,8 +288,8 @@ func TestMCPPostAcceptsNotificationWithNullID(t *testing.T) {
 func TestMCPPostAcceptsNotificationWithNonNullID(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"init-note","method":"notifications/initialized"}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -299,8 +299,8 @@ func TestMCPPostAcceptsNotificationWithNonNullID(t *testing.T) {
 func TestMCPPostAcceptsResponseOnlyMessage(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"server-request-1","result":{}}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -309,7 +309,7 @@ func TestMCPPostAcceptsResponseOnlyMessage(t *testing.T) {
 
 func TestMCPPostAcceptsResponseOnlyMessageWithoutSessionHeader(t *testing.T) {
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"server-request-1","result":{}}`)
-	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+	request.Header.Set("MCP-Protocol-Version", supportedProtocolVersions[0])
 
 	mcpPostAPI(recorder, request)
 
@@ -319,8 +319,8 @@ func TestMCPPostAcceptsResponseOnlyMessageWithoutSessionHeader(t *testing.T) {
 func TestMCPPostAcceptsLegacyUnknownNotification(t *testing.T) {
 	session := sessionRegistry.create("2024-11-05")
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":"1"}}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -333,8 +333,8 @@ func TestMCPPostAcceptsOneWayBatch(t *testing.T) {
 		{"jsonrpc":"2.0","method":"notifications/initialized"},
 		{"jsonrpc":"2.0","id":"server-request-1","result":{}}
 	]`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -346,7 +346,7 @@ func TestMCPPostAcceptsOneWayBatchWithoutSessionHeader(t *testing.T) {
 		{"jsonrpc":"2.0","method":"notifications/initialized"},
 		{"jsonrpc":"2.0","id":"server-request-1","result":{}}
 	]`)
-	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+	request.Header.Set("MCP-Protocol-Version", supportedProtocolVersions[0])
 
 	mcpPostAPI(recorder, request)
 
@@ -359,8 +359,8 @@ func TestMCPPostAcceptsOneWayBatchWithNotificationID(t *testing.T) {
 		{"jsonrpc":"2.0","id":null,"method":"notifications/initialized"},
 		{"jsonrpc":"2.0","id":"server-request-1","result":{}}
 	]`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -373,8 +373,8 @@ func TestMCPPostAcceptsLegacyOneWayBatch(t *testing.T) {
 		{"jsonrpc":"2.0","method":"notifications/initialized"},
 		{"jsonrpc":"2.0","id":"server-request-1","result":{}}
 	]`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -384,8 +384,8 @@ func TestMCPPostAcceptsLegacyOneWayBatch(t *testing.T) {
 func TestMCPPostRejectsBatchContainingRequest(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `[{"jsonrpc":"2.0","id":"1","method":"resources/list"}]`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -404,7 +404,7 @@ func TestMCPPostRejectsBatchContainingRequest(t *testing.T) {
 
 func TestMCPPostAcceptsStatelessResourcesListWithoutSessionHeader(t *testing.T) {
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
-	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+	request.Header.Set("MCP-Protocol-Version", supportedProtocolVersions[0])
 
 	mcpPostAPI(recorder, request)
 
@@ -416,7 +416,7 @@ func TestMCPPostAcceptsStatelessResourcesListWithoutSessionHeader(t *testing.T) 
 
 func TestMCPPostReturnsJSONRPCMethodErrorAsSSEMessageEvent(t *testing.T) {
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"unknown/method"}`)
-	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+	request.Header.Set("MCP-Protocol-Version", supportedProtocolVersions[0])
 
 	mcpPostAPI(recorder, request)
 
@@ -428,7 +428,7 @@ func TestMCPPostReturnsJSONRPCMethodErrorAsSSEMessageEvent(t *testing.T) {
 
 func TestMCPPostRejectsSessionBoundSubscribeWithoutSessionHeader(t *testing.T) {
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/subscribe","params":{"uri":"`+documentNotificationResourceURI("doc-1")+`"}}`)
-	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+	request.Header.Set("MCP-Protocol-Version", supportedProtocolVersions[0])
 
 	mcpPostAPI(recorder, request)
 
@@ -448,7 +448,7 @@ func TestMCPPostRejectsSessionBoundSubscribeWithoutSessionHeader(t *testing.T) {
 func TestMCPPostAcceptsSessionRequestWithoutProtocolHeader(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
+	request.Header.Set("MCP-Session-Id", session.ID)
 
 	mcpPostAPI(recorder, request)
 
@@ -461,8 +461,8 @@ func TestMCPPostAcceptsSessionRequestWithoutProtocolHeader(t *testing.T) {
 func TestMCPPostAcceptsSupportedProtocolHeaderDrift(t *testing.T) {
 	session := sessionRegistry.create("2024-11-05")
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", supportedProtocolVersions[0])
 
 	mcpPostAPI(recorder, request)
 
@@ -474,7 +474,7 @@ func TestMCPPostAcceptsSupportedProtocolHeaderDrift(t *testing.T) {
 
 func TestMCPPostRejectsUnsupportedProtocolHeaderWithoutSessionHeader(t *testing.T) {
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
-	request.Header.Set(mcpProtocolVersionHeader, "1999-01-01")
+	request.Header.Set("MCP-Protocol-Version", "1999-01-01")
 
 	mcpPostAPI(recorder, request)
 
@@ -496,8 +496,8 @@ func TestMCPPostRestoresUnknownUUIDSession(t *testing.T) {
 	sessionRegistry.delete(sessionID)
 
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
-	request.Header.Set(mcpSessionHeader, sessionID)
-	request.Header.Set(mcpProtocolVersionHeader, "2025-03-26")
+	request.Header.Set("MCP-Session-Id", sessionID)
+	request.Header.Set("MCP-Protocol-Version", "2025-03-26")
 
 	mcpPostAPI(recorder, request)
 
@@ -517,8 +517,8 @@ func TestValidateSessionRequestRestoresUnknownUUIDForStream(t *testing.T) {
 	sessionRegistry.delete(sessionID)
 
 	request, _ := httptestJSONRequest(t, http.MethodGet, "/mcp", "")
-	request.Header.Set(mcpSessionHeader, sessionID)
-	request.Header.Set(mcpProtocolVersionHeader, "2025-06-18")
+	request.Header.Set("MCP-Session-Id", sessionID)
+	request.Header.Set("MCP-Protocol-Version", "2025-06-18")
 
 	restoredSessionID, session, status, response := validateSessionRequest(request)
 
@@ -535,8 +535,8 @@ func TestValidateSessionRequestRestoresUnknownUUIDForStream(t *testing.T) {
 
 func TestMCPPostRejectsMalformedUnknownSessionID(t *testing.T) {
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
-	request.Header.Set(mcpSessionHeader, "not-a-session-id")
-	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+	request.Header.Set("MCP-Session-Id", "not-a-session-id")
+	request.Header.Set("MCP-Protocol-Version", supportedProtocolVersions[0])
 
 	mcpPostAPI(recorder, request)
 
@@ -556,8 +556,8 @@ func TestMCPPostRejectsMalformedUnknownSessionID(t *testing.T) {
 func TestMCPPostRejectsUnsupportedProtocolHeader(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, "1999-01-01")
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", "1999-01-01")
 
 	mcpPostAPI(recorder, request)
 
@@ -577,7 +577,7 @@ func TestMCPPostRejectsUnsupportedProtocolHeader(t *testing.T) {
 func TestMCPDeleteTerminatesSession(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodDelete, "/mcp", "")
-	request.Header.Set(mcpSessionHeader, session.ID)
+	request.Header.Set("MCP-Session-Id", session.ID)
 
 	mcpDeleteAPI(recorder, request)
 

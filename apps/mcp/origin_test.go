@@ -42,8 +42,8 @@ func TestMCPGetRejectsDisallowedOrigin(t *testing.T) {
 	request.Host = "mcp.labiraus.com"
 	request.Header.Set("X-Forwarded-Proto", "https")
 	request.Header.Set("Accept", "text/event-stream")
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 	request.Header.Set("Origin", "https://evil.example")
 
 	mcpGetAPI(recorder, request)
