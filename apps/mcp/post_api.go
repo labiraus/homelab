@@ -86,7 +86,7 @@ func mcpPostAPI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if accepted {
-			writeJSONAck(w)
+			w.WriteHeader(http.StatusAccepted)
 			return
 		}
 
@@ -124,7 +124,13 @@ func mcpPostAPI(w http.ResponseWriter, r *http.Request) {
 
 	hasID := jsonRPCMessageHasID(body)
 	if req.Method == "" {
-		writeJSONAck(w)
+		_, _, status, response := validateSessionRequest(r)
+		if response != nil {
+			writeJSONRPC(w, status, response)
+			return
+		}
+
+		w.WriteHeader(http.StatusAccepted)
 		return
 	}
 
@@ -137,7 +143,7 @@ func mcpPostAPI(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		writeJSONAck(w)
+		w.WriteHeader(http.StatusAccepted)
 		return
 	}
 
@@ -254,12 +260,4 @@ func jsonRPCMessageHasID(body []byte) bool {
 
 func isJSONRPCNotificationMethod(method string) bool {
 	return strings.HasPrefix(method, "notifications/")
-}
-
-func writeJSONAck(w http.ResponseWriter) {
-	writeJSONRPC(w, http.StatusOK, &jsonRPCResponse{
-		JSONRPC: "2.0",
-		ID:      nil,
-		Result:  map[string]any{},
-	})
 }

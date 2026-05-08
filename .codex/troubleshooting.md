@@ -137,6 +137,7 @@ ss -ant | grep ':6443' | awk '{print $5}' | sed 's/.*ffff://; s/]//; s/\[//' | c
 - If `mcp` discovery looks broken even after auth is fixed, make sure the shared host route also publishes:
   - `/.well-known/mcp.json`
   - `/.well-known/oauth-protected-resource`
+- If Codex/RMCP can `initialize` against `/mcp` but then reports that the transport closed while sending `notifications/initialized`, check that Streamable HTTP one-way messages return `202 Accepted` with an empty body. A JSON-RPC ack body for notifications can be treated as an unexpected response and close the client transport.
 
 ### Recreated workers now need post-provision Ansible join
 
