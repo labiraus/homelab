@@ -32,6 +32,7 @@ type queryEmbeddingResponse struct {
 
 type documentSearchRow struct {
 	DocumentID        string
+	SourceURI         string
 	ObjectKey         string
 	ContentType       string
 	ChunkID           int64
@@ -184,6 +185,7 @@ func queryDocumentSearch(
 	query := `
 SELECT
 	d.document_id,
+	d.source_uri,
 	COALESCE(d.object_key, ''),
 	COALESCE(d.content_type, ''),
 	c.id,
@@ -228,6 +230,7 @@ WHERE d.status = 'processed'
 		var row documentSearchRow
 		if err := rows.Scan(
 			&row.DocumentID,
+			&row.SourceURI,
 			&row.ObjectKey,
 			&row.ContentType,
 			&row.ChunkID,
@@ -242,6 +245,7 @@ WHERE d.status = 'processed'
 
 		hit := DocumentSearchHit{
 			DocumentID:        row.DocumentID,
+			SourceURI:         row.SourceURI,
 			ObjectKey:         row.ObjectKey,
 			ContentType:       row.ContentType,
 			ChunkID:           row.ChunkID,
@@ -250,6 +254,7 @@ WHERE d.status = 'processed'
 			ProcessingVersion: row.ProcessingVersion,
 			Distance:          row.Distance,
 			Similarity:        maxSimilarity(row.Distance),
+			Citation:          buildDocumentCitation(row),
 		}
 		if row.LastProcessedAt != nil && !row.LastProcessedAt.IsZero() {
 			hit.LastProcessedAt = row.LastProcessedAt.UTC().Format(time.RFC3339)
@@ -258,6 +263,20 @@ WHERE d.status = 'processed'
 	}
 
 	return hits, rows.Err()
+}
+
+func buildDocumentCitation(row documentSearchRow) *DocumentCitation {
+	source := defaultString(row.SourceURI, row.DocumentID)
+	labelSource := defaultString(row.ObjectKey, row.DocumentID)
+	return &DocumentCitation{
+		ID:                fmt.Sprintf("%s#chunk-%d", source, row.ChunkIndex),
+		Label:             fmt.Sprintf("%s chunk %d", labelSource, row.ChunkIndex),
+		SourceURI:         row.SourceURI,
+		ObjectKey:         row.ObjectKey,
+		ChunkID:           row.ChunkID,
+		ChunkIndex:        row.ChunkIndex,
+		ProcessingVersion: row.ProcessingVersion,
+	}
 }
 
 func embeddingsConfigured() bool {

@@ -151,6 +151,7 @@ Current status:
 
 - `external` exposes `/api/documents/search` for UI retrieval
 - `mcp` exposes `documents.inventory.list` and `documents.search` for agent-facing inventory and semantic retrieval
+- search responses now include citation objects that identify source URI and chunk identity, and the UI renders those citations with source links
 - `mcp` has no currently advertised planned operations in the manifest catalog
 
 ### Phase 5 — Editing, Reprocessing, Citations, And Richer Context
@@ -161,6 +162,12 @@ Deliverables:
 - explicit reprocessing/versioning support
 - citation UX in the UI and API responses
 - richer context assembly and later graph-style or CAG capabilities layered on top of the document/chunk/embedding foundation
+
+Current status:
+
+- `orchestrator` exposes `POST /documents/reprocess` for queueing an existing inventory document at a newer processing version
+- `mcp` exposes that reprocessing flow as `documents.reprocess`
+- `external` and `mcp` search results include citation objects; the UI displays citation labels with source and download actions
 
 ## Near-Term Non-Goals
 

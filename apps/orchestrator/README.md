@@ -10,6 +10,7 @@ The current implementation accepts MinIO-backed document references, reconciles 
 
 - `POST /documents`
 - `POST /documents/scan-bucket`
+- `POST /documents/reprocess`
 - `/readiness`
 - `/liveness`
 
@@ -55,6 +56,20 @@ The scan:
 - marks non-`text/*` objects as `unsupported`
 - preserves status for unchanged known objects while refreshing `last_reconciled_at`
 - queues new or changed `text/*` objects through the same Postgres plus JetStream path as `POST /documents`
+
+## Reprocess Contract
+
+`POST /documents/reprocess` queues an existing inventory row for a newer processing version.
+
+Required fields:
+
+- `documentId`
+
+Optional fields:
+
+- `processingVersion`, defaulting to the next version after the current desired or completed version
+
+The endpoint reads the existing inventory row from Postgres, rejects non-`text/*` documents, preserves the raw MinIO source metadata, and reuses the normal pending-row plus JetStream queue path.
 
 Runtime configuration now expects both Postgres/NATS settings and the standard documents-bucket MinIO settings:
 

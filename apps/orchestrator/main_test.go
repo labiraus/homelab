@@ -83,6 +83,109 @@ func TestDocumentsHandlerRejectsNonTextContentType(t *testing.T) {
 	}
 }
 
+func TestReprocessDocumentHandlerQueuesNextVersion(t *testing.T) {
+	originalLookup := lookupReprocessRecord
+	originalQueue := queueDocument
+	t.Cleanup(func() {
+		lookupReprocessRecord = originalLookup
+		queueDocument = originalQueue
+	})
+
+	lookupReprocessRecord = func(ctx context.Context, documentID string) (reprocessDocumentRecord, bool, error) {
+		if documentID != "doc-1" {
+			t.Fatalf("expected doc-1 lookup, got %q", documentID)
+		}
+		return reprocessDocumentRecord{
+			DocumentID:               "doc-1",
+			Bucket:                   "documents",
+			ObjectKey:                "incoming/doc-1.txt",
+			SourceURI:                "s3://documents/incoming/doc-1.txt",
+			ContentType:              "text/plain",
+			ETag:                     "etag-1",
+			SizeBytes:                12,
+			DesiredProcessingVersion: 1,
+			CurrentProcessingVersion: 1,
+		}, true, nil
+	}
+
+	var queued documentEvent
+	queueDocument = func(ctx context.Context, event documentEvent) error {
+		queued = event
+		return nil
+	}
+
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/documents/reprocess", `{"documentId":"doc-1"}`)
+	reprocessDocumentHandler(recorder, request)
+
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("expected status %d, got %d", http.StatusAccepted, recorder.Code)
+	}
+	if queued.DocumentID != "doc-1" || queued.ProcessingVersion != 2 {
+		t.Fatalf("expected document to be requeued at version 2, got %+v", queued)
+	}
+	if queued.Metadata["reprocessedBy"] != "orchestrator.reprocess" {
+		t.Fatalf("expected reprocess metadata, got %+v", queued.Metadata)
+	}
+
+	var response reprocessDocumentResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected reprocess response: %v", err)
+	}
+	if response.ProcessingVersion != 2 {
+		t.Fatalf("expected response processing version 2, got %+v", response)
+	}
+}
+
+func TestReprocessDocumentHandlerRejectsStaleRequestedVersion(t *testing.T) {
+	originalLookup := lookupReprocessRecord
+	originalQueue := queueDocument
+	t.Cleanup(func() {
+		lookupReprocessRecord = originalLookup
+		queueDocument = originalQueue
+	})
+
+	lookupReprocessRecord = func(ctx context.Context, documentID string) (reprocessDocumentRecord, bool, error) {
+		return reprocessDocumentRecord{
+			DocumentID:               documentID,
+			Bucket:                   "documents",
+			ObjectKey:                "incoming/doc-1.txt",
+			SourceURI:                "s3://documents/incoming/doc-1.txt",
+			ContentType:              "text/plain",
+			DesiredProcessingVersion: 3,
+			CurrentProcessingVersion: 2,
+		}, true, nil
+	}
+	queueDocument = func(ctx context.Context, event documentEvent) error {
+		t.Fatalf("did not expect stale version to be queued: %+v", event)
+		return nil
+	}
+
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/documents/reprocess", `{"documentId":"doc-1","processingVersion":3}`)
+	reprocessDocumentHandler(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, recorder.Code)
+	}
+}
+
+func TestReprocessDocumentHandlerReturnsNotFound(t *testing.T) {
+	originalLookup := lookupReprocessRecord
+	t.Cleanup(func() {
+		lookupReprocessRecord = originalLookup
+	})
+
+	lookupReprocessRecord = func(ctx context.Context, documentID string) (reprocessDocumentRecord, bool, error) {
+		return reprocessDocumentRecord{}, false, nil
+	}
+
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/documents/reprocess", `{"documentId":"missing-doc"}`)
+	reprocessDocumentHandler(recorder, request)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, recorder.Code)
+	}
+}
+
 func TestQueuePendingDocumentDoesNotCommitOnPublishFailure(t *testing.T) {
 	originalRunTx := runDocumentTx
 	originalUpsert := upsertPendingRecord

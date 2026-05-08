@@ -64,6 +64,20 @@ var capabilityCatalog = []manifestCapabilitySource{
 				},
 				documentScanBucketSchema(),
 			),
+			liveTool(
+				"documents.reprocess",
+				"reprocessDocument",
+				http.MethodPost,
+				"/documents/reprocess",
+				"Queue an existing inventory document for a newer processing version.",
+				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendOrchestrator,
+					ExecutionMode: manifestExecutionModeHTTPProxy,
+					Path:          "/documents/reprocess",
+				},
+				documentReprocessSchema(),
+			),
 			livePrompt(
 				"documents.scanBucket.plan",
 				"scanDocumentsBucketPlan",
@@ -106,7 +120,7 @@ var capabilityCatalog = []manifestCapabilitySource{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.search` tool on Labiraus with query `{{query}}`. If a prefix is useful, set `prefix` to `{{prefix}}`. Results come from pgvector similarity search over processed chunks and include document IDs, object keys, chunk text, scores, and processing versions.",
+							Text: "Use the live `documents.search` tool on Labiraus with query `{{query}}`. If a prefix is useful, set `prefix` to `{{prefix}}`. Results come from pgvector similarity search over processed chunks and include document IDs, object keys, chunk text, scores, processing versions, and citation objects that identify the source URI plus chunk.",
 						},
 					},
 				},
@@ -786,6 +800,24 @@ func documentScanBucketSchema() *manifestSchema {
 				},
 			},
 		},
+	}
+}
+
+func documentReprocessSchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"body": {
+				Type:        "object",
+				Description: "Existing document reprocessing request.",
+				Properties: map[string]manifestSchema{
+					"documentId":        {Type: "string", Description: "Existing document identifier from inventory or search results."},
+					"processingVersion": {Type: "integer", Description: "Optional explicit processing version. Defaults to the next version after the current desired version."},
+				},
+				Required: []string{"documentId"},
+			},
+		},
+		Required: []string{"body"},
 	}
 }
 

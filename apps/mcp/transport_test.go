@@ -59,6 +59,14 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 		t.Fatalf("expected scan tool to proxy to orchestrator, got %q", scanTool.Meta.ExecutionMode)
 	}
 
+	reprocessTool := findToolInManifest(t, manifest, "documents.reprocess")
+	if reprocessTool.Meta.Lifecycle != manifestLifecycleLive {
+		t.Fatalf("expected live reprocess tool lifecycle, got %q", reprocessTool.Meta.Lifecycle)
+	}
+	if reprocessTool.Meta.ExecutionMode != manifestExecutionModeHTTPProxy {
+		t.Fatalf("expected reprocess tool to proxy to orchestrator, got %q", reprocessTool.Meta.ExecutionMode)
+	}
+
 	searchTool := findToolInManifest(t, manifest, "documents.search")
 	if searchTool.Meta.ExecutionMode != manifestExecutionModeDocumentSearch {
 		t.Fatalf("expected document search execution mode, got %q", searchTool.Meta.ExecutionMode)

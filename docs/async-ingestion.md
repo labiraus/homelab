@@ -50,6 +50,8 @@ The current request-driven slice is:
 
 The current scan-driven slice uses the same queue path for new or changed `text/*` objects discovered during bucket reconciliation.
 
+The current reprocess-driven slice also uses that queue path. `POST /documents/reprocess`, exposed through MCP as the `documents.reprocess` tool, accepts an existing `documentId` and optional `processingVersion`; when the version is omitted, `orchestrator` queues the next processing version after the current desired or completed version.
+
 The current notification pattern on top of that job flow is:
 
 - emit `documents.events.processor.queued` when the document is queued for processor execution
@@ -115,6 +117,6 @@ Later phases can add:
 
 - richer retrieval APIs beyond the current `external` search and MCP inventory/search tools
 - an ingest-boundary emitter for `documents.events.minio.stored`
-- reprocessing and versioned derivations
-- citation UX in the UI
+- richer versioned-derivation history beyond the current explicit reprocess queue path
+- richer citation UX beyond the current search-result citation labels and source links
 - richer context assembly and graph-style capabilities on top of the same document foundation

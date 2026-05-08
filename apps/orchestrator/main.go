@@ -60,6 +60,7 @@ func main() {
 	prometheusutil.Start(mux)
 	mux.HandleFunc("/documents", documentsHandler)
 	mux.HandleFunc("/documents/scan-bucket", scanBucketHandler)
+	mux.HandleFunc("/documents/reprocess", reprocessDocumentHandler)
 
 	done := api.Start(ctx, mux, 8080)
 

@@ -21,6 +21,8 @@ The current ingestion slice is reference-based:
 - `processor` reads the raw object from MinIO and writes chunks plus embeddings back to Postgres
 - `external` exposes semantic search for the UI
 - `mcp` exposes document inventory and semantic search for agents
+- `orchestrator` exposes explicit reprocessing for existing inventory documents through the same queue path
+- retrieval responses include citation objects that identify the source URI and chunk identity for each match
 - `local-embeddings` uses a built-in deterministic 384-dimensional embedding function when no external embedding endpoint is configured
 
 ```mermaid

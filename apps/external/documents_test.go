@@ -196,6 +196,7 @@ func TestDocumentSearchHandlerReturnsRankedHits(t *testing.T) {
 		return []DocumentSearchHit{
 			{
 				DocumentID:        "doc-1",
+				SourceURI:         "s3://documents/scripts/refresh-kubeconfig.sh",
 				ObjectKey:         "scripts/refresh-kubeconfig.sh",
 				ContentType:       "text/x-shellscript",
 				ChunkID:           42,
@@ -205,6 +206,15 @@ func TestDocumentSearchHandlerReturnsRankedHits(t *testing.T) {
 				Distance:          0.08,
 				Similarity:        0.92,
 				LastProcessedAt:   "2026-04-14T12:00:00Z",
+				Citation: &DocumentCitation{
+					ID:                "s3://documents/scripts/refresh-kubeconfig.sh#chunk-0",
+					Label:             "scripts/refresh-kubeconfig.sh chunk 0",
+					SourceURI:         "s3://documents/scripts/refresh-kubeconfig.sh",
+					ObjectKey:         "scripts/refresh-kubeconfig.sh",
+					ChunkID:           42,
+					ChunkIndex:        0,
+					ProcessingVersion: 1,
+				},
 			},
 		}, nil
 	}
@@ -232,6 +242,9 @@ func TestDocumentSearchHandlerReturnsRankedHits(t *testing.T) {
 	}
 	if response.Hits[0].DocumentID != "doc-1" {
 		t.Fatalf("expected doc-1 hit, got %#v", response.Hits[0])
+	}
+	if response.Hits[0].Citation == nil || response.Hits[0].Citation.Label != "scripts/refresh-kubeconfig.sh chunk 0" {
+		t.Fatalf("expected citation payload, got %#v", response.Hits[0].Citation)
 	}
 }
 

@@ -48,6 +48,7 @@ type documentInventoryRow struct {
 
 type documentSearchRow struct {
 	DocumentID        string
+	SourceURI         string
 	ObjectKey         string
 	ContentType       string
 	ChunkID           int64
@@ -294,6 +295,7 @@ func queryDocumentChunks(ctx context.Context, embedding []float64, model string,
 	query := `
 SELECT
 	d.document_id,
+	d.source_uri,
 	COALESCE(d.object_key, ''),
 	COALESCE(d.content_type, ''),
 	c.id,
@@ -344,6 +346,7 @@ WHERE d.status = 'processed'
 		var row documentSearchRow
 		if err := rows.Scan(
 			&row.DocumentID,
+			&row.SourceURI,
 			&row.ObjectKey,
 			&row.ContentType,
 			&row.ChunkID,
@@ -362,6 +365,7 @@ WHERE d.status = 'processed'
 
 		hits = append(hits, map[string]any{
 			"documentId":        row.DocumentID,
+			"sourceUri":         row.SourceURI,
 			"objectKey":         row.ObjectKey,
 			"contentType":       row.ContentType,
 			"chunkId":           row.ChunkID,
@@ -371,6 +375,7 @@ WHERE d.status = 'processed'
 			"distance":          row.Distance,
 			"similarity":        maxSimilarity(row.Distance),
 			"lastProcessedAt":   formatOptionalTime(row.LastProcessedAt),
+			"citation":          buildDocumentCitation(row),
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -382,6 +387,20 @@ WHERE d.status = 'processed'
 	}
 
 	return hits, nil
+}
+
+func buildDocumentCitation(row documentSearchRow) map[string]any {
+	source := defaultSearchString(row.SourceURI, row.DocumentID)
+	labelSource := defaultSearchString(row.ObjectKey, row.DocumentID)
+	return map[string]any{
+		"id":                fmt.Sprintf("%s#chunk-%d", source, row.ChunkIndex),
+		"label":             fmt.Sprintf("%s chunk %d", labelSource, row.ChunkIndex),
+		"sourceUri":         row.SourceURI,
+		"objectKey":         row.ObjectKey,
+		"chunkId":           row.ChunkID,
+		"chunkIndex":        row.ChunkIndex,
+		"processingVersion": row.ProcessingVersion,
+	}
 }
 
 func getSearchEmbedding(ctx context.Context, input string) ([]float64, string, error) {

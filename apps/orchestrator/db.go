@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -25,10 +26,27 @@ type documentInventoryRecord struct {
 	CurrentProcessingVersion int
 }
 
+type reprocessDocumentRecord struct {
+	DocumentID               string
+	Bucket                   string
+	ObjectKey                string
+	SourceURI                string
+	ContentType              string
+	VersionMarker            string
+	ETag                     string
+	SizeBytes                int64
+	LastModified             time.Time
+	HasLastModified          bool
+	Metadata                 map[string]interface{}
+	DesiredProcessingVersion int
+	CurrentProcessingVersion int
+}
+
 var (
-	runDocumentTx       = withDocumentTx
-	upsertPendingRecord = upsertPendingDocument
-	recordLastEvent     = updateLastDocumentEvent
+	runDocumentTx         = withDocumentTx
+	upsertPendingRecord   = upsertPendingDocument
+	recordLastEvent       = updateLastDocumentEvent
+	lookupReprocessRecord = findDocumentForReprocess
 )
 
 func withDocumentTx(ctx context.Context, fn func(context.Context) error) error {
@@ -215,6 +233,66 @@ func upsertReconciledDocument(ctx context.Context, event documentEvent, status s
 		preserveStatus,
 	)
 	return err
+}
+
+func findDocumentForReprocess(ctx context.Context, documentID string) (reprocessDocumentRecord, bool, error) {
+	if postgresutil.QueryRow == nil {
+		return reprocessDocumentRecord{}, false, fmt.Errorf("postgres is not initialized")
+	}
+
+	var record reprocessDocumentRecord
+	var lastModified sql.NullTime
+	var metadataRaw string
+	err := postgresutil.QueryRow(
+		ctx,
+		`SELECT
+			document_id,
+			COALESCE(bucket_name, ''),
+			COALESCE(object_key, ''),
+			source_uri,
+			COALESCE(content_type, ''),
+			COALESCE(version_marker, ''),
+			COALESCE(etag, ''),
+			COALESCE(size_bytes, 0),
+			last_modified,
+			COALESCE(metadata::text, '{}'),
+			desired_processing_version,
+			current_processing_version
+		FROM rag.documents
+		WHERE document_id = $1`,
+		documentID,
+	).Scan(
+		&record.DocumentID,
+		&record.Bucket,
+		&record.ObjectKey,
+		&record.SourceURI,
+		&record.ContentType,
+		&record.VersionMarker,
+		&record.ETag,
+		&record.SizeBytes,
+		&lastModified,
+		&metadataRaw,
+		&record.DesiredProcessingVersion,
+		&record.CurrentProcessingVersion,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return reprocessDocumentRecord{}, false, nil
+		}
+		return reprocessDocumentRecord{}, false, err
+	}
+
+	if lastModified.Valid {
+		record.LastModified = lastModified.Time.UTC()
+		record.HasLastModified = true
+	}
+	if metadataRaw != "" {
+		if err := json.Unmarshal([]byte(metadataRaw), &record.Metadata); err != nil {
+			return reprocessDocumentRecord{}, false, err
+		}
+	}
+
+	return record, true, nil
 }
 
 func nullIfEmpty(value string) any {

@@ -248,6 +248,18 @@ function documentDownloadUrl(objectKey) {
 	return apiUrl(`${DOCUMENT_OBJECT_PATH}?${params.toString()}`);
 }
 
+function documentOpenUrl(objectKey) {
+	const params = new URLSearchParams({ objectKey });
+	return apiUrl(`${DOCUMENT_OBJECT_PATH}?${params.toString()}`);
+}
+
+function citationLabel(result) {
+	return (
+		result?.citation?.label ??
+		`${result?.objectKey || result?.documentId || "document"} chunk ${result?.chunkIndex ?? 0}`
+	);
+}
+
 function formatSimilarity(value) {
 	if (typeof value !== "number" || Number.isNaN(value)) {
 		return "0%";
@@ -1075,17 +1087,29 @@ function App() {
 											<p className="search-result-text">{result.chunkText}</p>
 
 											<div className="search-result-footer">
-												<p className="search-result-meta">
-													Document ID: {result.documentId}
-													{result.lastProcessedAt
-														? ` • Indexed ${formatTimestamp(result.lastProcessedAt)}`
-														: ""}
-												</p>
-												{result.objectKey ? (
-													<a className="inline-button" href={documentDownloadUrl(result.objectKey)}>
-														Download
-													</a>
-												) : null}
+												<div className="citation-block">
+													<p className="search-result-meta">
+														Citation: <span className="citation-code">{citationLabel(result)}</span>
+													</p>
+													<p className="search-result-meta">
+														Document ID: {result.documentId}
+														{result.lastProcessedAt
+															? ` • Indexed ${formatTimestamp(result.lastProcessedAt)}`
+															: ""}
+													</p>
+												</div>
+												<div className="search-result-actions">
+													{result.objectKey ? (
+														<a className="inline-button" href={documentOpenUrl(result.objectKey)}>
+															Open Source
+														</a>
+													) : null}
+													{result.objectKey ? (
+														<a className="inline-button" href={documentDownloadUrl(result.objectKey)}>
+															Download
+														</a>
+													) : null}
+												</div>
 											</div>
 										</article>
 									))}

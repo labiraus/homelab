@@ -67,7 +67,7 @@ Use this when:
 - an agent needs semantic retrieval over processed documents
 - narrowing search to a folder-like object-key prefix would improve the answer
 
-The live `documents.search` tool embeds the query with the configured embedding path and searches `rag.embeddings`, `rag.chunks`, and `rag.documents` in Postgres. With `EMBEDDING_MODEL=local-embeddings` and no `EMBEDDING_ENDPOINT`, that embedding path is the built-in deterministic 384-dimensional local embedding function.
+The live `documents.search` tool embeds the query with the configured embedding path and searches `rag.embeddings`, `rag.chunks`, and `rag.documents` in Postgres. Results include citation objects with source URI and chunk identity. With `EMBEDDING_MODEL=local-embeddings` and no `EMBEDDING_ENDPOINT`, that embedding path is the built-in deterministic 384-dimensional local embedding function.
 
 ### `postgres.auth.userCount.prompt`
 
