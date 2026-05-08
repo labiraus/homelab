@@ -84,7 +84,7 @@ generatedSecrets:
           name: documents-minio-credentials
           key: secretKey
       EMBEDDING_ENDPOINT:
-        value: http://embeddings.homelab.svc.cluster.local/v1/embeddings
+        value: ""
       EMBEDDING_MODEL:
         value: local-embeddings
       CHUNK_SIZE:

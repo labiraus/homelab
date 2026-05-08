@@ -17,6 +17,7 @@ RUN apt-get update \
     sudo \
     unzip \
     bash-completion \
+    bubblewrap \
     ripgrep \
     python3-pip \
     pipx \

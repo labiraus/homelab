@@ -51,12 +51,12 @@ These routes expect the standard MinIO runtime configuration:
 
 The UI treats these document routes as authenticated functionality for recognized users, and the API is expected to stay behind the same trusted auth middleware as the rest of the browser-facing surface.
 
-Semantic search also expects:
+Semantic search also uses:
 
-- `EMBEDDING_ENDPOINT`
-- `EMBEDDING_MODEL`
+- `EMBEDDING_MODEL`, defaulting to `local-embeddings`
+- `EMBEDDING_ENDPOINT`, only when routing to an external OpenAI-compatible embeddings service
 
-The retrieval flow uses the same embedding model family as the processor so query vectors and stored chunk vectors remain comparable.
+When `EMBEDDING_MODEL=local-embeddings` and `EMBEDDING_ENDPOINT` is empty, `external` uses the same built-in deterministic 384-dimensional local embedding function as the processor so query vectors and stored chunk vectors remain comparable.
 
 ## Document Event Stream
 

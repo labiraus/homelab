@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"pkg/embeddingutil"
 	"pkg/postgresutil"
 	"pkg/prometheusutil"
 )
@@ -19,7 +20,7 @@ const (
 	documentSearchLabel   = "documentSearchHandler"
 	defaultSearchLimit    = 8
 	maxSearchLimit        = 20
-	defaultEmbeddingModel = "local-embeddings"
+	defaultEmbeddingModel = embeddingutil.DefaultModel
 )
 
 type queryEmbeddingResponse struct {
@@ -130,6 +131,10 @@ func documentSearchHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getQueryEmbedding(ctx context.Context, input string) ([]float64, string, error) {
+	if useLocalEmbeddings() {
+		return embeddingutil.EmbedText(input), embeddingModel(), nil
+	}
+
 	payload, err := json.Marshal(map[string]any{
 		"model": embeddingModel(),
 		"input": input,
@@ -256,7 +261,7 @@ WHERE d.status = 'processed'
 }
 
 func embeddingsConfigured() bool {
-	return strings.TrimSpace(os.Getenv("EMBEDDING_ENDPOINT")) != ""
+	return useLocalEmbeddings() || strings.TrimSpace(os.Getenv("EMBEDDING_ENDPOINT")) != ""
 }
 
 func embeddingEndpoint() string {
@@ -269,6 +274,10 @@ func embeddingModel() string {
 		return defaultEmbeddingModel
 	}
 	return model
+}
+
+func useLocalEmbeddings() bool {
+	return strings.TrimSpace(os.Getenv("EMBEDDING_ENDPOINT")) == "" && embeddingModel() == embeddingutil.DefaultModel
 }
 
 func maxSimilarity(distance float64) float64 {

@@ -8,7 +8,7 @@ This repo is taking an async-first path to document ingestion and retrieval.
 - `orchestrator` owns control-plane reconciliation and task dispatch
 - `processor` is the stateless worker for extraction, chunking, embedding, and persistence
 - `external` and `mcp` are the stable public and AI-facing surfaces
-- `mcp` should eventually forward document lifecycle notifications sourced from NATS JetStream to MCP subscribers
+- `mcp` forwards document lifecycle notifications sourced from NATS JetStream to MCP subscribers
 
 Near-term scope is the document, chunk, and embedding foundation.
 CAG and graph-style knowledge layers are future phases built on top of that base rather than separate immediate datastores.
@@ -19,6 +19,9 @@ The current ingestion slice is reference-based:
 - accepted documents are currently limited to `text/*`
 - `rag.documents.status` moves through `pending`, `processing`, and `processed`
 - `processor` reads the raw object from MinIO and writes chunks plus embeddings back to Postgres
+- `external` exposes semantic search for the UI
+- `mcp` exposes document inventory and semantic search for agents
+- `local-embeddings` uses a built-in deterministic 384-dimensional embedding function when no external embedding endpoint is configured
 
 ```mermaid
 flowchart LR

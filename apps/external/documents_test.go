@@ -260,6 +260,25 @@ func TestDocumentSearchHandlerValidatesRequest(t *testing.T) {
 	}
 }
 
+func TestLocalQueryEmbeddingFallback(t *testing.T) {
+	t.Setenv("EMBEDDING_ENDPOINT", "")
+	t.Setenv("EMBEDDING_MODEL", "local-embeddings")
+
+	embedding, model, err := getQueryEmbedding(context.Background(), "Astra keeps field notes")
+	if err != nil {
+		t.Fatalf("expected local embedding to succeed: %v", err)
+	}
+	if model != "local-embeddings" {
+		t.Fatalf("expected local model, got %q", model)
+	}
+	if len(embedding) != 384 {
+		t.Fatalf("expected 384-dimensional embedding, got %d", len(embedding))
+	}
+	if !embeddingsConfigured() {
+		t.Fatal("expected local embeddings to count as configured")
+	}
+}
+
 func setMinIOEnv(t *testing.T) {
 	t.Helper()
 	t.Setenv("MINIO_ENDPOINT", "svartalfheim:9000")

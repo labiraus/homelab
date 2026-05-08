@@ -59,6 +59,16 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 		t.Fatalf("expected scan tool to proxy to orchestrator, got %q", scanTool.Meta.ExecutionMode)
 	}
 
+	searchTool := findToolInManifest(t, manifest, "documents.search")
+	if searchTool.Meta.ExecutionMode != manifestExecutionModeDocumentSearch {
+		t.Fatalf("expected document search execution mode, got %q", searchTool.Meta.ExecutionMode)
+	}
+
+	moveTool := findToolInManifest(t, manifest, "minio.documents.moveObject")
+	if moveTool.Meta.Lifecycle != manifestLifecycleLive {
+		t.Fatalf("expected live move tool lifecycle, got %q", moveTool.Meta.Lifecycle)
+	}
+
 	template := findResourceTemplateInManifest(t, manifest, "minio.documents.object")
 	if template.Meta.ExecutionMode != manifestExecutionModeMinIOGetObject {
 		t.Fatalf("expected MinIO get execution mode, got %q", template.Meta.ExecutionMode)
@@ -67,6 +77,11 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 	notificationTemplate := findResourceTemplateInManifest(t, manifest, "documents.notifications.stream")
 	if notificationTemplate.Meta.ExecutionMode != manifestExecutionModeNATSSubscription {
 		t.Fatalf("expected NATS subscription execution mode, got %q", notificationTemplate.Meta.ExecutionMode)
+	}
+
+	authTemplate := findResourceTemplateInManifest(t, manifest, "postgres.auth.userByEmail")
+	if authTemplate.Meta.ExecutionMode != manifestExecutionModePostgresUserByEmail {
+		t.Fatalf("expected auth user lookup execution mode, got %q", authTemplate.Meta.ExecutionMode)
 	}
 }
 
@@ -885,13 +900,165 @@ func TestHandleToolsCallUploadsBinaryObject(t *testing.T) {
 	}
 }
 
+func TestHandleToolsCallMovesObject(t *testing.T) {
+	previous := moveBucketObject
+	t.Cleanup(func() {
+		moveBucketObject = previous
+	})
+
+	moveBucketObject = func(ctx context.Context, bucket string, sourceObjectKey string, destinationObjectKey string) (operationResponse, *jsonRPCError) {
+		if bucket != "documents" {
+			t.Fatalf("expected documents bucket, got %q", bucket)
+		}
+		if sourceObjectKey != "inbox/demo.txt" {
+			t.Fatalf("expected source object key, got %q", sourceObjectKey)
+		}
+		if destinationObjectKey != "archive/demo.txt" {
+			t.Fatalf("expected destination object key, got %q", destinationObjectKey)
+		}
+		return operationResponse{
+			ContentType: "application/json",
+			Body:        `{"moved":true}`,
+		}, nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "minio.documents.moveObject",
+			"arguments": map[string]any{
+				"sourceObjectKey":      "inbox/demo.txt",
+				"destinationObjectKey": "archive/demo.txt",
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful tool response, got %#v", responseBody)
+	}
+}
+
+func TestHandleToolsCallListsDocumentInventory(t *testing.T) {
+	previous := listDocumentInventory
+	t.Cleanup(func() {
+		listDocumentInventory = previous
+	})
+
+	listDocumentInventory = func(ctx context.Context, arguments map[string]any) (operationResponse, *jsonRPCError) {
+		if arguments["status"] != "processed" {
+			t.Fatalf("expected status argument, got %#v", arguments["status"])
+		}
+		return operationResponse{
+			ContentType: "application/json",
+			Body:        `{"count":1,"documents":[{"documentId":"doc-1"}]}`,
+		}, nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "documents.inventory.list",
+			"arguments": map[string]any{
+				"status": "processed",
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful tool response, got %#v", responseBody)
+	}
+}
+
+func TestHandleToolsCallSearchesDocuments(t *testing.T) {
+	previous := searchDocumentChunks
+	t.Cleanup(func() {
+		searchDocumentChunks = previous
+	})
+
+	searchDocumentChunks = func(ctx context.Context, arguments map[string]any) (operationResponse, *jsonRPCError) {
+		if arguments["query"] != "ancient tower" {
+			t.Fatalf("expected query argument, got %#v", arguments["query"])
+		}
+		return operationResponse{
+			ContentType: "application/json",
+			Body:        `{"query":"ancient tower","hits":[]}`,
+		}, nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "documents.search",
+			"arguments": map[string]any{
+				"query": "ancient tower",
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful tool response, got %#v", responseBody)
+	}
+}
+
+func TestLocalSearchEmbeddingFallback(t *testing.T) {
+	t.Setenv("EMBEDDING_ENDPOINT", "")
+	t.Setenv("EMBEDDING_MODEL", "local-embeddings")
+
+	embedding, model, err := getSearchEmbedding(context.Background(), "ancient tower")
+	if err != nil {
+		t.Fatalf("expected local embedding to succeed: %v", err)
+	}
+	if model != "local-embeddings" {
+		t.Fatalf("expected local model, got %q", model)
+	}
+	if len(embedding) != 384 {
+		t.Fatalf("expected 384-dimensional embedding, got %d", len(embedding))
+	}
+	if !embeddingsConfigured() {
+		t.Fatal("expected local embeddings to count as configured")
+	}
+}
+
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (fn roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return fn(req)
 }
 
-func TestHandleResourcesReadRejectsPlannedCapability(t *testing.T) {
+func TestHandleResourcesReadReadsAuthUserByEmail(t *testing.T) {
+	previous := readPostgresUserByEmail
+	t.Cleanup(func() {
+		readPostgresUserByEmail = previous
+	})
+
+	readPostgresUserByEmail = func(ctx context.Context, email string) (operationResponse, *jsonRPCError) {
+		if email != "alice@example.com" {
+			t.Fatalf("expected email path parameter, got %q", email)
+		}
+		return operationResponse{
+			ContentType: "application/json",
+			Body:        `{"email":"alice@example.com","displayName":"Alice"}`,
+		}, nil
+	}
+
 	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
 	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
 		JSONRPC: "2.0",
@@ -905,11 +1072,16 @@ func TestHandleResourcesReadRejectsPlannedCapability(t *testing.T) {
 	if responseStatus != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", responseStatus)
 	}
-	if responseBody == nil || responseBody.Error == nil {
-		t.Fatalf("expected JSON-RPC error, got %#v", responseBody)
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful resource read, got %#v", responseBody)
 	}
-	if responseBody.Error.Code != -32004 {
-		t.Fatalf("expected planned-capability error code, got %d", responseBody.Error.Code)
+
+	result, ok := responseBody.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected resource result map, got %#v", responseBody.Result)
+	}
+	if result["contents"] == nil {
+		t.Fatalf("expected resource contents, got %#v", result)
 	}
 }
 

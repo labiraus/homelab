@@ -30,7 +30,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - `MinecraftVM.md`: dedicated Minecraft VM provisioning and operations
   - `NodeClassification.md`: Kubernetes worker label policy and GPU/LLM classification
   - `Auth.md`: current auth model across browser OIDC and certificate-based identity
-  - `MCPPrompts.md`: current MCP prompt catalog plus planned notification-oriented prompts
+  - `MCPPrompts.md`: current MCP prompt catalog
   - `GoogleOIDCSetup.md`: Google-side OIDC setup and redirect URI guidance
   - `OAuth2ProxyGoogle.md`: current chosen `oauth2-proxy + Google` browser-auth path
 - `bin/`
@@ -86,6 +86,7 @@ Current behavior note:
 - Shared HTTP server and probes: `apps/pkg/api/api.go`
 - Logging and readiness wiring: `apps/pkg/base/base.go`
 - Metrics: `apps/pkg/prometheusutil/prometheus.go`
+- Local deterministic embeddings: `apps/pkg/embeddingutil/embedding.go`
 - NATS JetStream helpers: `apps/pkg/natsutil/nats.go`
 - S3 / MinIO helpers: `apps/pkg/minioutil/minio.go`
 - Postgres helpers: `apps/pkg/postgresutil/postgres.go`
@@ -123,6 +124,8 @@ Current behavior note:
 - MinIO is the canonical raw object store.
 - Postgres is the source of truth for metadata, state, chunks, and embeddings.
 - NATS JetStream plus KEDA are the async execution layer, not the durable state store.
+- `external` exposes semantic document search for the UI.
+- `mcp` exposes document inventory and semantic search for agents.
 
 ### MinIO and Ansible
 

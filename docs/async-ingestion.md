@@ -80,6 +80,8 @@ The current processor lifecycle is:
 - create chunks and embeddings
 - mark the row `processed`
 
+When `EMBEDDING_MODEL=local-embeddings` and no embedding endpoint is configured, the processor uses the built-in deterministic 384-dimensional embedding function. External embedding services should only be configured when a real OpenAI-compatible endpoint exists.
+
 If the processor sees a message before the orchestrator commit is visible, or if the job has been superseded by a newer processing version, it retries or no-ops instead of duplicating derived data.
 
 Lifecycle notifications are intentionally best-effort. A failure to publish or fan out a notification must not roll back the durable document state or block processing completion.
@@ -111,7 +113,7 @@ This design keeps ingestion idempotent and explainable:
 
 Later phases can add:
 
-- richer retrieval APIs through `external` and `mcp`
+- richer retrieval APIs beyond the current `external` search and MCP inventory/search tools
 - an ingest-boundary emitter for `documents.events.minio.stored`
 - reprocessing and versioned derivations
 - citation UX in the UI

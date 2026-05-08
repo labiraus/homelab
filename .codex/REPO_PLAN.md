@@ -39,6 +39,7 @@ The repo already includes:
 - SQL bootstrap under `sql/`
 - external MinIO management through Ansible on `svartalfheim`
 - orchestrator-backed `documents.scanBucket` reconciliation that inventories MinIO objects into Postgres and queues new or changed text objects for processing
+- a built-in deterministic `local-embeddings` fallback used by processor, `external`, and `mcp` when no external embedding endpoint is configured
 
 Documentation must stay aligned with implementation as these pieces evolve.
 
@@ -143,8 +144,14 @@ Deliverables:
 - `external` exposes stable retrieval/query capabilities for the UI
 - `mcp` exposes the same capabilities in an AI-native shape for agents
 - both surfaces read from Postgres-backed state and hide pipeline internals
-- `mcp` publishes prompt guidance for current and planned capabilities
+- `mcp` publishes prompt guidance for the current capability surface
 - `mcp` maintains a subscription pattern for document lifecycle notifications sourced from NATS JetStream
+
+Current status:
+
+- `external` exposes `/api/documents/search` for UI retrieval
+- `mcp` exposes `documents.inventory.list` and `documents.search` for agent-facing inventory and semantic retrieval
+- `mcp` has no currently advertised planned operations in the manifest catalog
 
 ### Phase 5 — Editing, Reprocessing, Citations, And Richer Context
 
@@ -179,7 +186,7 @@ CAG and semantic graph ambitions remain later phases, not the initial implementa
 - keep the chosen `oauth2-proxy + Google` browser-auth path aligned across Helm, `ui`, `external`, and docs
 - keep the client-certificate MCP access story aligned with the manifest metadata and auth docs
 - keep MCP client compatibility broad across Codex, Claude, VS Code/Copilot, Cursor, Windsurf, and legacy SSE clients without weakening Origin validation or edge auth assumptions
-- establish the initial `rag` Postgres schema for document inventory and future processing state
+- keep the `rag` Postgres schema aligned with document inventory, chunk, embedding, and retrieval behavior
 - shape orchestrator and processor around clean control-plane versus data-plane boundaries
 - keep public access flowing through `external` and `mcp`
 - build the Labiraus prompt and notification surfaces in step with the repo plan rather than as disconnected demos

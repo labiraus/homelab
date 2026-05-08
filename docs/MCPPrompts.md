@@ -10,6 +10,7 @@ The manifest currently lists these prompt names:
 
 - `documents.submit.example`
 - `documents.scanBucket.plan`
+- `documents.search.prompt`
 - `postgres.auth.userCount.prompt`
 - `minio.documents.browse.prompt`
 - `documents.notifications.subscribe.prompt`
@@ -52,6 +53,21 @@ Use this when:
 - reviewing how bucket reconciliation decides what should be queued
 
 The live scan upserts document inventory rows, marks non-`text/*` objects as `unsupported`, preserves unchanged known object status, and queues new or changed text objects through the orchestrator/processor path.
+
+### `documents.search.prompt`
+
+- lifecycle: `live`
+- purpose: show how to search processed document chunks through the MCP retrieval surface
+- arguments:
+  - `query` required
+  - `prefix` optional
+
+Use this when:
+
+- an agent needs semantic retrieval over processed documents
+- narrowing search to a folder-like object-key prefix would improve the answer
+
+The live `documents.search` tool embeds the query with the configured embedding path and searches `rag.embeddings`, `rag.chunks`, and `rag.documents` in Postgres. With `EMBEDDING_MODEL=local-embeddings` and no `EMBEDDING_ENDPOINT`, that embedding path is the built-in deterministic 384-dimensional local embedding function.
 
 ### `postgres.auth.userCount.prompt`
 

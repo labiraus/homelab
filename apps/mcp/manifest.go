@@ -86,6 +86,60 @@ var capabilityCatalog = []manifestCapabilitySource{
 		},
 	},
 	{
+		ID:      "documents.retrieval",
+		Title:   "Document Retrieval",
+		Summary: "Inspect indexed document state and search processed chunks from Postgres-backed retrieval data.",
+		Backend: manifestBackendPostgres,
+		Operations: []manifestOperationSource{
+			livePrompt(
+				"documents.search.prompt",
+				"searchDocumentsPrompt",
+				"/prompts/documents/search",
+				"Show how to search processed document chunks through the live MCP retrieval tool.",
+				false,
+				[]manifestPromptArgument{
+					{Name: "query", Description: "Natural-language retrieval query.", Required: true},
+					{Name: "prefix", Description: "Optional documents-bucket object-key prefix."},
+				},
+				[]manifestPromptMessage{
+					{
+						Role: "user",
+						Content: manifestPromptMessagePart{
+							Type: "text",
+							Text: "Use the live `documents.search` tool on Labiraus with query `{{query}}`. If a prefix is useful, set `prefix` to `{{prefix}}`. Results come from pgvector similarity search over processed chunks and include document IDs, object keys, chunk text, scores, and processing versions.",
+						},
+					},
+				},
+			),
+			liveTool(
+				"documents.inventory.list",
+				"listDocumentInventory",
+				http.MethodPost,
+				"/documents/inventory/list",
+				"List document inventory and processing state from Postgres.",
+				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendPostgres,
+					ExecutionMode: manifestExecutionModeDocumentInventory,
+				},
+				documentInventorySchema(),
+			),
+			liveTool(
+				"documents.search",
+				"searchDocuments",
+				http.MethodPost,
+				"/documents/search",
+				"Search processed document chunks by embedding a query and ranking pgvector matches.",
+				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendPostgres,
+					ExecutionMode: manifestExecutionModeDocumentSearch,
+				},
+				documentSearchSchema(),
+			),
+		},
+	},
+	{
 		ID:      "postgres.auth",
 		Title:   "Auth Database",
 		Summary: "Read authentication and user inventory data directly from Postgres.",
@@ -121,14 +175,17 @@ var capabilityCatalog = []manifestCapabilitySource{
 					Query:         "CALL auth.get_user_count(NULL)",
 				},
 			),
-			plannedResourceTemplate(
+			liveResourceTemplate(
 				"postgres.auth.userByEmail",
 				"userByEmail",
 				http.MethodGet,
 				"/postgres/auth/users/{email}",
 				"Read a specific auth user by email from Postgres.",
 				false,
-				nil,
+				&manifestOperationBinding{
+					Backend:       manifestBackendPostgres,
+					ExecutionMode: manifestExecutionModePostgresUserByEmail,
+				},
 			),
 		},
 	},
@@ -240,13 +297,19 @@ var capabilityCatalog = []manifestCapabilitySource{
 				},
 				nil,
 			),
-			plannedTool(
+			liveTool(
 				"minio.documents.moveObject",
 				"moveDocumentObject",
 				http.MethodPost,
 				"/minio/documents/move-object",
 				"Move or rename an object in the documents bucket.",
 				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendMinIO,
+					ExecutionMode: manifestExecutionModeMinIOMove,
+					Bucket:        "documents",
+				},
+				minioMoveObjectSchema(),
 			),
 		},
 	},
@@ -726,6 +789,31 @@ func documentScanBucketSchema() *manifestSchema {
 	}
 }
 
+func documentInventorySchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"status":     {Type: "string", Description: "Optional document lifecycle status filter."},
+			"prefix":     {Type: "string", Description: "Optional object-key prefix filter."},
+			"documentId": {Type: "string", Description: "Optional exact document identifier filter."},
+			"limit":      {Type: "integer", Description: "Optional maximum number of inventory rows to return."},
+		},
+	}
+}
+
+func documentSearchSchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"query":      {Type: "string", Description: "Natural-language search query."},
+			"prefix":     {Type: "string", Description: "Optional object-key prefix filter."},
+			"documentId": {Type: "string", Description: "Optional exact document identifier filter."},
+			"limit":      {Type: "integer", Description: "Optional maximum number of chunk hits to return."},
+		},
+		Required: []string{"query"},
+	}
+}
+
 func minioListObjectsSchema() *manifestSchema {
 	return &manifestSchema{
 		Type: "object",
@@ -782,5 +870,16 @@ func minioPutTextObjectSchema() *manifestSchema {
 			},
 		},
 		Required: []string{"objectKey", "body"},
+	}
+}
+
+func minioMoveObjectSchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"sourceObjectKey":      {Type: "string", Description: "Existing object key within the documents bucket."},
+			"destinationObjectKey": {Type: "string", Description: "Destination object key within the documents bucket."},
+		},
+		Required: []string{"sourceObjectKey", "destinationObjectKey"},
 	}
 }

@@ -9,10 +9,10 @@ It exposes one MCP entrypoint that fronts:
 - orchestrator actions for document workflows
 - direct Postgres-backed read capabilities
 - direct MinIO-backed document-bucket capabilities, including folder-aware browsing and binary uploads
-- prompt examples for current and planned Labiraus capabilities
+- prompt examples for the current Labiraus capability surface
 - a live NATS-backed document notification subscription surface
 
-The capability catalog in [manifest.go](/workspaces/homelab/apps/mcp/manifest.go) is the source of truth for both the published MCP manifest and runtime dispatch behavior. Live and planned capabilities share the same registry, with planned entries surfaced in the manifest through `_meta.lifecycle` without pretending they are executable yet.
+The capability catalog in [manifest.go](/workspaces/homelab/apps/mcp/manifest.go) is the source of truth for both the published MCP manifest and runtime dispatch behavior.
 
 ## Endpoints
 
@@ -37,6 +37,7 @@ Live direct-backend capabilities currently expect:
 - `OIDC_ISSUER_URL` for federated identity discovery. Defaults to `https://accounts.google.com`, so bearer-capable MCP clients can use standard Google/OIDC authorization discovery instead of a service-local login path.
 - `API_BASE_URL` for orchestrator-backed HTTP proxy operations. Defaults to `http://homelab-orchestrator.homelab.svc.cluster.local`, and the Helm chart sets that in-cluster service URL explicitly.
 - `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DATABASE`, `POSTGRES_SSLMODE` for Postgres-backed capabilities
+- `EMBEDDING_MODEL` and optional `EMBEDDING_ENDPOINT` for semantic retrieval over processed document chunks. With `EMBEDDING_MODEL=local-embeddings` and no endpoint, `mcp` uses the built-in deterministic 384-dimensional local embedding function.
 - `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_USE_SSL`, `MINIO_REGION`, `MINIO_BUCKET` for MinIO-backed capabilities
 - `NATS_URLS`, `NATS_EVENTS_STREAM`, and `NATS_EVENTS_SUBJECT` for document lifecycle subscriptions and resource notifications
 
@@ -44,17 +45,22 @@ The Helm chart populates the live Postgres settings from the CNPG `data/app-db-b
 
 For Streamable HTTP hardening, `mcp` validates the `Origin` header on incoming MCP requests against the request origin by default. Set `MCP_ALLOWED_ORIGINS` to a comma-separated list only if the deployment intentionally needs additional browser origins.
 
-If Postgres or MinIO configuration is omitted, the service still starts and advertises the relevant capabilities, but live calls against those backends return backend-unavailable errors until configuration is provided.
+If Postgres or MinIO configuration is omitted, the service still starts and advertises the relevant capabilities, but live calls against those backends return backend-unavailable errors until configuration is provided. Postgres initialization is retried in the background so orchestrator-proxied tools such as `documents.scanBucket` can stay available during a transient database connection failure.
 
 The live MinIO shape now supports:
 
 - `documents.scanBucket` for orchestrator-backed bucket inventory reconciliation and queueing of new or changed text objects
+- `documents.inventory.list` for Postgres-backed document inventory and processing-state reads
+- `documents.search` for pgvector semantic search over processed chunks
 - `minio.documents.listFolder` for folder-and-file views of a prefix
 - `minio.documents.listObjects` for flat object inventory
 - `homelab://mcp/minio/documents/objects/{objectKey}` for object reads, including binary-safe blob responses
 - `minio.documents.putObject` for base64-backed binary uploads
 - `minio.documents.putTextObject` for text-first writes
 - `minio.documents.deleteObject` for deletes
+- `minio.documents.moveObject` for object rename and move workflows within the documents bucket
+
+The live Postgres shape also supports `homelab://mcp/postgres/auth/users/{email}` for auth-user lookups.
 
 ## Auth Surface
 
@@ -67,7 +73,7 @@ The current browser-login choice in this repo is `oauth2-proxy + Google` for `ui
 
 ## Prompt And Notification Surface
 
-The MCP manifest now lists example prompts for both current and planned capabilities. The durable prompt catalog is documented in [docs/MCPPrompts.md](/workspaces/homelab/docs/MCPPrompts.md).
+The MCP manifest now lists example prompts for the current capability surface. The durable prompt catalog is documented in [docs/MCPPrompts.md](/workspaces/homelab/docs/MCPPrompts.md).
 
 Document lifecycle notifications are live through the Streamable HTTP transport:
 

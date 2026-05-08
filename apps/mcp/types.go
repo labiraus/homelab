@@ -79,16 +79,20 @@ const (
 type manifestExecutionMode string
 
 const (
-	manifestExecutionModeDiscovery        manifestExecutionMode = "discovery"
-	manifestExecutionModeHTTPProxy        manifestExecutionMode = "httpProxy"
-	manifestExecutionModeMinIODelete      manifestExecutionMode = "minioDeleteObject"
-	manifestExecutionModeMinIOListFolder  manifestExecutionMode = "minioListFolder"
-	manifestExecutionModeMinIOGetObject   manifestExecutionMode = "minioGetObject"
-	manifestExecutionModeMinIOList        manifestExecutionMode = "minioListObjects"
-	manifestExecutionModeMinIOPutObject   manifestExecutionMode = "minioPutObject"
-	manifestExecutionModeMinIOPutText     manifestExecutionMode = "minioPutTextObject"
-	manifestExecutionModeNATSSubscription manifestExecutionMode = "natsSubscription"
-	manifestExecutionModePostgresQuery    manifestExecutionMode = "postgresQuery"
+	manifestExecutionModeDiscovery           manifestExecutionMode = "discovery"
+	manifestExecutionModeHTTPProxy           manifestExecutionMode = "httpProxy"
+	manifestExecutionModeMinIODelete         manifestExecutionMode = "minioDeleteObject"
+	manifestExecutionModeMinIOListFolder     manifestExecutionMode = "minioListFolder"
+	manifestExecutionModeMinIOGetObject      manifestExecutionMode = "minioGetObject"
+	manifestExecutionModeMinIOList           manifestExecutionMode = "minioListObjects"
+	manifestExecutionModeMinIOMove           manifestExecutionMode = "minioMoveObject"
+	manifestExecutionModeMinIOPutObject      manifestExecutionMode = "minioPutObject"
+	manifestExecutionModeMinIOPutText        manifestExecutionMode = "minioPutTextObject"
+	manifestExecutionModeNATSSubscription    manifestExecutionMode = "natsSubscription"
+	manifestExecutionModeDocumentInventory   manifestExecutionMode = "documentInventory"
+	manifestExecutionModeDocumentSearch      manifestExecutionMode = "documentSearch"
+	manifestExecutionModePostgresQuery       manifestExecutionMode = "postgresQuery"
+	manifestExecutionModePostgresUserByEmail manifestExecutionMode = "postgresUserByEmail"
 )
 
 type manifestDocument struct {
