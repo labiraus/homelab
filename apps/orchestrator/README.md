@@ -9,6 +9,7 @@ The current implementation accepts MinIO-backed document references, reconciles 
 ## Endpoints
 
 - `POST /documents`
+- `POST /documents/curation`
 - `POST /documents/scan-bucket`
 - `POST /documents/reprocess`
 - `/readiness`
@@ -56,6 +57,19 @@ The scan:
 - marks non-`text/*` objects as `unsupported`
 - preserves status for unchanged known objects while refreshing `last_reconciled_at`
 - queues new or changed `text/*` objects through the same Postgres plus JetStream path as `POST /documents`
+
+## Curation Contract
+
+`POST /documents/curation` updates curated metadata for an existing inventory document without touching the raw MinIO object or derived chunks.
+
+Required fields:
+
+- `documentId`
+- `metadata`, a JSON object
+
+Optional fields:
+
+- `replace`, defaulting to `false`. When omitted, the metadata object is merged into existing `rag.documents.metadata`; when true, it replaces the full metadata object.
 
 ## Reprocess Contract
 

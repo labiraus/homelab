@@ -50,8 +50,9 @@ If Postgres or MinIO configuration is omitted, the service still starts and adve
 The live MinIO shape now supports:
 
 - `documents.scanBucket` for orchestrator-backed bucket inventory reconciliation and queueing of new or changed text objects
+- `documents.curation.update` for orchestrator-backed curation of document inventory metadata
 - `documents.reprocess` for orchestrator-backed requeueing of an existing inventory document at a newer processing version
-- `documents.inventory.list` for Postgres-backed document inventory and processing-state reads
+- `documents.inventory.list` for Postgres-backed document inventory, curated metadata, and processing-state reads
 - `documents.search` for pgvector semantic search over the current processed chunk version, including citation objects with source URI and chunk identity
 - `minio.documents.listFolder` for folder-and-file views of a prefix
 - `minio.documents.listObjects` for flat object inventory

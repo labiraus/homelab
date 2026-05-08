@@ -50,6 +50,8 @@ The current request-driven slice is:
 
 The current scan-driven slice uses the same queue path for new or changed `text/*` objects discovered during bucket reconciliation.
 
+The current curation slice is metadata-only. `POST /documents/curation`, exposed through MCP as the `documents.curation.update` tool, updates `rag.documents.metadata` for an existing inventory row without changing raw MinIO objects, chunks, embeddings, or lifecycle status.
+
 The current reprocess-driven slice also uses that queue path. `POST /documents/reprocess`, exposed through MCP as the `documents.reprocess` tool, accepts an existing `documentId` and optional `processingVersion`; when the version is omitted, `orchestrator` queues the next processing version after the current desired or completed version.
 
 The current notification pattern on top of that job flow is:

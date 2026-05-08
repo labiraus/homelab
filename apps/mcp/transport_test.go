@@ -59,6 +59,14 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 		t.Fatalf("expected scan tool to proxy to orchestrator, got %q", scanTool.Meta.ExecutionMode)
 	}
 
+	curationTool := findToolInManifest(t, manifest, "documents.curation.update")
+	if curationTool.Meta.Lifecycle != manifestLifecycleLive {
+		t.Fatalf("expected live curation tool lifecycle, got %q", curationTool.Meta.Lifecycle)
+	}
+	if curationTool.Meta.ExecutionMode != manifestExecutionModeHTTPProxy {
+		t.Fatalf("expected curation tool to proxy to orchestrator, got %q", curationTool.Meta.ExecutionMode)
+	}
+
 	reprocessTool := findToolInManifest(t, manifest, "documents.reprocess")
 	if reprocessTool.Meta.Lifecycle != manifestLifecycleLive {
 		t.Fatalf("expected live reprocess tool lifecycle, got %q", reprocessTool.Meta.Lifecycle)
@@ -986,6 +994,16 @@ func TestHandleToolsCallListsDocumentInventory(t *testing.T) {
 	}
 	if responseBody == nil || responseBody.Error != nil {
 		t.Fatalf("expected successful tool response, got %#v", responseBody)
+	}
+}
+
+func TestDecodeDocumentMetadata(t *testing.T) {
+	metadata, rpcErr := decodeDocumentMetadata(`{"summary":"Curated summary","tags":["campaign","npc"]}`)
+	if rpcErr != nil {
+		t.Fatalf("expected metadata decode to succeed: %#v", rpcErr)
+	}
+	if metadata["summary"] != "Curated summary" {
+		t.Fatalf("expected decoded summary, got %+v", metadata)
 	}
 }
 

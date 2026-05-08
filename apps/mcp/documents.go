@@ -37,6 +37,7 @@ type documentInventoryRow struct {
 	SourceURI                string
 	ContentType              string
 	Status                   string
+	MetadataRaw              string
 	DesiredProcessingVersion int
 	CurrentProcessingVersion int
 	LastReconciledAt         *time.Time
@@ -131,6 +132,7 @@ SELECT
 	source_uri,
 	COALESCE(content_type, ''),
 	status,
+	COALESCE(metadata::text, '{}'),
 	desired_processing_version,
 	current_processing_version,
 	last_reconciled_at,
@@ -184,6 +186,7 @@ WHERE true`
 			&row.SourceURI,
 			&row.ContentType,
 			&row.Status,
+			&row.MetadataRaw,
 			&row.DesiredProcessingVersion,
 			&row.CurrentProcessingVersion,
 			&row.LastReconciledAt,
@@ -199,6 +202,11 @@ WHERE true`
 			}
 		}
 
+		metadata, rpcErr := decodeDocumentMetadata(row.MetadataRaw)
+		if rpcErr != nil {
+			return operationResponse{}, rpcErr
+		}
+
 		documents = append(documents, map[string]any{
 			"documentId":               row.DocumentID,
 			"bucket":                   row.Bucket,
@@ -206,6 +214,7 @@ WHERE true`
 			"sourceUri":                row.SourceURI,
 			"contentType":              row.ContentType,
 			"status":                   row.Status,
+			"metadata":                 metadata,
 			"desiredProcessingVersion": row.DesiredProcessingVersion,
 			"currentProcessingVersion": row.CurrentProcessingVersion,
 			"lastReconciledAt":         formatOptionalTime(row.LastReconciledAt),
@@ -235,6 +244,25 @@ WHERE true`
 		}
 	}
 	return operationResponse{ContentType: "application/json", Body: string(body)}, nil
+}
+
+func decodeDocumentMetadata(raw string) (map[string]any, *jsonRPCError) {
+	if strings.TrimSpace(raw) == "" {
+		return map[string]any{}, nil
+	}
+
+	var metadata map[string]any
+	if err := json.Unmarshal([]byte(raw), &metadata); err != nil {
+		return nil, &jsonRPCError{
+			Code:    -32000,
+			Message: "Document metadata decode failed",
+			Data:    err.Error(),
+		}
+	}
+	if metadata == nil {
+		metadata = map[string]any{}
+	}
+	return metadata, nil
 }
 
 func postgresDocumentSearch(ctx context.Context, arguments map[string]any) (operationResponse, *jsonRPCError) {

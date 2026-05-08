@@ -165,8 +165,11 @@ Deliverables:
 
 Current status:
 
+- `orchestrator` exposes `POST /documents/curation` for metadata-only curation of existing inventory rows
 - `orchestrator` exposes `POST /documents/reprocess` for queueing an existing inventory document at a newer processing version
+- `mcp` exposes that curation flow as `documents.curation.update`
 - `mcp` exposes that reprocessing flow as `documents.reprocess`
+- `mcp` inventory reads include the document metadata object
 - `external` and `mcp` search the current processed chunk version and include citation objects; the UI displays citation labels with source and download actions
 
 ## Near-Term Non-Goals

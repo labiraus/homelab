@@ -100,6 +100,28 @@ var capabilityCatalog = []manifestCapabilitySource{
 		},
 	},
 	{
+		ID:      "documents.curation",
+		Title:   "Document Curation",
+		Summary: "Curate document inventory metadata through the orchestrator control plane.",
+		Backend: manifestBackendOrchestrator,
+		Operations: []manifestOperationSource{
+			liveTool(
+				"documents.curation.update",
+				"updateDocumentCuration",
+				http.MethodPost,
+				"/documents/curation",
+				"Update curated metadata for an existing inventory document.",
+				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendOrchestrator,
+					ExecutionMode: manifestExecutionModeHTTPProxy,
+					Path:          "/documents/curation",
+				},
+				documentCurationSchema(),
+			),
+		},
+	},
+	{
 		ID:      "documents.retrieval",
 		Title:   "Document Retrieval",
 		Summary: "Inspect indexed document state and search processed chunks from Postgres-backed retrieval data.",
@@ -800,6 +822,25 @@ func documentScanBucketSchema() *manifestSchema {
 				},
 			},
 		},
+	}
+}
+
+func documentCurationSchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"body": {
+				Type:        "object",
+				Description: "Document metadata curation request.",
+				Properties: map[string]manifestSchema{
+					"documentId": {Type: "string", Description: "Existing document identifier from inventory or search results."},
+					"metadata":   {Type: "object", Description: "Curated metadata fields to merge into the document inventory record.", AdditionalProperties: true},
+					"replace":    {Type: "boolean", Description: "Replace the full metadata object instead of merging fields."},
+				},
+				Required: []string{"documentId", "metadata"},
+			},
+		},
+		Required: []string{"body"},
 	}
 }
 

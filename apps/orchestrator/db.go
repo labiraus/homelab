@@ -47,6 +47,7 @@ var (
 	upsertPendingRecord   = upsertPendingDocument
 	recordLastEvent       = updateLastDocumentEvent
 	lookupReprocessRecord = findDocumentForReprocess
+	updateCurationRecord  = updateDocumentCuration
 )
 
 func withDocumentTx(ctx context.Context, fn func(context.Context) error) error {
@@ -293,6 +294,46 @@ func findDocumentForReprocess(ctx context.Context, documentID string) (reprocess
 	}
 
 	return record, true, nil
+}
+
+func updateDocumentCuration(ctx context.Context, documentID string, metadata map[string]interface{}, replace bool) (map[string]interface{}, bool, error) {
+	if postgresutil.QueryRow == nil {
+		return nil, false, fmt.Errorf("postgres is not initialized")
+	}
+
+	payload, err := json.Marshal(metadata)
+	if err != nil {
+		return nil, false, err
+	}
+
+	var metadataRaw string
+	err = postgresutil.QueryRow(
+		ctx,
+		`UPDATE rag.documents
+		SET metadata = CASE
+				WHEN $3 THEN $2::jsonb
+				ELSE COALESCE(metadata, '{}'::jsonb) || $2::jsonb
+			END,
+			updated_at = NOW()
+		WHERE document_id = $1
+		RETURNING COALESCE(metadata::text, '{}')`,
+		documentID,
+		string(payload),
+		replace,
+	).Scan(&metadataRaw)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+
+	var updated map[string]interface{}
+	if err := json.Unmarshal([]byte(metadataRaw), &updated); err != nil {
+		return nil, false, err
+	}
+
+	return updated, true, nil
 }
 
 func nullIfEmpty(value string) any {

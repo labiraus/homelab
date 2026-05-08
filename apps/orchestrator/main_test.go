@@ -83,6 +83,71 @@ func TestDocumentsHandlerRejectsNonTextContentType(t *testing.T) {
 	}
 }
 
+func TestDocumentCurationHandlerUpdatesMetadata(t *testing.T) {
+	originalUpdate := updateCurationRecord
+	t.Cleanup(func() {
+		updateCurationRecord = originalUpdate
+	})
+
+	updateCurationRecord = func(ctx context.Context, documentID string, metadata map[string]interface{}, replace bool) (map[string]interface{}, bool, error) {
+		if documentID != "doc-1" {
+			t.Fatalf("expected doc-1 update, got %q", documentID)
+		}
+		if replace {
+			t.Fatal("expected merge update")
+		}
+		if metadata["summary"] != "Curated summary" {
+			t.Fatalf("expected metadata to be forwarded, got %+v", metadata)
+		}
+		return map[string]interface{}{
+			"summary": "Curated summary",
+			"tags":    []interface{}{"campaign", "npc"},
+		}, true, nil
+	}
+
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/documents/curation", `{"documentId":"doc-1","metadata":{"summary":"Curated summary","tags":["campaign","npc"]}}`)
+	documentCurationHandler(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+
+	var response documentCurationResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected curation response: %v", err)
+	}
+	if response.Status != "updated" || response.Metadata["summary"] != "Curated summary" {
+		t.Fatalf("unexpected curation response: %+v", response)
+	}
+}
+
+func TestDocumentCurationHandlerValidatesMetadata(t *testing.T) {
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/documents/curation", `{"documentId":"doc-1"}`)
+	documentCurationHandler(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, recorder.Code)
+	}
+}
+
+func TestDocumentCurationHandlerReturnsNotFound(t *testing.T) {
+	originalUpdate := updateCurationRecord
+	t.Cleanup(func() {
+		updateCurationRecord = originalUpdate
+	})
+
+	updateCurationRecord = func(ctx context.Context, documentID string, metadata map[string]interface{}, replace bool) (map[string]interface{}, bool, error) {
+		return nil, false, nil
+	}
+
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/documents/curation", `{"documentId":"missing-doc","metadata":{"summary":"Curated summary"}}`)
+	documentCurationHandler(recorder, request)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, recorder.Code)
+	}
+}
+
 func TestReprocessDocumentHandlerQueuesNextVersion(t *testing.T) {
 	originalLookup := lookupReprocessRecord
 	originalQueue := queueDocument
