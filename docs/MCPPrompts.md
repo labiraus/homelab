@@ -11,6 +11,7 @@ The manifest currently lists these prompt names:
 - `documents.submit.example`
 - `documents.scanBucket.plan`
 - `documents.editText.prompt`
+- `documents.context.prompt`
 - `documents.search.prompt`
 - `postgres.auth.userCount.prompt`
 - `minio.documents.browse.prompt`
@@ -68,6 +69,21 @@ Use this when:
 - the edit should trigger a newer processing version without a separate scan or reprocess call
 
 The live `documents.editText` tool writes replacement text to the existing MinIO bucket/object key, merges optional metadata into `rag.documents.metadata`, marks the edit with `editedBy: orchestrator.editText`, and queues processor work for the next processing version by default.
+
+### `documents.context.prompt`
+
+- lifecycle: `live`
+- purpose: show how to assemble a citation-backed context block from processed document chunks
+- arguments:
+  - `query` required
+  - `prefix` optional
+
+Use this when:
+
+- an agent needs ready-to-use context rather than raw search hits
+- cited context should stay tied to the current processed chunk version
+
+The live `documents.context` tool uses the same pgvector retrieval path as `documents.search`, then emits a compact context string with `[1]`, `[2]` style references. Each reference has a corresponding citation object that identifies the source URI, object key, chunk ID, chunk index, and processing version.
 
 ### `documents.search.prompt`
 

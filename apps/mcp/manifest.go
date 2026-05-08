@@ -188,6 +188,26 @@ var capabilityCatalog = []manifestCapabilitySource{
 					},
 				},
 			),
+			livePrompt(
+				"documents.context.prompt",
+				"assembleDocumentContextPrompt",
+				"/prompts/documents/context",
+				"Show how to assemble a citation-backed context block from processed document chunks.",
+				false,
+				[]manifestPromptArgument{
+					{Name: "query", Description: "Natural-language context query.", Required: true},
+					{Name: "prefix", Description: "Optional documents-bucket object-key prefix."},
+				},
+				[]manifestPromptMessage{
+					{
+						Role: "user",
+						Content: manifestPromptMessagePart{
+							Type: "text",
+							Text: "Use the live `documents.context` tool on Labiraus with query `{{query}}`. If a prefix is useful, set `prefix` to `{{prefix}}`. The tool searches the current processed chunk version, then assembles a compact context block with `[1]`, `[2]` style references and citation objects for each included chunk.",
+						},
+					},
+				},
+			),
 			liveTool(
 				"documents.inventory.list",
 				"listDocumentInventory",
@@ -200,6 +220,19 @@ var capabilityCatalog = []manifestCapabilitySource{
 					ExecutionMode: manifestExecutionModeDocumentInventory,
 				},
 				documentInventorySchema(),
+			),
+			liveTool(
+				"documents.context",
+				"assembleDocumentContext",
+				http.MethodPost,
+				"/documents/context",
+				"Assemble a citation-backed context block from processed document chunks.",
+				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendPostgres,
+					ExecutionMode: manifestExecutionModeDocumentContext,
+				},
+				documentContextSchema(),
 			),
 			liveTool(
 				"documents.search",
@@ -717,6 +750,9 @@ func operationIsReadOnly(operation manifestOperationSource) bool {
 
 	switch operation.Binding.ExecutionMode {
 	case manifestExecutionModeDiscovery,
+		manifestExecutionModeDocumentContext,
+		manifestExecutionModeDocumentInventory,
+		manifestExecutionModeDocumentSearch,
 		manifestExecutionModeMinIOListFolder,
 		manifestExecutionModeMinIOList,
 		manifestExecutionModePostgresQuery:
@@ -757,6 +793,9 @@ func operationIsIdempotent(operation manifestOperationSource) bool {
 
 	switch operation.Binding.ExecutionMode {
 	case manifestExecutionModeDiscovery,
+		manifestExecutionModeDocumentContext,
+		manifestExecutionModeDocumentInventory,
+		manifestExecutionModeDocumentSearch,
 		manifestExecutionModeMinIOListFolder,
 		manifestExecutionModeMinIOList,
 		manifestExecutionModePostgresQuery:
@@ -947,6 +986,20 @@ func documentSearchSchema() *manifestSchema {
 			"prefix":     {Type: "string", Description: "Optional object-key prefix filter."},
 			"documentId": {Type: "string", Description: "Optional exact document identifier filter."},
 			"limit":      {Type: "integer", Description: "Optional maximum number of chunk hits to return."},
+		},
+		Required: []string{"query"},
+	}
+}
+
+func documentContextSchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"query":      {Type: "string", Description: "Natural-language context query."},
+			"prefix":     {Type: "string", Description: "Optional object-key prefix filter."},
+			"documentId": {Type: "string", Description: "Optional exact document identifier filter."},
+			"limit":      {Type: "integer", Description: "Optional maximum number of chunk hits to assemble."},
+			"maxChars":   {Type: "integer", Description: "Optional maximum character budget for the assembled context block."},
 		},
 		Required: []string{"query"},
 	}

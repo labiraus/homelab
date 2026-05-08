@@ -248,6 +248,90 @@ func TestDocumentSearchHandlerReturnsRankedHits(t *testing.T) {
 	}
 }
 
+func TestDocumentContextHandlerAssemblesCitedContext(t *testing.T) {
+	setEmbeddingEnv(t)
+	setPostgresEnv(t)
+	base.ServiceName = "external_test_" + t.Name()
+	prometheusutil.Start(http.NewServeMux())
+
+	previousEmbedding := fetchQueryEmbedding
+	previousSearch := searchDocuments
+	t.Cleanup(func() {
+		fetchQueryEmbedding = previousEmbedding
+		searchDocuments = previousSearch
+	})
+
+	fetchQueryEmbedding = func(ctx context.Context, input string) ([]float64, string, error) {
+		if input != "ancient tower" {
+			t.Fatalf("expected context query to be forwarded, got %q", input)
+		}
+		return []float64{0.3, 0.2, 0.1}, "local-embeddings", nil
+	}
+	searchDocuments = func(ctx context.Context, embedding []float64, model string, request DocumentSearchRequest, limit int) ([]DocumentSearchHit, error) {
+		if request.Prefix != "campaign/" {
+			t.Fatalf("expected normalized prefix, got %q", request.Prefix)
+		}
+		if limit != 2 {
+			t.Fatalf("expected explicit limit, got %d", limit)
+		}
+		return []DocumentSearchHit{
+			{
+				DocumentID:        "doc-1",
+				ObjectKey:         "campaign/tower.md",
+				ChunkID:           7,
+				ChunkIndex:        0,
+				ChunkText:         "The ancient tower has a brass door.",
+				ProcessingVersion: 2,
+				Citation: &DocumentCitation{
+					ID:                "s3://documents/campaign/tower.md#chunk-0",
+					Label:             "campaign/tower.md chunk 0",
+					ObjectKey:         "campaign/tower.md",
+					ChunkID:           7,
+					ChunkIndex:        0,
+					ProcessingVersion: 2,
+				},
+			},
+		}, nil
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api/documents/context", strings.NewReader(`{"query":"ancient tower","prefix":"campaign","limit":2,"maxChars":120}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	documentContextHandler(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+
+	var response DocumentContextResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected valid json response: %v", err)
+	}
+	if !strings.Contains(response.Context, "[1] campaign/tower.md chunk 0") {
+		t.Fatalf("expected citation marker in context, got %q", response.Context)
+	}
+	if len(response.Citations) != 1 || response.Citations[0].Reference != "[1]" {
+		t.Fatalf("expected citation list with reference, got %#v", response.Citations)
+	}
+}
+
+func TestAssembleDocumentContextTruncatesToBudget(t *testing.T) {
+	response := assembleDocumentContext("query", []DocumentSearchHit{
+		{
+			ChunkText: "abcdef",
+			Citation:  &DocumentCitation{Label: "doc chunk 0"},
+		},
+	}, 12)
+
+	if len(response.Context) != 12 {
+		t.Fatalf("expected context to respect max chars, got %d: %q", len(response.Context), response.Context)
+	}
+	if !response.Truncated {
+		t.Fatal("expected context to report truncation")
+	}
+}
+
 func TestDocumentSearchBaseQueryUsesCurrentProcessingVersion(t *testing.T) {
 	if !strings.Contains(documentSearchBaseQuery(), "c.processing_version = d.current_processing_version") {
 		t.Fatalf("expected search query to filter chunks to the document current processing version")

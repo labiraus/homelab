@@ -55,6 +55,7 @@ The live MinIO shape now supports:
 - `documents.reprocess` for orchestrator-backed requeueing of an existing inventory document at a newer processing version
 - `documents.inventory.list` for Postgres-backed document inventory, curated metadata, and processing-state reads
 - `documents.search` for pgvector semantic search over the current processed chunk version, including citation objects with source URI and chunk identity
+- `documents.context` for pgvector-backed context assembly with stable citation references and citation objects
 - `minio.documents.listFolder` for folder-and-file views of a prefix
 - `minio.documents.listObjects` for flat object inventory
 - `homelab://mcp/minio/documents/objects/{objectKey}` for object reads, including binary-safe blob responses

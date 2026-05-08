@@ -90,6 +90,7 @@ const (
 	manifestExecutionModeMinIOPutText        manifestExecutionMode = "minioPutTextObject"
 	manifestExecutionModeNATSSubscription    manifestExecutionMode = "natsSubscription"
 	manifestExecutionModeDocumentInventory   manifestExecutionMode = "documentInventory"
+	manifestExecutionModeDocumentContext     manifestExecutionMode = "documentContext"
 	manifestExecutionModeDocumentSearch      manifestExecutionMode = "documentSearch"
 	manifestExecutionModePostgresQuery       manifestExecutionMode = "postgresQuery"
 	manifestExecutionModePostgresUserByEmail manifestExecutionMode = "postgresUserByEmail"

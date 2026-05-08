@@ -18,9 +18,12 @@ import (
 )
 
 const (
-	defaultDocumentSearchLimit = 8
-	maxDocumentSearchLimit     = 20
-	defaultEmbeddingModel      = embeddingutil.DefaultModel
+	defaultDocumentSearchLimit   = 8
+	maxDocumentSearchLimit       = 20
+	defaultDocumentContextLimit  = 6
+	defaultDocumentContextChars  = 6000
+	maxDocumentContextCharacters = 20000
+	defaultEmbeddingModel        = embeddingutil.DefaultModel
 )
 
 type queryEmbeddingResponse struct {
@@ -317,6 +320,135 @@ func postgresDocumentSearch(ctx context.Context, arguments map[string]any) (oper
 		}
 	}
 	return operationResponse{ContentType: "application/json", Body: string(body)}, nil
+}
+
+func postgresDocumentContext(ctx context.Context, arguments map[string]any) (operationResponse, *jsonRPCError) {
+	if postgresutil.Query == nil {
+		return backendUnavailable("Postgres backend is unavailable")
+	}
+	if !embeddingsConfigured() {
+		return backendUnavailable("Embedding backend is unavailable")
+	}
+
+	queryText := strings.TrimSpace(optionalStringArgument(arguments, "query", ""))
+	if queryText == "" {
+		return operationResponse{}, &jsonRPCError{
+			Code:    -32602,
+			Message: "query is required",
+		}
+	}
+
+	limit := optionalIntArgument(arguments, "limit", defaultDocumentContextLimit)
+	if limit <= 0 {
+		limit = defaultDocumentContextLimit
+	}
+	if limit > maxDocumentSearchLimit {
+		limit = maxDocumentSearchLimit
+	}
+
+	maxChars := optionalIntArgument(arguments, "maxChars", defaultDocumentContextChars)
+	if maxChars <= 0 {
+		maxChars = defaultDocumentContextChars
+	}
+	if maxChars > maxDocumentContextCharacters {
+		maxChars = maxDocumentContextCharacters
+	}
+
+	embedding, model, err := fetchSearchEmbedding(ctx, queryText)
+	if err != nil {
+		return operationResponse{
+				ContentType: "application/json",
+				Body:        fmt.Sprintf(`{"error":%q}`, err.Error()),
+			}, &jsonRPCError{
+				Code:    -32000,
+				Message: "Could not embed context query",
+			}
+	}
+
+	hits, rpcErr := queryDocumentChunks(ctx, embedding, model, arguments, limit)
+	if rpcErr != nil {
+		return operationResponse{}, rpcErr
+	}
+
+	body, err := json.Marshal(buildDocumentContextPayload(queryText, hits, maxChars))
+	if err != nil {
+		return operationResponse{}, &jsonRPCError{
+			Code:    -32000,
+			Message: "Failed to encode document context response",
+			Data:    err.Error(),
+		}
+	}
+	return operationResponse{ContentType: "application/json", Body: string(body)}, nil
+}
+
+func buildDocumentContextPayload(queryText string, hits []map[string]any, maxChars int) map[string]any {
+	if maxChars <= 0 {
+		maxChars = defaultDocumentContextChars
+	}
+
+	var context strings.Builder
+	citations := []map[string]any{}
+	truncated := false
+
+	for index, hit := range hits {
+		reference := fmt.Sprintf("[%d]", index+1)
+		citation := documentContextMap(hit["citation"])
+		label := reference
+		if value := strings.TrimSpace(documentContextString(citation["label"])); value != "" {
+			label += " " + value
+		}
+
+		separator := ""
+		if context.Len() > 0 {
+			separator = "\n\n"
+		}
+		block := separator + label + "\n" + strings.TrimSpace(documentContextString(hit["chunkText"]))
+		remaining := maxChars - context.Len()
+		if remaining <= 0 {
+			truncated = true
+			break
+		}
+		if len(block) > remaining {
+			block = block[:remaining]
+			truncated = true
+		}
+		context.WriteString(block)
+
+		citations = append(citations, map[string]any{
+			"reference": reference,
+			"citation":  citation,
+		})
+		if truncated {
+			break
+		}
+	}
+
+	return map[string]any{
+		"query":     queryText,
+		"context":   context.String(),
+		"citations": citations,
+		"hits":      hits,
+		"maxChars":  maxChars,
+		"truncated": truncated,
+	}
+}
+
+func documentContextMap(value any) map[string]any {
+	typed, ok := value.(map[string]any)
+	if !ok || typed == nil {
+		return map[string]any{}
+	}
+	return typed
+}
+
+func documentContextString(value any) string {
+	if value == nil {
+		return ""
+	}
+	if typed, ok := value.(string); ok {
+		return typed
+	}
+	return fmt.Sprint(value)
 }
 
 func queryDocumentChunks(ctx context.Context, embedding []float64, model string, arguments map[string]any, limit int) ([]map[string]any, *jsonRPCError) {

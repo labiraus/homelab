@@ -67,6 +67,8 @@ The current notification pattern on top of that job flow is:
 
 The Labiraus MCP server now subscribes to that NATS event stream and forwards document-specific updates to MCP subscribers as resource notifications. The browser-facing `external` service also fans the same lifecycle events out to authenticated UI clients over SSE at `/api/documents/events`.
 
+The current retrieval context slice is read-only. `documents.context` in MCP and `POST /api/documents/context` in `external` use the same current-version pgvector search path as semantic search, then assemble the selected chunks into a cited context block with stable `[1]`, `[2]` references.
+
 ### Phase 3
 
 `processor` consumes the job, performs extraction, chunking, and embedding, and writes derived results back to Postgres.
@@ -123,4 +125,4 @@ Later phases can add:
 - an ingest-boundary emitter for `documents.events.minio.stored`
 - richer versioned-derivation history beyond the current explicit reprocess queue path
 - richer citation UX beyond the current search-result citation labels and source links
-- richer context assembly and graph-style capabilities on top of the same document foundation
+- graph-style capabilities on top of the same document foundation

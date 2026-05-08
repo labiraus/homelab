@@ -90,6 +90,17 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 	if searchTool.Meta.ExecutionMode != manifestExecutionModeDocumentSearch {
 		t.Fatalf("expected document search execution mode, got %q", searchTool.Meta.ExecutionMode)
 	}
+	if searchTool.Annotations == nil || !searchTool.Annotations.ReadOnlyHint {
+		t.Fatalf("expected search tool to be marked read-only, got %#v", searchTool.Annotations)
+	}
+
+	contextTool := findToolInManifest(t, manifest, "documents.context")
+	if contextTool.Meta.ExecutionMode != manifestExecutionModeDocumentContext {
+		t.Fatalf("expected document context execution mode, got %q", contextTool.Meta.ExecutionMode)
+	}
+	if contextTool.Annotations == nil || !contextTool.Annotations.ReadOnlyHint {
+		t.Fatalf("expected context tool to be marked read-only, got %#v", contextTool.Annotations)
+	}
 
 	moveTool := findToolInManifest(t, manifest, "minio.documents.moveObject")
 	if moveTool.Meta.Lifecycle != manifestLifecycleLive {
@@ -1099,6 +1110,70 @@ func TestHandleToolsCallSearchesDocuments(t *testing.T) {
 	}
 	if responseBody == nil || responseBody.Error != nil {
 		t.Fatalf("expected successful tool response, got %#v", responseBody)
+	}
+}
+
+func TestHandleToolsCallAssemblesDocumentContext(t *testing.T) {
+	previous := assembleDocumentContext
+	t.Cleanup(func() {
+		assembleDocumentContext = previous
+	})
+
+	assembleDocumentContext = func(ctx context.Context, arguments map[string]any) (operationResponse, *jsonRPCError) {
+		if arguments["query"] != "ancient tower" {
+			t.Fatalf("expected query argument, got %#v", arguments["query"])
+		}
+		if arguments["maxChars"] != float64(500) {
+			t.Fatalf("expected maxChars argument, got %#v", arguments["maxChars"])
+		}
+		return operationResponse{
+			ContentType: "application/json",
+			Body:        `{"query":"ancient tower","context":"[1] tower\nstone stairs","citations":[]}`,
+		}, nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "documents.context",
+			"arguments": map[string]any{
+				"query":    "ancient tower",
+				"maxChars": 500,
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful tool response, got %#v", responseBody)
+	}
+}
+
+func TestBuildDocumentContextPayloadAddsReferencesAndTruncates(t *testing.T) {
+	payload := buildDocumentContextPayload("ancient tower", []map[string]any{
+		{
+			"chunkText": "stone stairs behind a brass door",
+			"citation": map[string]any{
+				"label": "campaign/tower.md chunk 0",
+			},
+		},
+	}, 18)
+
+	if payload["truncated"] != true {
+		t.Fatalf("expected truncated payload, got %#v", payload)
+	}
+	context, ok := payload["context"].(string)
+	if !ok || len(context) != 18 {
+		t.Fatalf("expected bounded context string, got %#v", payload["context"])
+	}
+	citations, ok := payload["citations"].([]map[string]any)
+	if !ok || len(citations) != 1 || citations[0]["reference"] != "[1]" {
+		t.Fatalf("expected citation reference, got %#v", payload["citations"])
 	}
 }
 

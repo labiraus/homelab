@@ -17,10 +17,14 @@ import (
 )
 
 const (
-	documentSearchLabel   = "documentSearchHandler"
-	defaultSearchLimit    = 8
-	maxSearchLimit        = 20
-	defaultEmbeddingModel = embeddingutil.DefaultModel
+	documentSearchLabel         = "documentSearchHandler"
+	documentContextLabel        = "documentContextHandler"
+	defaultSearchLimit          = 8
+	maxSearchLimit              = 20
+	defaultContextLimit         = 6
+	defaultContextMaxCharacters = 6000
+	maxContextMaxCharacters     = 20000
+	defaultEmbeddingModel       = embeddingutil.DefaultModel
 )
 
 type queryEmbeddingResponse struct {
@@ -46,6 +50,7 @@ type documentSearchRow struct {
 var (
 	fetchQueryEmbedding = getQueryEmbedding
 	searchDocuments     = queryDocumentSearch
+	assembleContext     = assembleDocumentContext
 	httpClient          = &http.Client{Timeout: 30 * time.Second}
 )
 
@@ -129,6 +134,106 @@ func documentSearchHandler(w http.ResponseWriter, r *http.Request) {
 	if err = json.NewEncoder(w).Encode(response); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+}
+
+func documentContextHandler(w http.ResponseWriter, r *http.Request) {
+	var err error
+	startTime := time.Now()
+	prometheusutil.IncrementProcessed(documentContextLabel, "call")
+
+	defer func() {
+		if p := recover(); p != nil {
+			err = fmt.Errorf("panic: %v", p)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		if err != nil {
+			slog.ErrorContext(r.Context(), err.Error())
+			prometheusutil.IncrementProcessed(documentContextLabel, "error")
+		}
+		prometheusutil.OpDuration(documentContextLabel, time.Since(startTime))
+	}()
+
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !postgresConfigured() || !embeddingsConfigured() {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "document context is unavailable"})
+		return
+	}
+
+	var request DocumentContextRequest
+	if err = json.NewDecoder(r.Body).Decode(&request); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "invalid request body"})
+		return
+	}
+
+	searchRequest, limit, maxChars, validationErr := normalizeDocumentContextRequest(request)
+	if validationErr != "" {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: validationErr})
+		return
+	}
+
+	embedding, model, err := fetchQueryEmbedding(r.Context(), searchRequest.Query)
+	if err != nil {
+		w.WriteHeader(http.StatusBadGateway)
+		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "could not embed context query"})
+		return
+	}
+
+	hits, err := searchDocuments(r.Context(), embedding, model, searchRequest, limit)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "could not assemble document context"})
+		return
+	}
+
+	response := assembleContext(searchRequest.Query, hits, maxChars)
+
+	w.Header().Set("Content-Type", "application/json")
+	if err = json.NewEncoder(w).Encode(response); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+}
+
+func normalizeDocumentContextRequest(request DocumentContextRequest) (DocumentSearchRequest, int, int, string) {
+	searchRequest := DocumentSearchRequest{
+		Query:      strings.TrimSpace(request.Query),
+		DocumentID: strings.TrimSpace(request.DocumentID),
+		Prefix:     normalizePrefix(request.Prefix),
+		Limit:      request.Limit,
+	}
+
+	switch {
+	case searchRequest.Query == "":
+		return DocumentSearchRequest{}, 0, 0, "query is required"
+	case request.Limit < 0:
+		return DocumentSearchRequest{}, 0, 0, "limit must be positive"
+	case request.MaxChars < 0:
+		return DocumentSearchRequest{}, 0, 0, "maxChars must be positive"
+	}
+
+	limit := request.Limit
+	if limit == 0 {
+		limit = defaultContextLimit
+	}
+	if limit > maxSearchLimit {
+		limit = maxSearchLimit
+	}
+
+	maxChars := request.MaxChars
+	if maxChars == 0 {
+		maxChars = defaultContextMaxCharacters
+	}
+	if maxChars > maxContextMaxCharacters {
+		maxChars = maxContextMaxCharacters
+	}
+
+	return searchRequest, limit, maxChars, ""
 }
 
 func getQueryEmbedding(ctx context.Context, input string) ([]float64, string, error) {
@@ -268,6 +373,58 @@ WHERE d.status = 'processed'
 	AND e.model = $2
 	AND c.processing_version = d.current_processing_version
 	AND e.vector IS NOT NULL`
+}
+
+func assembleDocumentContext(query string, hits []DocumentSearchHit, maxChars int) DocumentContextResponse {
+	if maxChars <= 0 {
+		maxChars = defaultContextMaxCharacters
+	}
+
+	var context strings.Builder
+	citations := []DocumentContextCitation{}
+	truncated := false
+
+	for index, hit := range hits {
+		reference := fmt.Sprintf("[%d]", index+1)
+		label := reference
+		if hit.Citation != nil && strings.TrimSpace(hit.Citation.Label) != "" {
+			label += " " + hit.Citation.Label
+		}
+
+		separator := ""
+		if context.Len() > 0 {
+			separator = "\n\n"
+		}
+		blockPrefix := separator + label + "\n"
+		block := blockPrefix + strings.TrimSpace(hit.ChunkText)
+		remaining := maxChars - context.Len()
+		if remaining <= 0 {
+			truncated = true
+			break
+		}
+		if len(block) > remaining {
+			block = block[:remaining]
+			truncated = true
+		}
+		context.WriteString(block)
+
+		citations = append(citations, DocumentContextCitation{
+			Reference: reference,
+			Citation:  hit.Citation,
+		})
+		if truncated {
+			break
+		}
+	}
+
+	return DocumentContextResponse{
+		Query:     query,
+		Context:   context.String(),
+		Citations: citations,
+		Hits:      hits,
+		MaxChars:  maxChars,
+		Truncated: truncated,
+	}
 }
 
 func buildDocumentCitation(row documentSearchRow) *DocumentCitation {

@@ -173,6 +173,7 @@ Current status:
 - `mcp` exposes that reprocessing flow as `documents.reprocess`
 - `mcp` inventory reads include the document metadata object
 - `external` and `mcp` search the current processed chunk version and include citation objects; the UI displays citation labels with source and download actions
+- `external` and `mcp` expose read-only context assembly that packages current-version retrieval hits into cited context blocks
 
 ## Near-Term Non-Goals
 
