@@ -159,7 +159,7 @@ func (recorder *cancelOnFlushRecorder) Flush() {
 	}
 }
 
-func TestStreamableHTTPGetDoesNotEmitSyntheticEmptyEvent(t *testing.T) {
+func TestStreamableHTTPGetEmitsInitialCommentOnly(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	ctx, cancel := context.WithCancel(context.Background())
 	request, _ := httptestJSONRequest(t, http.MethodGet, "/mcp", "")
@@ -176,8 +176,8 @@ func TestStreamableHTTPGetDoesNotEmitSyntheticEmptyEvent(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
-	if body := recorder.Body.String(); body != "" {
-		t.Fatalf("expected stream to flush headers without a synthetic event, got body %q", body)
+	if body := recorder.Body.String(); body != ": connected\n\n" {
+		t.Fatalf("expected stream to start with an SSE comment only, got body %q", body)
 	}
 }
 
