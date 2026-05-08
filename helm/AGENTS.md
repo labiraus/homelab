@@ -38,6 +38,7 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 - For EKS-style deployment, effective values are a combination of `values.yaml` and `values-ecr.yaml`.
 - `values.yaml` is the base/default layer. Environment-specific files such as `values-ghcr.yaml` and `values-ecr.yaml` provide the registry or platform-specific overrides.
 - If a chart changes image registry assumptions, secret references, or environment-specific config values, check all values variants, not only `values.yaml`.
+- For charts that use `generatedSecrets[*].stringData[*].fromSecretRef`, local/CI render checks should set `global.allowMissingGeneratedSecretRefs=true` so missing live Secrets render as placeholders. Do not set that flag for real deployment checks; normal renders should fail if source Secrets are unavailable.
 
 ## Repo-Specific Notes
 

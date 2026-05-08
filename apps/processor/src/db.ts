@@ -64,6 +64,7 @@ const statements = [
 		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 		UNIQUE (chunk_id, model)
 	)`,
+	"ALTER TABLE IF EXISTS rag.embeddings ALTER COLUMN vector TYPE vector(384) USING vector::vector(384)",
 	`CREATE INDEX IF NOT EXISTS rag_embeddings_chunk_id_idx
 		ON rag.embeddings (chunk_id)`,
 	`CREATE INDEX IF NOT EXISTS rag_embeddings_model_idx
