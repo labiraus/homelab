@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -543,6 +544,15 @@ func TestQueuePendingDocumentIgnoresLifecyclePublishFailureAfterCommit(t *testin
 	})
 	if err != nil {
 		t.Fatalf("expected queue to succeed when lifecycle publish fails: %v", err)
+	}
+}
+
+func TestUpdateDocumentLifecycleEventStatementCastsProcessingVersion(t *testing.T) {
+	if strings.Count(updateDocumentLifecycleEventStatement, "$4::integer") != 2 {
+		t.Fatalf("expected lifecycle insert statement to cast processing version in both insert branches")
+	}
+	if !strings.Contains(updateDocumentLifecycleEventStatement, "NULL::bigint") {
+		t.Fatalf("expected lifecycle insert fallback branch to cast document_pk null")
 	}
 }
 

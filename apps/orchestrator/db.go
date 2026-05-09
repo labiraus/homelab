@@ -51,6 +51,28 @@ var (
 	updateCurationRecord  = updateDocumentCuration
 )
 
+const updateDocumentLifecycleEventStatement = `WITH updated_document AS (
+	UPDATE rag.documents
+	SET last_event_subject = $2,
+		last_event_at = $3::timestamptz,
+		updated_at = NOW()
+	WHERE document_id = $1
+	RETURNING id
+)
+INSERT INTO rag.document_lifecycle_events (
+	document_pk,
+	document_id,
+	subject,
+	processing_version,
+	event_payload,
+	occurred_at
+)
+SELECT id, $1, $2, $4::integer, $5::jsonb, $3::timestamptz
+FROM updated_document
+UNION ALL
+SELECT NULL::bigint, $1, $2, $4::integer, $5::jsonb, $3::timestamptz
+WHERE NOT EXISTS (SELECT 1 FROM updated_document)`
+
 func withDocumentTx(ctx context.Context, fn func(context.Context) error) error {
 	if postgresutil.Begin == nil {
 		return fmt.Errorf("postgres is not initialized")
@@ -363,27 +385,7 @@ func updateDocumentLifecycleEvent(ctx context.Context, event documentevents.Life
 
 	_, err = postgresutil.Exec(
 		ctx,
-		`WITH updated_document AS (
-			UPDATE rag.documents
-			SET last_event_subject = $2,
-				last_event_at = $3::timestamptz,
-				updated_at = NOW()
-			WHERE document_id = $1
-			RETURNING id
-		)
-		INSERT INTO rag.document_lifecycle_events (
-			document_pk,
-			document_id,
-			subject,
-			processing_version,
-			event_payload,
-			occurred_at
-		)
-		SELECT id, $1, $2, $4, $5::jsonb, $3::timestamptz
-		FROM updated_document
-		UNION ALL
-		SELECT NULL, $1, $2, $4, $5::jsonb, $3::timestamptz
-		WHERE NOT EXISTS (SELECT 1 FROM updated_document)`,
+		updateDocumentLifecycleEventStatement,
 		event.DocumentID,
 		event.Subject,
 		event.OccurredAt,
