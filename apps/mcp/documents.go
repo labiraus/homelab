@@ -1,0 +1,714 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
+	"pkg/embeddingutil"
+	"pkg/minioutil"
+	"pkg/postgresutil"
+
+	"github.com/jackc/pgx/v5"
+)
+
+const (
+	defaultDocumentSearchLimit   = 8
+	maxDocumentSearchLimit       = 20
+	defaultDocumentContextLimit  = 6
+	defaultDocumentContextChars  = 6000
+	maxDocumentContextCharacters = 20000
+	defaultEmbeddingModel        = embeddingutil.DefaultModel
+)
+
+type queryEmbeddingResponse struct {
+	Data []struct {
+		Embedding []float64 `json:"embedding"`
+	} `json:"data"`
+	Model string `json:"model"`
+}
+
+type documentInventoryRow struct {
+	DocumentID               string
+	Bucket                   string
+	ObjectKey                string
+	SourceURI                string
+	ContentType              string
+	Status                   string
+	MetadataRaw              string
+	DesiredProcessingVersion int
+	CurrentProcessingVersion int
+	LastReconciledAt         *time.Time
+	LastProcessedAt          *time.Time
+	LastEventSubject         string
+	LastEventAt              *time.Time
+	LastError                string
+}
+
+type documentSearchRow struct {
+	DocumentID        string
+	SourceURI         string
+	ObjectKey         string
+	ContentType       string
+	ChunkID           int64
+	ChunkIndex        int
+	ChunkText         string
+	ProcessingVersion int
+	Distance          float64
+	LastProcessedAt   *time.Time
+}
+
+var fetchSearchEmbedding = getSearchEmbedding
+
+func postgresUserByEmail(ctx context.Context, email string) (operationResponse, *jsonRPCError) {
+	if postgresutil.QueryRow == nil {
+		return backendUnavailable("Postgres backend is unavailable")
+	}
+
+	var payload string
+	err := postgresutil.QueryRow(
+		ctx,
+		`SELECT json_build_object(
+			'email', email,
+			'displayName', display_name,
+			'createdAt', created_at,
+			'updatedAt', updated_at
+		)::text
+		FROM auth.users
+		WHERE email = $1`,
+		email,
+	).Scan(&payload)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return operationResponse{
+					ContentType: "application/json",
+					Body:        fmt.Sprintf(`{"error":"auth user not found","email":%q}`, email),
+				}, &jsonRPCError{
+					Code:    -32004,
+					Message: "Auth user not found",
+					Data:    email,
+				}
+		}
+		return operationResponse{
+				ContentType: "application/json",
+				Body:        fmt.Sprintf(`{"error":%q}`, err.Error()),
+			}, &jsonRPCError{
+				Code:    -32000,
+				Message: "Auth user lookup failed",
+				Data:    email,
+			}
+	}
+
+	return operationResponse{
+		ContentType: "application/json",
+		Body:        payload,
+	}, nil
+}
+
+func postgresDocumentInventory(ctx context.Context, arguments map[string]any) (operationResponse, *jsonRPCError) {
+	if postgresutil.Query == nil {
+		return backendUnavailable("Postgres backend is unavailable")
+	}
+
+	limit := optionalIntArgument(arguments, "limit", 50)
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+
+	status := strings.TrimSpace(optionalStringArgument(arguments, "status", ""))
+	prefix := normalizeDocumentPrefix(optionalStringArgument(arguments, "prefix", ""))
+	documentID := strings.TrimSpace(optionalStringArgument(arguments, "documentId", ""))
+
+	query := `
+SELECT
+	document_id,
+	COALESCE(bucket_name, ''),
+	COALESCE(object_key, ''),
+	source_uri,
+	COALESCE(content_type, ''),
+	status,
+	COALESCE(metadata::text, '{}'),
+	desired_processing_version,
+	current_processing_version,
+	last_reconciled_at,
+	last_processed_at,
+	COALESCE(last_event_subject, ''),
+	last_event_at,
+	COALESCE(last_error, '')
+FROM rag.documents
+WHERE true`
+	args := []any{}
+	nextArg := 1
+
+	if status != "" {
+		query += fmt.Sprintf("\n\tAND status = $%d", nextArg)
+		args = append(args, status)
+		nextArg++
+	}
+	if prefix != "" {
+		query += fmt.Sprintf("\n\tAND object_key LIKE $%d", nextArg)
+		args = append(args, prefix+"%")
+		nextArg++
+	}
+	if documentID != "" {
+		query += fmt.Sprintf("\n\tAND document_id = $%d", nextArg)
+		args = append(args, documentID)
+		nextArg++
+	}
+
+	query += fmt.Sprintf("\nORDER BY updated_at DESC, document_id\nLIMIT $%d", nextArg)
+	args = append(args, limit)
+
+	rows, err := postgresutil.Query(ctx, query, args...)
+	if err != nil {
+		return operationResponse{
+				ContentType: "application/json",
+				Body:        fmt.Sprintf(`{"error":%q}`, err.Error()),
+			}, &jsonRPCError{
+				Code:    -32000,
+				Message: "Document inventory query failed",
+			}
+	}
+	defer rows.Close()
+
+	documents := []map[string]any{}
+	for rows.Next() {
+		var row documentInventoryRow
+		if err := rows.Scan(
+			&row.DocumentID,
+			&row.Bucket,
+			&row.ObjectKey,
+			&row.SourceURI,
+			&row.ContentType,
+			&row.Status,
+			&row.MetadataRaw,
+			&row.DesiredProcessingVersion,
+			&row.CurrentProcessingVersion,
+			&row.LastReconciledAt,
+			&row.LastProcessedAt,
+			&row.LastEventSubject,
+			&row.LastEventAt,
+			&row.LastError,
+		); err != nil {
+			return operationResponse{}, &jsonRPCError{
+				Code:    -32000,
+				Message: "Document inventory row scan failed",
+				Data:    err.Error(),
+			}
+		}
+
+		metadata, rpcErr := decodeDocumentMetadata(row.MetadataRaw)
+		if rpcErr != nil {
+			return operationResponse{}, rpcErr
+		}
+
+		documents = append(documents, map[string]any{
+			"documentId":               row.DocumentID,
+			"bucket":                   row.Bucket,
+			"objectKey":                row.ObjectKey,
+			"sourceUri":                row.SourceURI,
+			"contentType":              row.ContentType,
+			"status":                   row.Status,
+			"metadata":                 metadata,
+			"desiredProcessingVersion": row.DesiredProcessingVersion,
+			"currentProcessingVersion": row.CurrentProcessingVersion,
+			"lastReconciledAt":         formatOptionalTime(row.LastReconciledAt),
+			"lastProcessedAt":          formatOptionalTime(row.LastProcessedAt),
+			"lastEventSubject":         row.LastEventSubject,
+			"lastEventAt":              formatOptionalTime(row.LastEventAt),
+			"lastError":                row.LastError,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return operationResponse{}, &jsonRPCError{
+			Code:    -32000,
+			Message: "Document inventory query failed",
+			Data:    err.Error(),
+		}
+	}
+
+	body, err := json.Marshal(map[string]any{
+		"documents": documents,
+		"count":     len(documents),
+	})
+	if err != nil {
+		return operationResponse{}, &jsonRPCError{
+			Code:    -32000,
+			Message: "Failed to encode document inventory response",
+			Data:    err.Error(),
+		}
+	}
+	return operationResponse{ContentType: "application/json", Body: string(body)}, nil
+}
+
+func decodeDocumentMetadata(raw string) (map[string]any, *jsonRPCError) {
+	if strings.TrimSpace(raw) == "" {
+		return map[string]any{}, nil
+	}
+
+	var metadata map[string]any
+	if err := json.Unmarshal([]byte(raw), &metadata); err != nil {
+		return nil, &jsonRPCError{
+			Code:    -32000,
+			Message: "Document metadata decode failed",
+			Data:    err.Error(),
+		}
+	}
+	if metadata == nil {
+		metadata = map[string]any{}
+	}
+	return metadata, nil
+}
+
+func postgresDocumentSearch(ctx context.Context, arguments map[string]any) (operationResponse, *jsonRPCError) {
+	if postgresutil.Query == nil {
+		return backendUnavailable("Postgres backend is unavailable")
+	}
+	if !embeddingsConfigured() {
+		return backendUnavailable("Embedding backend is unavailable")
+	}
+
+	queryText := strings.TrimSpace(optionalStringArgument(arguments, "query", ""))
+	if queryText == "" {
+		return operationResponse{}, &jsonRPCError{
+			Code:    -32602,
+			Message: "query is required",
+		}
+	}
+
+	limit := optionalIntArgument(arguments, "limit", defaultDocumentSearchLimit)
+	if limit <= 0 {
+		limit = defaultDocumentSearchLimit
+	}
+	if limit > maxDocumentSearchLimit {
+		limit = maxDocumentSearchLimit
+	}
+
+	embedding, model, err := fetchSearchEmbedding(ctx, queryText)
+	if err != nil {
+		return operationResponse{
+				ContentType: "application/json",
+				Body:        fmt.Sprintf(`{"error":%q}`, err.Error()),
+			}, &jsonRPCError{
+				Code:    -32000,
+				Message: "Could not embed search query",
+			}
+	}
+
+	hits, rpcErr := queryDocumentChunks(ctx, embedding, model, arguments, limit)
+	if rpcErr != nil {
+		return operationResponse{}, rpcErr
+	}
+
+	body, err := json.Marshal(map[string]any{
+		"query": queryText,
+		"hits":  hits,
+	})
+	if err != nil {
+		return operationResponse{}, &jsonRPCError{
+			Code:    -32000,
+			Message: "Failed to encode document search response",
+			Data:    err.Error(),
+		}
+	}
+	return operationResponse{ContentType: "application/json", Body: string(body)}, nil
+}
+
+func postgresDocumentContext(ctx context.Context, arguments map[string]any) (operationResponse, *jsonRPCError) {
+	if postgresutil.Query == nil {
+		return backendUnavailable("Postgres backend is unavailable")
+	}
+	if !embeddingsConfigured() {
+		return backendUnavailable("Embedding backend is unavailable")
+	}
+
+	queryText := strings.TrimSpace(optionalStringArgument(arguments, "query", ""))
+	if queryText == "" {
+		return operationResponse{}, &jsonRPCError{
+			Code:    -32602,
+			Message: "query is required",
+		}
+	}
+
+	limit := optionalIntArgument(arguments, "limit", defaultDocumentContextLimit)
+	if limit <= 0 {
+		limit = defaultDocumentContextLimit
+	}
+	if limit > maxDocumentSearchLimit {
+		limit = maxDocumentSearchLimit
+	}
+
+	maxChars := optionalIntArgument(arguments, "maxChars", defaultDocumentContextChars)
+	if maxChars <= 0 {
+		maxChars = defaultDocumentContextChars
+	}
+	if maxChars > maxDocumentContextCharacters {
+		maxChars = maxDocumentContextCharacters
+	}
+
+	embedding, model, err := fetchSearchEmbedding(ctx, queryText)
+	if err != nil {
+		return operationResponse{
+				ContentType: "application/json",
+				Body:        fmt.Sprintf(`{"error":%q}`, err.Error()),
+			}, &jsonRPCError{
+				Code:    -32000,
+				Message: "Could not embed context query",
+			}
+	}
+
+	hits, rpcErr := queryDocumentChunks(ctx, embedding, model, arguments, limit)
+	if rpcErr != nil {
+		return operationResponse{}, rpcErr
+	}
+
+	body, err := json.Marshal(buildDocumentContextPayload(queryText, hits, maxChars))
+	if err != nil {
+		return operationResponse{}, &jsonRPCError{
+			Code:    -32000,
+			Message: "Failed to encode document context response",
+			Data:    err.Error(),
+		}
+	}
+	return operationResponse{ContentType: "application/json", Body: string(body)}, nil
+}
+
+func buildDocumentContextPayload(queryText string, hits []map[string]any, maxChars int) map[string]any {
+	if maxChars <= 0 {
+		maxChars = defaultDocumentContextChars
+	}
+
+	var context strings.Builder
+	citations := []map[string]any{}
+	truncated := false
+
+	for index, hit := range hits {
+		reference := fmt.Sprintf("[%d]", index+1)
+		citation := documentContextMap(hit["citation"])
+		label := reference
+		if value := strings.TrimSpace(documentContextString(citation["label"])); value != "" {
+			label += " " + value
+		}
+
+		separator := ""
+		if context.Len() > 0 {
+			separator = "\n\n"
+		}
+		block := separator + label + "\n" + strings.TrimSpace(documentContextString(hit["chunkText"]))
+		remaining := maxChars - context.Len()
+		if remaining <= 0 {
+			truncated = true
+			break
+		}
+		if len(block) > remaining {
+			block = block[:remaining]
+			truncated = true
+		}
+		context.WriteString(block)
+
+		citations = append(citations, map[string]any{
+			"reference": reference,
+			"citation":  citation,
+		})
+		if truncated {
+			break
+		}
+	}
+
+	return map[string]any{
+		"query":     queryText,
+		"context":   context.String(),
+		"citations": citations,
+		"hits":      hits,
+		"maxChars":  maxChars,
+		"truncated": truncated,
+	}
+}
+
+func documentContextMap(value any) map[string]any {
+	typed, ok := value.(map[string]any)
+	if !ok || typed == nil {
+		return map[string]any{}
+	}
+	return typed
+}
+
+func documentContextString(value any) string {
+	if value == nil {
+		return ""
+	}
+	if typed, ok := value.(string); ok {
+		return typed
+	}
+	return fmt.Sprint(value)
+}
+
+func queryDocumentChunks(ctx context.Context, embedding []float64, model string, arguments map[string]any, limit int) ([]map[string]any, *jsonRPCError) {
+	query := documentChunkSearchBaseQuery()
+	args := []any{toVectorLiteral(embedding), model}
+	nextArg := 3
+
+	documentID := strings.TrimSpace(optionalStringArgument(arguments, "documentId", ""))
+	if documentID != "" {
+		query += fmt.Sprintf("\n\tAND d.document_id = $%d", nextArg)
+		args = append(args, documentID)
+		nextArg++
+	}
+
+	prefix := normalizeDocumentPrefix(optionalStringArgument(arguments, "prefix", ""))
+	if prefix != "" {
+		query += fmt.Sprintf("\n\tAND d.object_key LIKE $%d", nextArg)
+		args = append(args, prefix+"%")
+		nextArg++
+	}
+
+	query += fmt.Sprintf("\nORDER BY e.vector <=> $1::vector\nLIMIT $%d", nextArg)
+	args = append(args, limit)
+
+	rows, err := postgresutil.Query(ctx, query, args...)
+	if err != nil {
+		return nil, &jsonRPCError{
+			Code:    -32000,
+			Message: "Document search query failed",
+			Data:    err.Error(),
+		}
+	}
+	defer rows.Close()
+
+	hits := []map[string]any{}
+	for rows.Next() {
+		var row documentSearchRow
+		if err := rows.Scan(
+			&row.DocumentID,
+			&row.SourceURI,
+			&row.ObjectKey,
+			&row.ContentType,
+			&row.ChunkID,
+			&row.ChunkIndex,
+			&row.ChunkText,
+			&row.ProcessingVersion,
+			&row.Distance,
+			&row.LastProcessedAt,
+		); err != nil {
+			return nil, &jsonRPCError{
+				Code:    -32000,
+				Message: "Document search row scan failed",
+				Data:    err.Error(),
+			}
+		}
+
+		hits = append(hits, map[string]any{
+			"documentId":        row.DocumentID,
+			"sourceUri":         row.SourceURI,
+			"objectKey":         row.ObjectKey,
+			"contentType":       row.ContentType,
+			"chunkId":           row.ChunkID,
+			"chunkIndex":        row.ChunkIndex,
+			"chunkText":         row.ChunkText,
+			"processingVersion": row.ProcessingVersion,
+			"distance":          row.Distance,
+			"similarity":        maxSimilarity(row.Distance),
+			"lastProcessedAt":   formatOptionalTime(row.LastProcessedAt),
+			"citation":          buildDocumentCitation(row),
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, &jsonRPCError{
+			Code:    -32000,
+			Message: "Document search query failed",
+			Data:    err.Error(),
+		}
+	}
+
+	return hits, nil
+}
+
+func documentChunkSearchBaseQuery() string {
+	return `
+SELECT
+	d.document_id,
+	d.source_uri,
+	COALESCE(d.object_key, ''),
+	COALESCE(d.content_type, ''),
+	c.id,
+	c.chunk_index,
+	c.chunk_text,
+	c.processing_version,
+	e.vector <=> $1::vector AS distance,
+	d.last_processed_at
+FROM rag.embeddings e
+JOIN rag.chunks c ON c.id = e.chunk_id
+JOIN rag.documents d ON d.id = c.document_pk
+WHERE d.status = 'processed'
+	AND e.model = $2
+	AND c.processing_version = d.current_processing_version
+	AND e.vector IS NOT NULL`
+}
+
+func buildDocumentCitation(row documentSearchRow) map[string]any {
+	source := defaultSearchString(row.SourceURI, row.DocumentID)
+	labelSource := defaultSearchString(row.ObjectKey, row.DocumentID)
+	return map[string]any{
+		"id":                fmt.Sprintf("%s#chunk-%d", source, row.ChunkIndex),
+		"label":             fmt.Sprintf("%s chunk %d", labelSource, row.ChunkIndex),
+		"sourceUri":         row.SourceURI,
+		"objectKey":         row.ObjectKey,
+		"chunkId":           row.ChunkID,
+		"chunkIndex":        row.ChunkIndex,
+		"processingVersion": row.ProcessingVersion,
+	}
+}
+
+func getSearchEmbedding(ctx context.Context, input string) ([]float64, string, error) {
+	if useLocalEmbeddings() {
+		return embeddingutil.EmbedText(input), embeddingModel(), nil
+	}
+
+	payload, err := json.Marshal(map[string]any{
+		"model": embeddingModel(),
+		"input": input,
+	})
+	if err != nil {
+		return nil, "", err
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, embeddingEndpoint(), bytes.NewReader(payload))
+	if err != nil {
+		return nil, "", err
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := mcpHTTPClient.Do(request)
+	if err != nil {
+		return nil, "", err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return nil, "", fmt.Errorf("embedding request failed: %s", response.Status)
+	}
+
+	var body queryEmbeddingResponse
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+		return nil, "", err
+	}
+	if len(body.Data) == 0 || len(body.Data[0].Embedding) == 0 {
+		return nil, "", fmt.Errorf("embedding response did not include a vector")
+	}
+
+	return body.Data[0].Embedding, defaultSearchString(strings.TrimSpace(body.Model), embeddingModel()), nil
+}
+
+func minioMoveBucketObject(ctx context.Context, bucket string, sourceObjectKey string, destinationObjectKey string) (operationResponse, *jsonRPCError) {
+	object, err := minioutil.MoveObjectInBucket(ctx, bucket, sourceObjectKey, destinationObjectKey)
+	if err != nil {
+		return operationResponse{
+				ContentType: "application/json",
+				Body:        fmt.Sprintf(`{"error":%q}`, err.Error()),
+			}, &jsonRPCError{
+				Code:    -32000,
+				Message: "MinIO move operation failed",
+				Data: map[string]any{
+					"bucket":               bucket,
+					"sourceObjectKey":      sourceObjectKey,
+					"destinationObjectKey": destinationObjectKey,
+				},
+			}
+	}
+
+	body, err := json.Marshal(map[string]any{
+		"bucket":               bucket,
+		"sourceObjectKey":      sourceObjectKey,
+		"destinationObjectKey": destinationObjectKey,
+		"etag":                 object.ETag,
+		"sizeBytes":            object.Size,
+		"contentType":          object.ContentType,
+		"lastModified":         object.LastModified.UTC().Format(time.RFC3339),
+		"moved":                true,
+	})
+	if err != nil {
+		return operationResponse{}, &jsonRPCError{
+			Code:    -32000,
+			Message: "Failed to encode MinIO move response",
+			Data:    err.Error(),
+		}
+	}
+
+	return operationResponse{ContentType: "application/json", Body: string(body)}, nil
+}
+
+func embeddingsConfigured() bool {
+	return useLocalEmbeddings() || strings.TrimSpace(os.Getenv("EMBEDDING_ENDPOINT")) != ""
+}
+
+func embeddingEndpoint() string {
+	return strings.TrimSpace(os.Getenv("EMBEDDING_ENDPOINT"))
+}
+
+func embeddingModel() string {
+	return defaultSearchString(strings.TrimSpace(os.Getenv("EMBEDDING_MODEL")), defaultEmbeddingModel)
+}
+
+func useLocalEmbeddings() bool {
+	return strings.TrimSpace(os.Getenv("EMBEDDING_ENDPOINT")) == "" && embeddingModel() == embeddingutil.DefaultModel
+}
+
+func defaultSearchString(value string, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return value
+}
+
+func normalizeDocumentPrefix(value string) string {
+	value = strings.TrimSpace(strings.ReplaceAll(value, "\\", "/"))
+	value = strings.TrimPrefix(value, "/")
+	if value != "" && !strings.HasSuffix(value, "/") {
+		value += "/"
+	}
+	return value
+}
+
+func formatOptionalTime(value *time.Time) string {
+	if value == nil || value.IsZero() {
+		return ""
+	}
+	return value.UTC().Format(time.RFC3339)
+}
+
+func maxSimilarity(distance float64) float64 {
+	similarity := 1 - distance
+	if similarity < 0 {
+		return 0
+	}
+	if similarity > 1 {
+		return 1
+	}
+	return similarity
+}
+
+func toVectorLiteral(values []float64) string {
+	parts := make([]string, 0, len(values))
+	for _, value := range values {
+		parts = append(parts, fmt.Sprintf("%g", value))
+	}
+	return "[" + strings.Join(parts, ",") + "]"
+}
+
+func backendUnavailable(message string) (operationResponse, *jsonRPCError) {
+	return operationResponse{
+			ContentType: "application/json",
+			Body:        fmt.Sprintf(`{"error":%q}`, message),
+		}, &jsonRPCError{
+			Code:    -32000,
+			Message: message,
+		}
+}

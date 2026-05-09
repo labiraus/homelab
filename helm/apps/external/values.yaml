@@ -82,7 +82,7 @@ generatedSecrets:
           name: app-db-bootstrap
           key: password
       EMBEDDING_ENDPOINT:
-        value: http://embeddings.homelab.svc.cluster.local/v1/embeddings
+        value: ""
       EMBEDDING_MODEL:
         value: local-embeddings
       OIDC_LOGIN_URL:

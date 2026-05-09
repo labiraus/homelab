@@ -266,9 +266,9 @@ func legacySessionIDFromRequest(r *http.Request) string {
 func legacyRequestWithSession(r *http.Request, session *mcpSession) *http.Request {
 	request := r.Clone(r.Context())
 	request.Header = r.Header.Clone()
-	request.Header.Set(mcpSessionHeader, session.ID)
-	if request.Header.Get(mcpProtocolVersionHeader) == "" {
-		request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	if request.Header.Get("MCP-Protocol-Version") == "" {
+		request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 	}
 	return request
 }

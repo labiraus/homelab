@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 
@@ -302,6 +302,15 @@ describe("App", () => {
 							chunkText: "aws eks update-kubeconfig --name homelab",
 							similarity: 0.92,
 							lastProcessedAt: "2026-04-14T12:00:00Z",
+							citation: {
+								id: "s3://documents/scripts/refresh-kubeconfig.sh#chunk-0",
+								label: "scripts/refresh-kubeconfig.sh chunk 0",
+								sourceUri: "s3://documents/scripts/refresh-kubeconfig.sh",
+								objectKey: "scripts/refresh-kubeconfig.sh",
+								chunkId: 42,
+								chunkIndex: 0,
+								processingVersion: 1,
+							},
 						},
 					],
 				}),
@@ -320,6 +329,7 @@ describe("App", () => {
 		await user.click(screen.getByRole("button", { name: /search chunks/i }));
 
 		expect(await screen.findByText("scripts/refresh-kubeconfig.sh")).toBeInTheDocument();
+		expect(screen.getByText("scripts/refresh-kubeconfig.sh chunk 0")).toBeInTheDocument();
 		expect(screen.getByText(/aws eks update-kubeconfig/i)).toBeInTheDocument();
 		expect(global.fetch).toHaveBeenCalledWith(
 			"/api/documents/search",
@@ -451,11 +461,13 @@ describe("App", () => {
 		expect(MockEventSource.instances).toHaveLength(1);
 		expect(MockEventSource.instances[0].url).toBe("/api/documents/events");
 
-		MockEventSource.instances[0].emit("document", {
-			subject: "documents.events.processor.completed",
-			documentId: "doc-1",
-			objectKey: "reports/doc-1.txt",
-			occurredAt: "2026-04-14T10:00:00Z",
+		act(() => {
+			MockEventSource.instances[0].emit("document", {
+				subject: "documents.events.processor.completed",
+				documentId: "doc-1",
+				objectKey: "reports/doc-1.txt",
+				occurredAt: "2026-04-14T10:00:00Z",
+			});
 		});
 
 		expect(await screen.findByText("Processing completed")).toBeInTheDocument();

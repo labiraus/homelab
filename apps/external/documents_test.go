@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"pkg/base"
+	"pkg/documentevents"
 	"pkg/minioutil"
 	"pkg/prometheusutil"
 
@@ -108,8 +109,10 @@ func TestDocumentUploadHandlerStoresFile(t *testing.T) {
 	prometheusutil.Start(http.NewServeMux())
 
 	previous := putDocumentObject
+	previousPublish := publishStoredDocumentEvent
 	t.Cleanup(func() {
 		putDocumentObject = previous
+		publishStoredDocumentEvent = previousPublish
 	})
 
 	putDocumentObject = func(ctx context.Context, objectKey string, body []byte, contentType string) (uploadedDocument, error) {
@@ -124,6 +127,11 @@ func TestDocumentUploadHandlerStoresFile(t *testing.T) {
 			SizeBytes:   int64(len(body)),
 			ContentType: contentType,
 		}, nil
+	}
+	var published uploadedDocument
+	publishStoredDocumentEvent = func(ctx context.Context, uploaded uploadedDocument) error {
+		published = uploaded
+		return nil
 	}
 
 	var payload bytes.Buffer
@@ -162,6 +170,84 @@ func TestDocumentUploadHandlerStoresFile(t *testing.T) {
 	if !strings.Contains(response.ContentType, "text/plain") {
 		t.Fatalf("expected text content type, got %q", response.ContentType)
 	}
+	if published.ObjectKey != "reports/demo.txt" || published.SizeBytes != int64(len("hello")) {
+		t.Fatalf("expected stored lifecycle event for uploaded object, got %+v", published)
+	}
+}
+
+func TestDocumentUploadHandlerIgnoresStoredNotificationFailure(t *testing.T) {
+	setMinIOEnv(t)
+	base.ServiceName = "external_test_" + t.Name()
+	prometheusutil.Start(http.NewServeMux())
+
+	previousPut := putDocumentObject
+	previousPublish := publishStoredDocumentEvent
+	t.Cleanup(func() {
+		putDocumentObject = previousPut
+		publishStoredDocumentEvent = previousPublish
+	})
+
+	putDocumentObject = func(ctx context.Context, objectKey string, body []byte, contentType string) (uploadedDocument, error) {
+		return uploadedDocument{
+			ObjectKey:   objectKey,
+			SizeBytes:   int64(len(body)),
+			ContentType: contentType,
+		}, nil
+	}
+	publishStoredDocumentEvent = func(ctx context.Context, uploaded uploadedDocument) error {
+		return context.Canceled
+	}
+
+	var payload bytes.Buffer
+	writer := multipart.NewWriter(&payload)
+	fileWriter, err := writer.CreateFormFile("file", "demo.txt")
+	if err != nil {
+		t.Fatalf("failed to create multipart file: %v", err)
+	}
+	if _, err := fileWriter.Write([]byte("hello")); err != nil {
+		t.Fatalf("failed to write file body: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("failed to close multipart writer: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api/documents/upload", &payload)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	recorder := httptest.NewRecorder()
+
+	documentUploadHandler(recorder, request)
+
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("expected status 201 despite notification failure, got %d", recorder.Code)
+	}
+}
+
+func TestStoredDocumentLifecycleEventUsesS3DocumentID(t *testing.T) {
+	setMinIOEnv(t)
+
+	event, ok := storedDocumentLifecycleEvent(uploadedDocument{
+		ObjectKey:   "reports/demo.txt",
+		ContentType: "text/plain; charset=utf-8",
+	})
+
+	if !ok {
+		t.Fatal("expected stored lifecycle event")
+	}
+	if event.Subject != documentevents.SubjectMinIOStored {
+		t.Fatalf("expected minio stored subject, got %q", event.Subject)
+	}
+	if event.DocumentID != "s3://documents/reports/demo.txt" || event.Bucket != "documents" || event.ObjectKey != "reports/demo.txt" {
+		t.Fatalf("unexpected object identity: %+v", event)
+	}
+	if event.ContentType != "text/plain; charset=utf-8" {
+		t.Fatalf("expected content type in event, got %q", event.ContentType)
+	}
+	if event.ProcessingVersion != 0 {
+		t.Fatalf("stored event should not claim a processing version, got %d", event.ProcessingVersion)
+	}
+	if event.OccurredAt == "" {
+		t.Fatal("expected occurredAt timestamp")
+	}
 }
 
 func TestDocumentSearchHandlerReturnsRankedHits(t *testing.T) {
@@ -196,6 +282,7 @@ func TestDocumentSearchHandlerReturnsRankedHits(t *testing.T) {
 		return []DocumentSearchHit{
 			{
 				DocumentID:        "doc-1",
+				SourceURI:         "s3://documents/scripts/refresh-kubeconfig.sh",
 				ObjectKey:         "scripts/refresh-kubeconfig.sh",
 				ContentType:       "text/x-shellscript",
 				ChunkID:           42,
@@ -205,6 +292,15 @@ func TestDocumentSearchHandlerReturnsRankedHits(t *testing.T) {
 				Distance:          0.08,
 				Similarity:        0.92,
 				LastProcessedAt:   "2026-04-14T12:00:00Z",
+				Citation: &DocumentCitation{
+					ID:                "s3://documents/scripts/refresh-kubeconfig.sh#chunk-0",
+					Label:             "scripts/refresh-kubeconfig.sh chunk 0",
+					SourceURI:         "s3://documents/scripts/refresh-kubeconfig.sh",
+					ObjectKey:         "scripts/refresh-kubeconfig.sh",
+					ChunkID:           42,
+					ChunkIndex:        0,
+					ProcessingVersion: 1,
+				},
 			},
 		}, nil
 	}
@@ -233,6 +329,99 @@ func TestDocumentSearchHandlerReturnsRankedHits(t *testing.T) {
 	if response.Hits[0].DocumentID != "doc-1" {
 		t.Fatalf("expected doc-1 hit, got %#v", response.Hits[0])
 	}
+	if response.Hits[0].Citation == nil || response.Hits[0].Citation.Label != "scripts/refresh-kubeconfig.sh chunk 0" {
+		t.Fatalf("expected citation payload, got %#v", response.Hits[0].Citation)
+	}
+}
+
+func TestDocumentContextHandlerAssemblesCitedContext(t *testing.T) {
+	setEmbeddingEnv(t)
+	setPostgresEnv(t)
+	base.ServiceName = "external_test_" + t.Name()
+	prometheusutil.Start(http.NewServeMux())
+
+	previousEmbedding := fetchQueryEmbedding
+	previousSearch := searchDocuments
+	t.Cleanup(func() {
+		fetchQueryEmbedding = previousEmbedding
+		searchDocuments = previousSearch
+	})
+
+	fetchQueryEmbedding = func(ctx context.Context, input string) ([]float64, string, error) {
+		if input != "ancient tower" {
+			t.Fatalf("expected context query to be forwarded, got %q", input)
+		}
+		return []float64{0.3, 0.2, 0.1}, "local-embeddings", nil
+	}
+	searchDocuments = func(ctx context.Context, embedding []float64, model string, request DocumentSearchRequest, limit int) ([]DocumentSearchHit, error) {
+		if request.Prefix != "campaign/" {
+			t.Fatalf("expected normalized prefix, got %q", request.Prefix)
+		}
+		if limit != 2 {
+			t.Fatalf("expected explicit limit, got %d", limit)
+		}
+		return []DocumentSearchHit{
+			{
+				DocumentID:        "doc-1",
+				ObjectKey:         "campaign/tower.md",
+				ChunkID:           7,
+				ChunkIndex:        0,
+				ChunkText:         "The ancient tower has a brass door.",
+				ProcessingVersion: 2,
+				Citation: &DocumentCitation{
+					ID:                "s3://documents/campaign/tower.md#chunk-0",
+					Label:             "campaign/tower.md chunk 0",
+					ObjectKey:         "campaign/tower.md",
+					ChunkID:           7,
+					ChunkIndex:        0,
+					ProcessingVersion: 2,
+				},
+			},
+		}, nil
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api/documents/context", strings.NewReader(`{"query":"ancient tower","prefix":"campaign","limit":2,"maxChars":120}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	documentContextHandler(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+
+	var response DocumentContextResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected valid json response: %v", err)
+	}
+	if !strings.Contains(response.Context, "[1] campaign/tower.md chunk 0") {
+		t.Fatalf("expected citation marker in context, got %q", response.Context)
+	}
+	if len(response.Citations) != 1 || response.Citations[0].Reference != "[1]" {
+		t.Fatalf("expected citation list with reference, got %#v", response.Citations)
+	}
+}
+
+func TestAssembleDocumentContextTruncatesToBudget(t *testing.T) {
+	response := assembleDocumentContext("query", []DocumentSearchHit{
+		{
+			ChunkText: "abcdef",
+			Citation:  &DocumentCitation{Label: "doc chunk 0"},
+		},
+	}, 12)
+
+	if len(response.Context) != 12 {
+		t.Fatalf("expected context to respect max chars, got %d: %q", len(response.Context), response.Context)
+	}
+	if !response.Truncated {
+		t.Fatal("expected context to report truncation")
+	}
+}
+
+func TestDocumentSearchBaseQueryUsesCurrentProcessingVersion(t *testing.T) {
+	if !strings.Contains(documentSearchBaseQuery(), "c.processing_version = d.current_processing_version") {
+		t.Fatalf("expected search query to filter chunks to the document current processing version")
+	}
 }
 
 func TestDocumentSearchHandlerValidatesRequest(t *testing.T) {
@@ -257,6 +446,25 @@ func TestDocumentSearchHandlerValidatesRequest(t *testing.T) {
 	}
 	if response.Error != "query is required" {
 		t.Fatalf("expected validation error, got %q", response.Error)
+	}
+}
+
+func TestLocalQueryEmbeddingFallback(t *testing.T) {
+	t.Setenv("EMBEDDING_ENDPOINT", "")
+	t.Setenv("EMBEDDING_MODEL", "local-embeddings")
+
+	embedding, model, err := getQueryEmbedding(context.Background(), "Astra keeps field notes")
+	if err != nil {
+		t.Fatalf("expected local embedding to succeed: %v", err)
+	}
+	if model != "local-embeddings" {
+		t.Fatalf("expected local model, got %q", model)
+	}
+	if len(embedding) != 384 {
+		t.Fatalf("expected 384-dimensional embedding, got %d", len(embedding))
+	}
+	if !embeddingsConfigured() {
+		t.Fatal("expected local embeddings to count as configured")
 	}
 }
 

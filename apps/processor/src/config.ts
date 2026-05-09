@@ -42,7 +42,7 @@ export function loadConfig(): ProcessorConfig {
 		minioBucket: process.env.MINIO_BUCKET?.trim() || "documents",
 		minioAccessKey: requireEnv("MINIO_ACCESS_KEY"),
 		minioSecretKey: requireEnv("MINIO_SECRET_KEY"),
-		embeddingEndpoint: requireEnv("EMBEDDING_ENDPOINT"),
+		embeddingEndpoint: process.env.EMBEDDING_ENDPOINT?.trim() || "",
 		embeddingModel: process.env.EMBEDDING_MODEL?.trim() || "local-embeddings",
 		chunkSize: Number(process.env.CHUNK_SIZE ?? "1200"),
 		chunkOverlap: Number(process.env.CHUNK_OVERLAP ?? "200"),

@@ -33,6 +33,8 @@ The initial inventory record should capture:
 
 At this stage, the important outcome is durable document state in Postgres, not immediate extraction.
 
+The current live scan endpoint is `POST /documents/scan-bucket`, also exposed through MCP as the `documents.scanBucket` tool. It accepts optional `bucket`, `prefix`, `maxKeys`, and `processingVersion` fields. Non-text objects are inventoried with status `unsupported`; unchanged known objects keep their current lifecycle status while refreshing reconciliation metadata.
+
 ### Phase 2
 
 When `orchestrator` determines a document is new, changed, or needs reprocessing, it emits a NATS JetStream job.
@@ -46,16 +48,25 @@ The current request-driven slice is:
 - the same request flow publishes a JetStream job before committing
 - if publish fails, the pending-row write is rolled back with the request
 
+The current scan-driven slice uses the same queue path for new or changed `text/*` objects discovered during bucket reconciliation.
+
+The current curation slice is metadata-only. `POST /documents/curation`, exposed through MCP as the `documents.curation.update` tool, updates `rag.documents.metadata` for an existing inventory row without changing raw MinIO objects, chunks, embeddings, or lifecycle status.
+
+The current edit slice is text-only. `POST /documents/edit-text`, exposed through MCP as the `documents.editText` tool, overwrites the existing MinIO object for an inventory row, merges edit metadata, and queues a newer processing version through the same control-plane path. It intentionally edits only existing `text/*` inventory rows so object identity, access assumptions, and derived-state refreshes stay explicit.
+
+The current reprocess-driven slice also uses that queue path. `POST /documents/reprocess`, exposed through MCP as the `documents.reprocess` tool, accepts an existing `documentId` and optional `processingVersion`; when the version is omitted, `orchestrator` queues the next processing version after the current desired or completed version.
+
 The current notification pattern on top of that job flow is:
 
+- emit `documents.events.minio.stored` when the browser-facing upload path writes the raw object to MinIO
 - emit `documents.events.processor.queued` when the document is queued for processor execution
 - emit `documents.events.processor.started` when the processor claims the work and begins execution
 - emit `documents.events.processor.completed` when processing is finished and derived state has been written back
 - emit `documents.events.processor.failed` when processing fails and the document is returned to a retryable state
 
-`documents.events.minio.stored` remains reserved for a future ingest-boundary emitter rather than part of the current browser upload path.
-
 The Labiraus MCP server now subscribes to that NATS event stream and forwards document-specific updates to MCP subscribers as resource notifications. The browser-facing `external` service also fans the same lifecycle events out to authenticated UI clients over SSE at `/api/documents/events`.
+
+The current retrieval context slice is read-only. `documents.context` in MCP and `POST /api/documents/context` in `external` use the same current-version pgvector search path as semantic search, then assemble the selected chunks into a cited context block with stable `[1]`, `[2]` references.
 
 ### Phase 3
 
@@ -75,6 +86,8 @@ The current processor lifecycle is:
 - decode UTF-8 text for supported `text/*` documents
 - create chunks and embeddings
 - mark the row `processed`
+
+When `EMBEDDING_MODEL=local-embeddings` and no embedding endpoint is configured, the processor uses the built-in deterministic 384-dimensional embedding function. External embedding services should only be configured when a real OpenAI-compatible endpoint exists.
 
 If the processor sees a message before the orchestrator commit is visible, or if the job has been superseded by a newer processing version, it retries or no-ops instead of duplicating derived data.
 
@@ -107,8 +120,7 @@ This design keeps ingestion idempotent and explainable:
 
 Later phases can add:
 
-- richer retrieval APIs through `external` and `mcp`
-- an ingest-boundary emitter for `documents.events.minio.stored`
-- reprocessing and versioned derivations
-- citation UX in the UI
-- richer context assembly and graph-style capabilities on top of the same document foundation
+- richer retrieval APIs beyond the current `external` search and MCP inventory/search tools
+- richer versioned-derivation history beyond the current explicit reprocess queue path
+- richer citation UX beyond the current search-result citation labels and source links
+- graph-style capabilities on top of the same document foundation

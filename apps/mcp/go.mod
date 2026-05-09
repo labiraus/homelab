@@ -4,10 +4,12 @@ go 1.25.6
 
 require (
 	github.com/google/uuid v1.6.0
+	github.com/jackc/pgx/v5 v5.7.4
 	github.com/minio/minio-go/v7 v7.0.95
 	pkg/api v0.0.0
 	pkg/base v0.0.0
 	pkg/documentevents v0.0.0
+	pkg/embeddingutil v0.0.0
 	pkg/minioutil v0.0.0
 	pkg/natsutil v0.0.0
 	pkg/postgresutil v0.0.0
@@ -22,7 +24,6 @@ require (
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgx/v5 v5.7.4 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.11 // indirect
@@ -54,6 +55,8 @@ replace pkg/api => ../pkg/api
 replace pkg/base => ../pkg/base
 
 replace pkg/documentevents => ../pkg/documentevents
+
+replace pkg/embeddingutil => ../pkg/embeddingutil
 
 replace pkg/minioutil => ../pkg/minioutil
 

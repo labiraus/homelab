@@ -11,24 +11,24 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - 
+    -
         name: Set up Helm
         uses: azure/setup-helm@v4.2.0
-      
-    - 
+
+    -
         name: Resolve Helm dependencies
         shell: bash
         run: |
             helm dependency update ${{ github.workspace }}/helm/${{ inputs.chart }}
-      
-    - 
+
+    -
         name: Lint Helm chart
         shell: bash
         run: |
-            helm lint ${{ github.workspace }}/helm/${{ inputs.chart }} -f  ${{ github.workspace }}/helm/${{ inputs.chart }}/${{ inputs.values }}
+            helm lint ${{ github.workspace }}/helm/${{ inputs.chart }} -f  ${{ github.workspace }}/helm/${{ inputs.chart }}/${{ inputs.values }} --set global.allowMissingGeneratedSecretRefs=true
 
-    - 
+    -
         name: Test Helm chart compilation
         shell: bash
         run: |
-            helm template test ${{ github.workspace }}/helm/${{ inputs.chart }} -f  ${{ github.workspace }}/helm/${{ inputs.chart }}/${{ inputs.values }}
+            helm template test ${{ github.workspace }}/helm/${{ inputs.chart }} -f  ${{ github.workspace }}/helm/${{ inputs.chart }}/${{ inputs.values }} --set global.allowMissingGeneratedSecretRefs=true

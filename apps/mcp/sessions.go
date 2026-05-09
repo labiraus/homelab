@@ -10,11 +10,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
-	mcpSessionHeader         = "MCP-Session-Id"
-	mcpProtocolVersionHeader = "MCP-Protocol-Version"
-)
-
 type mcpSession struct {
 	ID              string
 	ProtocolVersion string
@@ -218,11 +213,11 @@ func (manager *mcpSessionManager) notifyResourceUpdated(documentID string) {
 }
 
 func sessionIDFromRequest(r *http.Request) string {
-	return strings.TrimSpace(r.Header.Get(mcpSessionHeader))
+	return strings.TrimSpace(r.Header.Get("MCP-Session-Id"))
 }
 
 func protocolVersionFromHeader(r *http.Request) string {
-	return strings.TrimSpace(r.Header.Get(mcpProtocolVersionHeader))
+	return strings.TrimSpace(r.Header.Get("MCP-Protocol-Version"))
 }
 
 func validateSessionRequest(r *http.Request) (string, *mcpSession, int, *jsonRPCResponse) {

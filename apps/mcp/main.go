@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"pkg/api"
 	"pkg/base"
@@ -24,19 +26,7 @@ func main() {
 	ctx := base.Start("mcp")
 
 	if postgresConfigured() {
-		if err := postgresutil.Init(ctx, map[string]postgresutil.PostgresConfig{
-			"default": {
-				Host:     base.GetEnv("POSTGRES_HOST", ""),
-				Port:     base.GetEnv("POSTGRES_PORT", "5432"),
-				User:     base.GetEnv("POSTGRES_USER", ""),
-				Password: base.GetEnv("POSTGRES_PASSWORD", ""),
-				Database: base.GetEnv("POSTGRES_DATABASE", ""),
-				SSLMode:  base.GetEnv("POSTGRES_SSLMODE", "disable"),
-			},
-		}); err != nil {
-			slog.ErrorContext(ctx, err.Error())
-			return
-		}
+		go startPostgresWithRetry(ctx, 5*time.Second)
 	} else {
 		slog.InfoContext(ctx, "postgres config not provided; direct postgres MCP capabilities will return unavailable errors")
 	}
@@ -111,6 +101,34 @@ func postgresConfigured() bool {
 	}
 
 	return true
+}
+
+func startPostgresWithRetry(ctx context.Context, retryDelay time.Duration) {
+	config := map[string]postgresutil.PostgresConfig{
+		"default": {
+			Host:     base.GetEnv("POSTGRES_HOST", ""),
+			Port:     base.GetEnv("POSTGRES_PORT", "5432"),
+			User:     base.GetEnv("POSTGRES_USER", ""),
+			Password: base.GetEnv("POSTGRES_PASSWORD", ""),
+			Database: base.GetEnv("POSTGRES_DATABASE", ""),
+			SSLMode:  base.GetEnv("POSTGRES_SSLMODE", "disable"),
+		},
+	}
+
+	for {
+		if err := postgresutil.Init(ctx, config); err != nil {
+			slog.ErrorContext(ctx, "postgres bootstrap failed; direct postgres MCP capabilities will return unavailable errors", "error", err, "retryDelay", retryDelay.String())
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(retryDelay):
+				continue
+			}
+		}
+
+		slog.InfoContext(ctx, "postgres backend initialized for direct MCP capabilities")
+		return
+	}
 }
 
 func minioConfigured() bool {

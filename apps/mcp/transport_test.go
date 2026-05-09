@@ -51,9 +51,60 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 		t.Fatalf("expected folder listing tool to be marked read-only, got %#v", listTool.Annotations)
 	}
 
-	plannedTool := findToolInManifest(t, manifest, "documents.scanBucket")
-	if plannedTool.Meta.Lifecycle != manifestLifecyclePlanned {
-		t.Fatalf("expected planned tool lifecycle, got %q", plannedTool.Meta.Lifecycle)
+	scanTool := findToolInManifest(t, manifest, "documents.scanBucket")
+	if scanTool.Meta.Lifecycle != manifestLifecycleLive {
+		t.Fatalf("expected live scan tool lifecycle, got %q", scanTool.Meta.Lifecycle)
+	}
+	if scanTool.Meta.ExecutionMode != manifestExecutionModeHTTPProxy {
+		t.Fatalf("expected scan tool to proxy to orchestrator, got %q", scanTool.Meta.ExecutionMode)
+	}
+
+	curationTool := findToolInManifest(t, manifest, "documents.curation.update")
+	if curationTool.Meta.Lifecycle != manifestLifecycleLive {
+		t.Fatalf("expected live curation tool lifecycle, got %q", curationTool.Meta.Lifecycle)
+	}
+	if curationTool.Meta.ExecutionMode != manifestExecutionModeHTTPProxy {
+		t.Fatalf("expected curation tool to proxy to orchestrator, got %q", curationTool.Meta.ExecutionMode)
+	}
+
+	editTool := findToolInManifest(t, manifest, "documents.editText")
+	if editTool.Meta.Lifecycle != manifestLifecycleLive {
+		t.Fatalf("expected live edit tool lifecycle, got %q", editTool.Meta.Lifecycle)
+	}
+	if editTool.Meta.ExecutionMode != manifestExecutionModeHTTPProxy {
+		t.Fatalf("expected edit tool to proxy to orchestrator, got %q", editTool.Meta.ExecutionMode)
+	}
+	if editTool.Annotations == nil || !editTool.Annotations.DestructiveHint {
+		t.Fatalf("expected edit tool to be marked destructive, got %#v", editTool.Annotations)
+	}
+
+	reprocessTool := findToolInManifest(t, manifest, "documents.reprocess")
+	if reprocessTool.Meta.Lifecycle != manifestLifecycleLive {
+		t.Fatalf("expected live reprocess tool lifecycle, got %q", reprocessTool.Meta.Lifecycle)
+	}
+	if reprocessTool.Meta.ExecutionMode != manifestExecutionModeHTTPProxy {
+		t.Fatalf("expected reprocess tool to proxy to orchestrator, got %q", reprocessTool.Meta.ExecutionMode)
+	}
+
+	searchTool := findToolInManifest(t, manifest, "documents.search")
+	if searchTool.Meta.ExecutionMode != manifestExecutionModeDocumentSearch {
+		t.Fatalf("expected document search execution mode, got %q", searchTool.Meta.ExecutionMode)
+	}
+	if searchTool.Annotations == nil || !searchTool.Annotations.ReadOnlyHint {
+		t.Fatalf("expected search tool to be marked read-only, got %#v", searchTool.Annotations)
+	}
+
+	contextTool := findToolInManifest(t, manifest, "documents.context")
+	if contextTool.Meta.ExecutionMode != manifestExecutionModeDocumentContext {
+		t.Fatalf("expected document context execution mode, got %q", contextTool.Meta.ExecutionMode)
+	}
+	if contextTool.Annotations == nil || !contextTool.Annotations.ReadOnlyHint {
+		t.Fatalf("expected context tool to be marked read-only, got %#v", contextTool.Annotations)
+	}
+
+	moveTool := findToolInManifest(t, manifest, "minio.documents.moveObject")
+	if moveTool.Meta.Lifecycle != manifestLifecycleLive {
+		t.Fatalf("expected live move tool lifecycle, got %q", moveTool.Meta.Lifecycle)
 	}
 
 	template := findResourceTemplateInManifest(t, manifest, "minio.documents.object")
@@ -64,6 +115,11 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 	notificationTemplate := findResourceTemplateInManifest(t, manifest, "documents.notifications.stream")
 	if notificationTemplate.Meta.ExecutionMode != manifestExecutionModeNATSSubscription {
 		t.Fatalf("expected NATS subscription execution mode, got %q", notificationTemplate.Meta.ExecutionMode)
+	}
+
+	authTemplate := findResourceTemplateInManifest(t, manifest, "postgres.auth.userByEmail")
+	if authTemplate.Meta.ExecutionMode != manifestExecutionModePostgresUserByEmail {
+		t.Fatalf("expected auth user lookup execution mode, got %q", authTemplate.Meta.ExecutionMode)
 	}
 }
 
@@ -135,15 +191,15 @@ func TestMCPPostInitializeReturnsSSEMessageEventAndSession(t *testing.T) {
 	if response.ID != "1" || response.Error != nil {
 		t.Fatalf("expected initialize response with id 1, got %#v", response)
 	}
-	if recorder.Header().Get(mcpSessionHeader) == "" {
-		t.Fatalf("expected initialize response to include %s", mcpSessionHeader)
+	if recorder.Header().Get("MCP-Session-Id") == "" {
+		t.Fatalf("expected initialize response to include %s", "MCP-Session-Id")
 	}
 }
 
 func TestMCPPostAcceptsInitializedNotificationWithoutProtocolHeader(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/initialized"}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
+	request.Header.Set("MCP-Session-Id", session.ID)
 
 	mcpPostAPI(recorder, request)
 
@@ -152,7 +208,7 @@ func TestMCPPostAcceptsInitializedNotificationWithoutProtocolHeader(t *testing.T
 
 func TestMCPPostAcceptsInitializedNotificationWithoutSessionHeader(t *testing.T) {
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/initialized"}`)
-	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+	request.Header.Set("MCP-Protocol-Version", supportedProtocolVersions[0])
 
 	mcpPostAPI(recorder, request)
 
@@ -255,8 +311,8 @@ func TestLegacySSEStillEmitsEndpointEvent(t *testing.T) {
 func TestMCPPostAcceptsLegacyInitializedNotification(t *testing.T) {
 	session := sessionRegistry.create("2024-11-05")
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/initialized"}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -266,8 +322,8 @@ func TestMCPPostAcceptsLegacyInitializedNotification(t *testing.T) {
 func TestMCPPostAcceptsUnknownNotification(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":"1"}}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -277,8 +333,8 @@ func TestMCPPostAcceptsUnknownNotification(t *testing.T) {
 func TestMCPPostAcceptsNotificationWithNullID(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":null,"method":"notifications/initialized"}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -288,8 +344,8 @@ func TestMCPPostAcceptsNotificationWithNullID(t *testing.T) {
 func TestMCPPostAcceptsNotificationWithNonNullID(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"init-note","method":"notifications/initialized"}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -299,8 +355,8 @@ func TestMCPPostAcceptsNotificationWithNonNullID(t *testing.T) {
 func TestMCPPostAcceptsResponseOnlyMessage(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"server-request-1","result":{}}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -309,7 +365,7 @@ func TestMCPPostAcceptsResponseOnlyMessage(t *testing.T) {
 
 func TestMCPPostAcceptsResponseOnlyMessageWithoutSessionHeader(t *testing.T) {
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"server-request-1","result":{}}`)
-	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+	request.Header.Set("MCP-Protocol-Version", supportedProtocolVersions[0])
 
 	mcpPostAPI(recorder, request)
 
@@ -319,8 +375,8 @@ func TestMCPPostAcceptsResponseOnlyMessageWithoutSessionHeader(t *testing.T) {
 func TestMCPPostAcceptsLegacyUnknownNotification(t *testing.T) {
 	session := sessionRegistry.create("2024-11-05")
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":"1"}}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -333,8 +389,8 @@ func TestMCPPostAcceptsOneWayBatch(t *testing.T) {
 		{"jsonrpc":"2.0","method":"notifications/initialized"},
 		{"jsonrpc":"2.0","id":"server-request-1","result":{}}
 	]`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -346,7 +402,7 @@ func TestMCPPostAcceptsOneWayBatchWithoutSessionHeader(t *testing.T) {
 		{"jsonrpc":"2.0","method":"notifications/initialized"},
 		{"jsonrpc":"2.0","id":"server-request-1","result":{}}
 	]`)
-	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+	request.Header.Set("MCP-Protocol-Version", supportedProtocolVersions[0])
 
 	mcpPostAPI(recorder, request)
 
@@ -359,8 +415,8 @@ func TestMCPPostAcceptsOneWayBatchWithNotificationID(t *testing.T) {
 		{"jsonrpc":"2.0","id":null,"method":"notifications/initialized"},
 		{"jsonrpc":"2.0","id":"server-request-1","result":{}}
 	]`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -373,8 +429,8 @@ func TestMCPPostAcceptsLegacyOneWayBatch(t *testing.T) {
 		{"jsonrpc":"2.0","method":"notifications/initialized"},
 		{"jsonrpc":"2.0","id":"server-request-1","result":{}}
 	]`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -384,8 +440,8 @@ func TestMCPPostAcceptsLegacyOneWayBatch(t *testing.T) {
 func TestMCPPostRejectsBatchContainingRequest(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `[{"jsonrpc":"2.0","id":"1","method":"resources/list"}]`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, session.ProtocolVersion)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
 
 	mcpPostAPI(recorder, request)
 
@@ -404,7 +460,7 @@ func TestMCPPostRejectsBatchContainingRequest(t *testing.T) {
 
 func TestMCPPostAcceptsStatelessResourcesListWithoutSessionHeader(t *testing.T) {
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
-	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+	request.Header.Set("MCP-Protocol-Version", supportedProtocolVersions[0])
 
 	mcpPostAPI(recorder, request)
 
@@ -416,7 +472,7 @@ func TestMCPPostAcceptsStatelessResourcesListWithoutSessionHeader(t *testing.T) 
 
 func TestMCPPostReturnsJSONRPCMethodErrorAsSSEMessageEvent(t *testing.T) {
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"unknown/method"}`)
-	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+	request.Header.Set("MCP-Protocol-Version", supportedProtocolVersions[0])
 
 	mcpPostAPI(recorder, request)
 
@@ -428,7 +484,7 @@ func TestMCPPostReturnsJSONRPCMethodErrorAsSSEMessageEvent(t *testing.T) {
 
 func TestMCPPostRejectsSessionBoundSubscribeWithoutSessionHeader(t *testing.T) {
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/subscribe","params":{"uri":"`+documentNotificationResourceURI("doc-1")+`"}}`)
-	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+	request.Header.Set("MCP-Protocol-Version", supportedProtocolVersions[0])
 
 	mcpPostAPI(recorder, request)
 
@@ -448,7 +504,7 @@ func TestMCPPostRejectsSessionBoundSubscribeWithoutSessionHeader(t *testing.T) {
 func TestMCPPostAcceptsSessionRequestWithoutProtocolHeader(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
+	request.Header.Set("MCP-Session-Id", session.ID)
 
 	mcpPostAPI(recorder, request)
 
@@ -461,8 +517,8 @@ func TestMCPPostAcceptsSessionRequestWithoutProtocolHeader(t *testing.T) {
 func TestMCPPostAcceptsSupportedProtocolHeaderDrift(t *testing.T) {
 	session := sessionRegistry.create("2024-11-05")
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", supportedProtocolVersions[0])
 
 	mcpPostAPI(recorder, request)
 
@@ -474,7 +530,7 @@ func TestMCPPostAcceptsSupportedProtocolHeaderDrift(t *testing.T) {
 
 func TestMCPPostRejectsUnsupportedProtocolHeaderWithoutSessionHeader(t *testing.T) {
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
-	request.Header.Set(mcpProtocolVersionHeader, "1999-01-01")
+	request.Header.Set("MCP-Protocol-Version", "1999-01-01")
 
 	mcpPostAPI(recorder, request)
 
@@ -496,8 +552,8 @@ func TestMCPPostRestoresUnknownUUIDSession(t *testing.T) {
 	sessionRegistry.delete(sessionID)
 
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
-	request.Header.Set(mcpSessionHeader, sessionID)
-	request.Header.Set(mcpProtocolVersionHeader, "2025-03-26")
+	request.Header.Set("MCP-Session-Id", sessionID)
+	request.Header.Set("MCP-Protocol-Version", "2025-03-26")
 
 	mcpPostAPI(recorder, request)
 
@@ -517,8 +573,8 @@ func TestValidateSessionRequestRestoresUnknownUUIDForStream(t *testing.T) {
 	sessionRegistry.delete(sessionID)
 
 	request, _ := httptestJSONRequest(t, http.MethodGet, "/mcp", "")
-	request.Header.Set(mcpSessionHeader, sessionID)
-	request.Header.Set(mcpProtocolVersionHeader, "2025-06-18")
+	request.Header.Set("MCP-Session-Id", sessionID)
+	request.Header.Set("MCP-Protocol-Version", "2025-06-18")
 
 	restoredSessionID, session, status, response := validateSessionRequest(request)
 
@@ -535,8 +591,8 @@ func TestValidateSessionRequestRestoresUnknownUUIDForStream(t *testing.T) {
 
 func TestMCPPostRejectsMalformedUnknownSessionID(t *testing.T) {
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
-	request.Header.Set(mcpSessionHeader, "not-a-session-id")
-	request.Header.Set(mcpProtocolVersionHeader, supportedProtocolVersions[0])
+	request.Header.Set("MCP-Session-Id", "not-a-session-id")
+	request.Header.Set("MCP-Protocol-Version", supportedProtocolVersions[0])
 
 	mcpPostAPI(recorder, request)
 
@@ -556,8 +612,8 @@ func TestMCPPostRejectsMalformedUnknownSessionID(t *testing.T) {
 func TestMCPPostRejectsUnsupportedProtocolHeader(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
-	request.Header.Set(mcpSessionHeader, session.ID)
-	request.Header.Set(mcpProtocolVersionHeader, "1999-01-01")
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", "1999-01-01")
 
 	mcpPostAPI(recorder, request)
 
@@ -577,7 +633,7 @@ func TestMCPPostRejectsUnsupportedProtocolHeader(t *testing.T) {
 func TestMCPDeleteTerminatesSession(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodDelete, "/mcp", "")
-	request.Header.Set(mcpSessionHeader, session.ID)
+	request.Header.Set("MCP-Session-Id", session.ID)
 
 	mcpDeleteAPI(recorder, request)
 
@@ -833,6 +889,53 @@ func TestProxyAPIRequestDefaultsToOrchestratorService(t *testing.T) {
 	}
 }
 
+func TestHandleToolsCallProxiesDocumentEditText(t *testing.T) {
+	previous := proxyOperationRequest
+	t.Cleanup(func() {
+		proxyOperationRequest = previous
+	})
+
+	proxyOperationRequest = func(ctx context.Context, r *http.Request, method string, path string, body any) (string, string, *jsonRPCError) {
+		if method != http.MethodPost {
+			t.Fatalf("expected POST, got %q", method)
+		}
+		if path != "/documents/edit-text" {
+			t.Fatalf("expected edit-text path, got %q", path)
+		}
+		bodyMap, ok := body.(map[string]any)
+		if !ok {
+			t.Fatalf("expected proxy body map, got %#v", body)
+		}
+		if bodyMap["documentId"] != "doc-1" || bodyMap["text"] != "edited notes" {
+			t.Fatalf("unexpected proxy body: %#v", bodyMap)
+		}
+		return "application/json", `{"status":"queued","documentId":"doc-1","processingVersion":3}`, nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "documents.editText",
+			"arguments": map[string]any{
+				"body": map[string]any{
+					"documentId": "doc-1",
+					"text":       "edited notes",
+				},
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful tool response, got %#v", responseBody)
+	}
+}
+
 func TestHandleToolsCallUploadsBinaryObject(t *testing.T) {
 	previous := writeBucketObject
 	t.Cleanup(func() {
@@ -882,13 +985,245 @@ func TestHandleToolsCallUploadsBinaryObject(t *testing.T) {
 	}
 }
 
+func TestHandleToolsCallMovesObject(t *testing.T) {
+	previous := moveBucketObject
+	t.Cleanup(func() {
+		moveBucketObject = previous
+	})
+
+	moveBucketObject = func(ctx context.Context, bucket string, sourceObjectKey string, destinationObjectKey string) (operationResponse, *jsonRPCError) {
+		if bucket != "documents" {
+			t.Fatalf("expected documents bucket, got %q", bucket)
+		}
+		if sourceObjectKey != "inbox/demo.txt" {
+			t.Fatalf("expected source object key, got %q", sourceObjectKey)
+		}
+		if destinationObjectKey != "archive/demo.txt" {
+			t.Fatalf("expected destination object key, got %q", destinationObjectKey)
+		}
+		return operationResponse{
+			ContentType: "application/json",
+			Body:        `{"moved":true}`,
+		}, nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "minio.documents.moveObject",
+			"arguments": map[string]any{
+				"sourceObjectKey":      "inbox/demo.txt",
+				"destinationObjectKey": "archive/demo.txt",
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful tool response, got %#v", responseBody)
+	}
+}
+
+func TestHandleToolsCallListsDocumentInventory(t *testing.T) {
+	previous := listDocumentInventory
+	t.Cleanup(func() {
+		listDocumentInventory = previous
+	})
+
+	listDocumentInventory = func(ctx context.Context, arguments map[string]any) (operationResponse, *jsonRPCError) {
+		if arguments["status"] != "processed" {
+			t.Fatalf("expected status argument, got %#v", arguments["status"])
+		}
+		return operationResponse{
+			ContentType: "application/json",
+			Body:        `{"count":1,"documents":[{"documentId":"doc-1"}]}`,
+		}, nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "documents.inventory.list",
+			"arguments": map[string]any{
+				"status": "processed",
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful tool response, got %#v", responseBody)
+	}
+}
+
+func TestDecodeDocumentMetadata(t *testing.T) {
+	metadata, rpcErr := decodeDocumentMetadata(`{"summary":"Curated summary","tags":["campaign","npc"]}`)
+	if rpcErr != nil {
+		t.Fatalf("expected metadata decode to succeed: %#v", rpcErr)
+	}
+	if metadata["summary"] != "Curated summary" {
+		t.Fatalf("expected decoded summary, got %+v", metadata)
+	}
+}
+
+func TestHandleToolsCallSearchesDocuments(t *testing.T) {
+	previous := searchDocumentChunks
+	t.Cleanup(func() {
+		searchDocumentChunks = previous
+	})
+
+	searchDocumentChunks = func(ctx context.Context, arguments map[string]any) (operationResponse, *jsonRPCError) {
+		if arguments["query"] != "ancient tower" {
+			t.Fatalf("expected query argument, got %#v", arguments["query"])
+		}
+		return operationResponse{
+			ContentType: "application/json",
+			Body:        `{"query":"ancient tower","hits":[]}`,
+		}, nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "documents.search",
+			"arguments": map[string]any{
+				"query": "ancient tower",
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful tool response, got %#v", responseBody)
+	}
+}
+
+func TestHandleToolsCallAssemblesDocumentContext(t *testing.T) {
+	previous := assembleDocumentContext
+	t.Cleanup(func() {
+		assembleDocumentContext = previous
+	})
+
+	assembleDocumentContext = func(ctx context.Context, arguments map[string]any) (operationResponse, *jsonRPCError) {
+		if arguments["query"] != "ancient tower" {
+			t.Fatalf("expected query argument, got %#v", arguments["query"])
+		}
+		if arguments["maxChars"] != float64(500) {
+			t.Fatalf("expected maxChars argument, got %#v", arguments["maxChars"])
+		}
+		return operationResponse{
+			ContentType: "application/json",
+			Body:        `{"query":"ancient tower","context":"[1] tower\nstone stairs","citations":[]}`,
+		}, nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "documents.context",
+			"arguments": map[string]any{
+				"query":    "ancient tower",
+				"maxChars": 500,
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful tool response, got %#v", responseBody)
+	}
+}
+
+func TestBuildDocumentContextPayloadAddsReferencesAndTruncates(t *testing.T) {
+	payload := buildDocumentContextPayload("ancient tower", []map[string]any{
+		{
+			"chunkText": "stone stairs behind a brass door",
+			"citation": map[string]any{
+				"label": "campaign/tower.md chunk 0",
+			},
+		},
+	}, 18)
+
+	if payload["truncated"] != true {
+		t.Fatalf("expected truncated payload, got %#v", payload)
+	}
+	context, ok := payload["context"].(string)
+	if !ok || len(context) != 18 {
+		t.Fatalf("expected bounded context string, got %#v", payload["context"])
+	}
+	citations, ok := payload["citations"].([]map[string]any)
+	if !ok || len(citations) != 1 || citations[0]["reference"] != "[1]" {
+		t.Fatalf("expected citation reference, got %#v", payload["citations"])
+	}
+}
+
+func TestDocumentChunkSearchBaseQueryUsesCurrentProcessingVersion(t *testing.T) {
+	if !strings.Contains(documentChunkSearchBaseQuery(), "c.processing_version = d.current_processing_version") {
+		t.Fatalf("expected search query to filter chunks to the document current processing version")
+	}
+}
+
+func TestLocalSearchEmbeddingFallback(t *testing.T) {
+	t.Setenv("EMBEDDING_ENDPOINT", "")
+	t.Setenv("EMBEDDING_MODEL", "local-embeddings")
+
+	embedding, model, err := getSearchEmbedding(context.Background(), "ancient tower")
+	if err != nil {
+		t.Fatalf("expected local embedding to succeed: %v", err)
+	}
+	if model != "local-embeddings" {
+		t.Fatalf("expected local model, got %q", model)
+	}
+	if len(embedding) != 384 {
+		t.Fatalf("expected 384-dimensional embedding, got %d", len(embedding))
+	}
+	if !embeddingsConfigured() {
+		t.Fatal("expected local embeddings to count as configured")
+	}
+}
+
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (fn roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return fn(req)
 }
 
-func TestHandleResourcesReadRejectsPlannedCapability(t *testing.T) {
+func TestHandleResourcesReadReadsAuthUserByEmail(t *testing.T) {
+	previous := readPostgresUserByEmail
+	t.Cleanup(func() {
+		readPostgresUserByEmail = previous
+	})
+
+	readPostgresUserByEmail = func(ctx context.Context, email string) (operationResponse, *jsonRPCError) {
+		if email != "alice@example.com" {
+			t.Fatalf("expected email path parameter, got %q", email)
+		}
+		return operationResponse{
+			ContentType: "application/json",
+			Body:        `{"email":"alice@example.com","displayName":"Alice"}`,
+		}, nil
+	}
+
 	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
 	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
 		JSONRPC: "2.0",
@@ -902,11 +1237,16 @@ func TestHandleResourcesReadRejectsPlannedCapability(t *testing.T) {
 	if responseStatus != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", responseStatus)
 	}
-	if responseBody == nil || responseBody.Error == nil {
-		t.Fatalf("expected JSON-RPC error, got %#v", responseBody)
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful resource read, got %#v", responseBody)
 	}
-	if responseBody.Error.Code != -32004 {
-		t.Fatalf("expected planned-capability error code, got %d", responseBody.Error.Code)
+
+	result, ok := responseBody.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected resource result map, got %#v", responseBody.Result)
+	}
+	if result["contents"] == nil {
+		t.Fatalf("expected resource contents, got %#v", result)
 	}
 }
 

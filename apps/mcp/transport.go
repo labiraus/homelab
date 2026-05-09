@@ -34,14 +34,19 @@ var (
 		Timeout: defaultTimeout,
 	}
 
-	proxyOperationRequest = proxyAPIRequest
-	readPostgresUserCount = postgresUserCount
-	listFolderEntries     = minioListFolderEntries
-	listBucketObjects     = minioListBucketObjects
-	readBucketObject      = minioReadBucketObject
-	writeBucketObject     = minioPutBucketObject
-	writeBucketTextObject = minioWriteBucketTextObject
-	deleteBucketObject    = minioDeleteBucketObject
+	proxyOperationRequest   = proxyAPIRequest
+	readPostgresUserCount   = postgresUserCount
+	readPostgresUserByEmail = postgresUserByEmail
+	listFolderEntries       = minioListFolderEntries
+	listBucketObjects       = minioListBucketObjects
+	readBucketObject        = minioReadBucketObject
+	writeBucketObject       = minioPutBucketObject
+	writeBucketTextObject   = minioWriteBucketTextObject
+	deleteBucketObject      = minioDeleteBucketObject
+	moveBucketObject        = minioMoveBucketObject
+	listDocumentInventory   = postgresDocumentInventory
+	assembleDocumentContext = postgresDocumentContext
+	searchDocumentChunks    = postgresDocumentSearch
 )
 
 type resourceResolution struct {
@@ -483,6 +488,15 @@ func executeResourceOperation(ctx context.Context, r *http.Request, resolution r
 	switch binding.ExecutionMode {
 	case manifestExecutionModePostgresQuery:
 		return readPostgresUserCount(ctx, binding.Query)
+	case manifestExecutionModePostgresUserByEmail:
+		email, ok := resolution.params["email"]
+		if !ok || strings.TrimSpace(email) == "" {
+			return operationResponse{}, &jsonRPCError{
+				Code:    -32602,
+				Message: "Resource URI is missing email",
+			}
+		}
+		return readPostgresUserByEmail(ctx, email)
 	case manifestExecutionModeNATSSubscription:
 		documentID, ok := resolution.params["documentId"]
 		if !ok || strings.TrimSpace(documentID) == "" {
@@ -583,6 +597,22 @@ func executeToolOperation(ctx context.Context, r *http.Request, resolution toolR
 			return operationResponse{}, rpcErr
 		}
 		return deleteBucketObject(ctx, binding.Bucket, objectKey)
+	case manifestExecutionModeMinIOMove:
+		sourceObjectKey, rpcErr := requiredStringArgument(arguments, "sourceObjectKey")
+		if rpcErr != nil {
+			return operationResponse{}, rpcErr
+		}
+		destinationObjectKey, rpcErr := requiredStringArgument(arguments, "destinationObjectKey")
+		if rpcErr != nil {
+			return operationResponse{}, rpcErr
+		}
+		return moveBucketObject(ctx, binding.Bucket, sourceObjectKey, destinationObjectKey)
+	case manifestExecutionModeDocumentInventory:
+		return listDocumentInventory(ctx, arguments)
+	case manifestExecutionModeDocumentContext:
+		return assembleDocumentContext(ctx, arguments)
+	case manifestExecutionModeDocumentSearch:
+		return searchDocumentChunks(ctx, arguments)
 	default:
 		return operationResponse{}, &jsonRPCError{
 			Code:    -32601,

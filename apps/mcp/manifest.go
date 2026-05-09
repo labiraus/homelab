@@ -50,32 +50,202 @@ var capabilityCatalog = []manifestCapabilitySource{
 				},
 				documentSubmitSchema(),
 			),
-			plannedTool(
+			liveTool(
 				"documents.scanBucket",
 				"scanDocumentsBucket",
 				http.MethodPost,
 				"/documents/scan-bucket",
 				"Scan the documents bucket and reconcile inventory into the document control plane.",
 				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendOrchestrator,
+					ExecutionMode: manifestExecutionModeHTTPProxy,
+					Path:          "/documents/scan-bucket",
+				},
+				documentScanBucketSchema(),
 			),
-			plannedPrompt(
+			liveTool(
+				"documents.reprocess",
+				"reprocessDocument",
+				http.MethodPost,
+				"/documents/reprocess",
+				"Queue an existing inventory document for a newer processing version.",
+				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendOrchestrator,
+					ExecutionMode: manifestExecutionModeHTTPProxy,
+					Path:          "/documents/reprocess",
+				},
+				documentReprocessSchema(),
+			),
+			livePrompt(
 				"documents.scanBucket.plan",
 				"scanDocumentsBucketPlan",
 				"/prompts/documents/scan-bucket-plan",
-				"Describe the planned bucket-reconciliation flow that will scan MinIO and upsert document inventory into Postgres.",
+				"Describe the bucket-reconciliation flow that scans MinIO and upserts document inventory into Postgres.",
 				false,
 				[]manifestPromptArgument{
-					{Name: "prefix", Description: "Optional MinIO prefix to constrain the future scan scope."},
+					{Name: "prefix", Description: "Optional MinIO prefix to constrain the scan scope."},
 				},
 				[]manifestPromptMessage{
 					{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Plan the future `documents.scanBucket` workflow for the Labiraus MCP surface. The end state should scan the external MinIO documents bucket, optionally constrain reconciliation to the `{{prefix}}` prefix, upsert control-plane inventory into Postgres, and only then decide whether processor work should be queued.",
+							Text: "Use the live `documents.scanBucket` tool on Labiraus to reconcile the external MinIO documents bucket. Optionally constrain reconciliation to the `{{prefix}}` prefix. The scan upserts control-plane inventory into Postgres, marks non-text objects as unsupported, and queues new or changed `text/*` objects for processor work.",
 						},
 					},
 				},
+			),
+		},
+	},
+	{
+		ID:      "documents.curation",
+		Title:   "Document Curation",
+		Summary: "Curate document inventory metadata through the orchestrator control plane.",
+		Backend: manifestBackendOrchestrator,
+		Operations: []manifestOperationSource{
+			liveTool(
+				"documents.curation.update",
+				"updateDocumentCuration",
+				http.MethodPost,
+				"/documents/curation",
+				"Update curated metadata for an existing inventory document.",
+				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendOrchestrator,
+					ExecutionMode: manifestExecutionModeHTTPProxy,
+					Path:          "/documents/curation",
+				},
+				documentCurationSchema(),
+			),
+		},
+	},
+	{
+		ID:      "documents.editing",
+		Title:   "Document Editing",
+		Summary: "Edit existing text documents through the orchestrator control plane and queue derived-state refreshes.",
+		Backend: manifestBackendOrchestrator,
+		Operations: []manifestOperationSource{
+			livePrompt(
+				"documents.editText.prompt",
+				"editDocumentTextPrompt",
+				"/prompts/documents/edit-text",
+				"Show how to overwrite an existing text document and queue a fresh processing version.",
+				false,
+				[]manifestPromptArgument{
+					{Name: "documentId", Description: "Existing document identifier from inventory or search results.", Required: true},
+				},
+				[]manifestPromptMessage{
+					{
+						Role: "user",
+						Content: manifestPromptMessagePart{
+							Type: "text",
+							Text: "Use the live `documents.editText` tool on Labiraus to update the raw text for `{{documentId}}`. Send a body with `documentId`, `text`, and optional `contentType`, `metadata`, or `processingVersion`. The orchestrator overwrites the existing MinIO text object, records edit metadata, and queues a newer processing version so retrieval uses refreshed chunks after processing completes.",
+						},
+					},
+				},
+			),
+			liveTool(
+				"documents.editText",
+				"editDocumentText",
+				http.MethodPost,
+				"/documents/edit-text",
+				"Overwrite an existing text document object and queue a newer processing version.",
+				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendOrchestrator,
+					ExecutionMode: manifestExecutionModeHTTPProxy,
+					Path:          "/documents/edit-text",
+				},
+				documentEditTextSchema(),
+			),
+		},
+	},
+	{
+		ID:      "documents.retrieval",
+		Title:   "Document Retrieval",
+		Summary: "Inspect indexed document state and search processed chunks from Postgres-backed retrieval data.",
+		Backend: manifestBackendPostgres,
+		Operations: []manifestOperationSource{
+			livePrompt(
+				"documents.search.prompt",
+				"searchDocumentsPrompt",
+				"/prompts/documents/search",
+				"Show how to search processed document chunks through the live MCP retrieval tool.",
+				false,
+				[]manifestPromptArgument{
+					{Name: "query", Description: "Natural-language retrieval query.", Required: true},
+					{Name: "prefix", Description: "Optional documents-bucket object-key prefix."},
+				},
+				[]manifestPromptMessage{
+					{
+						Role: "user",
+						Content: manifestPromptMessagePart{
+							Type: "text",
+							Text: "Use the live `documents.search` tool on Labiraus with query `{{query}}`. If a prefix is useful, set `prefix` to `{{prefix}}`. Results come from pgvector similarity search over processed chunks and include document IDs, object keys, chunk text, scores, processing versions, and citation objects that identify the source URI plus chunk.",
+						},
+					},
+				},
+			),
+			livePrompt(
+				"documents.context.prompt",
+				"assembleDocumentContextPrompt",
+				"/prompts/documents/context",
+				"Show how to assemble a citation-backed context block from processed document chunks.",
+				false,
+				[]manifestPromptArgument{
+					{Name: "query", Description: "Natural-language context query.", Required: true},
+					{Name: "prefix", Description: "Optional documents-bucket object-key prefix."},
+				},
+				[]manifestPromptMessage{
+					{
+						Role: "user",
+						Content: manifestPromptMessagePart{
+							Type: "text",
+							Text: "Use the live `documents.context` tool on Labiraus with query `{{query}}`. If a prefix is useful, set `prefix` to `{{prefix}}`. The tool searches the current processed chunk version, then assembles a compact context block with `[1]`, `[2]` style references and citation objects for each included chunk.",
+						},
+					},
+				},
+			),
+			liveTool(
+				"documents.inventory.list",
+				"listDocumentInventory",
+				http.MethodPost,
+				"/documents/inventory/list",
+				"List document inventory and processing state from Postgres.",
+				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendPostgres,
+					ExecutionMode: manifestExecutionModeDocumentInventory,
+				},
+				documentInventorySchema(),
+			),
+			liveTool(
+				"documents.context",
+				"assembleDocumentContext",
+				http.MethodPost,
+				"/documents/context",
+				"Assemble a citation-backed context block from processed document chunks.",
+				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendPostgres,
+					ExecutionMode: manifestExecutionModeDocumentContext,
+				},
+				documentContextSchema(),
+			),
+			liveTool(
+				"documents.search",
+				"searchDocuments",
+				http.MethodPost,
+				"/documents/search",
+				"Search processed document chunks by embedding a query and ranking pgvector matches.",
+				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendPostgres,
+					ExecutionMode: manifestExecutionModeDocumentSearch,
+				},
+				documentSearchSchema(),
 			),
 		},
 	},
@@ -115,14 +285,17 @@ var capabilityCatalog = []manifestCapabilitySource{
 					Query:         "CALL auth.get_user_count(NULL)",
 				},
 			),
-			plannedResourceTemplate(
+			liveResourceTemplate(
 				"postgres.auth.userByEmail",
 				"userByEmail",
 				http.MethodGet,
 				"/postgres/auth/users/{email}",
 				"Read a specific auth user by email from Postgres.",
 				false,
-				nil,
+				&manifestOperationBinding{
+					Backend:       manifestBackendPostgres,
+					ExecutionMode: manifestExecutionModePostgresUserByEmail,
+				},
 			),
 		},
 	},
@@ -234,13 +407,19 @@ var capabilityCatalog = []manifestCapabilitySource{
 				},
 				nil,
 			),
-			plannedTool(
+			liveTool(
 				"minio.documents.moveObject",
 				"moveDocumentObject",
 				http.MethodPost,
 				"/minio/documents/move-object",
 				"Move or rename an object in the documents bucket.",
 				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendMinIO,
+					ExecutionMode: manifestExecutionModeMinIOMove,
+					Bucket:        "documents",
+				},
+				minioMoveObjectSchema(),
 			),
 		},
 	},
@@ -264,7 +443,7 @@ var capabilityCatalog = []manifestCapabilitySource{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Describe the live Labiraus subscription flow for `{{documentId}}`. The MCP server exposes `homelab://mcp/documents/notifications/{{documentId}}`, accepts `resources/subscribe` and `resources/unsubscribe`, maintains a Streamable HTTP session with `MCP-Session-Id`, and forwards matching NATS lifecycle updates over `GET /mcp` SSE. The current event sequence is `documents.events.processor.queued`, `documents.events.processor.started`, `documents.events.processor.completed`, and `documents.events.processor.failed`, with `documents.events.minio.stored` reserved for a future ingest-boundary emitter.",
+							Text: "Describe the live Labiraus subscription flow for `{{documentId}}`. The MCP server exposes `homelab://mcp/documents/notifications/{{documentId}}`, accepts `resources/subscribe` and `resources/unsubscribe`, maintains a Streamable HTTP session with `MCP-Session-Id`, and forwards matching NATS lifecycle updates over `GET /mcp` SSE. The current event sequence is `documents.events.minio.stored`, `documents.events.processor.queued`, `documents.events.processor.started`, `documents.events.processor.completed`, and `documents.events.processor.failed`.",
 						},
 					},
 				},
@@ -571,6 +750,9 @@ func operationIsReadOnly(operation manifestOperationSource) bool {
 
 	switch operation.Binding.ExecutionMode {
 	case manifestExecutionModeDiscovery,
+		manifestExecutionModeDocumentContext,
+		manifestExecutionModeDocumentInventory,
+		manifestExecutionModeDocumentSearch,
 		manifestExecutionModeMinIOListFolder,
 		manifestExecutionModeMinIOList,
 		manifestExecutionModePostgresQuery:
@@ -582,6 +764,9 @@ func operationIsReadOnly(operation manifestOperationSource) bool {
 
 func operationIsDestructive(operation manifestOperationSource) bool {
 	if operation.Method == http.MethodDelete {
+		return true
+	}
+	if operation.ID == "documents.editText" {
 		return true
 	}
 	if operation.Binding == nil {
@@ -608,6 +793,9 @@ func operationIsIdempotent(operation manifestOperationSource) bool {
 
 	switch operation.Binding.ExecutionMode {
 	case manifestExecutionModeDiscovery,
+		manifestExecutionModeDocumentContext,
+		manifestExecutionModeDocumentInventory,
+		manifestExecutionModeDocumentSearch,
 		manifestExecutionModeMinIOListFolder,
 		manifestExecutionModeMinIOList,
 		manifestExecutionModePostgresQuery:
@@ -702,6 +890,121 @@ func documentSubmitSchema() *manifestSchema {
 	}
 }
 
+func documentScanBucketSchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"body": {
+				Type:        "object",
+				Description: "Bucket reconciliation request.",
+				Properties: map[string]manifestSchema{
+					"bucket":            {Type: "string", Description: "Optional bucket name. Defaults to the configured documents bucket."},
+					"prefix":            {Type: "string", Description: "Optional object prefix to scan."},
+					"maxKeys":           {Type: "integer", Description: "Optional maximum number of objects to scan."},
+					"processingVersion": {Type: "integer", Description: "Optional desired processing version for queued text documents."},
+				},
+			},
+		},
+	}
+}
+
+func documentCurationSchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"body": {
+				Type:        "object",
+				Description: "Document metadata curation request.",
+				Properties: map[string]manifestSchema{
+					"documentId": {Type: "string", Description: "Existing document identifier from inventory or search results."},
+					"metadata":   {Type: "object", Description: "Curated metadata fields to merge into the document inventory record.", AdditionalProperties: true},
+					"replace":    {Type: "boolean", Description: "Replace the full metadata object instead of merging fields."},
+				},
+				Required: []string{"documentId", "metadata"},
+			},
+		},
+		Required: []string{"body"},
+	}
+}
+
+func documentEditTextSchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"body": {
+				Type:        "object",
+				Description: "Existing text document edit request.",
+				Properties: map[string]manifestSchema{
+					"documentId":        {Type: "string", Description: "Existing document identifier from inventory or search results."},
+					"text":              {Type: "string", Description: "Replacement text body for the existing MinIO object."},
+					"contentType":       {Type: "string", Description: "Optional replacement MIME type. Defaults to the current document content type and must be text/*."},
+					"metadata":          {Type: "object", Description: "Optional metadata fields to merge into the document inventory record.", AdditionalProperties: true},
+					"processingVersion": {Type: "integer", Description: "Optional explicit processing version. Defaults to the next version after the current desired version."},
+				},
+				Required: []string{"documentId", "text"},
+			},
+		},
+		Required: []string{"body"},
+	}
+}
+
+func documentReprocessSchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"body": {
+				Type:        "object",
+				Description: "Existing document reprocessing request.",
+				Properties: map[string]manifestSchema{
+					"documentId":        {Type: "string", Description: "Existing document identifier from inventory or search results."},
+					"processingVersion": {Type: "integer", Description: "Optional explicit processing version. Defaults to the next version after the current desired version."},
+				},
+				Required: []string{"documentId"},
+			},
+		},
+		Required: []string{"body"},
+	}
+}
+
+func documentInventorySchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"status":     {Type: "string", Description: "Optional document lifecycle status filter."},
+			"prefix":     {Type: "string", Description: "Optional object-key prefix filter."},
+			"documentId": {Type: "string", Description: "Optional exact document identifier filter."},
+			"limit":      {Type: "integer", Description: "Optional maximum number of inventory rows to return."},
+		},
+	}
+}
+
+func documentSearchSchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"query":      {Type: "string", Description: "Natural-language search query."},
+			"prefix":     {Type: "string", Description: "Optional object-key prefix filter."},
+			"documentId": {Type: "string", Description: "Optional exact document identifier filter."},
+			"limit":      {Type: "integer", Description: "Optional maximum number of chunk hits to return."},
+		},
+		Required: []string{"query"},
+	}
+}
+
+func documentContextSchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"query":      {Type: "string", Description: "Natural-language context query."},
+			"prefix":     {Type: "string", Description: "Optional object-key prefix filter."},
+			"documentId": {Type: "string", Description: "Optional exact document identifier filter."},
+			"limit":      {Type: "integer", Description: "Optional maximum number of chunk hits to assemble."},
+			"maxChars":   {Type: "integer", Description: "Optional maximum character budget for the assembled context block."},
+		},
+		Required: []string{"query"},
+	}
+}
+
 func minioListObjectsSchema() *manifestSchema {
 	return &manifestSchema{
 		Type: "object",
@@ -758,5 +1061,16 @@ func minioPutTextObjectSchema() *manifestSchema {
 			},
 		},
 		Required: []string{"objectKey", "body"},
+	}
+}
+
+func minioMoveObjectSchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"sourceObjectKey":      {Type: "string", Description: "Existing object key within the documents bucket."},
+			"destinationObjectKey": {Type: "string", Description: "Destination object key within the documents bucket."},
+		},
+		Required: []string{"sourceObjectKey", "destinationObjectKey"},
 	}
 }

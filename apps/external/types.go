@@ -58,22 +58,56 @@ type DocumentSearchRequest struct {
 	Limit      int    `json:"limit,omitempty"`
 }
 
+type DocumentContextRequest struct {
+	Query      string `json:"query"`
+	Prefix     string `json:"prefix,omitempty"`
+	DocumentID string `json:"documentId,omitempty"`
+	Limit      int    `json:"limit,omitempty"`
+	MaxChars   int    `json:"maxChars,omitempty"`
+}
+
+type DocumentCitation struct {
+	ID                string `json:"id"`
+	Label             string `json:"label"`
+	SourceURI         string `json:"sourceUri,omitempty"`
+	ObjectKey         string `json:"objectKey,omitempty"`
+	ChunkID           int64  `json:"chunkId"`
+	ChunkIndex        int    `json:"chunkIndex"`
+	ProcessingVersion int    `json:"processingVersion"`
+}
+
 type DocumentSearchHit struct {
-	DocumentID        string  `json:"documentId"`
-	ObjectKey         string  `json:"objectKey,omitempty"`
-	ContentType       string  `json:"contentType,omitempty"`
-	ChunkID           int64   `json:"chunkId"`
-	ChunkIndex        int     `json:"chunkIndex"`
-	ChunkText         string  `json:"chunkText"`
-	ProcessingVersion int     `json:"processingVersion"`
-	Distance          float64 `json:"distance"`
-	Similarity        float64 `json:"similarity"`
-	LastProcessedAt   string  `json:"lastProcessedAt,omitempty"`
+	DocumentID        string            `json:"documentId"`
+	SourceURI         string            `json:"sourceUri,omitempty"`
+	ObjectKey         string            `json:"objectKey,omitempty"`
+	ContentType       string            `json:"contentType,omitempty"`
+	ChunkID           int64             `json:"chunkId"`
+	ChunkIndex        int               `json:"chunkIndex"`
+	ChunkText         string            `json:"chunkText"`
+	ProcessingVersion int               `json:"processingVersion"`
+	Distance          float64           `json:"distance"`
+	Similarity        float64           `json:"similarity"`
+	LastProcessedAt   string            `json:"lastProcessedAt,omitempty"`
+	Citation          *DocumentCitation `json:"citation,omitempty"`
 }
 
 type DocumentSearchResponse struct {
 	Query string              `json:"query"`
 	Hits  []DocumentSearchHit `json:"hits"`
+}
+
+type DocumentContextCitation struct {
+	Reference string            `json:"reference"`
+	Citation  *DocumentCitation `json:"citation"`
+}
+
+type DocumentContextResponse struct {
+	Query     string                    `json:"query"`
+	Context   string                    `json:"context"`
+	Citations []DocumentContextCitation `json:"citations"`
+	Hits      []DocumentSearchHit       `json:"hits"`
+	MaxChars  int                       `json:"maxChars"`
+	Truncated bool                      `json:"truncated"`
 }
 
 type ErrorResponse struct {

@@ -8,7 +8,7 @@ This repo is taking an async-first path to document ingestion and retrieval.
 - `orchestrator` owns control-plane reconciliation and task dispatch
 - `processor` is the stateless worker for extraction, chunking, embedding, and persistence
 - `external` and `mcp` are the stable public and AI-facing surfaces
-- `mcp` should eventually forward document lifecycle notifications sourced from NATS JetStream to MCP subscribers
+- `mcp` forwards document lifecycle notifications sourced from NATS JetStream to MCP subscribers
 
 Near-term scope is the document, chunk, and embedding foundation.
 CAG and graph-style knowledge layers are future phases built on top of that base rather than separate immediate datastores.
@@ -19,6 +19,14 @@ The current ingestion slice is reference-based:
 - accepted documents are currently limited to `text/*`
 - `rag.documents.status` moves through `pending`, `processing`, and `processed`
 - `processor` reads the raw object from MinIO and writes chunks plus embeddings back to Postgres
+- `external` exposes semantic search for the UI
+- `mcp` exposes document inventory and semantic search for agents
+- `external` and `mcp` expose context assembly that packages current-version search hits into a cited context block
+- `orchestrator` exposes document metadata curation for existing inventory rows
+- `orchestrator` exposes text-object editing for existing inventory rows and queues a newer processing version after the raw object write
+- `orchestrator` exposes explicit reprocessing for existing inventory documents through the same queue path
+- retrieval responses search the document's current processed chunk version and include citation objects that identify the source URI and chunk identity for each match
+- `local-embeddings` uses a built-in deterministic 384-dimensional embedding function when no external embedding endpoint is configured
 
 ```mermaid
 flowchart LR
@@ -41,6 +49,7 @@ flowchart LR
   end
 
   ORCH -->|reconcile raw objects| MINIO
+  ORCH -->|edit existing text objects| MINIO
   ORCH -->|upsert inventory and state| PG
   ORCH -->|enqueue processing work| NATS
   NATS --> PROC

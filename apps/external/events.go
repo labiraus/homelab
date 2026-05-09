@@ -174,6 +174,45 @@ func startDocumentEvents(ctx context.Context) error {
 	return err
 }
 
+var publishStoredDocumentEvent = publishMinIOStoredDocumentEvent
+
+func publishMinIOStoredDocumentEvent(ctx context.Context, uploaded uploadedDocument) error {
+	if !natsConfigured() {
+		return nil
+	}
+
+	event, ok := storedDocumentLifecycleEvent(uploaded)
+	if !ok {
+		return nil
+	}
+
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+
+	return natsutil.PublishSubject(ctx, documentevents.StreamID, event.Subject, payload)
+}
+
+func storedDocumentLifecycleEvent(uploaded uploadedDocument) (documentevents.LifecycleEvent, bool) {
+	bucket := documentsBucket()
+	objectKey := strings.TrimSpace(uploaded.ObjectKey)
+	if bucket == "" || objectKey == "" {
+		return documentevents.LifecycleEvent{}, false
+	}
+
+	event := documentevents.NewLifecycleEvent(
+		documentevents.SubjectMinIOStored,
+		fmt.Sprintf("s3://%s/%s", bucket, objectKey),
+		bucket,
+		objectKey,
+		uploaded.ContentType,
+		0,
+	)
+
+	return event, true
+}
+
 func natsConfigured() bool {
 	return strings.TrimSpace(os.Getenv("NATS_URLS")) != ""
 }

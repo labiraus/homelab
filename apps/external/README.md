@@ -14,6 +14,7 @@ It is the browser-facing API for `ui` and should remain a stable surface even as
 - `/api/documents/upload`
 - `/api/documents/events`
 - `/api/documents/search`
+- `/api/documents/context`
 - `/readiness`
 - `/liveness`
 - `/metrics`
@@ -38,7 +39,8 @@ The browser-facing path is published through `oauth2-proxy` at `/api/...`, and t
 - `/api/documents/tree` returns the immediate folders and files for a prefix in the documents bucket
 - `/api/documents/object` streams a document back for inline preview or download
 - `/api/documents/upload` accepts multipart uploads for the current folder view
-- `/api/documents/search` embeds a natural-language query, runs pgvector similarity search against processed chunks, and returns ranked matches with document metadata
+- `/api/documents/search` embeds a natural-language query, runs pgvector similarity search against the current processed chunk version, and returns ranked matches with document metadata and citation objects for the source URI plus chunk identity
+- `/api/documents/context` uses the same retrieval path and assembles a compact context block with `[1]`, `[2]` style references plus citation objects
 
 These routes expect the standard MinIO runtime configuration:
 
@@ -51,12 +53,12 @@ These routes expect the standard MinIO runtime configuration:
 
 The UI treats these document routes as authenticated functionality for recognized users, and the API is expected to stay behind the same trusted auth middleware as the rest of the browser-facing surface.
 
-Semantic search also expects:
+Semantic search also uses:
 
-- `EMBEDDING_ENDPOINT`
-- `EMBEDDING_MODEL`
+- `EMBEDDING_MODEL`, defaulting to `local-embeddings`
+- `EMBEDDING_ENDPOINT`, only when routing to an external OpenAI-compatible embeddings service
 
-The retrieval flow uses the same embedding model family as the processor so query vectors and stored chunk vectors remain comparable.
+When `EMBEDDING_MODEL=local-embeddings` and `EMBEDDING_ENDPOINT` is empty, `external` uses the same built-in deterministic 384-dimensional local embedding function as the processor so query vectors and stored chunk vectors remain comparable.
 
 ## Document Event Stream
 
@@ -64,7 +66,8 @@ The retrieval flow uses the same embedding model family as the processor so quer
 
 - authenticated browser clients connect with `Accept: text/event-stream`
 - each event payload is the raw lifecycle JSON emitted on NATS under `documents.events.>`
-- the current lifecycle subjects are `documents.events.processor.queued`, `documents.events.processor.started`, `documents.events.processor.completed`, and `documents.events.processor.failed`
+- successful browser uploads publish `documents.events.minio.stored` after the raw object is written to MinIO
+- the current lifecycle subjects are `documents.events.minio.stored`, `documents.events.processor.queued`, `documents.events.processor.started`, `documents.events.processor.completed`, and `documents.events.processor.failed`
 - the handler sends keepalives so long-lived browser connections stay open through the edge
 
 The document event bridge expects:

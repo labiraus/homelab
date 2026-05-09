@@ -287,6 +287,45 @@ func DeleteObjectFromBucket(ctx context.Context, bucketName string, objectName s
 	return RemoveObjectFromBucket(ctx, bucketName, objectName, minio.RemoveObjectOptions{})
 }
 
+func MoveObjectInBucket(ctx context.Context, bucketName string, sourceObjectName string, destinationObjectName string) (minio.ObjectInfo, error) {
+	client, resolvedBucket, err := getTarget(bucketName)
+	if err != nil {
+		return minio.ObjectInfo{}, err
+	}
+
+	sourceObjectName = strings.TrimSpace(sourceObjectName)
+	destinationObjectName = strings.TrimSpace(destinationObjectName)
+	if sourceObjectName == "" {
+		return minio.ObjectInfo{}, fmt.Errorf("source object name is required")
+	}
+	if destinationObjectName == "" {
+		return minio.ObjectInfo{}, fmt.Errorf("destination object name is required")
+	}
+	if sourceObjectName == destinationObjectName {
+		return minio.ObjectInfo{}, fmt.Errorf("source and destination object names must differ")
+	}
+
+	if _, err := client.CopyObject(
+		ctx,
+		minio.CopyDestOptions{
+			Bucket: resolvedBucket,
+			Object: destinationObjectName,
+		},
+		minio.CopySrcOptions{
+			Bucket: resolvedBucket,
+			Object: sourceObjectName,
+		},
+	); err != nil {
+		return minio.ObjectInfo{}, err
+	}
+
+	if err := client.RemoveObject(ctx, resolvedBucket, sourceObjectName, minio.RemoveObjectOptions{}); err != nil {
+		return minio.ObjectInfo{}, err
+	}
+
+	return client.StatObject(ctx, resolvedBucket, destinationObjectName, minio.StatObjectOptions{})
+}
+
 func ListFolderEntriesInBucket(ctx context.Context, bucketName string, prefix string, maxKeys int) ([]FolderEntry, error) {
 	normalizedPrefix := normalizePrefix(prefix)
 	objects, err := ListObjectInfoInBucket(ctx, bucketName, minio.ListObjectsOptions{

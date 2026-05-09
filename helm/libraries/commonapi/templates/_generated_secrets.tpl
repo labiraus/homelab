@@ -11,7 +11,7 @@ metadata:
 type: {{ $secret.type | default "Opaque" }}
 stringData:
   {{- range $key, $value := ($secret.stringData | default dict) }}
-  {{ $key }}: {{ include "commonapi.generatedSecretValue" $value | quote }}
+  {{ $key }}: {{ include "commonapi.generatedSecretValue" (dict "root" $root "spec" $value) | quote }}
   {{- end }}
 {{ "\n" }}---{{ "\n" }}
 {{- end }}

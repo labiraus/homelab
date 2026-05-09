@@ -75,6 +75,10 @@ generatedSecrets:
           namespace: data
           name: app-db-bootstrap
           key: password
+      EMBEDDING_ENDPOINT:
+        value: ""
+      EMBEDDING_MODEL:
+        value: local-embeddings
       MINIO_ENDPOINT:
         value: "svartalfheim:9000"
       MINIO_USE_SSL:
@@ -166,6 +170,24 @@ security:
         ports:
           - protocol: TCP
             port: 5432
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: homelab
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: homelab-orchestrator
+                app.kubernetes.io/name: orchestrator
+        ports:
+          - protocol: TCP
+            port: 8080
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: homelab
+        ports:
+          - protocol: TCP
+            port: 80
       - to:
           - ipBlock:
               cidr: 0.0.0.0/0

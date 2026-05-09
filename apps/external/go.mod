@@ -8,6 +8,7 @@ require (
 	pkg/api v0.0.0
 	pkg/base v0.0.0
 	pkg/documentevents v0.0.0
+	pkg/embeddingutil v0.0.0
 	pkg/kubernetesutil v0.0.0
 	pkg/minioutil v0.0.0
 	pkg/natsutil v0.0.0
@@ -95,6 +96,8 @@ replace pkg/api => ../pkg/api
 replace pkg/base => ../pkg/base
 
 replace pkg/documentevents => ../pkg/documentevents
+
+replace pkg/embeddingutil => ../pkg/embeddingutil
 
 replace pkg/prometheusutil => ../pkg/prometheusutil
 

@@ -11,6 +11,7 @@ import (
 	"pkg/api"
 	"pkg/base"
 	"pkg/documentevents"
+	"pkg/minioutil"
 	"pkg/natsutil"
 	"pkg/postgresutil"
 	"pkg/prometheusutil"
@@ -37,9 +38,31 @@ func main() {
 		slog.InfoContext(ctx, "postgres config not provided; document queue endpoint will be unavailable")
 	}
 
+	if minioConfigured() {
+		if err := minioutil.Init(ctx, map[string]minioutil.Config{
+			"documents": {
+				Endpoint:  base.GetEnv("MINIO_ENDPOINT", ""),
+				AccessKey: base.GetEnv("MINIO_ACCESS_KEY", ""),
+				SecretKey: base.GetEnv("MINIO_SECRET_KEY", ""),
+				UseSSL:    strings.EqualFold(base.GetEnv("MINIO_USE_SSL", "false"), "true"),
+				Region:    base.GetEnv("MINIO_REGION", ""),
+				Bucket:    base.GetEnv("MINIO_BUCKET", "documents"),
+			},
+		}); err != nil {
+			slog.ErrorContext(ctx, "minio bootstrap failed", "error", err)
+			return
+		}
+	} else {
+		slog.InfoContext(ctx, "minio config not provided; bucket scan endpoint will be unavailable")
+	}
+
 	mux := http.NewServeMux()
 	prometheusutil.Start(mux)
 	mux.HandleFunc("/documents", documentsHandler)
+	mux.HandleFunc("/documents/curation", documentCurationHandler)
+	mux.HandleFunc("/documents/edit-text", editTextDocumentHandler)
+	mux.HandleFunc("/documents/scan-bucket", scanBucketHandler)
+	mux.HandleFunc("/documents/reprocess", reprocessDocumentHandler)
 
 	done := api.Start(ctx, mux, 8080)
 
@@ -96,6 +119,22 @@ func postgresConfigured() bool {
 		"POSTGRES_USER",
 		"POSTGRES_PASSWORD",
 		"POSTGRES_DATABASE",
+	}
+
+	for _, key := range requiredVars {
+		if strings.TrimSpace(os.Getenv(key)) == "" {
+			return false
+		}
+	}
+
+	return true
+}
+
+func minioConfigured() bool {
+	requiredVars := []string{
+		"MINIO_ENDPOINT",
+		"MINIO_ACCESS_KEY",
+		"MINIO_SECRET_KEY",
 	}
 
 	for _, key := range requiredVars {

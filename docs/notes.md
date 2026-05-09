@@ -164,6 +164,27 @@ flux reconcile source oci <release-name> -n flux-system --timeout=3m
 flux reconcile helmrelease <release-name> -n flux-system --with-source --timeout=10m
 ```
 
+### MCP HTTP proxy tools return empty error content after a timeout
+
+Use this when `documents.scanBucket`, `documents.reprocess`, `documents.curation.update`, or `documents.editText` appears in the live MCP manifest but `tools/call` returns `isError: true` with an empty text body.
+
+Common signs:
+
+- direct calls to `homelab-orchestrator` work
+- MCP inventory/search tools still work because they use direct Postgres execution
+- orchestrator-backed MCP tools wait until the MCP HTTP client times out
+
+Check the MCP NetworkPolicy. Kubernetes NetworkPolicy egress is evaluated against the selected destination pod and port, so an HTTP call to service port `80` can still require egress to the orchestrator pod `targetPort` `8080`.
+
+Recovery:
+
+```bash
+kubectl -n homelab get svc,endpoints homelab-orchestrator
+kubectl -n homelab get networkpolicy homelab-mcp -o yaml
+```
+
+The `homelab-mcp` NetworkPolicy should allow egress to pods labeled `app.kubernetes.io/instance=homelab-orchestrator` and `app.kubernetes.io/name=orchestrator` on TCP `8080`.
+
 ### Helm upgrade fails after switching a workload to `Recreate`
 
 Use this when a `HelmRelease` starts failing with an error like `spec.strategy.rollingUpdate: Forbidden` after a chart changes a Deployment from `RollingUpdate` to `Recreate`.

@@ -11,15 +11,20 @@ import (
 	"strings"
 	"time"
 
+	"pkg/embeddingutil"
 	"pkg/postgresutil"
 	"pkg/prometheusutil"
 )
 
 const (
-	documentSearchLabel   = "documentSearchHandler"
-	defaultSearchLimit    = 8
-	maxSearchLimit        = 20
-	defaultEmbeddingModel = "local-embeddings"
+	documentSearchLabel         = "documentSearchHandler"
+	documentContextLabel        = "documentContextHandler"
+	defaultSearchLimit          = 8
+	maxSearchLimit              = 20
+	defaultContextLimit         = 6
+	defaultContextMaxCharacters = 6000
+	maxContextMaxCharacters     = 20000
+	defaultEmbeddingModel       = embeddingutil.DefaultModel
 )
 
 type queryEmbeddingResponse struct {
@@ -31,6 +36,7 @@ type queryEmbeddingResponse struct {
 
 type documentSearchRow struct {
 	DocumentID        string
+	SourceURI         string
 	ObjectKey         string
 	ContentType       string
 	ChunkID           int64
@@ -44,6 +50,7 @@ type documentSearchRow struct {
 var (
 	fetchQueryEmbedding = getQueryEmbedding
 	searchDocuments     = queryDocumentSearch
+	assembleContext     = assembleDocumentContext
 	httpClient          = &http.Client{Timeout: 30 * time.Second}
 )
 
@@ -129,7 +136,111 @@ func documentSearchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func documentContextHandler(w http.ResponseWriter, r *http.Request) {
+	var err error
+	startTime := time.Now()
+	prometheusutil.IncrementProcessed(documentContextLabel, "call")
+
+	defer func() {
+		if p := recover(); p != nil {
+			err = fmt.Errorf("panic: %v", p)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		if err != nil {
+			slog.ErrorContext(r.Context(), err.Error())
+			prometheusutil.IncrementProcessed(documentContextLabel, "error")
+		}
+		prometheusutil.OpDuration(documentContextLabel, time.Since(startTime))
+	}()
+
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !postgresConfigured() || !embeddingsConfigured() {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "document context is unavailable"})
+		return
+	}
+
+	var request DocumentContextRequest
+	if err = json.NewDecoder(r.Body).Decode(&request); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "invalid request body"})
+		return
+	}
+
+	searchRequest, limit, maxChars, validationErr := normalizeDocumentContextRequest(request)
+	if validationErr != "" {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: validationErr})
+		return
+	}
+
+	embedding, model, err := fetchQueryEmbedding(r.Context(), searchRequest.Query)
+	if err != nil {
+		w.WriteHeader(http.StatusBadGateway)
+		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "could not embed context query"})
+		return
+	}
+
+	hits, err := searchDocuments(r.Context(), embedding, model, searchRequest, limit)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "could not assemble document context"})
+		return
+	}
+
+	response := assembleContext(searchRequest.Query, hits, maxChars)
+
+	w.Header().Set("Content-Type", "application/json")
+	if err = json.NewEncoder(w).Encode(response); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+}
+
+func normalizeDocumentContextRequest(request DocumentContextRequest) (DocumentSearchRequest, int, int, string) {
+	searchRequest := DocumentSearchRequest{
+		Query:      strings.TrimSpace(request.Query),
+		DocumentID: strings.TrimSpace(request.DocumentID),
+		Prefix:     normalizePrefix(request.Prefix),
+		Limit:      request.Limit,
+	}
+
+	switch {
+	case searchRequest.Query == "":
+		return DocumentSearchRequest{}, 0, 0, "query is required"
+	case request.Limit < 0:
+		return DocumentSearchRequest{}, 0, 0, "limit must be positive"
+	case request.MaxChars < 0:
+		return DocumentSearchRequest{}, 0, 0, "maxChars must be positive"
+	}
+
+	limit := request.Limit
+	if limit == 0 {
+		limit = defaultContextLimit
+	}
+	if limit > maxSearchLimit {
+		limit = maxSearchLimit
+	}
+
+	maxChars := request.MaxChars
+	if maxChars == 0 {
+		maxChars = defaultContextMaxCharacters
+	}
+	if maxChars > maxContextMaxCharacters {
+		maxChars = maxContextMaxCharacters
+	}
+
+	return searchRequest, limit, maxChars, ""
+}
+
 func getQueryEmbedding(ctx context.Context, input string) ([]float64, string, error) {
+	if useLocalEmbeddings() {
+		return embeddingutil.EmbedText(input), embeddingModel(), nil
+	}
+
 	payload, err := json.Marshal(map[string]any{
 		"model": embeddingModel(),
 		"input": input,
@@ -176,23 +287,7 @@ func queryDocumentSearch(
 		return nil, fmt.Errorf("postgres is not initialized")
 	}
 
-	query := `
-SELECT
-	d.document_id,
-	COALESCE(d.object_key, ''),
-	COALESCE(d.content_type, ''),
-	c.id,
-	c.chunk_index,
-	c.chunk_text,
-	c.processing_version,
-	e.vector <=> $1::vector AS distance,
-	d.last_processed_at
-FROM rag.embeddings e
-JOIN rag.chunks c ON c.id = e.chunk_id
-JOIN rag.documents d ON d.id = c.document_pk
-WHERE d.status = 'processed'
-	AND e.model = $2
-	AND e.vector IS NOT NULL`
+	query := documentSearchBaseQuery()
 
 	args := []any{toVectorLiteral(embedding), model}
 	nextArg := 3
@@ -223,6 +318,7 @@ WHERE d.status = 'processed'
 		var row documentSearchRow
 		if err := rows.Scan(
 			&row.DocumentID,
+			&row.SourceURI,
 			&row.ObjectKey,
 			&row.ContentType,
 			&row.ChunkID,
@@ -237,6 +333,7 @@ WHERE d.status = 'processed'
 
 		hit := DocumentSearchHit{
 			DocumentID:        row.DocumentID,
+			SourceURI:         row.SourceURI,
 			ObjectKey:         row.ObjectKey,
 			ContentType:       row.ContentType,
 			ChunkID:           row.ChunkID,
@@ -245,6 +342,7 @@ WHERE d.status = 'processed'
 			ProcessingVersion: row.ProcessingVersion,
 			Distance:          row.Distance,
 			Similarity:        maxSimilarity(row.Distance),
+			Citation:          buildDocumentCitation(row),
 		}
 		if row.LastProcessedAt != nil && !row.LastProcessedAt.IsZero() {
 			hit.LastProcessedAt = row.LastProcessedAt.UTC().Format(time.RFC3339)
@@ -255,8 +353,96 @@ WHERE d.status = 'processed'
 	return hits, rows.Err()
 }
 
+func documentSearchBaseQuery() string {
+	return `
+SELECT
+	d.document_id,
+	d.source_uri,
+	COALESCE(d.object_key, ''),
+	COALESCE(d.content_type, ''),
+	c.id,
+	c.chunk_index,
+	c.chunk_text,
+	c.processing_version,
+	e.vector <=> $1::vector AS distance,
+	d.last_processed_at
+FROM rag.embeddings e
+JOIN rag.chunks c ON c.id = e.chunk_id
+JOIN rag.documents d ON d.id = c.document_pk
+WHERE d.status = 'processed'
+	AND e.model = $2
+	AND c.processing_version = d.current_processing_version
+	AND e.vector IS NOT NULL`
+}
+
+func assembleDocumentContext(query string, hits []DocumentSearchHit, maxChars int) DocumentContextResponse {
+	if maxChars <= 0 {
+		maxChars = defaultContextMaxCharacters
+	}
+
+	var context strings.Builder
+	citations := []DocumentContextCitation{}
+	truncated := false
+
+	for index, hit := range hits {
+		reference := fmt.Sprintf("[%d]", index+1)
+		label := reference
+		if hit.Citation != nil && strings.TrimSpace(hit.Citation.Label) != "" {
+			label += " " + hit.Citation.Label
+		}
+
+		separator := ""
+		if context.Len() > 0 {
+			separator = "\n\n"
+		}
+		blockPrefix := separator + label + "\n"
+		block := blockPrefix + strings.TrimSpace(hit.ChunkText)
+		remaining := maxChars - context.Len()
+		if remaining <= 0 {
+			truncated = true
+			break
+		}
+		if len(block) > remaining {
+			block = block[:remaining]
+			truncated = true
+		}
+		context.WriteString(block)
+
+		citations = append(citations, DocumentContextCitation{
+			Reference: reference,
+			Citation:  hit.Citation,
+		})
+		if truncated {
+			break
+		}
+	}
+
+	return DocumentContextResponse{
+		Query:     query,
+		Context:   context.String(),
+		Citations: citations,
+		Hits:      hits,
+		MaxChars:  maxChars,
+		Truncated: truncated,
+	}
+}
+
+func buildDocumentCitation(row documentSearchRow) *DocumentCitation {
+	source := defaultString(row.SourceURI, row.DocumentID)
+	labelSource := defaultString(row.ObjectKey, row.DocumentID)
+	return &DocumentCitation{
+		ID:                fmt.Sprintf("%s#chunk-%d", source, row.ChunkIndex),
+		Label:             fmt.Sprintf("%s chunk %d", labelSource, row.ChunkIndex),
+		SourceURI:         row.SourceURI,
+		ObjectKey:         row.ObjectKey,
+		ChunkID:           row.ChunkID,
+		ChunkIndex:        row.ChunkIndex,
+		ProcessingVersion: row.ProcessingVersion,
+	}
+}
+
 func embeddingsConfigured() bool {
-	return strings.TrimSpace(os.Getenv("EMBEDDING_ENDPOINT")) != ""
+	return useLocalEmbeddings() || strings.TrimSpace(os.Getenv("EMBEDDING_ENDPOINT")) != ""
 }
 
 func embeddingEndpoint() string {
@@ -269,6 +455,10 @@ func embeddingModel() string {
 		return defaultEmbeddingModel
 	}
 	return model
+}
+
+func useLocalEmbeddings() bool {
+	return strings.TrimSpace(os.Getenv("EMBEDDING_ENDPOINT")) == "" && embeddingModel() == embeddingutil.DefaultModel
 }
 
 func maxSimilarity(distance float64) float64 {
