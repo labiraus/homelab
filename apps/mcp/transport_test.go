@@ -31,6 +31,14 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 	if len(manifest.Prompts) == 0 {
 		t.Fatalf("expected prompts to be published in the manifest")
 	}
+	searchPrompt := findPromptInManifest(t, manifest, "documents.search.prompt")
+	if !promptHasArgument(searchPrompt, "metadata") {
+		t.Fatalf("expected search prompt to advertise metadata argument, got %#v", searchPrompt.Arguments)
+	}
+	contextPrompt := findPromptInManifest(t, manifest, "documents.context.prompt")
+	if !promptHasArgument(contextPrompt, "metadata") {
+		t.Fatalf("expected context prompt to advertise metadata argument, got %#v", contextPrompt.Arguments)
+	}
 	if !manifestHasTransport(manifest, "streamable-http", "https://mcp.labiraus.com/mcp") {
 		t.Fatalf("expected streamable-http transport in manifest, got %#v", manifest.Transports)
 	}
@@ -1399,6 +1407,28 @@ func findToolInManifest(t *testing.T, manifest manifestDocument, name string) ma
 
 	t.Fatalf("tool %q not found", name)
 	return manifestTool{}
+}
+
+func findPromptInManifest(t *testing.T, manifest manifestDocument, name string) manifestPrompt {
+	t.Helper()
+
+	for _, prompt := range manifest.Prompts {
+		if prompt.Name == name {
+			return prompt
+		}
+	}
+
+	t.Fatalf("prompt %q not found", name)
+	return manifestPrompt{}
+}
+
+func promptHasArgument(prompt manifestPrompt, name string) bool {
+	for _, argument := range prompt.Arguments {
+		if argument.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func findResourceTemplateInManifest(t *testing.T, manifest manifestDocument, name string) manifestResourceTemplate {

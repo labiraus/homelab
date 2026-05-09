@@ -43,6 +43,10 @@ const statements = [
 		ON rag.documents (status)`,
 	`CREATE INDEX IF NOT EXISTS rag_documents_processing_version_idx
 		ON rag.documents (desired_processing_version, current_processing_version)`,
+	`CREATE INDEX IF NOT EXISTS rag_documents_metadata_gin_idx
+		ON rag.documents
+		USING GIN (metadata jsonb_path_ops)
+		WHERE metadata IS NOT NULL`,
 	`CREATE TABLE IF NOT EXISTS rag.chunks (
 		id BIGSERIAL PRIMARY KEY,
 		document_pk BIGINT NOT NULL REFERENCES rag.documents(id) ON DELETE CASCADE,

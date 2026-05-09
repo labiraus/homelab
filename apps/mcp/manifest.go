@@ -177,13 +177,14 @@ var capabilityCatalog = []manifestCapabilitySource{
 				[]manifestPromptArgument{
 					{Name: "query", Description: "Natural-language retrieval query.", Required: true},
 					{Name: "prefix", Description: "Optional documents-bucket object-key prefix."},
+					{Name: "metadata", Description: "Optional exact-match JSON metadata filters, for example {\"tag\":\"runbook\"}."},
 				},
 				[]manifestPromptMessage{
 					{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.search` tool on Labiraus with query `{{query}}`. If a prefix is useful, set `prefix` to `{{prefix}}`. Results come from pgvector similarity search over processed chunks and include document IDs, object keys, chunk text, scores, processing versions, and citation objects that identify the source URI plus chunk.",
+							Text: "Use the live `documents.search` tool on Labiraus with query `{{query}}`. Optional filters: set `prefix` to a documents-bucket object-key prefix, and set `metadata` to exact-match JSON such as `{\"tag\":\"runbook\"}`. Results come from pgvector similarity search over processed chunks and include document metadata, document IDs, object keys, chunk text, scores, processing versions, and citation objects that identify the source URI plus chunk.",
 						},
 					},
 				},
@@ -197,13 +198,14 @@ var capabilityCatalog = []manifestCapabilitySource{
 				[]manifestPromptArgument{
 					{Name: "query", Description: "Natural-language context query.", Required: true},
 					{Name: "prefix", Description: "Optional documents-bucket object-key prefix."},
+					{Name: "metadata", Description: "Optional exact-match JSON metadata filters, for example {\"tag\":\"runbook\"}."},
 				},
 				[]manifestPromptMessage{
 					{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.context` tool on Labiraus with query `{{query}}`. If a prefix is useful, set `prefix` to `{{prefix}}`. The tool searches the current processed chunk version, then assembles a compact context block with `[1]`, `[2]` style references and citation objects for each included chunk.",
+							Text: "Use the live `documents.context` tool on Labiraus with query `{{query}}`. Optional filters: set `prefix` to a documents-bucket object-key prefix, and set `metadata` to exact-match JSON such as `{\"tag\":\"runbook\"}`. The tool searches the current processed chunk version, then assembles a compact context block with `[1]`, `[2]` style references and citation objects for each included chunk.",
 						},
 					},
 				},
