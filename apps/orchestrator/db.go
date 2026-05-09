@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"pkg/documentevents"
 	"pkg/postgresutil"
 
 	"github.com/jackc/pgx/v5"
@@ -45,7 +46,7 @@ type reprocessDocumentRecord struct {
 var (
 	runDocumentTx         = withDocumentTx
 	upsertPendingRecord   = upsertPendingDocument
-	recordLastEvent       = updateLastDocumentEvent
+	recordLifecycleEvent  = updateDocumentLifecycleEvent
 	lookupReprocessRecord = findDocumentForReprocess
 	updateCurationRecord  = updateDocumentCuration
 )
@@ -350,21 +351,44 @@ func nullableInt64(value int64) any {
 	return value
 }
 
-func updateLastDocumentEvent(ctx context.Context, documentID string, subject string, occurredAt string) error {
+func updateDocumentLifecycleEvent(ctx context.Context, event documentevents.LifecycleEvent) error {
 	if postgresutil.Exec == nil {
 		return fmt.Errorf("postgres is not initialized")
 	}
 
-	_, err := postgresutil.Exec(
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+
+	_, err = postgresutil.Exec(
 		ctx,
-		`UPDATE rag.documents
-		SET last_event_subject = $2,
-			last_event_at = $3::timestamptz,
-			updated_at = NOW()
-		WHERE document_id = $1`,
-		documentID,
-		subject,
-		occurredAt,
+		`WITH updated_document AS (
+			UPDATE rag.documents
+			SET last_event_subject = $2,
+				last_event_at = $3::timestamptz,
+				updated_at = NOW()
+			WHERE document_id = $1
+			RETURNING id
+		)
+		INSERT INTO rag.document_lifecycle_events (
+			document_pk,
+			document_id,
+			subject,
+			processing_version,
+			event_payload,
+			occurred_at
+		)
+		SELECT id, $1, $2, $4, $5::jsonb, $3::timestamptz
+		FROM updated_document
+		UNION ALL
+		SELECT NULL, $1, $2, $4, $5::jsonb, $3::timestamptz
+		WHERE NOT EXISTS (SELECT 1 FROM updated_document)`,
+		event.DocumentID,
+		event.Subject,
+		event.OccurredAt,
+		event.ProcessingVersion,
+		string(payload),
 	)
 	return err
 }

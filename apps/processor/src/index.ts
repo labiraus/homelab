@@ -247,7 +247,7 @@ async function emitLifecycleEventBestEffort(
 	}
 
 	try {
-		await recordLifecycleEvent(pool, event.documentId, event.subject, event.occurredAt);
+		await recordLifecycleEvent(pool, event);
 	} catch (error) {
 		console.error(`failed to persist lifecycle event ${event.subject} for ${event.documentId}`, error);
 	}

@@ -4,6 +4,7 @@ import type {
 	Chunk,
 	DocumentClaimResult,
 	DocumentEvent,
+	DocumentLifecycleEvent,
 	DocumentState,
 	EmbeddingResult,
 } from "./types.js";
@@ -47,6 +48,22 @@ const statements = [
 		ON rag.documents
 		USING GIN (metadata jsonb_path_ops)
 		WHERE metadata IS NOT NULL`,
+	`CREATE TABLE IF NOT EXISTS rag.document_lifecycle_events (
+		id BIGSERIAL PRIMARY KEY,
+		document_pk BIGINT REFERENCES rag.documents(id) ON DELETE CASCADE,
+		document_id TEXT NOT NULL,
+		subject TEXT NOT NULL,
+		processing_version INTEGER NOT NULL DEFAULT 0,
+		event_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+		occurred_at TIMESTAMPTZ NOT NULL,
+		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+	)`,
+	`CREATE INDEX IF NOT EXISTS rag_document_lifecycle_events_document_idx
+		ON rag.document_lifecycle_events (document_id, occurred_at DESC)`,
+	`CREATE INDEX IF NOT EXISTS rag_document_lifecycle_events_version_idx
+		ON rag.document_lifecycle_events (document_id, processing_version, occurred_at DESC)`,
+	`CREATE INDEX IF NOT EXISTS rag_document_lifecycle_events_subject_idx
+		ON rag.document_lifecycle_events (subject, occurred_at DESC)`,
 	`CREATE TABLE IF NOT EXISTS rag.chunks (
 		id BIGSERIAL PRIMARY KEY,
 		document_pk BIGINT NOT NULL REFERENCES rag.documents(id) ON DELETE CASCADE,
@@ -245,20 +262,47 @@ export async function markDocumentPendingWithError(
 	);
 }
 
-export async function recordLifecycleEvent(
-	pool: Pool,
-	documentId: string,
-	subject: string,
-	occurredAt: string,
-): Promise<void> {
-	await pool.query(
-		`UPDATE rag.documents
-		SET last_event_subject = $2,
-			last_event_at = $3::timestamptz,
-			updated_at = NOW()
-		WHERE document_id = $1`,
-		[documentId, subject, occurredAt],
-	);
+export async function recordLifecycleEvent(pool: Pool, event: DocumentLifecycleEvent): Promise<void> {
+	const client = await pool.connect();
+	try {
+		await client.query("BEGIN");
+		const result = await client.query<{ id: number }>(
+			`UPDATE rag.documents
+			SET last_event_subject = $2,
+				last_event_at = $3::timestamptz,
+				updated_at = NOW()
+			WHERE document_id = $1
+			RETURNING id`,
+			[event.documentId, event.subject, event.occurredAt],
+		);
+
+		const documentPk = result.rows[0]?.id ?? null;
+		await client.query(
+			`INSERT INTO rag.document_lifecycle_events (
+				document_pk,
+				document_id,
+				subject,
+				processing_version,
+				event_payload,
+				occurred_at
+			)
+			VALUES ($1, $2, $3, $4, $5::jsonb, $6::timestamptz)`,
+			[
+				documentPk,
+				event.documentId,
+				event.subject,
+				event.processingVersion ?? 0,
+				JSON.stringify(event),
+				event.occurredAt,
+			],
+		);
+		await client.query("COMMIT");
+	} catch (error) {
+		await client.query("ROLLBACK");
+		throw error;
+	} finally {
+		client.release();
+	}
 }
 
 export function toVectorLiteral(vector: number[]): string {

@@ -465,6 +465,87 @@ func TestDocumentSearchHandlerValidatesRequest(t *testing.T) {
 	}
 }
 
+func TestDocumentHistoryHandlerReturnsLifecycleEvents(t *testing.T) {
+	setPostgresEnv(t)
+	base.ServiceName = "external_test_" + t.Name()
+	prometheusutil.Start(http.NewServeMux())
+
+	previousHistory := listDocumentHistory
+	t.Cleanup(func() {
+		listDocumentHistory = previousHistory
+	})
+
+	listDocumentHistory = func(ctx context.Context, request DocumentHistoryRequest, limit int) ([]DocumentLifecycleHistoryEvent, error) {
+		if request.DocumentID != "doc-1" {
+			t.Fatalf("expected document id doc-1, got %q", request.DocumentID)
+		}
+		if request.ProcessingVersion != 2 {
+			t.Fatalf("expected processing version 2, got %d", request.ProcessingVersion)
+		}
+		if limit != 3 {
+			t.Fatalf("expected explicit limit 3, got %d", limit)
+		}
+		return []DocumentLifecycleHistoryEvent{
+			{
+				ID:                9,
+				DocumentID:        "doc-1",
+				Subject:           "documents.events.processor.completed",
+				ProcessingVersion: 2,
+				OccurredAt:        "2026-05-09T20:00:00Z",
+				CreatedAt:         "2026-05-09T20:00:01Z",
+				Payload: map[string]any{
+					"documentId": "doc-1",
+				},
+			},
+		}, nil
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api/documents/history", strings.NewReader(`{"documentId":"doc-1","processingVersion":2,"limit":3}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	documentHistoryHandler(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+
+	var response DocumentHistoryResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected valid json response: %v", err)
+	}
+	if response.DocumentID != "doc-1" || response.Count != 1 {
+		t.Fatalf("unexpected history response: %#v", response)
+	}
+	if response.Events[0].Subject != "documents.events.processor.completed" {
+		t.Fatalf("expected completed event, got %#v", response.Events[0])
+	}
+}
+
+func TestDocumentHistoryHandlerValidatesDocumentID(t *testing.T) {
+	setPostgresEnv(t)
+	base.ServiceName = "external_test_" + t.Name()
+	prometheusutil.Start(http.NewServeMux())
+
+	request := httptest.NewRequest(http.MethodPost, "/api/documents/history", strings.NewReader(`{"documentId":" "}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	documentHistoryHandler(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", recorder.Code)
+	}
+
+	var response ErrorResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected valid json response: %v", err)
+	}
+	if response.Error != "documentId is required" {
+		t.Fatalf("expected validation error, got %q", response.Error)
+	}
+}
+
 func TestLocalQueryEmbeddingFallback(t *testing.T) {
 	t.Setenv("EMBEDDING_ENDPOINT", "")
 	t.Setenv("EMBEDDING_MODEL", "local-embeddings")

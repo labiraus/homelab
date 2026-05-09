@@ -54,6 +54,7 @@ The live MinIO shape now supports:
 - `documents.editText` for orchestrator-backed text-object edits that queue a newer processing version
 - `documents.reprocess` for orchestrator-backed requeueing of an existing inventory document at a newer processing version
 - `documents.inventory.list` for Postgres-backed document inventory, curated metadata, and processing-state reads
+- `documents.history.list` for durable Postgres-backed lifecycle history, optionally narrowed to one processing version
 - `documents.search` for pgvector semantic search over the current processed chunk version, including document metadata and citation objects with source URI and chunk identity
 - `documents.context` for pgvector-backed context assembly with stable citation references and citation objects
 - `minio.documents.listFolder` for folder-and-file views of a prefix
@@ -109,3 +110,5 @@ The current event sequence is:
 - `documents.events.processor.failed`
 
 `documents.events.minio.stored` is emitted by the browser-facing upload path after the raw object is written to MinIO. Notification fan-out is best-effort and does not block the underlying document upload, queue, or processing path.
+
+Lifecycle events are also appended to `rag.document_lifecycle_events` when the orchestrator queues work and when the processor starts, completes, or fails a processing attempt. `documents.inventory.list` still exposes the latest event summary from `rag.documents.last_event_*`, while `documents.history.list` exposes the full recorded timeline.

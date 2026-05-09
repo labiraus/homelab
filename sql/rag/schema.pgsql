@@ -47,6 +47,26 @@ CREATE INDEX IF NOT EXISTS rag_documents_metadata_gin_idx
     USING GIN (metadata jsonb_path_ops)
     WHERE metadata IS NOT NULL;
 
+CREATE TABLE IF NOT EXISTS rag.document_lifecycle_events (
+    id BIGSERIAL PRIMARY KEY,
+    document_pk BIGINT REFERENCES rag.documents(id) ON DELETE CASCADE,
+    document_id TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    processing_version INTEGER NOT NULL DEFAULT 0,
+    event_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    occurred_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS rag_document_lifecycle_events_document_idx
+    ON rag.document_lifecycle_events (document_id, occurred_at DESC);
+
+CREATE INDEX IF NOT EXISTS rag_document_lifecycle_events_version_idx
+    ON rag.document_lifecycle_events (document_id, processing_version, occurred_at DESC);
+
+CREATE INDEX IF NOT EXISTS rag_document_lifecycle_events_subject_idx
+    ON rag.document_lifecycle_events (subject, occurred_at DESC);
+
 CREATE TABLE IF NOT EXISTS rag.chunks (
     id BIGSERIAL PRIMARY KEY,
     document_pk BIGINT NOT NULL REFERENCES rag.documents(id) ON DELETE CASCADE,

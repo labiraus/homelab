@@ -113,6 +113,28 @@ type DocumentContextResponse struct {
 	Truncated bool                      `json:"truncated"`
 }
 
+type DocumentHistoryRequest struct {
+	DocumentID        string `json:"documentId"`
+	ProcessingVersion int    `json:"processingVersion,omitempty"`
+	Limit             int    `json:"limit,omitempty"`
+}
+
+type DocumentLifecycleHistoryEvent struct {
+	ID                int64          `json:"id"`
+	DocumentID        string         `json:"documentId"`
+	Subject           string         `json:"subject"`
+	ProcessingVersion int            `json:"processingVersion"`
+	OccurredAt        string         `json:"occurredAt"`
+	CreatedAt         string         `json:"createdAt"`
+	Payload           map[string]any `json:"payload"`
+}
+
+type DocumentHistoryResponse struct {
+	DocumentID string                          `json:"documentId"`
+	Events     []DocumentLifecycleHistoryEvent `json:"events"`
+	Count      int                             `json:"count"`
+}
+
 type ErrorResponse struct {
 	Error string `json:"error"`
 }

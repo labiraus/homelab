@@ -45,6 +45,7 @@ var (
 	deleteBucketObject      = minioDeleteBucketObject
 	moveBucketObject        = minioMoveBucketObject
 	listDocumentInventory   = postgresDocumentInventory
+	listDocumentHistory     = postgresDocumentHistory
 	assembleDocumentContext = postgresDocumentContext
 	searchDocumentChunks    = postgresDocumentSearch
 )
@@ -609,6 +610,8 @@ func executeToolOperation(ctx context.Context, r *http.Request, resolution toolR
 		return moveBucketObject(ctx, binding.Bucket, sourceObjectKey, destinationObjectKey)
 	case manifestExecutionModeDocumentInventory:
 		return listDocumentInventory(ctx, arguments)
+	case manifestExecutionModeDocumentHistory:
+		return listDocumentHistory(ctx, arguments)
 	case manifestExecutionModeDocumentContext:
 		return assembleDocumentContext(ctx, arguments)
 	case manifestExecutionModeDocumentSearch:

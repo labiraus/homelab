@@ -252,6 +252,47 @@ var capabilityCatalog = []manifestCapabilitySource{
 		},
 	},
 	{
+		ID:      "documents.history",
+		Title:   "Document History",
+		Summary: "Inspect durable document lifecycle history recorded in Postgres.",
+		Backend: manifestBackendPostgres,
+		Operations: []manifestOperationSource{
+			livePrompt(
+				"documents.history.prompt",
+				"documentHistoryPrompt",
+				"/prompts/documents/history",
+				"Show how to inspect queued, started, completed, and failed processing events for a document.",
+				false,
+				[]manifestPromptArgument{
+					{Name: "documentId", Description: "Document identifier from inventory, search results, or a lifecycle notification.", Required: true},
+					{Name: "processingVersion", Description: "Optional processing version to narrow the lifecycle timeline."},
+				},
+				[]manifestPromptMessage{
+					{
+						Role: "user",
+						Content: manifestPromptMessagePart{
+							Type: "text",
+							Text: "Use the live `documents.history.list` tool on Labiraus with `documentId` set to `{{documentId}}`. Add `processingVersion` when you need the lifecycle timeline for one reprocess attempt. The response is sourced from `rag.document_lifecycle_events` and includes the recorded queued, started, completed, and failed lifecycle events with the original event payloads.",
+						},
+					},
+				},
+			),
+			liveTool(
+				"documents.history.list",
+				"listDocumentHistory",
+				http.MethodPost,
+				"/documents/history/list",
+				"List durable lifecycle events for a document from Postgres.",
+				false,
+				&manifestOperationBinding{
+					Backend:       manifestBackendPostgres,
+					ExecutionMode: manifestExecutionModeDocumentHistory,
+				},
+				documentHistorySchema(),
+			),
+		},
+	},
+	{
 		ID:      "postgres.auth",
 		Title:   "Auth Database",
 		Summary: "Read authentication and user inventory data directly from Postgres.",
@@ -752,6 +793,7 @@ func operationIsReadOnly(operation manifestOperationSource) bool {
 
 	switch operation.Binding.ExecutionMode {
 	case manifestExecutionModeDiscovery,
+		manifestExecutionModeDocumentHistory,
 		manifestExecutionModeDocumentContext,
 		manifestExecutionModeDocumentInventory,
 		manifestExecutionModeDocumentSearch,
@@ -795,6 +837,7 @@ func operationIsIdempotent(operation manifestOperationSource) bool {
 
 	switch operation.Binding.ExecutionMode {
 	case manifestExecutionModeDiscovery,
+		manifestExecutionModeDocumentHistory,
 		manifestExecutionModeDocumentContext,
 		manifestExecutionModeDocumentInventory,
 		manifestExecutionModeDocumentSearch,
@@ -977,6 +1020,18 @@ func documentInventorySchema() *manifestSchema {
 			"documentId": {Type: "string", Description: "Optional exact document identifier filter."},
 			"limit":      {Type: "integer", Description: "Optional maximum number of inventory rows to return."},
 		},
+	}
+}
+
+func documentHistorySchema() *manifestSchema {
+	return &manifestSchema{
+		Type: "object",
+		Properties: map[string]manifestSchema{
+			"documentId":        {Type: "string", Description: "Exact document identifier to inspect."},
+			"processingVersion": {Type: "integer", Description: "Optional processing version filter."},
+			"limit":             {Type: "integer", Description: "Optional maximum number of lifecycle events to return."},
+		},
+		Required: []string{"documentId"},
 	}
 }
 

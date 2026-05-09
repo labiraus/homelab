@@ -23,6 +23,8 @@ const (
 	defaultDocumentContextLimit  = 6
 	defaultDocumentContextChars  = 6000
 	maxDocumentContextCharacters = 20000
+	defaultDocumentHistoryLimit  = 50
+	maxDocumentHistoryLimit      = 200
 	defaultEmbeddingModel        = embeddingutil.DefaultModel
 )
 
@@ -62,6 +64,16 @@ type documentSearchRow struct {
 	ProcessingVersion int
 	Distance          float64
 	LastProcessedAt   *time.Time
+}
+
+type documentHistoryRow struct {
+	ID                int64
+	DocumentID        string
+	Subject           string
+	ProcessingVersion int
+	PayloadRaw        string
+	OccurredAt        time.Time
+	CreatedAt         time.Time
 }
 
 var fetchSearchEmbedding = getSearchEmbedding
@@ -250,6 +262,120 @@ WHERE true`
 	return operationResponse{ContentType: "application/json", Body: string(body)}, nil
 }
 
+func postgresDocumentHistory(ctx context.Context, arguments map[string]any) (operationResponse, *jsonRPCError) {
+	if postgresutil.Query == nil {
+		return backendUnavailable("Postgres backend is unavailable")
+	}
+
+	documentID := strings.TrimSpace(optionalStringArgument(arguments, "documentId", ""))
+	if documentID == "" {
+		return operationResponse{}, &jsonRPCError{
+			Code:    -32602,
+			Message: "documentId is required",
+		}
+	}
+
+	limit := optionalIntArgument(arguments, "limit", defaultDocumentHistoryLimit)
+	if limit <= 0 {
+		limit = defaultDocumentHistoryLimit
+	}
+	if limit > maxDocumentHistoryLimit {
+		limit = maxDocumentHistoryLimit
+	}
+
+	processingVersion := optionalIntArgument(arguments, "processingVersion", 0)
+	query := `
+SELECT
+	id,
+	document_id,
+	subject,
+	processing_version,
+	event_payload::text,
+	occurred_at,
+	created_at
+FROM rag.document_lifecycle_events
+WHERE document_id = $1`
+	args := []any{documentID}
+	nextArg := 2
+
+	if processingVersion > 0 {
+		query += fmt.Sprintf("\n\tAND processing_version = $%d", nextArg)
+		args = append(args, processingVersion)
+		nextArg++
+	}
+
+	query += fmt.Sprintf("\nORDER BY occurred_at DESC, id DESC\nLIMIT $%d", nextArg)
+	args = append(args, limit)
+
+	rows, err := postgresutil.Query(ctx, query, args...)
+	if err != nil {
+		return operationResponse{
+				ContentType: "application/json",
+				Body:        fmt.Sprintf(`{"error":%q}`, err.Error()),
+			}, &jsonRPCError{
+				Code:    -32000,
+				Message: "Document history query failed",
+			}
+	}
+	defer rows.Close()
+
+	events := []map[string]any{}
+	for rows.Next() {
+		var row documentHistoryRow
+		if err := rows.Scan(
+			&row.ID,
+			&row.DocumentID,
+			&row.Subject,
+			&row.ProcessingVersion,
+			&row.PayloadRaw,
+			&row.OccurredAt,
+			&row.CreatedAt,
+		); err != nil {
+			return operationResponse{}, &jsonRPCError{
+				Code:    -32000,
+				Message: "Document history row scan failed",
+				Data:    err.Error(),
+			}
+		}
+
+		payload, rpcErr := decodeDocumentPayload(row.PayloadRaw)
+		if rpcErr != nil {
+			return operationResponse{}, rpcErr
+		}
+
+		events = append(events, map[string]any{
+			"id":                row.ID,
+			"documentId":        row.DocumentID,
+			"subject":           row.Subject,
+			"processingVersion": row.ProcessingVersion,
+			"occurredAt":        row.OccurredAt.UTC().Format(time.RFC3339),
+			"createdAt":         row.CreatedAt.UTC().Format(time.RFC3339),
+			"payload":           payload,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return operationResponse{}, &jsonRPCError{
+			Code:    -32000,
+			Message: "Document history query failed",
+			Data:    err.Error(),
+		}
+	}
+
+	body, err := json.Marshal(map[string]any{
+		"documentId": documentID,
+		"events":     events,
+		"count":      len(events),
+	})
+	if err != nil {
+		return operationResponse{}, &jsonRPCError{
+			Code:    -32000,
+			Message: "Failed to encode document history response",
+			Data:    err.Error(),
+		}
+	}
+	return operationResponse{ContentType: "application/json", Body: string(body)}, nil
+}
+
 func decodeDocumentMetadata(raw string) (map[string]any, *jsonRPCError) {
 	if strings.TrimSpace(raw) == "" {
 		return map[string]any{}, nil
@@ -267,6 +393,25 @@ func decodeDocumentMetadata(raw string) (map[string]any, *jsonRPCError) {
 		metadata = map[string]any{}
 	}
 	return metadata, nil
+}
+
+func decodeDocumentPayload(raw string) (map[string]any, *jsonRPCError) {
+	if strings.TrimSpace(raw) == "" {
+		return map[string]any{}, nil
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		return nil, &jsonRPCError{
+			Code:    -32000,
+			Message: "Document lifecycle payload decode failed",
+			Data:    err.Error(),
+		}
+	}
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	return payload, nil
 }
 
 func postgresDocumentSearch(ctx context.Context, arguments map[string]any) (operationResponse, *jsonRPCError) {

@@ -83,6 +83,7 @@ Current behavior note:
 - MCP entry point: `apps/mcp/main.go`
 - Orchestrator entry point: `apps/orchestrator/main.go`
 - Orchestrator request, scan, and async contract shapes: `apps/orchestrator/documents.go` and `apps/orchestrator/scan.go`
+- Browser-facing document history API: `apps/external/history.go`
 - Shared HTTP server and probes: `apps/pkg/api/api.go`
 - Logging and readiness wiring: `apps/pkg/base/base.go`
 - Metrics: `apps/pkg/prometheusutil/prometheus.go`
@@ -126,6 +127,7 @@ Current behavior note:
 - NATS JetStream plus KEDA are the async execution layer, not the durable state store.
 - `external` exposes semantic document search for the UI.
 - `mcp` exposes document inventory and semantic search for agents.
+- `external` and `mcp` expose durable document lifecycle history from `rag.document_lifecycle_events`.
 
 ### MinIO and Ansible
 

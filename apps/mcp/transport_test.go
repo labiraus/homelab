@@ -39,6 +39,10 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 	if !promptHasArgument(contextPrompt, "metadata") {
 		t.Fatalf("expected context prompt to advertise metadata argument, got %#v", contextPrompt.Arguments)
 	}
+	historyPrompt := findPromptInManifest(t, manifest, "documents.history.prompt")
+	if !promptHasArgument(historyPrompt, "documentId") {
+		t.Fatalf("expected history prompt to advertise documentId argument, got %#v", historyPrompt.Arguments)
+	}
 	if !manifestHasTransport(manifest, "streamable-http", "https://mcp.labiraus.com/mcp") {
 		t.Fatalf("expected streamable-http transport in manifest, got %#v", manifest.Transports)
 	}
@@ -108,6 +112,14 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 	}
 	if contextTool.Annotations == nil || !contextTool.Annotations.ReadOnlyHint {
 		t.Fatalf("expected context tool to be marked read-only, got %#v", contextTool.Annotations)
+	}
+
+	historyTool := findToolInManifest(t, manifest, "documents.history.list")
+	if historyTool.Meta.ExecutionMode != manifestExecutionModeDocumentHistory {
+		t.Fatalf("expected document history execution mode, got %q", historyTool.Meta.ExecutionMode)
+	}
+	if historyTool.Annotations == nil || !historyTool.Annotations.ReadOnlyHint {
+		t.Fatalf("expected history tool to be marked read-only, got %#v", historyTool.Annotations)
 	}
 
 	moveTool := findToolInManifest(t, manifest, "minio.documents.moveObject")
@@ -1081,6 +1093,47 @@ func TestDecodeDocumentMetadata(t *testing.T) {
 	}
 	if metadata["summary"] != "Curated summary" {
 		t.Fatalf("expected decoded summary, got %+v", metadata)
+	}
+}
+
+func TestHandleToolsCallListsDocumentHistory(t *testing.T) {
+	previous := listDocumentHistory
+	t.Cleanup(func() {
+		listDocumentHistory = previous
+	})
+
+	listDocumentHistory = func(ctx context.Context, arguments map[string]any) (operationResponse, *jsonRPCError) {
+		if arguments["documentId"] != "doc-1" {
+			t.Fatalf("expected document id argument, got %#v", arguments["documentId"])
+		}
+		if arguments["processingVersion"] != float64(2) {
+			t.Fatalf("expected processingVersion argument, got %#v", arguments["processingVersion"])
+		}
+		return operationResponse{
+			ContentType: "application/json",
+			Body:        `{"count":1,"documentId":"doc-1","events":[{"subject":"documents.events.processor.completed"}]}`,
+		}, nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "documents.history.list",
+			"arguments": map[string]any{
+				"documentId":        "doc-1",
+				"processingVersion": 2,
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful tool response, got %#v", responseBody)
 	}
 }
 

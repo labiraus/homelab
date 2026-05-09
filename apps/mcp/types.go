@@ -89,6 +89,7 @@ const (
 	manifestExecutionModeMinIOPutObject      manifestExecutionMode = "minioPutObject"
 	manifestExecutionModeMinIOPutText        manifestExecutionMode = "minioPutTextObject"
 	manifestExecutionModeNATSSubscription    manifestExecutionMode = "natsSubscription"
+	manifestExecutionModeDocumentHistory     manifestExecutionMode = "documentHistory"
 	manifestExecutionModeDocumentInventory   manifestExecutionMode = "documentInventory"
 	manifestExecutionModeDocumentContext     manifestExecutionMode = "documentContext"
 	manifestExecutionModeDocumentSearch      manifestExecutionMode = "documentSearch"

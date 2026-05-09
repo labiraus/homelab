@@ -164,7 +164,7 @@ func publishQueuedLifecycleEvent(ctx context.Context, event documentEvent) error
 		return err
 	}
 
-	return recordLastEvent(ctx, event.DocumentID, lifecycleEvent.Subject, lifecycleEvent.OccurredAt)
+	return recordLifecycleEvent(ctx, lifecycleEvent)
 }
 
 func streamName() string {

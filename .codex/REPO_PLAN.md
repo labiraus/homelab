@@ -41,6 +41,7 @@ The repo already includes:
 - orchestrator-backed `documents.scanBucket` reconciliation that inventories MinIO objects into Postgres and queues new or changed text objects for processing
 - browser uploads emit `documents.events.minio.stored` after raw objects are written to MinIO
 - a built-in deterministic `local-embeddings` fallback used by processor, `external`, and `mcp` when no external embedding endpoint is configured
+- durable document lifecycle history in `rag.document_lifecycle_events`, exposed through `external` and `mcp`
 
 Documentation must stay aligned with implementation as these pieces evolve.
 
@@ -178,6 +179,23 @@ Current status:
 - `external` and `mcp` retrieval can be narrowed by exact-match curated metadata filters without adding a separate graph datastore
 - the `rag` schema includes a JSONB GIN index for metadata containment filters used by retrieval
 - `external` emits the ingest-boundary `documents.events.minio.stored` notification for successful browser uploads
+
+### Phase 6 — Durable Processing History
+
+Deliverables:
+
+- persist queue/start/complete/fail lifecycle events in Postgres so reprocessing has an auditable trail
+- keep `rag.documents.last_event_*` as the fast inventory summary while storing full event payloads separately
+- expose lifecycle history through both the browser-facing public API and the MCP tool surface
+- keep notification delivery best-effort and avoid making NATS the system of record
+
+Current status:
+
+- `rag.document_lifecycle_events` stores document ID, subject, processing version, original event payload, and occurrence time
+- `orchestrator` appends `documents.events.processor.queued` after successful queue commits
+- `processor` appends started, completed, and failed lifecycle events after notification publish succeeds
+- `external` exposes `POST /api/documents/history`
+- `mcp` exposes `documents.history.list` plus `documents.history.prompt`
 
 ## Near-Term Non-Goals
 

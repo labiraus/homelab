@@ -13,6 +13,7 @@ The manifest currently lists these prompt names:
 - `documents.editText.prompt`
 - `documents.context.prompt`
 - `documents.search.prompt`
+- `documents.history.prompt`
 - `postgres.auth.userCount.prompt`
 - `minio.documents.browse.prompt`
 - `documents.notifications.subscribe.prompt`
@@ -101,6 +102,21 @@ Use this when:
 - narrowing search to a folder-like object-key prefix would improve the answer
 
 The live `documents.search` tool embeds the query with the configured embedding path and searches the current processed chunk version across `rag.embeddings`, `rag.chunks`, and `rag.documents` in Postgres. Results include document metadata plus citation objects with source URI and chunk identity. Optional `metadata` filters use exact JSON containment, for example `{"tag":"runbook"}`. With `EMBEDDING_MODEL=local-embeddings` and no `EMBEDDING_ENDPOINT`, that embedding path is the built-in deterministic 384-dimensional local embedding function.
+
+### `documents.history.prompt`
+
+- lifecycle: `live`
+- purpose: show how to inspect durable document lifecycle history for a processing attempt
+- arguments:
+  - `documentId` required
+  - `processingVersion` optional
+
+Use this when:
+
+- an agent needs to audit whether a document was queued, started, completed, or failed
+- a reprocess attempt needs a timeline separate from the current inventory summary
+
+The live `documents.history.list` tool reads `rag.document_lifecycle_events` and returns lifecycle events with their original event payloads. The current inventory row still exposes only the latest event summary through `lastEventSubject` and `lastEventAt`.
 
 ### `postgres.auth.userCount.prompt`
 

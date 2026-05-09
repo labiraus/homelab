@@ -111,6 +111,7 @@ Current document-platform direction:
 
 - MinIO on `svartalfheim` is the canonical raw object store
 - Postgres via CNPG plus pgvector is the source of truth for metadata, state, chunks, and embeddings
+- document lifecycle history is also persisted in Postgres for processing and reprocessing audits
 - NATS JetStream plus KEDA handle asynchronous execution and worker scaling
 - Redis is available but not yet a core design dependency
 - Mongo is intentionally not part of the active application architecture
