@@ -52,18 +52,20 @@ type DocumentUploadResponse struct {
 }
 
 type DocumentSearchRequest struct {
-	Query      string `json:"query"`
-	Prefix     string `json:"prefix,omitempty"`
-	DocumentID string `json:"documentId,omitempty"`
-	Limit      int    `json:"limit,omitempty"`
+	Query      string         `json:"query"`
+	Prefix     string         `json:"prefix,omitempty"`
+	DocumentID string         `json:"documentId,omitempty"`
+	Metadata   map[string]any `json:"metadata,omitempty"`
+	Limit      int            `json:"limit,omitempty"`
 }
 
 type DocumentContextRequest struct {
-	Query      string `json:"query"`
-	Prefix     string `json:"prefix,omitempty"`
-	DocumentID string `json:"documentId,omitempty"`
-	Limit      int    `json:"limit,omitempty"`
-	MaxChars   int    `json:"maxChars,omitempty"`
+	Query      string         `json:"query"`
+	Prefix     string         `json:"prefix,omitempty"`
+	DocumentID string         `json:"documentId,omitempty"`
+	Metadata   map[string]any `json:"metadata,omitempty"`
+	Limit      int            `json:"limit,omitempty"`
+	MaxChars   int            `json:"maxChars,omitempty"`
 }
 
 type DocumentCitation struct {
@@ -81,6 +83,7 @@ type DocumentSearchHit struct {
 	SourceURI         string            `json:"sourceUri,omitempty"`
 	ObjectKey         string            `json:"objectKey,omitempty"`
 	ContentType       string            `json:"contentType,omitempty"`
+	Metadata          map[string]any    `json:"metadata,omitempty"`
 	ChunkID           int64             `json:"chunkId"`
 	ChunkIndex        int               `json:"chunkIndex"`
 	ChunkText         string            `json:"chunkText"`

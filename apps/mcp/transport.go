@@ -1259,6 +1259,37 @@ func optionalStringArgument(arguments map[string]any, key string, fallback strin
 	}
 }
 
+func optionalJSONMapArgument(arguments map[string]any, key string) map[string]any {
+	value, ok := arguments[key]
+	if !ok || value == nil {
+		return nil
+	}
+
+	typed, ok := value.(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	result := map[string]any{}
+	for rawKey, rawValue := range typed {
+		filterKey := strings.TrimSpace(rawKey)
+		if filterKey == "" || rawValue == nil {
+			continue
+		}
+		if stringValue, ok := rawValue.(string); ok {
+			rawValue = strings.TrimSpace(stringValue)
+		}
+		if rawValue == "" {
+			continue
+		}
+		result[filterKey] = rawValue
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
 func optionalBoolArgument(arguments map[string]any, key string, fallback bool) bool {
 	value, ok := arguments[key]
 	if !ok || value == nil {

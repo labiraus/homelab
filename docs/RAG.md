@@ -22,6 +22,7 @@ The current ingestion slice is reference-based:
 - `external` exposes semantic search for the UI
 - `mcp` exposes document inventory and semantic search for agents
 - `external` and `mcp` expose context assembly that packages current-version search hits into a cited context block
+- `external` and `mcp` allow retrieval to be narrowed by curated document metadata through exact-match JSON filters
 - `orchestrator` exposes document metadata curation for existing inventory rows
 - `orchestrator` exposes text-object editing for existing inventory rows and queues a newer processing version after the raw object write
 - `orchestrator` exposes explicit reprocessing for existing inventory documents through the same queue path

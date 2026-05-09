@@ -422,6 +422,22 @@ func TestDocumentSearchBaseQueryUsesCurrentProcessingVersion(t *testing.T) {
 	if !strings.Contains(documentSearchBaseQuery(), "c.processing_version = d.current_processing_version") {
 		t.Fatalf("expected search query to filter chunks to the document current processing version")
 	}
+	if !strings.Contains(documentSearchBaseQuery(), "COALESCE(d.metadata::text, '{}')") {
+		t.Fatalf("expected search query to return document metadata")
+	}
+}
+
+func TestNormalizeMetadataFilterDropsEmptyEntries(t *testing.T) {
+	filter := normalizeMetadataFilter(map[string]any{
+		" tag ": " runbook ",
+		"":      "ignored",
+		"empty": " ",
+		"tags":  []any{"ops", "runbook"},
+	})
+
+	if len(filter) != 2 || filter["tag"] != "runbook" {
+		t.Fatalf("expected normalized metadata filter, got %#v", filter)
+	}
 }
 
 func TestDocumentSearchHandlerValidatesRequest(t *testing.T) {

@@ -368,6 +368,8 @@ function App() {
 	const [uploadError, setUploadError] = useState("");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [searchPrefix, setSearchPrefix] = useState("");
+	const [searchMetadataKey, setSearchMetadataKey] = useState("");
+	const [searchMetadataValue, setSearchMetadataValue] = useState("");
 	const [searchLoading, setSearchLoading] = useState(false);
 	const [searchError, setSearchError] = useState("");
 	const [searchResults, setSearchResults] = useState([]);
@@ -698,9 +700,14 @@ function App() {
 		setSearchError("");
 
 		try {
+			const metadataKey = searchMetadataKey.trim();
+			const metadataValue = searchMetadataValue.trim();
+			const metadata =
+				metadataKey && metadataValue ? { [metadataKey]: metadataValue } : undefined;
 			const response = await searchDocuments({
 				query,
 				prefix: searchPrefix.trim(),
+				...(metadata ? { metadata } : {}),
 				limit: 8,
 			});
 			setSubmittedQuery(query);
@@ -1019,6 +1026,27 @@ function App() {
 									/>
 								</label>
 
+								<div className="metadata-filter-grid">
+									<label className="field-group">
+										<span>Metadata key</span>
+										<input
+											type="text"
+											value={searchMetadataKey}
+											onChange={(event) => setSearchMetadataKey(event.target.value)}
+											placeholder="tag"
+										/>
+									</label>
+									<label className="field-group">
+										<span>Metadata value</span>
+										<input
+											type="text"
+											value={searchMetadataValue}
+											onChange={(event) => setSearchMetadataValue(event.target.value)}
+											placeholder="runbook"
+										/>
+									</label>
+								</div>
+
 								<div className="search-actions">
 									<button
 										type="submit"
@@ -1033,6 +1061,8 @@ function App() {
 										onClick={() => {
 											setSearchQuery("");
 											setSearchPrefix("");
+											setSearchMetadataKey("");
+											setSearchMetadataValue("");
 											setSearchResults([]);
 											setSearchError("");
 											setSubmittedQuery("");

@@ -77,13 +77,14 @@ The live `documents.editText` tool writes replacement text to the existing MinIO
 - arguments:
   - `query` required
   - `prefix` optional
+  - `metadata` optional
 
 Use this when:
 
 - an agent needs ready-to-use context rather than raw search hits
 - cited context should stay tied to the current processed chunk version
 
-The live `documents.context` tool uses the same pgvector retrieval path as `documents.search`, then emits a compact context string with `[1]`, `[2]` style references. Each reference has a corresponding citation object that identifies the source URI, object key, chunk ID, chunk index, and processing version.
+The live `documents.context` tool uses the same pgvector retrieval path as `documents.search`, then emits a compact context string with `[1]`, `[2]` style references. Each reference has a corresponding citation object that identifies the source URI, object key, chunk ID, chunk index, and processing version. The optional `metadata` object applies exact-match filters against curated `rag.documents.metadata` fields.
 
 ### `documents.search.prompt`
 
@@ -92,13 +93,14 @@ The live `documents.context` tool uses the same pgvector retrieval path as `docu
 - arguments:
   - `query` required
   - `prefix` optional
+  - `metadata` optional
 
 Use this when:
 
 - an agent needs semantic retrieval over processed documents
 - narrowing search to a folder-like object-key prefix would improve the answer
 
-The live `documents.search` tool embeds the query with the configured embedding path and searches the current processed chunk version across `rag.embeddings`, `rag.chunks`, and `rag.documents` in Postgres. Results include citation objects with source URI and chunk identity. With `EMBEDDING_MODEL=local-embeddings` and no `EMBEDDING_ENDPOINT`, that embedding path is the built-in deterministic 384-dimensional local embedding function.
+The live `documents.search` tool embeds the query with the configured embedding path and searches the current processed chunk version across `rag.embeddings`, `rag.chunks`, and `rag.documents` in Postgres. Results include document metadata plus citation objects with source URI and chunk identity. Optional `metadata` filters use exact JSON containment, for example `{"tag":"runbook"}`. With `EMBEDDING_MODEL=local-embeddings` and no `EMBEDDING_ENDPOINT`, that embedding path is the built-in deterministic 384-dimensional local embedding function.
 
 ### `postgres.auth.userCount.prompt`
 

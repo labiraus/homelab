@@ -42,6 +42,8 @@ The browser-facing path is published through `oauth2-proxy` at `/api/...`, and t
 - `/api/documents/search` embeds a natural-language query, runs pgvector similarity search against the current processed chunk version, and returns ranked matches with document metadata and citation objects for the source URI plus chunk identity
 - `/api/documents/context` uses the same retrieval path and assembles a compact context block with `[1]`, `[2]` style references plus citation objects
 
+Search and context requests accept optional `documentId`, folder-like `prefix`, and `metadata` filters. The `metadata` filter is an exact-match JSON object applied to `rag.documents.metadata`, for example `{"metadata":{"tag":"runbook"}}`.
+
 These routes expect the standard MinIO runtime configuration:
 
 - `MINIO_ENDPOINT`

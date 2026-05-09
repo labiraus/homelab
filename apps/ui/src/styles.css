@@ -690,6 +690,12 @@ a {
 	min-height: 8rem;
 }
 
+.metadata-filter-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 0.75rem;
+}
+
 .field-group {
 	display: grid;
 	gap: 0.45rem;
@@ -986,6 +992,7 @@ a {
 	}
 
 	.auth-meta-grid,
+	.metadata-filter-grid,
 	.summary-grid,
 	.actions-grid {
 		grid-template-columns: 1fr;

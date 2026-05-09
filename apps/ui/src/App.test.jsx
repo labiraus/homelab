@@ -326,6 +326,8 @@ describe("App", () => {
 			screen.getByRole("textbox", { name: /optional prefix filter/i }),
 			"scripts/",
 		);
+		await user.type(screen.getByRole("textbox", { name: /metadata key/i }), "tag");
+		await user.type(screen.getByRole("textbox", { name: /metadata value/i }), "runbook");
 		await user.click(screen.getByRole("button", { name: /search chunks/i }));
 
 		expect(await screen.findByText("scripts/refresh-kubeconfig.sh")).toBeInTheDocument();
@@ -338,6 +340,7 @@ describe("App", () => {
 				body: JSON.stringify({
 					query: "refresh kubeconfig",
 					prefix: "scripts/",
+					metadata: { tag: "runbook" },
 					limit: 8,
 				}),
 			}),

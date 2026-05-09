@@ -23,7 +23,7 @@ In the current repo choice, the shared-host browser path is fronted by `oauth2-p
 
 When `authStatus.valid === true`, the app opens an `EventSource` to `/api/documents/events`, shows toast notifications for lifecycle updates, and tears the stream down again on sign-out or unmount. Toast copy is derived from the document lifecycle subject and document identifiers, with success, info, and error tones.
 
-The authenticated Search tab submits natural-language queries to the public API, optionally narrows by object-key prefix, and renders the top matching processed chunks with similarity scores and download links.
+The authenticated Search tab submits natural-language queries to the public API, optionally narrows by object-key prefix or one exact metadata key/value pair, and renders the top matching processed chunks with similarity scores and download links.
 
 ## Local Development
 

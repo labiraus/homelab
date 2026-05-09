@@ -175,6 +175,7 @@ Current status:
 - `mcp` inventory reads include the document metadata object
 - `external` and `mcp` search the current processed chunk version and include citation objects; the UI displays citation labels with source and download actions
 - `external` and `mcp` expose read-only context assembly that packages current-version retrieval hits into cited context blocks
+- `external` and `mcp` retrieval can be narrowed by exact-match curated metadata filters without adding a separate graph datastore
 - `external` emits the ingest-boundary `documents.events.minio.stored` notification for successful browser uploads
 
 ## Near-Term Non-Goals

@@ -54,7 +54,7 @@ The live MinIO shape now supports:
 - `documents.editText` for orchestrator-backed text-object edits that queue a newer processing version
 - `documents.reprocess` for orchestrator-backed requeueing of an existing inventory document at a newer processing version
 - `documents.inventory.list` for Postgres-backed document inventory, curated metadata, and processing-state reads
-- `documents.search` for pgvector semantic search over the current processed chunk version, including citation objects with source URI and chunk identity
+- `documents.search` for pgvector semantic search over the current processed chunk version, including document metadata and citation objects with source URI and chunk identity
 - `documents.context` for pgvector-backed context assembly with stable citation references and citation objects
 - `minio.documents.listFolder` for folder-and-file views of a prefix
 - `minio.documents.listObjects` for flat object inventory
@@ -65,6 +65,8 @@ The live MinIO shape now supports:
 - `minio.documents.moveObject` for object rename and move workflows within the documents bucket
 
 The live Postgres shape also supports `homelab://mcp/postgres/auth/users/{email}` for auth-user lookups.
+
+`documents.search` and `documents.context` accept optional `documentId`, folder-like `prefix`, and exact-match `metadata` filters. Metadata filters are applied to `rag.documents.metadata`, so curated fields from `documents.curation.update` can narrow retrieval without introducing a separate graph or index service.
 
 ## Auth Surface
 

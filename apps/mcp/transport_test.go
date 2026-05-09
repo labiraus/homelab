@@ -1181,6 +1181,23 @@ func TestDocumentChunkSearchBaseQueryUsesCurrentProcessingVersion(t *testing.T) 
 	if !strings.Contains(documentChunkSearchBaseQuery(), "c.processing_version = d.current_processing_version") {
 		t.Fatalf("expected search query to filter chunks to the document current processing version")
 	}
+	if !strings.Contains(documentChunkSearchBaseQuery(), "COALESCE(d.metadata::text, '{}')") {
+		t.Fatalf("expected search query to return document metadata")
+	}
+}
+
+func TestOptionalJSONMapArgumentNormalizesMetadataFilter(t *testing.T) {
+	filter := optionalJSONMapArgument(map[string]any{
+		"metadata": map[string]any{
+			" tag ": " runbook ",
+			"empty": "",
+			"tags":  []any{"ops", "runbook"},
+		},
+	}, "metadata")
+
+	if len(filter) != 2 || filter["tag"] != "runbook" {
+		t.Fatalf("expected normalized metadata filter, got %#v", filter)
+	}
 }
 
 func TestLocalSearchEmbeddingFallback(t *testing.T) {

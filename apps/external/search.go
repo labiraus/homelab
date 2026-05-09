@@ -39,6 +39,7 @@ type documentSearchRow struct {
 	SourceURI         string
 	ObjectKey         string
 	ContentType       string
+	MetadataRaw       string
 	ChunkID           int64
 	ChunkIndex        int
 	ChunkText         string
@@ -92,6 +93,7 @@ func documentSearchHandler(w http.ResponseWriter, r *http.Request) {
 	request.Query = strings.TrimSpace(request.Query)
 	request.DocumentID = strings.TrimSpace(request.DocumentID)
 	request.Prefix = normalizePrefix(request.Prefix)
+	request.Metadata = normalizeMetadataFilter(request.Metadata)
 	switch {
 	case request.Query == "":
 		w.WriteHeader(http.StatusBadRequest)
@@ -205,6 +207,7 @@ func normalizeDocumentContextRequest(request DocumentContextRequest) (DocumentSe
 		Query:      strings.TrimSpace(request.Query),
 		DocumentID: strings.TrimSpace(request.DocumentID),
 		Prefix:     normalizePrefix(request.Prefix),
+		Metadata:   normalizeMetadataFilter(request.Metadata),
 		Limit:      request.Limit,
 	}
 
@@ -304,6 +307,16 @@ func queryDocumentSearch(
 		nextArg++
 	}
 
+	if len(request.Metadata) > 0 {
+		metadataFilter, err := json.Marshal(request.Metadata)
+		if err != nil {
+			return nil, err
+		}
+		query += fmt.Sprintf("\n\tAND d.metadata @> $%d::jsonb", nextArg)
+		args = append(args, string(metadataFilter))
+		nextArg++
+	}
+
 	query += fmt.Sprintf("\nORDER BY e.vector <=> $1::vector\nLIMIT $%d", nextArg)
 	args = append(args, limit)
 
@@ -321,6 +334,7 @@ func queryDocumentSearch(
 			&row.SourceURI,
 			&row.ObjectKey,
 			&row.ContentType,
+			&row.MetadataRaw,
 			&row.ChunkID,
 			&row.ChunkIndex,
 			&row.ChunkText,
@@ -331,11 +345,17 @@ func queryDocumentSearch(
 			return nil, err
 		}
 
+		metadata, err := decodeDocumentMetadata(row.MetadataRaw)
+		if err != nil {
+			return nil, err
+		}
+
 		hit := DocumentSearchHit{
 			DocumentID:        row.DocumentID,
 			SourceURI:         row.SourceURI,
 			ObjectKey:         row.ObjectKey,
 			ContentType:       row.ContentType,
+			Metadata:          metadata,
 			ChunkID:           row.ChunkID,
 			ChunkIndex:        row.ChunkIndex,
 			ChunkText:         row.ChunkText,
@@ -360,6 +380,7 @@ SELECT
 	d.source_uri,
 	COALESCE(d.object_key, ''),
 	COALESCE(d.content_type, ''),
+	COALESCE(d.metadata::text, '{}'),
 	c.id,
 	c.chunk_index,
 	c.chunk_text,
@@ -373,6 +394,46 @@ WHERE d.status = 'processed'
 	AND e.model = $2
 	AND c.processing_version = d.current_processing_version
 	AND e.vector IS NOT NULL`
+}
+
+func normalizeMetadataFilter(metadata map[string]any) map[string]any {
+	if len(metadata) == 0 {
+		return nil
+	}
+
+	normalized := map[string]any{}
+	for key, value := range metadata {
+		key = strings.TrimSpace(key)
+		if key == "" || value == nil {
+			continue
+		}
+		if stringValue, ok := value.(string); ok {
+			value = strings.TrimSpace(stringValue)
+		}
+		if value == "" {
+			continue
+		}
+		normalized[key] = value
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
+}
+
+func decodeDocumentMetadata(raw string) (map[string]any, error) {
+	if strings.TrimSpace(raw) == "" {
+		return map[string]any{}, nil
+	}
+
+	var metadata map[string]any
+	if err := json.Unmarshal([]byte(raw), &metadata); err != nil {
+		return nil, err
+	}
+	if metadata == nil {
+		return map[string]any{}, nil
+	}
+	return metadata, nil
 }
 
 func assembleDocumentContext(query string, hits []DocumentSearchHit, maxChars int) DocumentContextResponse {

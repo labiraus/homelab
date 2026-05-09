@@ -55,6 +55,7 @@ type documentSearchRow struct {
 	SourceURI         string
 	ObjectKey         string
 	ContentType       string
+	MetadataRaw       string
 	ChunkID           int64
 	ChunkIndex        int
 	ChunkText         string
@@ -470,6 +471,21 @@ func queryDocumentChunks(ctx context.Context, embedding []float64, model string,
 		nextArg++
 	}
 
+	metadata := optionalJSONMapArgument(arguments, "metadata")
+	if len(metadata) > 0 {
+		metadataFilter, err := json.Marshal(metadata)
+		if err != nil {
+			return nil, &jsonRPCError{
+				Code:    -32602,
+				Message: "Invalid metadata filter",
+				Data:    err.Error(),
+			}
+		}
+		query += fmt.Sprintf("\n\tAND d.metadata @> $%d::jsonb", nextArg)
+		args = append(args, string(metadataFilter))
+		nextArg++
+	}
+
 	query += fmt.Sprintf("\nORDER BY e.vector <=> $1::vector\nLIMIT $%d", nextArg)
 	args = append(args, limit)
 
@@ -491,6 +507,7 @@ func queryDocumentChunks(ctx context.Context, embedding []float64, model string,
 			&row.SourceURI,
 			&row.ObjectKey,
 			&row.ContentType,
+			&row.MetadataRaw,
 			&row.ChunkID,
 			&row.ChunkIndex,
 			&row.ChunkText,
@@ -505,11 +522,17 @@ func queryDocumentChunks(ctx context.Context, embedding []float64, model string,
 			}
 		}
 
+		metadata, rpcErr := decodeDocumentMetadata(row.MetadataRaw)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+
 		hits = append(hits, map[string]any{
 			"documentId":        row.DocumentID,
 			"sourceUri":         row.SourceURI,
 			"objectKey":         row.ObjectKey,
 			"contentType":       row.ContentType,
+			"metadata":          metadata,
 			"chunkId":           row.ChunkID,
 			"chunkIndex":        row.ChunkIndex,
 			"chunkText":         row.ChunkText,
@@ -538,6 +561,7 @@ SELECT
 	d.source_uri,
 	COALESCE(d.object_key, ''),
 	COALESCE(d.content_type, ''),
+	COALESCE(d.metadata::text, '{}'),
 	c.id,
 	c.chunk_index,
 	c.chunk_text,
