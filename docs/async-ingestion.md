@@ -66,7 +66,7 @@ The current notification pattern on top of that job flow is:
 
 The Labiraus MCP server now subscribes to that NATS event stream and forwards document-specific updates to MCP subscribers as resource notifications. The browser-facing `external` service also fans the same lifecycle events out to authenticated UI clients over SSE at `/api/documents/events`.
 
-The current durable history slice records processor queue/start/complete/fail lifecycle events in `rag.document_lifecycle_events`. The event stream remains best-effort delivery for subscribers, while Postgres provides the audit trail that can be queried later through `documents.history.list` in MCP or `POST /api/documents/history` in `external`.
+The current durable history slice records processor queue/start/complete/fail lifecycle events in `rag.document_lifecycle_events`. The event stream remains best-effort delivery for subscribers, while Postgres provides the audit trail that can be queried later through `documents.history.list` in MCP or `POST /api/documents/history` in `external`. The UI Search tab consumes the external history route to show a lifecycle panel for retrieved documents.
 
 The current retrieval context slice is read-only. `documents.context` in MCP and `POST /api/documents/context` in `external` use the same current-version pgvector search path as semantic search, then assemble the selected chunks into a cited context block with stable `[1]`, `[2]` references.
 

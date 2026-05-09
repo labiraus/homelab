@@ -347,6 +347,106 @@ describe("App", () => {
 		);
 	});
 
+	test("loads durable lifecycle history for a search result", async () => {
+		const user = userEvent.setup();
+		global.fetch = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ mode: "oidc", email: "oliver@labiraus.com", valid: true }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					providers: [
+						{
+							id: "google",
+							name: "Google",
+							issuer: "https://accounts.google.com",
+							authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+							configured: true,
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					query: "processing status",
+					hits: [
+						{
+							documentId: "doc-1",
+							objectKey: "runbooks/process.md",
+							contentType: "text/markdown",
+							chunkId: 12,
+							chunkIndex: 0,
+							chunkText: "Processor completion is recorded in Postgres.",
+							similarity: 0.88,
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					documentId: "doc-1",
+					count: 2,
+					events: [
+						{
+							id: 9,
+							documentId: "doc-1",
+							subject: "documents.events.processor.completed",
+							processingVersion: 3,
+							occurredAt: "2026-05-09T20:00:00Z",
+							createdAt: "2026-05-09T20:00:01Z",
+							payload: {
+								documentId: "doc-1",
+								objectKey: "runbooks/process.md",
+								chunkCount: 3,
+							},
+						},
+						{
+							id: 8,
+							documentId: "doc-1",
+							subject: "documents.events.processor.started",
+							processingVersion: 3,
+							occurredAt: "2026-05-09T19:59:00Z",
+							createdAt: "2026-05-09T19:59:01Z",
+							payload: {
+								documentId: "doc-1",
+								objectKey: "runbooks/process.md",
+							},
+						},
+					],
+				}),
+			});
+
+		render(<App />);
+		await user.click(await screen.findByRole("button", { name: /^search$/i }));
+		await user.type(
+			screen.getByRole("textbox", { name: /search query/i }),
+			"processing status",
+		);
+		await user.click(screen.getByRole("button", { name: /search chunks/i }));
+
+		expect(await screen.findByText("runbooks/process.md")).toBeInTheDocument();
+		await user.click(
+			screen.getByRole("button", { name: /history for runbooks\/process\.md/i }),
+		);
+
+		expect(await screen.findByText("Processing completed")).toBeInTheDocument();
+		expect(screen.getByText("Processing started")).toBeInTheDocument();
+		expect(screen.getAllByText("v3")).toHaveLength(2);
+		expect(screen.getByText(/runbooks\/process\.md.*3 chunks/i)).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/history",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({ documentId: "doc-1", limit: 20 }),
+			}),
+		);
+	});
+
 	test("navigates to the documents page and shows folder entries", async () => {
 		const user = userEvent.setup();
 		global.fetch = vi

@@ -28,6 +28,7 @@ The current ingestion slice is reference-based:
 - `orchestrator` exposes text-object editing for existing inventory rows and queues a newer processing version after the raw object write
 - `orchestrator` exposes explicit reprocessing for existing inventory documents through the same queue path
 - `external` and `mcp` expose durable lifecycle history backed by `rag.document_lifecycle_events`
+- `ui` renders durable lifecycle history for selected search results through `external`'s `/api/documents/history`
 - retrieval responses search the document's current processed chunk version and include citation objects that identify the source URI and chunk identity for each match
 - `local-embeddings` uses a built-in deterministic 384-dimensional embedding function when no external embedding endpoint is configured
 

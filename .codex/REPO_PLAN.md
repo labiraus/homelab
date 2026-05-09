@@ -42,6 +42,7 @@ The repo already includes:
 - browser uploads emit `documents.events.minio.stored` after raw objects are written to MinIO
 - a built-in deterministic `local-embeddings` fallback used by processor, `external`, and `mcp` when no external embedding endpoint is configured
 - durable document lifecycle history in `rag.document_lifecycle_events`, exposed through `external` and `mcp`
+- the UI Search tab can load that durable lifecycle history for a retrieved document through `/api/documents/history`
 
 Documentation must stay aligned with implementation as these pieces evolve.
 
@@ -196,6 +197,20 @@ Current status:
 - `processor` appends started, completed, and failed lifecycle events after notification publish succeeds
 - `external` exposes `POST /api/documents/history`
 - `mcp` exposes `documents.history.list` plus `documents.history.prompt`
+
+### Phase 7 — Browser Retrieval History UX
+
+Deliverables:
+
+- expose durable document history in the browser near retrieval results
+- keep history read-only and backed by the existing browser-facing `/api/documents/history` route
+- show processing versions, timestamps, lifecycle subjects, and recorded payload details without introducing new backend storage
+
+Current status:
+
+- the Search tab includes a History action for each result
+- the lifecycle panel calls `POST /api/documents/history` for the selected result's `documentId`
+- UI tests cover the history request body and rendered lifecycle events
 
 ## Near-Term Non-Goals
 

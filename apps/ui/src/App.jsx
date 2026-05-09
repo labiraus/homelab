@@ -10,6 +10,7 @@ const DOCUMENT_OBJECT_PATH = "/api/documents/object";
 const DOCUMENT_UPLOAD_PATH = "/api/documents/upload";
 const DOCUMENT_EVENTS_PATH = "/api/documents/events";
 const DOCUMENT_SEARCH_PATH = "/api/documents/search";
+const DOCUMENT_HISTORY_PATH = "/api/documents/history";
 const TOAST_DISMISS_MS = 6000;
 
 const actions = [
@@ -136,6 +137,14 @@ async function searchDocuments(request) {
 	return callApi({
 		method: "POST",
 		path: DOCUMENT_SEARCH_PATH,
+		body: request,
+	});
+}
+
+async function fetchDocumentHistory(request) {
+	return callApi({
+		method: "POST",
+		path: DOCUMENT_HISTORY_PATH,
 		body: request,
 	});
 }
@@ -323,6 +332,35 @@ function lifecycleDescription(event) {
 	}
 }
 
+function lifecycleHistorySummary(event) {
+	const payload = event?.payload ?? {};
+	const target = payload.objectKey || payload.sourceUri || payload.documentId || event?.documentId;
+	const details = [];
+
+	if (target) {
+		details.push(target);
+	}
+	if (payload.status) {
+		details.push(`status ${payload.status}`);
+	}
+	if (typeof payload.chunkCount === "number") {
+		details.push(`${payload.chunkCount} chunks`);
+	}
+	if (payload.error) {
+		details.push(payload.error);
+	}
+
+	return details.join(" • ");
+}
+
+function stringifyHistoryPayload(payload) {
+	try {
+		return JSON.stringify(payload ?? {}, null, 2);
+	} catch {
+		return "{}";
+	}
+}
+
 function createToastFromLifecycleEvent(event) {
 	return {
 		id: `${event.subject}-${event.documentId}-${event.occurredAt}`,
@@ -374,6 +412,13 @@ function App() {
 	const [searchError, setSearchError] = useState("");
 	const [searchResults, setSearchResults] = useState([]);
 	const [submittedQuery, setSubmittedQuery] = useState("");
+	const [historyState, setHistoryState] = useState({
+		status: "idle",
+		documentId: "",
+		sourceLabel: "",
+		events: [],
+		error: "",
+	});
 	const [toasts, setToasts] = useState([]);
 	const [theme, setTheme] = useState(() => {
 		if (typeof window === "undefined") {
@@ -698,6 +743,13 @@ function App() {
 
 		setSearchLoading(true);
 		setSearchError("");
+		setHistoryState({
+			status: "idle",
+			documentId: "",
+			sourceLabel: "",
+			events: [],
+			error: "",
+		});
 
 		try {
 			const metadataKey = searchMetadataKey.trim();
@@ -717,6 +769,41 @@ function App() {
 			setSearchResults([]);
 		} finally {
 			setSearchLoading(false);
+		}
+	};
+
+	const handleLoadHistory = async (result) => {
+		const documentId = result?.documentId?.trim();
+		if (!documentId) {
+			return;
+		}
+
+		const sourceLabel = result.objectKey || documentId;
+		setHistoryState({
+			status: "loading",
+			documentId,
+			sourceLabel,
+			events: [],
+			error: "",
+		});
+
+		try {
+			const response = await fetchDocumentHistory({ documentId, limit: 20 });
+			setHistoryState({
+				status: "ready",
+				documentId,
+				sourceLabel,
+				events: response?.events ?? [],
+				error: "",
+			});
+		} catch (requestError) {
+			setHistoryState({
+				status: "error",
+				documentId,
+				sourceLabel,
+				events: [],
+				error: requestError instanceof Error ? requestError.message : "History request failed",
+			});
 		}
 	};
 
@@ -1066,6 +1153,13 @@ function App() {
 											setSearchResults([]);
 											setSearchError("");
 											setSubmittedQuery("");
+											setHistoryState({
+												status: "idle",
+												documentId: "",
+												sourceLabel: "",
+												events: [],
+												error: "",
+											});
 										}}
 										disabled={searchLoading}
 									>
@@ -1076,74 +1170,153 @@ function App() {
 								{searchError ? <p className="error-text">{searchError}</p> : null}
 							</form>
 
-							<div className="search-results-card">
-								<div className="panel-heading compact">
-									<div>
-										<h3>Results</h3>
-										<p>
+							<div className="search-results-column">
+								<div className="search-results-card">
+									<div className="panel-heading compact">
+										<div>
+											<h3>Results</h3>
+											<p>
+												{submittedQuery
+													? `Ranked matches for "${submittedQuery}".`
+													: "Run a query to inspect matching chunks."}
+											</p>
+										</div>
+									</div>
+
+									{!searchLoading && searchResults.length === 0 && !searchError ? (
+										<p className="empty-state">
 											{submittedQuery
-												? `Ranked matches for "${submittedQuery}".`
-												: "Run a query to inspect matching chunks."}
+												? "No processed chunks matched this query yet."
+												: "Search results will appear here."}
 										</p>
+									) : null}
+
+									<div className="search-result-list">
+										{searchResults.map((result) => (
+											<article
+												key={`${result.documentId}-${result.chunkId}`}
+												className="search-result-card"
+											>
+												<div className="search-result-header">
+													<div>
+														<p className="search-result-title">{result.objectKey || result.documentId}</p>
+														<p className="search-result-meta">
+															{result.contentType || "Unknown type"} • chunk {result.chunkIndex}
+														</p>
+													</div>
+													<div className="search-score-pill">
+														{formatSimilarity(result.similarity)}
+													</div>
+												</div>
+
+												<p className="search-result-text">{result.chunkText}</p>
+
+												<div className="search-result-footer">
+													<div className="citation-block">
+														<p className="search-result-meta">
+															Citation: <span className="citation-code">{citationLabel(result)}</span>
+														</p>
+														<p className="search-result-meta">
+															Document ID: {result.documentId}
+															{result.lastProcessedAt
+																? ` • Indexed ${formatTimestamp(result.lastProcessedAt)}`
+																: ""}
+														</p>
+													</div>
+													<div className="search-result-actions">
+														<button
+															type="button"
+															className="inline-button"
+															onClick={() => void handleLoadHistory(result)}
+															disabled={
+																historyState.status === "loading" &&
+																historyState.documentId === result.documentId
+															}
+															aria-label={`History for ${result.objectKey || result.documentId}`}
+														>
+															History
+														</button>
+														{result.objectKey ? (
+															<a className="inline-button" href={documentOpenUrl(result.objectKey)}>
+																Open Source
+															</a>
+														) : null}
+														{result.objectKey ? (
+															<a className="inline-button" href={documentDownloadUrl(result.objectKey)}>
+																Download
+															</a>
+														) : null}
+													</div>
+												</div>
+											</article>
+										))}
 									</div>
 								</div>
 
-								{!searchLoading && searchResults.length === 0 && !searchError ? (
-									<p className="empty-state">
-										{submittedQuery
-											? "No processed chunks matched this query yet."
-											: "Search results will appear here."}
-									</p>
-								) : null}
+								<section className="history-card" aria-live="polite">
+									<div className="panel-heading compact">
+										<div>
+											<h3>Lifecycle history</h3>
+											<p>
+												{historyState.documentId
+													? `${historyState.sourceLabel} recorded in Postgres.`
+													: "Select a search result to inspect durable processing events."}
+											</p>
+										</div>
+										{historyState.status === "loading" ? (
+											<span className="status-pill busy">Loading</span>
+										) : historyState.status === "ready" ? (
+											<span className="status-pill">Loaded</span>
+										) : null}
+									</div>
 
-								<div className="search-result-list">
-									{searchResults.map((result) => (
-										<article
-											key={`${result.documentId}-${result.chunkId}`}
-											className="search-result-card"
-										>
-											<div className="search-result-header">
-												<div>
-													<p className="search-result-title">{result.objectKey || result.documentId}</p>
-													<p className="search-result-meta">
-														{result.contentType || "Unknown type"} • chunk {result.chunkIndex}
-													</p>
-												</div>
-												<div className="search-score-pill">
-													{formatSimilarity(result.similarity)}
-												</div>
-											</div>
+									{historyState.error ? <p className="error-text">{historyState.error}</p> : null}
+									{historyState.status === "idle" ? (
+										<p className="empty-state">Lifecycle events will appear here.</p>
+									) : null}
+									{historyState.status === "loading" ? (
+										<p className="empty-state">Loading lifecycle events…</p>
+									) : null}
+									{historyState.status === "ready" && historyState.events.length === 0 ? (
+										<p className="empty-state">No lifecycle events are recorded for this document yet.</p>
+									) : null}
 
-											<p className="search-result-text">{result.chunkText}</p>
-
-											<div className="search-result-footer">
-												<div className="citation-block">
-													<p className="search-result-meta">
-														Citation: <span className="citation-code">{citationLabel(result)}</span>
-													</p>
-													<p className="search-result-meta">
-														Document ID: {result.documentId}
-														{result.lastProcessedAt
-															? ` • Indexed ${formatTimestamp(result.lastProcessedAt)}`
-															: ""}
-													</p>
-												</div>
-												<div className="search-result-actions">
-													{result.objectKey ? (
-														<a className="inline-button" href={documentOpenUrl(result.objectKey)}>
-															Open Source
-														</a>
-													) : null}
-													{result.objectKey ? (
-														<a className="inline-button" href={documentDownloadUrl(result.objectKey)}>
-															Download
-														</a>
-													) : null}
-												</div>
-											</div>
-										</article>
-									))}
-								</div>
+									{historyState.events.length > 0 ? (
+										<ol className="history-event-list">
+											{historyState.events.map((event) => (
+												<li key={event.id} className="history-event">
+													<span
+														className={`history-event-marker ${lifecycleTone(event.subject)}`}
+														aria-hidden="true"
+													/>
+													<div className="history-event-body">
+														<div className="history-event-header">
+															<p className="history-event-title">{lifecycleTitle(event.subject)}</p>
+															<span className="history-version-pill">
+																v{event.processingVersion}
+															</span>
+														</div>
+														<p className="search-result-meta">
+															{formatTimestamp(event.occurredAt)}
+															{event.createdAt
+																? ` • recorded ${formatTimestamp(event.createdAt)}`
+																: ""}
+														</p>
+														{lifecycleHistorySummary(event) ? (
+															<p className="history-event-summary">
+																{lifecycleHistorySummary(event)}
+															</p>
+														) : null}
+														<details className="history-payload">
+															<summary>Payload</summary>
+															<pre>{stringifyHistoryPayload(event.payload)}</pre>
+														</details>
+													</div>
+												</li>
+											))}
+										</ol>
+									) : null}
+								</section>
 							</div>
 						</div>
 					</section>
