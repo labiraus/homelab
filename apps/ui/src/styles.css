@@ -377,6 +377,8 @@ a {
 .preview-card,
 .search-card,
 .search-results-card,
+.inventory-card,
+.inventory-results-card,
 .context-card,
 .document-actions-card,
 .history-card {
@@ -553,6 +555,8 @@ a {
 .preview-card,
 .search-card,
 .search-results-card,
+.inventory-card,
+.inventory-results-card,
 .context-card,
 .document-actions-card,
 .history-card {
@@ -589,6 +593,16 @@ a {
 .status-pill.busy {
 	background: rgba(47, 129, 247, 0.12);
 	color: var(--brand-strong);
+}
+
+.status-pill.success {
+	background: rgba(26, 127, 55, 0.12);
+	color: var(--success);
+}
+
+.status-pill.error {
+	background: rgba(207, 34, 46, 0.12);
+	color: var(--error);
 }
 
 .actions-grid {
@@ -673,6 +687,13 @@ a {
 	align-items: start;
 }
 
+.inventory-layout {
+	display: grid;
+	grid-template-columns: minmax(300px, 0.75fr) minmax(0, 1.4fr);
+	gap: 1rem;
+	align-items: start;
+}
+
 .search-results-column {
 	display: grid;
 	gap: 1rem;
@@ -680,7 +701,8 @@ a {
 
 .upload-card,
 .preview-card,
-.search-card {
+.search-card,
+.inventory-card {
 	display: grid;
 	gap: 0.95rem;
 }
@@ -690,7 +712,9 @@ a {
 .document-actions-form input[type="text"],
 .document-edit-form textarea,
 .search-card input[type="text"],
-.search-card textarea {
+.search-card textarea,
+.inventory-card input[type="text"],
+.inventory-card select {
 	width: 100%;
 	padding: 0.78rem 0.92rem;
 	border: 1px solid var(--line);
@@ -733,7 +757,13 @@ a {
 	gap: 0.85rem;
 }
 
-.search-result-card {
+.inventory-list {
+	display: grid;
+	gap: 0.85rem;
+}
+
+.search-result-card,
+.inventory-row {
 	display: grid;
 	gap: 0.9rem;
 	padding: 1rem;
@@ -743,12 +773,26 @@ a {
 }
 
 .search-result-header,
+.inventory-row-header,
 .search-result-footer {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-start;
 	justify-content: space-between;
 	gap: 0.75rem;
+}
+
+.inventory-facts {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	gap: 0.75rem;
+}
+
+.inventory-facts p {
+	margin: 0.28rem 0 0;
+	color: var(--muted);
+	line-height: 1.45;
+	overflow-wrap: anywhere;
 }
 
 .search-result-actions {
@@ -1115,6 +1159,7 @@ a {
 	.workspace-header,
 	.content-grid,
 	.documents-layout,
+	.inventory-layout,
 	.search-layout {
 		grid-template-columns: 1fr;
 	}

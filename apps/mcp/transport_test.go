@@ -106,6 +106,11 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 		t.Fatalf("expected search tool to be marked read-only, got %#v", searchTool.Annotations)
 	}
 
+	inventoryTool := findToolInManifest(t, manifest, "documents.inventory.list")
+	if _, ok := inventoryTool.InputSchema.Properties["metadata"]; !ok {
+		t.Fatalf("expected inventory tool to advertise metadata filter, got %#v", inventoryTool.InputSchema.Properties)
+	}
+
 	contextTool := findToolInManifest(t, manifest, "documents.context")
 	if contextTool.Meta.ExecutionMode != manifestExecutionModeDocumentContext {
 		t.Fatalf("expected document context execution mode, got %q", contextTool.Meta.ExecutionMode)

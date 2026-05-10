@@ -20,6 +20,7 @@ The current ingestion slice is reference-based:
 - accepted documents are currently limited to `text/*`
 - `rag.documents.status` moves through `pending`, `processing`, and `processed`
 - `processor` reads the raw object from MinIO and writes chunks plus embeddings back to Postgres
+- `external` exposes document inventory for browser operators to inspect reconciliation and processing state
 - `external` exposes semantic search for the UI
 - `mcp` exposes document inventory and semantic search for agents
 - `external` and `mcp` expose context assembly that packages current-version search hits into a cited context block
@@ -31,6 +32,7 @@ The current ingestion slice is reference-based:
 - `external` and `mcp` expose durable lifecycle history backed by `rag.document_lifecycle_events`
 - `ui` renders durable lifecycle history for selected search results through `external`'s `/api/documents/history`
 - `ui` can assemble cited context blocks from the Search tab through `external`'s `/api/documents/context` using the same query, prefix, and metadata filters
+- `ui` can inspect Postgres-backed inventory rows from the Inventory tab through `external`'s `/api/documents/inventory`
 - `ui` can update curated metadata, perform guarded raw text edits, and queue reprocessing for selected search results through `external` proxy routes
 - `ui` automatically loads version-specific durable lifecycle history after browser actions that queue processing
 - retrieval responses search the document's current processed chunk version and include citation objects that identify the source URI and chunk identity for each match

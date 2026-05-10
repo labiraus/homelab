@@ -68,6 +68,8 @@ The Labiraus MCP server now subscribes to that NATS event stream and forwards do
 
 The current durable history slice records processor queue/start/complete/fail lifecycle events in `rag.document_lifecycle_events`. The event stream remains best-effort delivery for subscribers, while Postgres provides the audit trail that can be queried later through `documents.history.list` in MCP or `POST /api/documents/history` in `external`. The UI Search tab consumes the external history route to show a lifecycle panel for retrieved documents.
 
+The current browser inventory slice exposes `POST /api/documents/inventory` through `external`. It reads `rag.documents` and returns document IDs, object keys, processing status, current and desired processing versions, latest lifecycle summary fields, errors, timestamps, and curated metadata. The UI Inventory tab uses that route with optional status, exact document ID, prefix, and exact metadata filters so browser operators can inspect reconciliation and processing state without needing a matching retrieval chunk.
+
 The current retrieval context slice is read-only. `documents.context` in MCP and `POST /api/documents/context` in `external` use the same current-version pgvector search path as semantic search, then assemble the selected chunks into a cited context block with stable `[1]`, `[2]` references. The UI Search tab exposes that browser-facing context route with the same query, prefix, and metadata filters used for semantic search.
 
 The current browser document-control slice is intentionally narrow. The UI Search tab can select a retrieval result, update one curated metadata key/value pair through `/api/documents/curation`, load and save guarded text edits through `/api/documents/edit-text`, or queue reprocessing through `/api/documents/reprocess`. `external` only validates the public request shape and proxies to `orchestrator`; `orchestrator` still owns document validation, raw text writes, metadata persistence, version selection, lifecycle history, and queueing.
@@ -126,6 +128,6 @@ This design keeps ingestion idempotent and explainable:
 
 Later phases can add:
 
-- richer retrieval APIs beyond the current `external` search and MCP inventory/search tools
+- richer retrieval APIs beyond the current inventory, search, and context tools
 - richer citation UX beyond the current search-result citation labels and source links
 - graph-style capabilities on top of the same document foundation

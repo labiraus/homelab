@@ -176,6 +176,20 @@ WHERE true`
 		args = append(args, documentID)
 		nextArg++
 	}
+	metadata := optionalJSONMapArgument(arguments, "metadata")
+	if len(metadata) > 0 {
+		metadataFilter, err := json.Marshal(metadata)
+		if err != nil {
+			return operationResponse{}, &jsonRPCError{
+				Code:    -32602,
+				Message: "Invalid metadata filter",
+				Data:    err.Error(),
+			}
+		}
+		query += fmt.Sprintf("\n\tAND metadata @> $%d::jsonb", nextArg)
+		args = append(args, string(metadataFilter))
+		nextArg++
+	}
 
 	query += fmt.Sprintf("\nORDER BY updated_at DESC, document_id\nLIMIT $%d", nextArg)
 	args = append(args, limit)

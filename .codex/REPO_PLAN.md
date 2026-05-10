@@ -42,8 +42,10 @@ The repo already includes:
 - browser uploads emit `documents.events.minio.stored` after raw objects are written to MinIO
 - a built-in deterministic `local-embeddings` fallback used by processor, `external`, and `mcp` when no external embedding endpoint is configured
 - durable document lifecycle history in `rag.document_lifecycle_events`, exposed through `external` and `mcp`
+- browser-facing document inventory reads through `/api/documents/inventory`, backed by `rag.documents`
 - the UI Search tab can load that durable lifecycle history for a retrieved document through `/api/documents/history`
 - the UI Search tab can assemble citation-backed context blocks through `/api/documents/context`
+- the UI Inventory tab can inspect document status, versions, latest lifecycle summary fields, and metadata without needing a matching retrieval chunk
 - the UI Search tab can update curated metadata and queue reprocessing for a retrieved document through `external` proxy routes backed by `orchestrator`
 - the UI Search tab can perform guarded raw text edits for selected text documents through `external` proxying to `orchestrator`
 - browser document actions that queue processing automatically load durable lifecycle history for the returned processing version
@@ -284,6 +286,23 @@ Current status:
 - guarded text edits automatically load lifecycle history for the queued processing version
 - the history panel labels version-specific action timelines distinctly from broad document history
 - UI tests cover the version-specific history request bodies after reprocess and text edit actions
+
+### Phase 12 — Browser Inventory State UX
+
+Deliverables:
+
+- expose Postgres-backed document inventory through the browser-facing `external` API
+- keep inventory read-only and sourced from `rag.documents`
+- align browser filters with MCP inventory where practical: status, object-key prefix, exact document ID, exact-match metadata, and limit
+- show processing status, current and desired processing versions, latest lifecycle summary fields, errors, timestamps, source links, and curated metadata in the UI
+
+Current status:
+
+- `external` exposes `POST /api/documents/inventory`
+- the endpoint reads `rag.documents` and returns document identity, status, metadata, processing versions, last event summary, last processed/reconciled timestamps, and last error
+- `mcp` inventory now also accepts exact-match metadata filters against `rag.documents.metadata`
+- the UI includes an authenticated Inventory tab with status, exact document ID, prefix, and one metadata key/value filter
+- UI and API tests cover the inventory request body, response rendering, and validation path
 
 ## Near-Term Non-Goals
 

@@ -72,6 +72,7 @@ describe("App", () => {
 		).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /overview/i })).toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: /^documents$/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /^inventory$/i })).not.toBeInTheDocument();
 
 		await user.click(screen.getByRole("button", { name: /authentication menu/i }));
 
@@ -185,6 +186,7 @@ describe("App", () => {
 		render(<App />);
 		expect(await screen.findByRole("button", { name: /^documents$/i })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /^search$/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /^inventory$/i })).toBeInTheDocument();
 
 		await user.click(screen.getByRole("button", { name: /authentication menu/i }));
 		expect(screen.getAllByText("oliver@labiraus.com").length).toBeGreaterThan(0);
@@ -264,6 +266,93 @@ describe("App", () => {
 
 		expect(assign).toHaveBeenCalledWith("/oauth2/sign_out");
 		window.location = originalLocation;
+	});
+
+	test("loads document inventory with filters", async () => {
+		const user = userEvent.setup();
+		global.fetch = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ mode: "oidc", email: "oliver@labiraus.com", valid: true }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					providers: [
+						{
+							id: "google",
+							name: "Google",
+							issuer: "https://accounts.google.com",
+							authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+							configured: true,
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					count: 1,
+					documents: [
+						{
+							documentId: "doc-1",
+							bucket: "documents",
+							objectKey: "runbooks/process.md",
+							sourceUri: "s3://documents/runbooks/process.md",
+							contentType: "text/markdown",
+							status: "processed",
+							metadata: { tag: "runbook" },
+							desiredProcessingVersion: 3,
+							currentProcessingVersion: 2,
+							lastReconciledAt: "2026-05-10T17:00:00Z",
+							lastProcessedAt: "2026-05-10T17:01:00Z",
+							lastEventSubject: "documents.events.processor.completed",
+							lastEventAt: "2026-05-10T17:01:00Z",
+						},
+					],
+				}),
+			});
+
+		render(<App />);
+		await user.click(await screen.findByRole("button", { name: /^inventory$/i }));
+		await user.selectOptions(
+			screen.getByRole("combobox", { name: /inventory status filter/i }),
+			"processed",
+		);
+		await user.type(
+			screen.getByRole("textbox", { name: /inventory document id filter/i }),
+			"doc-1",
+		);
+		await user.type(
+			screen.getByRole("textbox", { name: /inventory prefix filter/i }),
+			"runbooks/",
+		);
+		await user.type(screen.getByRole("textbox", { name: /inventory metadata key/i }), "tag");
+		await user.type(
+			screen.getByRole("textbox", { name: /inventory metadata value/i }),
+			"runbook",
+		);
+		await user.click(screen.getByRole("button", { name: /load inventory/i }));
+
+		expect(await screen.findByText("runbooks/process.md")).toBeInTheDocument();
+		expect(screen.getAllByText("processed").length).toBeGreaterThan(1);
+		expect(screen.getByText(/current v2 \/ desired v3/i)).toBeInTheDocument();
+		expect(screen.getByText(/Processing completed/)).toBeInTheDocument();
+		expect(screen.getByText("runbook")).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/inventory",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					status: "processed",
+					documentId: "doc-1",
+					prefix: "runbooks/",
+					metadata: { tag: "runbook" },
+					limit: 50,
+				}),
+			}),
+		);
 	});
 
 	test("searches processed chunks from the search tab", async () => {
@@ -880,6 +969,7 @@ describe("App", () => {
 		await screen.findByRole("heading", { name: /inspect the deployed labiraus surface/i });
 
 		expect(screen.queryByRole("button", { name: /^documents$/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /^inventory$/i })).not.toBeInTheDocument();
 		expect(global.fetch).not.toHaveBeenCalledWith(
 			"/api/documents/tree",
 			expect.objectContaining({ method: "GET" }),

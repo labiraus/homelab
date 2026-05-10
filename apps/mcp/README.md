@@ -67,7 +67,7 @@ The live MinIO shape now supports:
 
 The live Postgres shape also supports `homelab://mcp/postgres/auth/users/{email}` for auth-user lookups.
 
-`documents.search` and `documents.context` accept optional `documentId`, folder-like `prefix`, and exact-match `metadata` filters. Metadata filters are applied to `rag.documents.metadata`, so curated fields from `documents.curation.update` can narrow retrieval without introducing a separate graph or index service.
+`documents.inventory.list`, `documents.search`, and `documents.context` accept optional `documentId`, folder-like `prefix`, and exact-match `metadata` filters. Metadata filters are applied to `rag.documents.metadata`, so curated fields from `documents.curation.update` can narrow inventory and retrieval without introducing a separate graph or index service.
 
 ## Auth Surface
 

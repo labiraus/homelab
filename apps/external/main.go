@@ -90,6 +90,7 @@ func main() {
 	mux.HandleFunc("/api/documents/object", documentObjectHandler)
 	mux.HandleFunc("/api/documents/upload", documentUploadHandler)
 	mux.HandleFunc("/api/documents/events", documentEventsHandler)
+	mux.HandleFunc("/api/documents/inventory", documentInventoryHandler)
 	mux.HandleFunc("/api/documents/history", documentHistoryHandler)
 	mux.HandleFunc("/api/documents/search", documentSearchHandler)
 	mux.HandleFunc("/api/documents/context", documentContextHandler)

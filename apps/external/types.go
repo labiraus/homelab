@@ -51,6 +51,36 @@ type DocumentUploadResponse struct {
 	ContentType string `json:"contentType,omitempty"`
 }
 
+type DocumentInventoryRequest struct {
+	Status     string         `json:"status,omitempty"`
+	Prefix     string         `json:"prefix,omitempty"`
+	DocumentID string         `json:"documentId,omitempty"`
+	Metadata   map[string]any `json:"metadata,omitempty"`
+	Limit      int            `json:"limit,omitempty"`
+}
+
+type DocumentInventoryRecord struct {
+	DocumentID               string         `json:"documentId"`
+	Bucket                   string         `json:"bucket,omitempty"`
+	ObjectKey                string         `json:"objectKey,omitempty"`
+	SourceURI                string         `json:"sourceUri,omitempty"`
+	ContentType              string         `json:"contentType,omitempty"`
+	Status                   string         `json:"status"`
+	Metadata                 map[string]any `json:"metadata,omitempty"`
+	DesiredProcessingVersion int            `json:"desiredProcessingVersion"`
+	CurrentProcessingVersion int            `json:"currentProcessingVersion"`
+	LastReconciledAt         string         `json:"lastReconciledAt,omitempty"`
+	LastProcessedAt          string         `json:"lastProcessedAt,omitempty"`
+	LastEventSubject         string         `json:"lastEventSubject,omitempty"`
+	LastEventAt              string         `json:"lastEventAt,omitempty"`
+	LastError                string         `json:"lastError,omitempty"`
+}
+
+type DocumentInventoryResponse struct {
+	Documents []DocumentInventoryRecord `json:"documents"`
+	Count     int                       `json:"count"`
+}
+
 type DocumentSearchRequest struct {
 	Query      string         `json:"query"`
 	Prefix     string         `json:"prefix,omitempty"`

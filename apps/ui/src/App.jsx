@@ -9,6 +9,7 @@ const DOCUMENTS_TREE_PATH = "/api/documents/tree";
 const DOCUMENT_OBJECT_PATH = "/api/documents/object";
 const DOCUMENT_UPLOAD_PATH = "/api/documents/upload";
 const DOCUMENT_EVENTS_PATH = "/api/documents/events";
+const DOCUMENT_INVENTORY_PATH = "/api/documents/inventory";
 const DOCUMENT_SEARCH_PATH = "/api/documents/search";
 const DOCUMENT_CONTEXT_PATH = "/api/documents/context";
 const DOCUMENT_HISTORY_PATH = "/api/documents/history";
@@ -34,6 +35,8 @@ function pageFromHash() {
 	switch (window.location.hash) {
 		case "#/documents":
 			return "documents";
+		case "#/inventory":
+			return "inventory";
 		case "#/search":
 			return "search";
 		default:
@@ -141,6 +144,14 @@ async function searchDocuments(request) {
 	return callApi({
 		method: "POST",
 		path: DOCUMENT_SEARCH_PATH,
+		body: request,
+	});
+}
+
+async function fetchDocumentInventory(request) {
+	return callApi({
+		method: "POST",
+		path: DOCUMENT_INVENTORY_PATH,
 		body: request,
 	});
 }
@@ -320,6 +331,38 @@ function searchSubtitle(resultCount, loading) {
 		return "1 matching chunk";
 	}
 	return `${resultCount} matching chunks`;
+}
+
+function inventorySubtitle(resultCount, loading, loaded) {
+	if (loading) {
+		return "Loading inventory rows";
+	}
+	if (!loaded) {
+		return "Inventory not loaded";
+	}
+	if (resultCount === 1) {
+		return "1 inventory row";
+	}
+	return `${resultCount} inventory rows`;
+}
+
+function statusLabel(status) {
+	return status || "unknown";
+}
+
+function statusClass(status) {
+	switch (status) {
+		case "processed":
+			return "success";
+		case "failed":
+		case "unsupported":
+			return "error";
+		case "pending":
+		case "processing":
+			return "busy";
+		default:
+			return "";
+	}
 }
 
 function lifecycleTone(subject) {
@@ -537,6 +580,15 @@ function App() {
 	const [documentOperationsState, setDocumentOperationsState] = useState(
 		initialDocumentOperationsState,
 	);
+	const [inventoryStatusFilter, setInventoryStatusFilter] = useState("");
+	const [inventoryDocumentIdFilter, setInventoryDocumentIdFilter] = useState("");
+	const [inventoryPrefixFilter, setInventoryPrefixFilter] = useState("");
+	const [inventoryMetadataKey, setInventoryMetadataKey] = useState("");
+	const [inventoryMetadataValue, setInventoryMetadataValue] = useState("");
+	const [inventoryLoading, setInventoryLoading] = useState(false);
+	const [inventoryLoaded, setInventoryLoaded] = useState(false);
+	const [inventoryError, setInventoryError] = useState("");
+	const [inventoryDocuments, setInventoryDocuments] = useState([]);
 	const [toasts, setToasts] = useState([]);
 	const [theme, setTheme] = useState(() => {
 		if (typeof window === "undefined") {
@@ -697,7 +749,7 @@ function App() {
 	}, []);
 
 	useEffect(() => {
-		if (!documentsEnabled && (page === "documents" || page === "search")) {
+		if (!documentsEnabled && (page === "documents" || page === "inventory" || page === "search")) {
 			setPage("overview");
 			if (typeof window !== "undefined") {
 				window.location.hash = "#/";
@@ -769,7 +821,13 @@ function App() {
 			return;
 		}
 		window.location.hash =
-			nextPage === "documents" ? "#/documents" : nextPage === "search" ? "#/search" : "#/";
+			nextPage === "documents"
+				? "#/documents"
+				: nextPage === "inventory"
+					? "#/inventory"
+					: nextPage === "search"
+						? "#/search"
+						: "#/";
 	};
 
 	const handleOpenFolder = (prefix) => {
@@ -848,6 +906,37 @@ function App() {
 			setUploadError(requestError instanceof Error ? requestError.message : "Upload failed");
 		} finally {
 			setUploading(false);
+		}
+	};
+
+	const handleInventorySubmit = async (event) => {
+		event.preventDefault();
+
+		setInventoryLoading(true);
+		setInventoryError("");
+
+		try {
+			const metadataKey = inventoryMetadataKey.trim();
+			const metadataValue = inventoryMetadataValue.trim();
+			const metadata =
+				metadataKey && metadataValue ? { [metadataKey]: metadataValue } : undefined;
+			const response = await fetchDocumentInventory({
+				status: inventoryStatusFilter.trim(),
+				documentId: inventoryDocumentIdFilter.trim(),
+				prefix: inventoryPrefixFilter.trim(),
+				...(metadata ? { metadata } : {}),
+				limit: 50,
+			});
+			setInventoryDocuments(response?.documents ?? []);
+			setInventoryLoaded(true);
+		} catch (requestError) {
+			setInventoryError(
+				requestError instanceof Error ? requestError.message : "Inventory request failed",
+			);
+			setInventoryDocuments([]);
+			setInventoryLoaded(true);
+		} finally {
+			setInventoryLoading(false);
 		}
 	};
 
@@ -1322,6 +1411,15 @@ function App() {
 							onClick={() => navigateToPage("search")}
 						>
 							Search
+						</button>
+					) : null}
+					{documentsEnabled ? (
+						<button
+							type="button"
+							className={`topbar-tab ${page === "inventory" ? "active" : ""}`}
+							onClick={() => navigateToPage("inventory")}
+						>
+							Inventory
 						</button>
 					) : null}
 					{documentsEnabled ? (
@@ -2087,6 +2185,233 @@ function App() {
 									) : null}
 								</section>
 							</div>
+						</div>
+					</section>
+				) : page === "inventory" ? (
+					<section className="workspace-shell">
+						<header className="workspace-header">
+							<div>
+								<p className="workspace-eyebrow">Inventory</p>
+								<h1>Inspect document processing state.</h1>
+								<p className="workspace-intro">
+									List Postgres-backed inventory rows to check reconciliation status,
+									processing versions, lifecycle summaries, and curated metadata.
+								</p>
+							</div>
+							<div className="header-badge-card">
+								<p className="meta-label">Inventory status</p>
+								<p className="header-badge-value">
+									{inventorySubtitle(
+										inventoryDocuments.length,
+										inventoryLoading,
+										inventoryLoaded,
+									)}
+								</p>
+								<p className="header-badge-copy">
+									Rows come from `rag.documents`, the control-plane inventory table.
+								</p>
+							</div>
+						</header>
+
+						<div className="inventory-layout">
+							<form className="inventory-card" onSubmit={handleInventorySubmit}>
+								<div className="panel-heading compact">
+									<div>
+										<h3>Inventory filters</h3>
+										<p>Narrow by lifecycle status, object-key prefix, or one metadata field.</p>
+									</div>
+								</div>
+
+								<label className="field-group">
+									<span>Inventory status filter</span>
+									<select
+										value={inventoryStatusFilter}
+										onChange={(event) => setInventoryStatusFilter(event.target.value)}
+									>
+										<option value="">Any status</option>
+										<option value="pending">pending</option>
+										<option value="processing">processing</option>
+										<option value="processed">processed</option>
+										<option value="failed">failed</option>
+										<option value="unsupported">unsupported</option>
+									</select>
+								</label>
+
+								<label className="field-group">
+									<span>Inventory document ID filter</span>
+									<input
+										type="text"
+										value={inventoryDocumentIdFilter}
+										onChange={(event) => setInventoryDocumentIdFilter(event.target.value)}
+										placeholder="s3://documents/runbooks/process.md"
+									/>
+								</label>
+
+								<label className="field-group">
+									<span>Inventory prefix filter</span>
+									<input
+										type="text"
+										value={inventoryPrefixFilter}
+										onChange={(event) => setInventoryPrefixFilter(event.target.value)}
+										placeholder="runbooks/ or docs/"
+									/>
+								</label>
+
+								<div className="metadata-filter-grid">
+									<label className="field-group">
+										<span>Inventory metadata key</span>
+										<input
+											type="text"
+											value={inventoryMetadataKey}
+											onChange={(event) => setInventoryMetadataKey(event.target.value)}
+											placeholder="tag"
+										/>
+									</label>
+									<label className="field-group">
+										<span>Inventory metadata value</span>
+										<input
+											type="text"
+											value={inventoryMetadataValue}
+											onChange={(event) => setInventoryMetadataValue(event.target.value)}
+											placeholder="runbook"
+										/>
+									</label>
+								</div>
+
+								<div className="search-actions">
+									<button
+										type="submit"
+										className="menu-action primary"
+										disabled={inventoryLoading}
+									>
+										{inventoryLoading ? "Loading..." : "Load Inventory"}
+									</button>
+									<button
+										type="button"
+										className="menu-action"
+										onClick={() => {
+											setInventoryStatusFilter("");
+											setInventoryDocumentIdFilter("");
+											setInventoryPrefixFilter("");
+											setInventoryMetadataKey("");
+											setInventoryMetadataValue("");
+											setInventoryDocuments([]);
+											setInventoryLoaded(false);
+											setInventoryError("");
+										}}
+										disabled={inventoryLoading}
+									>
+										Clear
+									</button>
+								</div>
+
+								{inventoryError ? <p className="error-text">{inventoryError}</p> : null}
+							</form>
+
+							<section className="inventory-results-card" aria-live="polite">
+								<div className="panel-heading compact">
+									<div>
+										<h3>Inventory rows</h3>
+										<p>
+											{inventoryLoaded
+												? "Current document state from the control-plane table."
+												: "Load inventory to inspect known documents."}
+										</p>
+									</div>
+									{inventoryLoading ? (
+										<span className="status-pill busy">Loading</span>
+									) : inventoryLoaded ? (
+										<span className="status-pill">Loaded</span>
+									) : null}
+								</div>
+
+								{!inventoryLoaded && !inventoryError ? (
+									<p className="empty-state">Inventory rows will appear here.</p>
+								) : null}
+								{inventoryLoaded && inventoryDocuments.length === 0 && !inventoryError ? (
+									<p className="empty-state">No inventory rows matched these filters.</p>
+								) : null}
+
+								<div className="inventory-list">
+									{inventoryDocuments.map((document) => {
+										const entries = metadataEntries(document.metadata);
+										return (
+											<article key={document.documentId} className="inventory-row">
+												<div className="inventory-row-header">
+													<div>
+														<p className="search-result-title">
+															{document.objectKey || document.documentId}
+														</p>
+														<p className="search-result-meta">
+															{document.contentType || "Unknown type"} • {document.documentId}
+														</p>
+													</div>
+													<span className={`status-pill ${statusClass(document.status)}`}>
+														{statusLabel(document.status)}
+													</span>
+												</div>
+
+												<div className="inventory-facts">
+													<div>
+														<p className="meta-label">Processing version</p>
+														<p>
+															current v{document.currentProcessingVersion ?? 0} / desired v{document.desiredProcessingVersion ?? 0}
+														</p>
+													</div>
+													<div>
+														<p className="meta-label">Last event</p>
+														<p>
+															{document.lastEventSubject
+																? lifecycleTitle(document.lastEventSubject)
+																: "No event recorded"}
+															{document.lastEventAt
+																? ` • ${formatTimestamp(document.lastEventAt)}`
+																: ""}
+														</p>
+													</div>
+													<div>
+														<p className="meta-label">Last processed</p>
+														<p>{formatTimestamp(document.lastProcessedAt)}</p>
+													</div>
+													<div>
+														<p className="meta-label">Last reconciled</p>
+														<p>{formatTimestamp(document.lastReconciledAt)}</p>
+													</div>
+												</div>
+
+												{document.lastError ? (
+													<p className="error-text">Last error: {document.lastError}</p>
+												) : null}
+
+												{entries.length > 0 ? (
+													<div className="metadata-preview compact">
+														<p className="meta-label">Metadata</p>
+														<dl>
+															{entries.map(([key, value]) => (
+																<div key={key}>
+																	<dt>{key}</dt>
+																	<dd>{formatMetadataValue(value)}</dd>
+																</div>
+															))}
+														</dl>
+													</div>
+												) : null}
+
+												{document.objectKey ? (
+													<div className="search-result-actions">
+														<a className="inline-button" href={documentOpenUrl(document.objectKey)}>
+															Open Source
+														</a>
+														<a className="inline-button" href={documentDownloadUrl(document.objectKey)}>
+															Download
+														</a>
+													</div>
+												) : null}
+											</article>
+										);
+									})}
+								</div>
+							</section>
 						</div>
 					</section>
 				) : (

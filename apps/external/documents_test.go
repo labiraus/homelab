@@ -250,6 +250,84 @@ func TestStoredDocumentLifecycleEventUsesS3DocumentID(t *testing.T) {
 	}
 }
 
+func TestDocumentInventoryHandlerReturnsFilteredInventory(t *testing.T) {
+	setPostgresEnv(t)
+	base.ServiceName = "external_test_" + t.Name()
+	prometheusutil.Start(http.NewServeMux())
+
+	previous := listDocumentInventory
+	t.Cleanup(func() {
+		listDocumentInventory = previous
+	})
+
+	listDocumentInventory = func(ctx context.Context, request DocumentInventoryRequest, limit int) ([]DocumentInventoryRecord, error) {
+		if request.Status != "processed" {
+			t.Fatalf("expected processed status, got %q", request.Status)
+		}
+		if request.Prefix != "runbooks/" {
+			t.Fatalf("expected normalized runbooks/ prefix, got %q", request.Prefix)
+		}
+		if request.Metadata["tag"] != "runbook" {
+			t.Fatalf("expected metadata filter, got %#v", request.Metadata)
+		}
+		if limit != 4 {
+			t.Fatalf("expected limit 4, got %d", limit)
+		}
+		return []DocumentInventoryRecord{
+			{
+				DocumentID:               "doc-1",
+				Bucket:                   "documents",
+				ObjectKey:                "runbooks/process.md",
+				SourceURI:                "s3://documents/runbooks/process.md",
+				ContentType:              "text/markdown",
+				Status:                   "processed",
+				Metadata:                 map[string]any{"tag": "runbook"},
+				DesiredProcessingVersion: 3,
+				CurrentProcessingVersion: 3,
+				LastEventSubject:         documentevents.SubjectProcessorCompleted,
+				LastEventAt:              "2026-05-10T18:00:00Z",
+			},
+		}, nil
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api/documents/inventory", strings.NewReader(`{"status":"processed","prefix":"runbooks","metadata":{"tag":"runbook"},"limit":4}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	documentInventoryHandler(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+
+	var response DocumentInventoryResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected inventory response: %v", err)
+	}
+	if response.Count != 1 || response.Documents[0].ObjectKey != "runbooks/process.md" {
+		t.Fatalf("unexpected inventory response: %#v", response)
+	}
+	if response.Documents[0].Metadata["tag"] != "runbook" {
+		t.Fatalf("expected response metadata, got %#v", response.Documents[0].Metadata)
+	}
+}
+
+func TestDocumentInventoryHandlerValidatesLimit(t *testing.T) {
+	setPostgresEnv(t)
+	base.ServiceName = "external_test_" + t.Name()
+	prometheusutil.Start(http.NewServeMux())
+
+	request := httptest.NewRequest(http.MethodPost, "/api/documents/inventory", strings.NewReader(`{"limit":-1}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	documentInventoryHandler(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", recorder.Code)
+	}
+}
+
 func TestDocumentSearchHandlerReturnsRankedHits(t *testing.T) {
 	setEmbeddingEnv(t)
 	setPostgresEnv(t)

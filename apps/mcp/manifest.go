@@ -1018,6 +1018,7 @@ func documentInventorySchema() *manifestSchema {
 			"status":     {Type: "string", Description: "Optional document lifecycle status filter."},
 			"prefix":     {Type: "string", Description: "Optional object-key prefix filter."},
 			"documentId": {Type: "string", Description: "Optional exact document identifier filter."},
+			"metadata":   {Type: "object", Description: "Optional exact-match JSON metadata filters applied to rag.documents.metadata.", AdditionalProperties: true},
 			"limit":      {Type: "integer", Description: "Optional maximum number of inventory rows to return."},
 		},
 	}

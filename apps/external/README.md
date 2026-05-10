@@ -13,6 +13,7 @@ It is the browser-facing API for `ui` and should remain a stable surface even as
 - `/api/documents/object`
 - `/api/documents/upload`
 - `/api/documents/events`
+- `/api/documents/inventory`
 - `/api/documents/history`
 - `/api/documents/search`
 - `/api/documents/context`
@@ -43,6 +44,7 @@ The browser-facing path is published through `oauth2-proxy` at `/api/...`, and t
 - `/api/documents/tree` returns the immediate folders and files for a prefix in the documents bucket
 - `/api/documents/object` streams a document back for inline preview or download
 - `/api/documents/upload` accepts multipart uploads for the current folder view
+- `/api/documents/inventory` returns Postgres-backed document inventory rows, processing versions, latest lifecycle summary fields, and curated metadata
 - `/api/documents/history` returns the durable Postgres-backed lifecycle history for a document, optionally narrowed to one processing version
 - `/api/documents/search` embeds a natural-language query, runs pgvector similarity search against the current processed chunk version, and returns ranked matches with document metadata and citation objects for the source URI plus chunk identity
 - `/api/documents/context` uses the same retrieval path and assembles a compact context block with `[1]`, `[2]` style references plus citation objects
@@ -50,7 +52,7 @@ The browser-facing path is published through `oauth2-proxy` at `/api/...`, and t
 - `/api/documents/edit-text` proxies guarded text-object replacement requests to `orchestrator` `POST /documents/edit-text`
 - `/api/documents/reprocess` proxies explicit processing refresh requests to `orchestrator` `POST /documents/reprocess`
 
-Search and context requests accept optional `documentId`, folder-like `prefix`, and `metadata` filters. The `metadata` filter is an exact-match JSON object applied to `rag.documents.metadata`, for example `{"metadata":{"tag":"runbook"}}`.
+Inventory, search, and context requests accept optional `documentId`, folder-like `prefix`, and `metadata` filters. Inventory also accepts `status`. The `metadata` filter is an exact-match JSON object applied to `rag.documents.metadata`, for example `{"metadata":{"tag":"runbook"}}`.
 
 History requests require `documentId` and accept optional `processingVersion` and `limit` fields. Results are read from `rag.document_lifecycle_events`, while `rag.documents.last_event_*` remains the quick inventory summary.
 
