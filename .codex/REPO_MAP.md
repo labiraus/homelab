@@ -84,6 +84,7 @@ Current behavior note:
 - Orchestrator entry point: `apps/orchestrator/main.go`
 - Orchestrator request, scan, and async contract shapes: `apps/orchestrator/documents.go` and `apps/orchestrator/scan.go`
 - Browser-facing document history API: `apps/external/history.go`
+- Browser-facing document control proxy API: `apps/external/control.go`
 - Shared HTTP server and probes: `apps/pkg/api/api.go`
 - Logging and readiness wiring: `apps/pkg/base/base.go`
 - Metrics: `apps/pkg/prometheusutil/prometheus.go`
@@ -110,7 +111,10 @@ Current behavior note:
 Current behavior note:
 
 - The frontend calls `/api/users/count` for the overview check.
-- Authenticated document workflows call `/api/documents/search`, `/api/documents/history`, `/api/documents/events`, `/api/documents/tree`, `/api/documents/object`, and `/api/documents/upload`.
+- Authenticated document workflows call `/api/documents/search`, `/api/documents/history`, `/api/documents/context`, `/api/documents/curation`, `/api/documents/edit-text`, `/api/documents/reprocess`, `/api/documents/events`, `/api/documents/tree`, `/api/documents/object`, and `/api/documents/upload`.
+- The Search tab also calls `/api/documents/context` to assemble cited context blocks from the current query and filters.
+- The Search tab can select a result for document actions, updating curated metadata, performing guarded text edits, and queueing reprocessing through `external` proxy routes backed by `orchestrator`.
+- Reprocess and guarded edit actions automatically load `/api/documents/history` for the queued processing version returned by `orchestrator`.
 - Browser login is currently expected to be challenged at the edge through `oauth2-proxy`, not implemented directly in React.
 - This app is Vite-based, not Create React App.
 
@@ -130,6 +134,8 @@ Current behavior note:
 - `mcp` exposes document inventory and semantic search for agents.
 - `external` and `mcp` expose durable document lifecycle history from `rag.document_lifecycle_events`.
 - `ui` renders durable lifecycle history for retrieved documents by calling `/api/documents/history`.
+- `ui` renders cited context blocks by calling `/api/documents/context` from the Search tab.
+- `ui` exposes metadata curation, guarded text editing, and reprocess actions by calling `/api/documents/curation`, `/api/documents/edit-text`, and `/api/documents/reprocess`; `external` proxies those requests to `orchestrator`.
 
 ### MinIO and Ansible
 

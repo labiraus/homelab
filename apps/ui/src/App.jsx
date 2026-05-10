@@ -10,7 +10,11 @@ const DOCUMENT_OBJECT_PATH = "/api/documents/object";
 const DOCUMENT_UPLOAD_PATH = "/api/documents/upload";
 const DOCUMENT_EVENTS_PATH = "/api/documents/events";
 const DOCUMENT_SEARCH_PATH = "/api/documents/search";
+const DOCUMENT_CONTEXT_PATH = "/api/documents/context";
 const DOCUMENT_HISTORY_PATH = "/api/documents/history";
+const DOCUMENT_CURATION_PATH = "/api/documents/curation";
+const DOCUMENT_EDIT_TEXT_PATH = "/api/documents/edit-text";
+const DOCUMENT_REPROCESS_PATH = "/api/documents/reprocess";
 const TOAST_DISMISS_MS = 6000;
 
 const actions = [
@@ -141,10 +145,42 @@ async function searchDocuments(request) {
 	});
 }
 
+async function fetchDocumentContext(request) {
+	return callApi({
+		method: "POST",
+		path: DOCUMENT_CONTEXT_PATH,
+		body: request,
+	});
+}
+
 async function fetchDocumentHistory(request) {
 	return callApi({
 		method: "POST",
 		path: DOCUMENT_HISTORY_PATH,
+		body: request,
+	});
+}
+
+async function updateDocumentCuration(request) {
+	return callApi({
+		method: "POST",
+		path: DOCUMENT_CURATION_PATH,
+		body: request,
+	});
+}
+
+async function editTextDocument(request) {
+	return callApi({
+		method: "POST",
+		path: DOCUMENT_EDIT_TEXT_PATH,
+		body: request,
+	});
+}
+
+async function reprocessDocument(request) {
+	return callApi({
+		method: "POST",
+		path: DOCUMENT_REPROCESS_PATH,
 		body: request,
 	});
 }
@@ -361,6 +397,74 @@ function stringifyHistoryPayload(payload) {
 	}
 }
 
+function contextCitationLabel(entry) {
+	return entry?.citation?.label ?? entry?.reference ?? "citation";
+}
+
+function contextCitationMeta(entry) {
+	const citation = entry?.citation ?? {};
+	const details = [];
+
+	if (citation.sourceUri || citation.objectKey) {
+		details.push(citation.sourceUri || citation.objectKey);
+	}
+	if (typeof citation.processingVersion === "number") {
+		details.push(`v${citation.processingVersion}`);
+	}
+	if (typeof citation.chunkIndex === "number") {
+		details.push(`chunk ${citation.chunkIndex}`);
+	}
+
+	return details.join(" • ");
+}
+
+function initialDocumentOperationsState() {
+	return {
+		documentId: "",
+		sourceLabel: "",
+		objectKey: "",
+		contentType: "",
+		metadataKey: "",
+		metadataValue: "",
+		replace: false,
+		status: "idle",
+		message: "",
+		error: "",
+		metadata: null,
+		editStatus: "idle",
+		editText: "",
+		originalText: "",
+		editConfirmed: false,
+		editMessage: "",
+		editError: "",
+	};
+}
+
+function metadataEntries(metadata) {
+	if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+		return [];
+	}
+
+	return Object.entries(metadata).filter(([key]) => key);
+}
+
+function formatMetadataValue(value) {
+	if (typeof value === "string") {
+		return value;
+	}
+	if (value === null) {
+		return "null";
+	}
+	if (typeof value === "object") {
+		try {
+			return JSON.stringify(value);
+		} catch {
+			return String(value);
+		}
+	}
+	return String(value);
+}
+
 function createToastFromLifecycleEvent(event) {
 	return {
 		id: `${event.subject}-${event.documentId}-${event.occurredAt}`,
@@ -412,13 +516,27 @@ function App() {
 	const [searchError, setSearchError] = useState("");
 	const [searchResults, setSearchResults] = useState([]);
 	const [submittedQuery, setSubmittedQuery] = useState("");
+	const [contextState, setContextState] = useState({
+		status: "idle",
+		query: "",
+		context: "",
+		citations: [],
+		hits: [],
+		maxChars: 0,
+		truncated: false,
+		error: "",
+	});
 	const [historyState, setHistoryState] = useState({
 		status: "idle",
 		documentId: "",
 		sourceLabel: "",
+		processingVersion: 0,
 		events: [],
 		error: "",
 	});
+	const [documentOperationsState, setDocumentOperationsState] = useState(
+		initialDocumentOperationsState,
+	);
 	const [toasts, setToasts] = useState([]);
 	const [theme, setTheme] = useState(() => {
 		if (typeof window === "undefined") {
@@ -747,7 +865,19 @@ function App() {
 			status: "idle",
 			documentId: "",
 			sourceLabel: "",
+			processingVersion: 0,
 			events: [],
+			error: "",
+		});
+		setDocumentOperationsState(initialDocumentOperationsState());
+		setContextState({
+			status: "idle",
+			query: "",
+			context: "",
+			citations: [],
+			hits: [],
+			maxChars: 0,
+			truncated: false,
 			error: "",
 		});
 
@@ -772,27 +902,92 @@ function App() {
 		}
 	};
 
-	const handleLoadHistory = async (result) => {
-		const documentId = result?.documentId?.trim();
-		if (!documentId) {
+	const handleContextSubmit = async () => {
+		const query = searchQuery.trim();
+		if (!query) {
+			setContextState({
+				status: "error",
+				query: "",
+				context: "",
+				citations: [],
+				hits: [],
+				maxChars: 0,
+				truncated: false,
+				error: "Enter a search phrase first.",
+			});
 			return;
 		}
 
-		const sourceLabel = result.objectKey || documentId;
+		setContextState({
+			status: "loading",
+			query,
+			context: "",
+			citations: [],
+			hits: [],
+			maxChars: 0,
+			truncated: false,
+			error: "",
+		});
+
+		try {
+			const metadataKey = searchMetadataKey.trim();
+			const metadataValue = searchMetadataValue.trim();
+			const metadata =
+				metadataKey && metadataValue ? { [metadataKey]: metadataValue } : undefined;
+			const response = await fetchDocumentContext({
+				query,
+				prefix: searchPrefix.trim(),
+				...(metadata ? { metadata } : {}),
+				limit: 6,
+				maxChars: 6000,
+			});
+
+			setContextState({
+				status: "ready",
+				query,
+				context: response?.context ?? "",
+				citations: response?.citations ?? [],
+				hits: response?.hits ?? [],
+				maxChars: response?.maxChars ?? 0,
+				truncated: response?.truncated === true,
+				error: "",
+			});
+		} catch (requestError) {
+			setContextState({
+				status: "error",
+				query,
+				context: "",
+				citations: [],
+				hits: [],
+				maxChars: 0,
+				truncated: false,
+				error:
+					requestError instanceof Error ? requestError.message : "Context request failed",
+			});
+		}
+	};
+
+	const loadDocumentHistory = async (documentId, sourceLabel, processingVersion = 0) => {
 		setHistoryState({
 			status: "loading",
 			documentId,
 			sourceLabel,
+			processingVersion,
 			events: [],
 			error: "",
 		});
 
 		try {
-			const response = await fetchDocumentHistory({ documentId, limit: 20 });
+			const response = await fetchDocumentHistory({
+				documentId,
+				...(processingVersion > 0 ? { processingVersion } : {}),
+				limit: 20,
+			});
 			setHistoryState({
 				status: "ready",
 				documentId,
 				sourceLabel,
+				processingVersion,
 				events: response?.events ?? [],
 				error: "",
 			});
@@ -801,11 +996,284 @@ function App() {
 				status: "error",
 				documentId,
 				sourceLabel,
+				processingVersion,
 				events: [],
 				error: requestError instanceof Error ? requestError.message : "History request failed",
 			});
 		}
 	};
+
+	const handleLoadHistory = async (result) => {
+		const documentId = result?.documentId?.trim();
+		if (!documentId) {
+			return;
+		}
+
+		await loadDocumentHistory(documentId, result.objectKey || documentId);
+	};
+
+	const handleStartDocumentOperations = (result) => {
+		const documentId = result?.documentId?.trim();
+		if (!documentId) {
+			return;
+		}
+
+		const sourceLabel = result.objectKey || documentId;
+		setDocumentOperationsState({
+			...initialDocumentOperationsState(),
+			documentId,
+			sourceLabel,
+			objectKey: result.objectKey ?? "",
+			contentType: result.contentType ?? "",
+			metadata: result.metadata ?? null,
+		});
+	};
+
+	const handleCurationSubmit = async (event) => {
+		event.preventDefault();
+
+		const documentId = documentOperationsState.documentId.trim();
+		const metadataKey = documentOperationsState.metadataKey.trim();
+		const metadataValue = documentOperationsState.metadataValue.trim();
+		if (!documentId) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				status: "error",
+				error: "Select a search result first.",
+				message: "",
+			}));
+			return;
+		}
+		if (!metadataKey || !metadataValue) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				status: "error",
+				error: "Enter a metadata key and value.",
+				message: "",
+			}));
+			return;
+		}
+
+		setDocumentOperationsState((current) => ({
+			...current,
+			status: "loading",
+			error: "",
+			message: "",
+		}));
+
+		try {
+			const response = await updateDocumentCuration({
+				documentId,
+				metadata: { [metadataKey]: metadataValue },
+				replace: documentOperationsState.replace,
+			});
+			const fallbackMetadata = documentOperationsState.replace
+				? { [metadataKey]: metadataValue }
+				: {
+						...(documentOperationsState.metadata ?? {}),
+						[metadataKey]: metadataValue,
+					};
+			const nextMetadata = response?.metadata ?? fallbackMetadata;
+
+			setSearchResults((results) =>
+				results.map((result) =>
+					result.documentId === documentId ? { ...result, metadata: nextMetadata } : result,
+				),
+			);
+			setDocumentOperationsState((current) => ({
+				...current,
+				metadataKey: "",
+				metadataValue: "",
+				replace: false,
+				status: "success",
+				message: `Updated metadata for ${current.sourceLabel || documentId}.`,
+				error: "",
+				metadata: nextMetadata,
+			}));
+		} catch (requestError) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				status: "error",
+				error: requestError instanceof Error ? requestError.message : "Metadata update failed",
+				message: "",
+			}));
+		}
+	};
+
+	const handleReprocessSubmit = async () => {
+		const documentId = documentOperationsState.documentId.trim();
+		if (!documentId) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				status: "error",
+				error: "Select a search result first.",
+				message: "",
+			}));
+			return;
+		}
+
+		setDocumentOperationsState((current) => ({
+			...current,
+			status: "loading",
+			error: "",
+			message: "",
+		}));
+
+		try {
+			const response = await reprocessDocument({ documentId });
+			const queuedProcessingVersion =
+				typeof response?.processingVersion === "number" ? response.processingVersion : 0;
+			const version =
+				queuedProcessingVersion > 0
+					? `processing version ${queuedProcessingVersion}`
+					: "a new processing version";
+			setDocumentOperationsState((current) => ({
+				...current,
+				status: "success",
+				message: `Queued ${version} for ${current.sourceLabel || documentId}.`,
+				error: "",
+			}));
+			if (queuedProcessingVersion > 0) {
+				await loadDocumentHistory(
+					documentId,
+					documentOperationsState.sourceLabel || documentId,
+					queuedProcessingVersion,
+				);
+			}
+		} catch (requestError) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				status: "error",
+				error: requestError instanceof Error ? requestError.message : "Reprocess request failed",
+				message: "",
+			}));
+		}
+	};
+
+	const handleLoadEditableText = async () => {
+		if (!documentOperationsState.objectKey) {
+			return;
+		}
+
+		setDocumentOperationsState((current) => ({
+			...current,
+			editStatus: "loading",
+			editError: "",
+			editMessage: "",
+			editConfirmed: false,
+		}));
+
+		try {
+			const response = await fetchDocumentObject(documentOperationsState.objectKey);
+			const text = await response.text();
+			setDocumentOperationsState((current) => ({
+				...current,
+				editStatus: "ready",
+				editText: text,
+				originalText: text,
+				editConfirmed: false,
+				editMessage: "",
+				editError: "",
+			}));
+		} catch (requestError) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				editStatus: "error",
+				editError: requestError instanceof Error ? requestError.message : "Text load failed",
+				editMessage: "",
+			}));
+		}
+	};
+
+	const handleEditTextSubmit = async (event) => {
+		event.preventDefault();
+
+		const documentId = documentOperationsState.documentId.trim();
+		if (!documentId || !documentOperationsState.objectKey) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				editStatus: "error",
+				editError: "Select a text search result first.",
+				editMessage: "",
+			}));
+			return;
+		}
+		if (documentOperationsState.editStatus !== "ready") {
+			setDocumentOperationsState((current) => ({
+				...current,
+				editStatus: "error",
+				editError: "Load the current text before saving an edit.",
+				editMessage: "",
+			}));
+			return;
+		}
+		if (!documentOperationsState.editConfirmed) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				editStatus: "ready",
+				editError: "Confirm the raw text overwrite before saving.",
+				editMessage: "",
+			}));
+			return;
+		}
+		if (documentOperationsState.editText === documentOperationsState.originalText) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				editStatus: "ready",
+				editError: "Change the text before saving.",
+				editMessage: "",
+			}));
+			return;
+		}
+
+		setDocumentOperationsState((current) => ({
+			...current,
+			editStatus: "saving",
+			editError: "",
+			editMessage: "",
+		}));
+
+		try {
+			const response = await editTextDocument({
+				documentId,
+				text: documentOperationsState.editText,
+				contentType: documentOperationsState.contentType || "text/plain; charset=utf-8",
+			});
+			const queuedProcessingVersion =
+				typeof response?.processingVersion === "number" ? response.processingVersion : 0;
+			const version =
+				queuedProcessingVersion > 0
+					? `processing version ${queuedProcessingVersion}`
+					: "a new processing version";
+			setDocumentOperationsState((current) => ({
+				...current,
+				editStatus: "ready",
+				originalText: current.editText,
+				editConfirmed: false,
+				editMessage: `Queued text edit as ${version}.`,
+				editError: "",
+			}));
+			if (queuedProcessingVersion > 0) {
+				await loadDocumentHistory(
+					documentId,
+					documentOperationsState.sourceLabel || documentId,
+					queuedProcessingVersion,
+				);
+			}
+		} catch (requestError) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				editStatus: "error",
+				editError: requestError instanceof Error ? requestError.message : "Text edit failed",
+				editMessage: "",
+			}));
+		}
+	};
+
+	const documentOperationMetadataEntries = metadataEntries(documentOperationsState.metadata);
+	const canEditSelectedDocument =
+		documentOperationsState.objectKey &&
+		isTextContentType(documentOperationsState.contentType);
 
 	return (
 		<main className="app-shell">
@@ -1138,9 +1606,17 @@ function App() {
 									<button
 										type="submit"
 										className="menu-action primary"
-										disabled={searchLoading}
+										disabled={searchLoading || contextState.status === "loading"}
 									>
 										{searchLoading ? "Searching..." : "Search Chunks"}
+									</button>
+									<button
+										type="button"
+										className="menu-action"
+										onClick={() => void handleContextSubmit()}
+										disabled={searchLoading || contextState.status === "loading"}
+									>
+										{contextState.status === "loading" ? "Assembling..." : "Assemble Context"}
 									</button>
 									<button
 										type="button"
@@ -1153,15 +1629,27 @@ function App() {
 											setSearchResults([]);
 											setSearchError("");
 											setSubmittedQuery("");
+											setContextState({
+												status: "idle",
+												query: "",
+												context: "",
+												citations: [],
+												hits: [],
+												maxChars: 0,
+												truncated: false,
+												error: "",
+											});
 											setHistoryState({
 												status: "idle",
 												documentId: "",
 												sourceLabel: "",
+												processingVersion: 0,
 												events: [],
 												error: "",
 											});
+											setDocumentOperationsState(initialDocumentOperationsState());
 										}}
-										disabled={searchLoading}
+										disabled={searchLoading || contextState.status === "loading"}
 									>
 										Clear
 									</button>
@@ -1227,6 +1715,14 @@ function App() {
 														<button
 															type="button"
 															className="inline-button"
+															onClick={() => handleStartDocumentOperations(result)}
+															aria-label={`Manage ${result.objectKey || result.documentId}`}
+														>
+															Manage
+														</button>
+														<button
+															type="button"
+															className="inline-button"
 															onClick={() => void handleLoadHistory(result)}
 															disabled={
 																historyState.status === "loading" &&
@@ -1253,13 +1749,286 @@ function App() {
 									</div>
 								</div>
 
+								<section className="context-card" aria-live="polite">
+									<div className="panel-heading compact">
+										<div>
+											<h3>Context block</h3>
+											<p>
+												{contextState.query
+													? `Cited context for "${contextState.query}".`
+													: "Assembled context will appear here."}
+											</p>
+										</div>
+										{contextState.status === "loading" ? (
+											<span className="status-pill busy">Assembling</span>
+										) : contextState.status === "ready" ? (
+											<span className="status-pill">Ready</span>
+										) : null}
+									</div>
+
+									{contextState.error ? <p className="error-text">{contextState.error}</p> : null}
+									{contextState.status === "idle" ? (
+										<p className="empty-state">Context output will appear here.</p>
+									) : null}
+									{contextState.status === "loading" ? (
+										<p className="empty-state">Assembling cited context...</p>
+									) : null}
+									{contextState.status === "ready" && !contextState.context ? (
+										<p className="empty-state">No context could be assembled from the current filters.</p>
+									) : null}
+									{contextState.context ? (
+										<pre className="context-output">{contextState.context}</pre>
+									) : null}
+									{contextState.truncated ? (
+										<p className="search-result-meta">
+											Truncated at {contextState.maxChars} characters.
+										</p>
+									) : null}
+									{contextState.citations.length > 0 ? (
+										<div className="context-citations">
+											<p className="meta-label">Citations</p>
+											<ol>
+												{contextState.citations.map((entry) => (
+													<li key={`${entry.reference}-${contextCitationLabel(entry)}`}>
+														<span className="citation-code">{entry.reference}</span>
+														<span>{contextCitationLabel(entry)}</span>
+														{contextCitationMeta(entry) ? (
+															<small>{contextCitationMeta(entry)}</small>
+														) : null}
+													</li>
+												))}
+											</ol>
+										</div>
+									) : null}
+								</section>
+
+								<section
+									className="document-actions-card"
+									aria-label="Document actions"
+									aria-live="polite"
+								>
+									<div className="panel-heading compact">
+										<div>
+											<h3>Document actions</h3>
+											<p>
+												{documentOperationsState.documentId
+													? `${documentOperationsState.sourceLabel} selected for curation, editing, and reprocessing.`
+													: "Select a search result to manage its control-plane state."}
+											</p>
+										</div>
+										{documentOperationsState.status === "loading" ? (
+											<span className="status-pill busy">Working</span>
+										) : documentOperationsState.status === "success" ? (
+											<span className="status-pill">Done</span>
+										) : null}
+									</div>
+
+									{documentOperationsState.documentId ? (
+										<div className="document-actions-grid">
+											<div className="metadata-preview">
+												<p className="meta-label">Current metadata</p>
+												{documentOperationMetadataEntries.length > 0 ? (
+													<dl>
+														{documentOperationMetadataEntries.map(([key, value]) => (
+															<div key={key}>
+																<dt>{key}</dt>
+																<dd>{formatMetadataValue(value)}</dd>
+															</div>
+														))}
+													</dl>
+												) : (
+													<p className="empty-state">No metadata is recorded for this document.</p>
+												)}
+											</div>
+
+											<form className="document-actions-form" onSubmit={handleCurationSubmit}>
+												<div className="metadata-filter-grid">
+													<label className="field-group">
+														<span>Document metadata key</span>
+														<input
+															type="text"
+															value={documentOperationsState.metadataKey}
+															onChange={(event) =>
+																setDocumentOperationsState((current) => ({
+																	...current,
+																	metadataKey: event.target.value,
+																}))
+															}
+															placeholder="tag"
+														/>
+													</label>
+													<label className="field-group">
+														<span>Document metadata value</span>
+														<input
+															type="text"
+															value={documentOperationsState.metadataValue}
+															onChange={(event) =>
+																setDocumentOperationsState((current) => ({
+																	...current,
+																	metadataValue: event.target.value,
+																}))
+															}
+															placeholder="runbook"
+														/>
+													</label>
+												</div>
+
+												<label className="checkbox-field">
+													<input
+														type="checkbox"
+														checked={documentOperationsState.replace}
+														onChange={(event) =>
+															setDocumentOperationsState((current) => ({
+																...current,
+																replace: event.target.checked,
+															}))
+														}
+													/>
+													<span>Replace metadata object</span>
+												</label>
+
+												<div className="document-actions-row">
+													<button
+														type="submit"
+														className="menu-action primary"
+														disabled={documentOperationsState.status === "loading"}
+													>
+														Update Metadata
+													</button>
+													<button
+														type="button"
+														className="menu-action"
+														onClick={() => void handleReprocessSubmit()}
+														disabled={documentOperationsState.status === "loading"}
+													>
+														Queue Reprocess
+													</button>
+												</div>
+
+												{documentOperationsState.error ? (
+													<p className="error-text">{documentOperationsState.error}</p>
+												) : null}
+												{documentOperationsState.message ? (
+													<p className="success-text">{documentOperationsState.message}</p>
+												) : null}
+											</form>
+
+											<div className="text-edit-panel">
+												<div className="panel-heading compact">
+													<div>
+														<h4>Text edit</h4>
+														<p>
+															{canEditSelectedDocument
+																? "Load the current raw text before overwriting the source object."
+																: "Text editing is available for text documents with a source object."}
+														</p>
+													</div>
+													{documentOperationsState.editStatus === "loading" ? (
+														<span className="status-pill busy">Loading</span>
+													) : documentOperationsState.editStatus === "saving" ? (
+														<span className="status-pill busy">Saving</span>
+													) : documentOperationsState.editStatus === "ready" ? (
+														<span className="status-pill">Loaded</span>
+													) : null}
+												</div>
+
+												{canEditSelectedDocument ? (
+													<>
+														<div className="document-actions-row">
+															<button
+																type="button"
+																className="menu-action"
+																onClick={() => void handleLoadEditableText()}
+																disabled={
+																	documentOperationsState.editStatus === "loading" ||
+																	documentOperationsState.editStatus === "saving"
+																}
+															>
+																{documentOperationsState.editStatus === "ready"
+																	? "Reload Current Text"
+																	: "Load Current Text"}
+															</button>
+														</div>
+
+														{documentOperationsState.editError ? (
+															<p className="error-text">{documentOperationsState.editError}</p>
+														) : null}
+														{documentOperationsState.editMessage ? (
+															<p className="success-text">{documentOperationsState.editMessage}</p>
+														) : null}
+
+														{documentOperationsState.editStatus === "ready" ||
+														documentOperationsState.editStatus === "saving" ? (
+															<form className="document-edit-form" onSubmit={handleEditTextSubmit}>
+																<label className="field-group">
+																	<span>Editable document text</span>
+																	<textarea
+																		value={documentOperationsState.editText}
+																		onChange={(event) =>
+																			setDocumentOperationsState((current) => ({
+																				...current,
+																				editText: event.target.value,
+																				editError: "",
+																				editMessage: "",
+																				editConfirmed: false,
+																			}))
+																		}
+																		rows={12}
+																	/>
+																</label>
+
+																<label className="checkbox-field">
+																	<input
+																		type="checkbox"
+																		checked={documentOperationsState.editConfirmed}
+																		onChange={(event) =>
+																			setDocumentOperationsState((current) => ({
+																				...current,
+																				editConfirmed: event.target.checked,
+																				editError: "",
+																			}))
+																		}
+																	/>
+																	<span>Confirm raw text overwrite</span>
+																</label>
+
+																<div className="document-actions-row">
+																	<button
+																		type="submit"
+																		className="menu-action primary"
+																		disabled={documentOperationsState.editStatus === "saving"}
+																	>
+																		{documentOperationsState.editStatus === "saving"
+																			? "Saving Text..."
+																			: "Save Text Edit"}
+																	</button>
+																</div>
+															</form>
+														) : (
+															<p className="empty-state">Load the current text to start a guarded edit.</p>
+														)}
+													</>
+												) : (
+													<p className="empty-state">Select a text search result with an object key.</p>
+												)}
+											</div>
+										</div>
+									) : (
+										<p className="empty-state">Document actions will appear here.</p>
+									)}
+								</section>
+
 								<section className="history-card" aria-live="polite">
 									<div className="panel-heading compact">
 										<div>
 											<h3>Lifecycle history</h3>
 											<p>
 												{historyState.documentId
-													? `${historyState.sourceLabel} recorded in Postgres.`
+													? `${historyState.sourceLabel}${
+															historyState.processingVersion
+																? ` version ${historyState.processingVersion}`
+																: ""
+														} recorded in Postgres.`
 													: "Select a search result to inspect durable processing events."}
 											</p>
 										</div>

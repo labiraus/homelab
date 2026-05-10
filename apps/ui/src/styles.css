@@ -377,6 +377,8 @@ a {
 .preview-card,
 .search-card,
 .search-results-card,
+.context-card,
+.document-actions-card,
 .history-card {
 	border: 1px solid var(--line);
 	border-radius: 1rem;
@@ -551,6 +553,8 @@ a {
 .preview-card,
 .search-card,
 .search-results-card,
+.context-card,
+.document-actions-card,
 .history-card {
 	padding: 1.15rem;
 }
@@ -683,6 +687,8 @@ a {
 
 .upload-card input[type="file"],
 .upload-card input[type="text"],
+.document-actions-form input[type="text"],
+.document-edit-form textarea,
 .search-card input[type="text"],
 .search-card textarea {
 	width: 100%;
@@ -696,6 +702,13 @@ a {
 .search-card textarea {
 	resize: vertical;
 	min-height: 8rem;
+}
+
+.document-edit-form textarea {
+	resize: vertical;
+	min-height: 16rem;
+	font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+	line-height: 1.55;
 }
 
 .metadata-filter-grid {
@@ -775,6 +788,127 @@ a {
 	font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
 	color: var(--ink);
 	overflow-wrap: anywhere;
+}
+
+.context-output {
+	margin: 0;
+	padding: 1rem;
+	max-height: 24rem;
+	overflow: auto;
+	border: 1px solid var(--line);
+	border-radius: 0.85rem;
+	background: var(--surface-muted);
+	font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+	font-size: 0.88rem;
+	line-height: 1.6;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.context-citations {
+	display: grid;
+	gap: 0.65rem;
+	margin-top: 0.95rem;
+}
+
+.context-citations ol {
+	display: grid;
+	gap: 0.55rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.context-citations li {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	gap: 0.25rem 0.65rem;
+	align-items: baseline;
+	padding: 0.75rem;
+	border: 1px solid var(--line);
+	border-radius: 0.75rem;
+	background: var(--surface-muted);
+}
+
+.context-citations small {
+	grid-column: 2;
+	color: var(--muted);
+	line-height: 1.45;
+	overflow-wrap: anywhere;
+}
+
+.document-actions-grid,
+.document-actions-form,
+.document-edit-form {
+	display: grid;
+	gap: 0.9rem;
+}
+
+.text-edit-panel {
+	display: grid;
+	gap: 0.85rem;
+	padding-top: 0.95rem;
+	border-top: 1px solid var(--line);
+}
+
+.text-edit-panel h4 {
+	margin: 0;
+}
+
+.metadata-preview {
+	display: grid;
+	gap: 0.65rem;
+	padding: 0.95rem;
+	border: 1px solid var(--line);
+	border-radius: 0.85rem;
+	background: var(--surface-muted);
+}
+
+.metadata-preview dl {
+	display: grid;
+	gap: 0.55rem;
+	margin: 0;
+}
+
+.metadata-preview dl > div {
+	display: grid;
+	grid-template-columns: minmax(8rem, 0.35fr) minmax(0, 1fr);
+	gap: 0.65rem;
+	align-items: baseline;
+}
+
+.metadata-preview dt,
+.metadata-preview dd {
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.metadata-preview dt {
+	font-weight: 700;
+}
+
+.metadata-preview dd {
+	color: var(--muted);
+}
+
+.document-actions-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+}
+
+.checkbox-field {
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+	color: var(--ink);
+	font-weight: 700;
+}
+
+.checkbox-field input {
+	width: 1rem;
+	height: 1rem;
+	accent-color: var(--brand);
 }
 
 .search-score-pill {
@@ -1077,6 +1211,7 @@ a {
 
 	.auth-popover-header,
 	.auth-menu-actions,
+	.document-actions-row,
 	.panel-heading,
 	.panel-heading.compact,
 	.document-row,
@@ -1087,6 +1222,7 @@ a {
 	}
 
 	.auth-menu-actions > *,
+	.document-actions-row > *,
 	.panel-heading > .inline-button,
 	.panel-heading > .status-pill,
 	.search-result-actions > * {
@@ -1098,6 +1234,18 @@ a {
 	.summary-grid,
 	.actions-grid {
 		grid-template-columns: 1fr;
+	}
+
+	.context-citations li {
+		grid-template-columns: 1fr;
+	}
+
+	.metadata-preview dl > div {
+		grid-template-columns: 1fr;
+	}
+
+	.context-citations small {
+		grid-column: auto;
 	}
 
 	.document-time {

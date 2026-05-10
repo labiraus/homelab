@@ -13,7 +13,9 @@ The UI exposes:
 - sign-in and sign-out actions from the header auth menu
 - `/api/users/count`
 - an authenticated Search tab backed by `/api/documents/search` for semantic chunk retrieval
+- a Search-tab context panel backed by `/api/documents/context` for cited context blocks
 - a Search-tab lifecycle panel backed by `/api/documents/history` for retrieved documents
+- a Search-tab document actions panel backed by `/api/documents/curation`, `/api/documents/edit-text`, and `/api/documents/reprocess`
 - an authenticated hash-routed documents page that browses `/api/documents/tree`, `/api/documents/object`, and `/api/documents/upload`
 - a global toast stack backed by `/api/documents/events` for document lifecycle notifications
 - static public legal pages at `/privacy-policy.html` and `/terms-of-service.html`
@@ -24,7 +26,11 @@ In the current repo choice, the shared-host browser path is fronted by `oauth2-p
 
 When `authStatus.valid === true`, the app opens an `EventSource` to `/api/documents/events`, shows toast notifications for lifecycle updates, and tears the stream down again on sign-out or unmount. Toast copy is derived from the document lifecycle subject and document identifiers, with success, info, and error tones.
 
-The authenticated Search tab submits natural-language queries to the public API, optionally narrows by object-key prefix or one exact metadata key/value pair, and renders the top matching processed chunks with similarity scores and download links. Each search result can also load its durable lifecycle history from `/api/documents/history`, showing processing versions, timestamps, lifecycle subjects, and recorded payload details.
+The authenticated Search tab submits natural-language queries to the public API, optionally narrows by object-key prefix or one exact metadata key/value pair, and renders the top matching processed chunks with similarity scores and download links. The same filters can assemble a compact cited context block through `/api/documents/context`. Each search result can also load its durable lifecycle history from `/api/documents/history`, showing processing versions, timestamps, lifecycle subjects, and recorded payload details. Search results can be selected for document actions that update curated metadata, load and save guarded raw text edits, or queue reprocessing through `external`.
+
+Text editing is limited to selected text documents with source object keys. The UI loads the current text through `/api/documents/object`, requires the user to change the text and confirm the raw overwrite, then sends the replacement to `/api/documents/edit-text` so `orchestrator` writes MinIO and queues the next processing version.
+
+When reprocess or text-edit actions return a queued processing version, the UI automatically loads `/api/documents/history` for that exact version so the lifecycle panel shows the queued/start/complete trail for the action the user just triggered.
 
 ## Local Development
 

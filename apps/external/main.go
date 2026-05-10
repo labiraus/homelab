@@ -93,6 +93,9 @@ func main() {
 	mux.HandleFunc("/api/documents/history", documentHistoryHandler)
 	mux.HandleFunc("/api/documents/search", documentSearchHandler)
 	mux.HandleFunc("/api/documents/context", documentContextHandler)
+	mux.HandleFunc("/api/documents/curation", documentCurationHandler)
+	mux.HandleFunc("/api/documents/edit-text", documentEditTextHandler)
+	mux.HandleFunc("/api/documents/reprocess", documentReprocessHandler)
 
 	done := api.Start(ctx, mux, 8080, api.NewAuthMiddleware(api.AuthOptions{
 		OIDCEmailHeader: "X-Forwarded-Email",

@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 
@@ -347,6 +347,82 @@ describe("App", () => {
 		);
 	});
 
+	test("assembles cited context from the search tab filters", async () => {
+		const user = userEvent.setup();
+		global.fetch = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ mode: "oidc", email: "oliver@labiraus.com", valid: true }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					providers: [
+						{
+							id: "google",
+							name: "Google",
+							issuer: "https://accounts.google.com",
+							authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+							configured: true,
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					query: "ancient tower",
+					context: "[1] campaign/tower.md chunk 0\nStone stairs climb toward the beacon.",
+					citations: [
+						{
+							reference: "[1]",
+							citation: {
+								id: "s3://documents/campaign/tower.md#chunk-0",
+								label: "campaign/tower.md chunk 0",
+								sourceUri: "s3://documents/campaign/tower.md",
+								objectKey: "campaign/tower.md",
+								chunkId: 12,
+								chunkIndex: 0,
+								processingVersion: 4,
+							},
+						},
+					],
+					hits: [],
+					maxChars: 6000,
+					truncated: true,
+				}),
+			});
+
+		render(<App />);
+		await user.click(await screen.findByRole("button", { name: /^search$/i }));
+		await user.type(screen.getByRole("textbox", { name: /search query/i }), "ancient tower");
+		await user.type(
+			screen.getByRole("textbox", { name: /optional prefix filter/i }),
+			"campaign/",
+		);
+		await user.type(screen.getByRole("textbox", { name: /metadata key/i }), "tag");
+		await user.type(screen.getByRole("textbox", { name: /metadata value/i }), "lore");
+		await user.click(screen.getByRole("button", { name: /assemble context/i }));
+
+		expect(await screen.findByText(/Stone stairs climb toward the beacon/i)).toBeInTheDocument();
+		expect(screen.getByText("campaign/tower.md chunk 0")).toBeInTheDocument();
+		expect(screen.getByText(/Truncated at 6000 characters/i)).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/context",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					query: "ancient tower",
+					prefix: "campaign/",
+					metadata: { tag: "lore" },
+					limit: 6,
+					maxChars: 6000,
+				}),
+			}),
+		);
+	});
+
 	test("loads durable lifecycle history for a search result", async () => {
 		const user = userEvent.setup();
 		global.fetch = vi
@@ -443,6 +519,283 @@ describe("App", () => {
 			expect.objectContaining({
 				method: "POST",
 				body: JSON.stringify({ documentId: "doc-1", limit: 20 }),
+			}),
+		);
+	});
+
+	test("updates metadata and queues reprocessing for a search result", async () => {
+		const user = userEvent.setup();
+		global.fetch = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ mode: "oidc", email: "oliver@labiraus.com", valid: true }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					providers: [
+						{
+							id: "google",
+							name: "Google",
+							issuer: "https://accounts.google.com",
+							authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+							configured: true,
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					query: "processing status",
+					hits: [
+						{
+							documentId: "doc-1",
+							objectKey: "runbooks/process.md",
+							contentType: "text/markdown",
+							metadata: { tag: "old" },
+							chunkId: 12,
+							chunkIndex: 0,
+							chunkText: "Processor completion is recorded in Postgres.",
+							similarity: 0.88,
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					status: "updated",
+					documentId: "doc-1",
+					metadata: { tag: "runbook" },
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					status: "queued",
+					documentId: "doc-1",
+					processingVersion: 4,
+					sourceUri: "s3://documents/runbooks/process.md",
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					documentId: "doc-1",
+					count: 1,
+					events: [
+						{
+							id: 11,
+							documentId: "doc-1",
+							subject: "documents.events.processor.queued",
+							processingVersion: 4,
+							occurredAt: "2026-05-10T16:50:00Z",
+							createdAt: "2026-05-10T16:50:00Z",
+							payload: {
+								documentId: "doc-1",
+								objectKey: "runbooks/process.md",
+							},
+						},
+					],
+				}),
+			});
+
+		render(<App />);
+		await user.click(await screen.findByRole("button", { name: /^search$/i }));
+		await user.type(
+			screen.getByRole("textbox", { name: /search query/i }),
+			"processing status",
+		);
+		await user.click(screen.getByRole("button", { name: /search chunks/i }));
+
+		expect(await screen.findByText("runbooks/process.md")).toBeInTheDocument();
+		await user.click(
+			screen.getByRole("button", { name: /manage runbooks\/process\.md/i }),
+		);
+
+		const actionsPanel = screen.getByRole("region", { name: /document actions/i });
+		expect(within(actionsPanel).getByText("old")).toBeInTheDocument();
+		await user.type(
+			within(actionsPanel).getByRole("textbox", { name: /document metadata key/i }),
+			"tag",
+		);
+		await user.type(
+			within(actionsPanel).getByRole("textbox", { name: /document metadata value/i }),
+			"runbook",
+		);
+		await user.click(within(actionsPanel).getByRole("button", { name: /update metadata/i }));
+
+		expect(await within(actionsPanel).findByText(/updated metadata for runbooks\/process\.md/i)).toBeInTheDocument();
+		expect(within(actionsPanel).getByText("runbook")).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/curation",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					documentId: "doc-1",
+					metadata: { tag: "runbook" },
+					replace: false,
+				}),
+			}),
+		);
+
+		await user.click(within(actionsPanel).getByRole("button", { name: /queue reprocess/i }));
+
+		expect(await within(actionsPanel).findByText(/queued processing version 4/i)).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/reprocess",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({ documentId: "doc-1" }),
+			}),
+		);
+		expect(await screen.findByText("Processing queued")).toBeInTheDocument();
+		expect(screen.getByText(/runbooks\/process\.md version 4 recorded in postgres/i)).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/history",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					documentId: "doc-1",
+					processingVersion: 4,
+					limit: 20,
+				}),
+			}),
+		);
+	});
+
+	test("loads and saves a guarded text edit for a search result", async () => {
+		const user = userEvent.setup();
+		global.fetch = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ mode: "oidc", email: "oliver@labiraus.com", valid: true }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					providers: [
+						{
+							id: "google",
+							name: "Google",
+							issuer: "https://accounts.google.com",
+							authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+							configured: true,
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					query: "processing status",
+					hits: [
+						{
+							documentId: "doc-1",
+							objectKey: "runbooks/process.md",
+							contentType: "text/markdown",
+							metadata: { tag: "runbook" },
+							chunkId: 12,
+							chunkIndex: 0,
+							chunkText: "Processor completion is recorded in Postgres.",
+							similarity: 0.88,
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				text: async () => "old process notes",
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					status: "queued",
+					documentId: "doc-1",
+					processingVersion: 6,
+					sourceUri: "s3://documents/runbooks/process.md",
+					objectKey: "runbooks/process.md",
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					documentId: "doc-1",
+					count: 1,
+					events: [
+						{
+							id: 12,
+							documentId: "doc-1",
+							subject: "documents.events.processor.queued",
+							processingVersion: 6,
+							occurredAt: "2026-05-10T16:51:00Z",
+							createdAt: "2026-05-10T16:51:00Z",
+							payload: {
+								documentId: "doc-1",
+								objectKey: "runbooks/process.md",
+							},
+						},
+					],
+				}),
+			});
+
+		render(<App />);
+		await user.click(await screen.findByRole("button", { name: /^search$/i }));
+		await user.type(
+			screen.getByRole("textbox", { name: /search query/i }),
+			"processing status",
+		);
+		await user.click(screen.getByRole("button", { name: /search chunks/i }));
+
+		expect(await screen.findByText("runbooks/process.md")).toBeInTheDocument();
+		await user.click(
+			screen.getByRole("button", { name: /manage runbooks\/process\.md/i }),
+		);
+
+		const actionsPanel = screen.getByRole("region", { name: /document actions/i });
+		await user.click(within(actionsPanel).getByRole("button", { name: /load current text/i }));
+
+		const editTextArea = await within(actionsPanel).findByRole("textbox", {
+			name: /editable document text/i,
+		});
+		expect(editTextArea).toHaveValue("old process notes");
+
+		await user.clear(editTextArea);
+		await user.type(editTextArea, "updated process notes");
+		await user.click(
+			within(actionsPanel).getByRole("checkbox", { name: /confirm raw text overwrite/i }),
+		);
+		await user.click(within(actionsPanel).getByRole("button", { name: /save text edit/i }));
+
+		expect(await within(actionsPanel).findByText(/queued text edit as processing version 6/i)).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/object?objectKey=runbooks%2Fprocess.md",
+		);
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/edit-text",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					documentId: "doc-1",
+					text: "updated process notes",
+					contentType: "text/markdown",
+				}),
+			}),
+		);
+		expect(await screen.findByText("Processing queued")).toBeInTheDocument();
+		expect(screen.getByText(/runbooks\/process\.md version 6 recorded in postgres/i)).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/history",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					documentId: "doc-1",
+					processingVersion: 6,
+					limit: 20,
+				}),
 			}),
 		);
 	});

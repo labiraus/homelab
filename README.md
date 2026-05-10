@@ -112,6 +112,7 @@ Current document-platform direction:
 - MinIO on `svartalfheim` is the canonical raw object store
 - Postgres via CNPG plus pgvector is the source of truth for metadata, state, chunks, and embeddings
 - document lifecycle history is also persisted in Postgres for processing and reprocessing audits
+- browser and MCP surfaces expose retrieval, cited context, lifecycle history, metadata curation, guarded text edits, and reprocess requests while `orchestrator` keeps workflow ownership
 - NATS JetStream plus KEDA handle asynchronous execution and worker scaling
 - Redis is available but not yet a core design dependency
 - Mongo is intentionally not part of the active application architecture
@@ -143,6 +144,7 @@ Mounted local-only files:
 Included tooling:
 
 - Docker outside Docker
+- GitHub CLI (`gh`)
 - Terraform
 - Ansible Core 2.15.x
 - MinIO client (`mc`)
