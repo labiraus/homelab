@@ -111,6 +111,7 @@ Current behavior note:
 
 - The frontend calls `/api/users/count` for the overview check.
 - Authenticated document workflows call `/api/documents/search`, `/api/documents/history`, `/api/documents/events`, `/api/documents/tree`, `/api/documents/object`, and `/api/documents/upload`.
+- The Search tab also calls `/api/documents/context` to assemble cited context blocks from the current query and filters.
 - Browser login is currently expected to be challenged at the edge through `oauth2-proxy`, not implemented directly in React.
 - This app is Vite-based, not Create React App.
 
@@ -130,6 +131,7 @@ Current behavior note:
 - `mcp` exposes document inventory and semantic search for agents.
 - `external` and `mcp` expose durable document lifecycle history from `rag.document_lifecycle_events`.
 - `ui` renders durable lifecycle history for retrieved documents by calling `/api/documents/history`.
+- `ui` renders cited context blocks by calling `/api/documents/context` from the Search tab.
 
 ### MinIO and Ansible
 

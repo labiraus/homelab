@@ -68,7 +68,7 @@ The Labiraus MCP server now subscribes to that NATS event stream and forwards do
 
 The current durable history slice records processor queue/start/complete/fail lifecycle events in `rag.document_lifecycle_events`. The event stream remains best-effort delivery for subscribers, while Postgres provides the audit trail that can be queried later through `documents.history.list` in MCP or `POST /api/documents/history` in `external`. The UI Search tab consumes the external history route to show a lifecycle panel for retrieved documents.
 
-The current retrieval context slice is read-only. `documents.context` in MCP and `POST /api/documents/context` in `external` use the same current-version pgvector search path as semantic search, then assemble the selected chunks into a cited context block with stable `[1]`, `[2]` references.
+The current retrieval context slice is read-only. `documents.context` in MCP and `POST /api/documents/context` in `external` use the same current-version pgvector search path as semantic search, then assemble the selected chunks into a cited context block with stable `[1]`, `[2]` references. The UI Search tab exposes that browser-facing context route with the same query, prefix, and metadata filters used for semantic search.
 
 ### Phase 3
 

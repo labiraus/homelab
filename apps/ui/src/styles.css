@@ -377,6 +377,7 @@ a {
 .preview-card,
 .search-card,
 .search-results-card,
+.context-card,
 .history-card {
 	border: 1px solid var(--line);
 	border-radius: 1rem;
@@ -551,6 +552,7 @@ a {
 .preview-card,
 .search-card,
 .search-results-card,
+.context-card,
 .history-card {
 	padding: 1.15rem;
 }
@@ -774,6 +776,53 @@ a {
 .citation-code {
 	font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
 	color: var(--ink);
+	overflow-wrap: anywhere;
+}
+
+.context-output {
+	margin: 0;
+	padding: 1rem;
+	max-height: 24rem;
+	overflow: auto;
+	border: 1px solid var(--line);
+	border-radius: 0.85rem;
+	background: var(--surface-muted);
+	font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+	font-size: 0.88rem;
+	line-height: 1.6;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.context-citations {
+	display: grid;
+	gap: 0.65rem;
+	margin-top: 0.95rem;
+}
+
+.context-citations ol {
+	display: grid;
+	gap: 0.55rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.context-citations li {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	gap: 0.25rem 0.65rem;
+	align-items: baseline;
+	padding: 0.75rem;
+	border: 1px solid var(--line);
+	border-radius: 0.75rem;
+	background: var(--surface-muted);
+}
+
+.context-citations small {
+	grid-column: 2;
+	color: var(--muted);
+	line-height: 1.45;
 	overflow-wrap: anywhere;
 }
 
@@ -1098,6 +1147,14 @@ a {
 	.summary-grid,
 	.actions-grid {
 		grid-template-columns: 1fr;
+	}
+
+	.context-citations li {
+		grid-template-columns: 1fr;
+	}
+
+	.context-citations small {
+		grid-column: auto;
 	}
 
 	.document-time {

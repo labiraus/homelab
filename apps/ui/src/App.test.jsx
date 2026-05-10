@@ -347,6 +347,82 @@ describe("App", () => {
 		);
 	});
 
+	test("assembles cited context from the search tab filters", async () => {
+		const user = userEvent.setup();
+		global.fetch = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ mode: "oidc", email: "oliver@labiraus.com", valid: true }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					providers: [
+						{
+							id: "google",
+							name: "Google",
+							issuer: "https://accounts.google.com",
+							authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+							configured: true,
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					query: "ancient tower",
+					context: "[1] campaign/tower.md chunk 0\nStone stairs climb toward the beacon.",
+					citations: [
+						{
+							reference: "[1]",
+							citation: {
+								id: "s3://documents/campaign/tower.md#chunk-0",
+								label: "campaign/tower.md chunk 0",
+								sourceUri: "s3://documents/campaign/tower.md",
+								objectKey: "campaign/tower.md",
+								chunkId: 12,
+								chunkIndex: 0,
+								processingVersion: 4,
+							},
+						},
+					],
+					hits: [],
+					maxChars: 6000,
+					truncated: true,
+				}),
+			});
+
+		render(<App />);
+		await user.click(await screen.findByRole("button", { name: /^search$/i }));
+		await user.type(screen.getByRole("textbox", { name: /search query/i }), "ancient tower");
+		await user.type(
+			screen.getByRole("textbox", { name: /optional prefix filter/i }),
+			"campaign/",
+		);
+		await user.type(screen.getByRole("textbox", { name: /metadata key/i }), "tag");
+		await user.type(screen.getByRole("textbox", { name: /metadata value/i }), "lore");
+		await user.click(screen.getByRole("button", { name: /assemble context/i }));
+
+		expect(await screen.findByText(/Stone stairs climb toward the beacon/i)).toBeInTheDocument();
+		expect(screen.getByText("campaign/tower.md chunk 0")).toBeInTheDocument();
+		expect(screen.getByText(/Truncated at 6000 characters/i)).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/context",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					query: "ancient tower",
+					prefix: "campaign/",
+					metadata: { tag: "lore" },
+					limit: 6,
+					maxChars: 6000,
+				}),
+			}),
+		);
+	});
+
 	test("loads durable lifecycle history for a search result", async () => {
 		const user = userEvent.setup();
 		global.fetch = vi

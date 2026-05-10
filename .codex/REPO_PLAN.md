@@ -43,6 +43,7 @@ The repo already includes:
 - a built-in deterministic `local-embeddings` fallback used by processor, `external`, and `mcp` when no external embedding endpoint is configured
 - durable document lifecycle history in `rag.document_lifecycle_events`, exposed through `external` and `mcp`
 - the UI Search tab can load that durable lifecycle history for a retrieved document through `/api/documents/history`
+- the UI Search tab can assemble citation-backed context blocks through `/api/documents/context`
 
 Documentation must stay aligned with implementation as these pieces evolve.
 
@@ -211,6 +212,21 @@ Current status:
 - the Search tab includes a History action for each result
 - the lifecycle panel calls `POST /api/documents/history` for the selected result's `documentId`
 - UI tests cover the history request body and rendered lifecycle events
+
+### Phase 8 — Browser Context Assembly UX
+
+Deliverables:
+
+- expose citation-backed context assembly in the browser near retrieval results
+- reuse the existing browser-facing `/api/documents/context` route rather than adding new backend storage or workflow state
+- keep query, prefix, and metadata filtering aligned with semantic search and MCP `documents.context`
+- render assembled context, citation references, and truncation state in a read-only panel
+
+Current status:
+
+- the Search tab includes an Assemble Context action beside semantic search
+- the context panel calls `POST /api/documents/context` with the current query, prefix, metadata filter, limit, and character budget
+- UI tests cover the context request body, rendered context text, rendered citation label, and truncation state
 
 ## Near-Term Non-Goals
 

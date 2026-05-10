@@ -10,6 +10,7 @@ const DOCUMENT_OBJECT_PATH = "/api/documents/object";
 const DOCUMENT_UPLOAD_PATH = "/api/documents/upload";
 const DOCUMENT_EVENTS_PATH = "/api/documents/events";
 const DOCUMENT_SEARCH_PATH = "/api/documents/search";
+const DOCUMENT_CONTEXT_PATH = "/api/documents/context";
 const DOCUMENT_HISTORY_PATH = "/api/documents/history";
 const TOAST_DISMISS_MS = 6000;
 
@@ -137,6 +138,14 @@ async function searchDocuments(request) {
 	return callApi({
 		method: "POST",
 		path: DOCUMENT_SEARCH_PATH,
+		body: request,
+	});
+}
+
+async function fetchDocumentContext(request) {
+	return callApi({
+		method: "POST",
+		path: DOCUMENT_CONTEXT_PATH,
 		body: request,
 	});
 }
@@ -361,6 +370,27 @@ function stringifyHistoryPayload(payload) {
 	}
 }
 
+function contextCitationLabel(entry) {
+	return entry?.citation?.label ?? entry?.reference ?? "citation";
+}
+
+function contextCitationMeta(entry) {
+	const citation = entry?.citation ?? {};
+	const details = [];
+
+	if (citation.sourceUri || citation.objectKey) {
+		details.push(citation.sourceUri || citation.objectKey);
+	}
+	if (typeof citation.processingVersion === "number") {
+		details.push(`v${citation.processingVersion}`);
+	}
+	if (typeof citation.chunkIndex === "number") {
+		details.push(`chunk ${citation.chunkIndex}`);
+	}
+
+	return details.join(" • ");
+}
+
 function createToastFromLifecycleEvent(event) {
 	return {
 		id: `${event.subject}-${event.documentId}-${event.occurredAt}`,
@@ -412,6 +442,16 @@ function App() {
 	const [searchError, setSearchError] = useState("");
 	const [searchResults, setSearchResults] = useState([]);
 	const [submittedQuery, setSubmittedQuery] = useState("");
+	const [contextState, setContextState] = useState({
+		status: "idle",
+		query: "",
+		context: "",
+		citations: [],
+		hits: [],
+		maxChars: 0,
+		truncated: false,
+		error: "",
+	});
 	const [historyState, setHistoryState] = useState({
 		status: "idle",
 		documentId: "",
@@ -750,6 +790,16 @@ function App() {
 			events: [],
 			error: "",
 		});
+		setContextState({
+			status: "idle",
+			query: "",
+			context: "",
+			citations: [],
+			hits: [],
+			maxChars: 0,
+			truncated: false,
+			error: "",
+		});
 
 		try {
 			const metadataKey = searchMetadataKey.trim();
@@ -769,6 +819,71 @@ function App() {
 			setSearchResults([]);
 		} finally {
 			setSearchLoading(false);
+		}
+	};
+
+	const handleContextSubmit = async () => {
+		const query = searchQuery.trim();
+		if (!query) {
+			setContextState({
+				status: "error",
+				query: "",
+				context: "",
+				citations: [],
+				hits: [],
+				maxChars: 0,
+				truncated: false,
+				error: "Enter a search phrase first.",
+			});
+			return;
+		}
+
+		setContextState({
+			status: "loading",
+			query,
+			context: "",
+			citations: [],
+			hits: [],
+			maxChars: 0,
+			truncated: false,
+			error: "",
+		});
+
+		try {
+			const metadataKey = searchMetadataKey.trim();
+			const metadataValue = searchMetadataValue.trim();
+			const metadata =
+				metadataKey && metadataValue ? { [metadataKey]: metadataValue } : undefined;
+			const response = await fetchDocumentContext({
+				query,
+				prefix: searchPrefix.trim(),
+				...(metadata ? { metadata } : {}),
+				limit: 6,
+				maxChars: 6000,
+			});
+
+			setContextState({
+				status: "ready",
+				query,
+				context: response?.context ?? "",
+				citations: response?.citations ?? [],
+				hits: response?.hits ?? [],
+				maxChars: response?.maxChars ?? 0,
+				truncated: response?.truncated === true,
+				error: "",
+			});
+		} catch (requestError) {
+			setContextState({
+				status: "error",
+				query,
+				context: "",
+				citations: [],
+				hits: [],
+				maxChars: 0,
+				truncated: false,
+				error:
+					requestError instanceof Error ? requestError.message : "Context request failed",
+			});
 		}
 	};
 
@@ -1138,9 +1253,17 @@ function App() {
 									<button
 										type="submit"
 										className="menu-action primary"
-										disabled={searchLoading}
+										disabled={searchLoading || contextState.status === "loading"}
 									>
 										{searchLoading ? "Searching..." : "Search Chunks"}
+									</button>
+									<button
+										type="button"
+										className="menu-action"
+										onClick={() => void handleContextSubmit()}
+										disabled={searchLoading || contextState.status === "loading"}
+									>
+										{contextState.status === "loading" ? "Assembling..." : "Assemble Context"}
 									</button>
 									<button
 										type="button"
@@ -1153,6 +1276,16 @@ function App() {
 											setSearchResults([]);
 											setSearchError("");
 											setSubmittedQuery("");
+											setContextState({
+												status: "idle",
+												query: "",
+												context: "",
+												citations: [],
+												hits: [],
+												maxChars: 0,
+												truncated: false,
+												error: "",
+											});
 											setHistoryState({
 												status: "idle",
 												documentId: "",
@@ -1161,7 +1294,7 @@ function App() {
 												error: "",
 											});
 										}}
-										disabled={searchLoading}
+										disabled={searchLoading || contextState.status === "loading"}
 									>
 										Clear
 									</button>
@@ -1252,6 +1385,59 @@ function App() {
 										))}
 									</div>
 								</div>
+
+								<section className="context-card" aria-live="polite">
+									<div className="panel-heading compact">
+										<div>
+											<h3>Context block</h3>
+											<p>
+												{contextState.query
+													? `Cited context for "${contextState.query}".`
+													: "Assembled context will appear here."}
+											</p>
+										</div>
+										{contextState.status === "loading" ? (
+											<span className="status-pill busy">Assembling</span>
+										) : contextState.status === "ready" ? (
+											<span className="status-pill">Ready</span>
+										) : null}
+									</div>
+
+									{contextState.error ? <p className="error-text">{contextState.error}</p> : null}
+									{contextState.status === "idle" ? (
+										<p className="empty-state">Context output will appear here.</p>
+									) : null}
+									{contextState.status === "loading" ? (
+										<p className="empty-state">Assembling cited context...</p>
+									) : null}
+									{contextState.status === "ready" && !contextState.context ? (
+										<p className="empty-state">No context could be assembled from the current filters.</p>
+									) : null}
+									{contextState.context ? (
+										<pre className="context-output">{contextState.context}</pre>
+									) : null}
+									{contextState.truncated ? (
+										<p className="search-result-meta">
+											Truncated at {contextState.maxChars} characters.
+										</p>
+									) : null}
+									{contextState.citations.length > 0 ? (
+										<div className="context-citations">
+											<p className="meta-label">Citations</p>
+											<ol>
+												{contextState.citations.map((entry) => (
+													<li key={`${entry.reference}-${contextCitationLabel(entry)}`}>
+														<span className="citation-code">{entry.reference}</span>
+														<span>{contextCitationLabel(entry)}</span>
+														{contextCitationMeta(entry) ? (
+															<small>{contextCitationMeta(entry)}</small>
+														) : null}
+													</li>
+												))}
+											</ol>
+										</div>
+									) : null}
+								</section>
 
 								<section className="history-card" aria-live="polite">
 									<div className="panel-heading compact">
