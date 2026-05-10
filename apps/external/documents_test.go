@@ -546,6 +546,129 @@ func TestDocumentHistoryHandlerValidatesDocumentID(t *testing.T) {
 	}
 }
 
+func TestDocumentCurationHandlerProxiesToOrchestrator(t *testing.T) {
+	setOrchestratorEnv(t)
+	base.ServiceName = "external_test_" + t.Name()
+	prometheusutil.Start(http.NewServeMux())
+
+	previousProxy := proxyOrchestratorDocumentAction
+	t.Cleanup(func() {
+		proxyOrchestratorDocumentAction = previousProxy
+	})
+
+	proxyOrchestratorDocumentAction = func(ctx context.Context, path string, body []byte) (orchestratorDocumentActionResponse, error) {
+		if path != "/documents/curation" {
+			t.Fatalf("expected curation path, got %q", path)
+		}
+
+		var request map[string]any
+		if err := json.Unmarshal(body, &request); err != nil {
+			t.Fatalf("expected valid proxied json: %v", err)
+		}
+		if request["documentId"] != "doc-1" {
+			t.Fatalf("expected document id doc-1, got %#v", request["documentId"])
+		}
+		metadata, ok := request["metadata"].(map[string]any)
+		if !ok || metadata["tag"] != "runbook" {
+			t.Fatalf("expected metadata to be proxied, got %#v", request["metadata"])
+		}
+
+		return orchestratorDocumentActionResponse{
+			statusCode:  http.StatusOK,
+			contentType: "application/json",
+			body:        []byte(`{"status":"updated","documentId":"doc-1","metadata":{"tag":"runbook"}}`),
+		}, nil
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api/documents/curation", strings.NewReader(`{"documentId":"doc-1","metadata":{"tag":"runbook"}}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	documentCurationHandler(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"status":"updated"`) {
+		t.Fatalf("expected orchestrator body to be returned, got %q", recorder.Body.String())
+	}
+}
+
+func TestDocumentReprocessHandlerProxiesToOrchestrator(t *testing.T) {
+	setOrchestratorEnv(t)
+	base.ServiceName = "external_test_" + t.Name()
+	prometheusutil.Start(http.NewServeMux())
+
+	previousProxy := proxyOrchestratorDocumentAction
+	t.Cleanup(func() {
+		proxyOrchestratorDocumentAction = previousProxy
+	})
+
+	proxyOrchestratorDocumentAction = func(ctx context.Context, path string, body []byte) (orchestratorDocumentActionResponse, error) {
+		if path != "/documents/reprocess" {
+			t.Fatalf("expected reprocess path, got %q", path)
+		}
+
+		var request map[string]any
+		if err := json.Unmarshal(body, &request); err != nil {
+			t.Fatalf("expected valid proxied json: %v", err)
+		}
+		if request["documentId"] != "doc-1" {
+			t.Fatalf("expected document id doc-1, got %#v", request["documentId"])
+		}
+
+		return orchestratorDocumentActionResponse{
+			statusCode:  http.StatusAccepted,
+			contentType: "application/json",
+			body:        []byte(`{"status":"queued","documentId":"doc-1","processingVersion":5,"sourceUri":"s3://documents/runbooks/process.md"}`),
+		}, nil
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api/documents/reprocess", strings.NewReader(`{"documentId":"doc-1"}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	documentReprocessHandler(recorder, request)
+
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("expected status 202, got %d", recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"processingVersion":5`) {
+		t.Fatalf("expected orchestrator body to be returned, got %q", recorder.Body.String())
+	}
+}
+
+func TestDocumentControlHandlerRequiresConfiguredOrchestrator(t *testing.T) {
+	base.ServiceName = "external_test_" + t.Name()
+	prometheusutil.Start(http.NewServeMux())
+
+	request := httptest.NewRequest(http.MethodPost, "/api/documents/curation", strings.NewReader(`{"documentId":"doc-1","metadata":{"tag":"runbook"}}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	documentCurationHandler(recorder, request)
+
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected status 503, got %d", recorder.Code)
+	}
+}
+
+func TestDocumentControlHandlerValidatesJSON(t *testing.T) {
+	setOrchestratorEnv(t)
+	base.ServiceName = "external_test_" + t.Name()
+	prometheusutil.Start(http.NewServeMux())
+
+	request := httptest.NewRequest(http.MethodPost, "/api/documents/reprocess", strings.NewReader(`{`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	documentReprocessHandler(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", recorder.Code)
+	}
+}
+
 func TestLocalQueryEmbeddingFallback(t *testing.T) {
 	t.Setenv("EMBEDDING_ENDPOINT", "")
 	t.Setenv("EMBEDDING_MODEL", "local-embeddings")
@@ -585,6 +708,11 @@ func setPostgresEnv(t *testing.T) {
 	t.Setenv("POSTGRES_USER", "app")
 	t.Setenv("POSTGRES_PASSWORD", "secret")
 	t.Setenv("POSTGRES_DATABASE", "app")
+}
+
+func setOrchestratorEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("ORCHESTRATOR_BASE_URL", "http://homelab-orchestrator.homelab.svc.cluster.local")
 }
 
 func minioObjectInfo(key string, contentType string, lastModified time.Time) minio.ObjectInfo {

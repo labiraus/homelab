@@ -12,6 +12,8 @@ const DOCUMENT_EVENTS_PATH = "/api/documents/events";
 const DOCUMENT_SEARCH_PATH = "/api/documents/search";
 const DOCUMENT_CONTEXT_PATH = "/api/documents/context";
 const DOCUMENT_HISTORY_PATH = "/api/documents/history";
+const DOCUMENT_CURATION_PATH = "/api/documents/curation";
+const DOCUMENT_REPROCESS_PATH = "/api/documents/reprocess";
 const TOAST_DISMISS_MS = 6000;
 
 const actions = [
@@ -154,6 +156,22 @@ async function fetchDocumentHistory(request) {
 	return callApi({
 		method: "POST",
 		path: DOCUMENT_HISTORY_PATH,
+		body: request,
+	});
+}
+
+async function updateDocumentCuration(request) {
+	return callApi({
+		method: "POST",
+		path: DOCUMENT_CURATION_PATH,
+		body: request,
+	});
+}
+
+async function reprocessDocument(request) {
+	return callApi({
+		method: "POST",
+		path: DOCUMENT_REPROCESS_PATH,
 		body: request,
 	});
 }
@@ -391,6 +409,45 @@ function contextCitationMeta(entry) {
 	return details.join(" • ");
 }
 
+function initialDocumentOperationsState() {
+	return {
+		documentId: "",
+		sourceLabel: "",
+		metadataKey: "",
+		metadataValue: "",
+		replace: false,
+		status: "idle",
+		message: "",
+		error: "",
+		metadata: null,
+	};
+}
+
+function metadataEntries(metadata) {
+	if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+		return [];
+	}
+
+	return Object.entries(metadata).filter(([key]) => key);
+}
+
+function formatMetadataValue(value) {
+	if (typeof value === "string") {
+		return value;
+	}
+	if (value === null) {
+		return "null";
+	}
+	if (typeof value === "object") {
+		try {
+			return JSON.stringify(value);
+		} catch {
+			return String(value);
+		}
+	}
+	return String(value);
+}
+
 function createToastFromLifecycleEvent(event) {
 	return {
 		id: `${event.subject}-${event.documentId}-${event.occurredAt}`,
@@ -459,6 +516,9 @@ function App() {
 		events: [],
 		error: "",
 	});
+	const [documentOperationsState, setDocumentOperationsState] = useState(
+		initialDocumentOperationsState,
+	);
 	const [toasts, setToasts] = useState([]);
 	const [theme, setTheme] = useState(() => {
 		if (typeof window === "undefined") {
@@ -790,6 +850,7 @@ function App() {
 			events: [],
 			error: "",
 		});
+		setDocumentOperationsState(initialDocumentOperationsState());
 		setContextState({
 			status: "idle",
 			query: "",
@@ -921,6 +982,135 @@ function App() {
 			});
 		}
 	};
+
+	const handleStartDocumentOperations = (result) => {
+		const documentId = result?.documentId?.trim();
+		if (!documentId) {
+			return;
+		}
+
+		const sourceLabel = result.objectKey || documentId;
+		setDocumentOperationsState({
+			...initialDocumentOperationsState(),
+			documentId,
+			sourceLabel,
+			metadata: result.metadata ?? null,
+		});
+	};
+
+	const handleCurationSubmit = async (event) => {
+		event.preventDefault();
+
+		const documentId = documentOperationsState.documentId.trim();
+		const metadataKey = documentOperationsState.metadataKey.trim();
+		const metadataValue = documentOperationsState.metadataValue.trim();
+		if (!documentId) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				status: "error",
+				error: "Select a search result first.",
+				message: "",
+			}));
+			return;
+		}
+		if (!metadataKey || !metadataValue) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				status: "error",
+				error: "Enter a metadata key and value.",
+				message: "",
+			}));
+			return;
+		}
+
+		setDocumentOperationsState((current) => ({
+			...current,
+			status: "loading",
+			error: "",
+			message: "",
+		}));
+
+		try {
+			const response = await updateDocumentCuration({
+				documentId,
+				metadata: { [metadataKey]: metadataValue },
+				replace: documentOperationsState.replace,
+			});
+			const fallbackMetadata = documentOperationsState.replace
+				? { [metadataKey]: metadataValue }
+				: {
+						...(documentOperationsState.metadata ?? {}),
+						[metadataKey]: metadataValue,
+					};
+			const nextMetadata = response?.metadata ?? fallbackMetadata;
+
+			setSearchResults((results) =>
+				results.map((result) =>
+					result.documentId === documentId ? { ...result, metadata: nextMetadata } : result,
+				),
+			);
+			setDocumentOperationsState((current) => ({
+				...current,
+				metadataKey: "",
+				metadataValue: "",
+				replace: false,
+				status: "success",
+				message: `Updated metadata for ${current.sourceLabel || documentId}.`,
+				error: "",
+				metadata: nextMetadata,
+			}));
+		} catch (requestError) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				status: "error",
+				error: requestError instanceof Error ? requestError.message : "Metadata update failed",
+				message: "",
+			}));
+		}
+	};
+
+	const handleReprocessSubmit = async () => {
+		const documentId = documentOperationsState.documentId.trim();
+		if (!documentId) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				status: "error",
+				error: "Select a search result first.",
+				message: "",
+			}));
+			return;
+		}
+
+		setDocumentOperationsState((current) => ({
+			...current,
+			status: "loading",
+			error: "",
+			message: "",
+		}));
+
+		try {
+			const response = await reprocessDocument({ documentId });
+			const version =
+				typeof response?.processingVersion === "number"
+					? `processing version ${response.processingVersion}`
+					: "a new processing version";
+			setDocumentOperationsState((current) => ({
+				...current,
+				status: "success",
+				message: `Queued ${version} for ${current.sourceLabel || documentId}.`,
+				error: "",
+			}));
+		} catch (requestError) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				status: "error",
+				error: requestError instanceof Error ? requestError.message : "Reprocess request failed",
+				message: "",
+			}));
+		}
+	};
+
+	const documentOperationMetadataEntries = metadataEntries(documentOperationsState.metadata);
 
 	return (
 		<main className="app-shell">
@@ -1293,6 +1483,7 @@ function App() {
 												events: [],
 												error: "",
 											});
+											setDocumentOperationsState(initialDocumentOperationsState());
 										}}
 										disabled={searchLoading || contextState.status === "loading"}
 									>
@@ -1357,6 +1548,14 @@ function App() {
 														</p>
 													</div>
 													<div className="search-result-actions">
+														<button
+															type="button"
+															className="inline-button"
+															onClick={() => handleStartDocumentOperations(result)}
+															aria-label={`Manage ${result.objectKey || result.documentId}`}
+														>
+															Manage
+														</button>
 														<button
 															type="button"
 															className="inline-button"
@@ -1437,6 +1636,122 @@ function App() {
 											</ol>
 										</div>
 									) : null}
+								</section>
+
+								<section
+									className="document-actions-card"
+									aria-label="Document actions"
+									aria-live="polite"
+								>
+									<div className="panel-heading compact">
+										<div>
+											<h3>Document actions</h3>
+											<p>
+												{documentOperationsState.documentId
+													? `${documentOperationsState.sourceLabel} selected for curation and reprocessing.`
+													: "Select a search result to manage its control-plane state."}
+											</p>
+										</div>
+										{documentOperationsState.status === "loading" ? (
+											<span className="status-pill busy">Working</span>
+										) : documentOperationsState.status === "success" ? (
+											<span className="status-pill">Done</span>
+										) : null}
+									</div>
+
+									{documentOperationsState.documentId ? (
+										<div className="document-actions-grid">
+											<div className="metadata-preview">
+												<p className="meta-label">Current metadata</p>
+												{documentOperationMetadataEntries.length > 0 ? (
+													<dl>
+														{documentOperationMetadataEntries.map(([key, value]) => (
+															<div key={key}>
+																<dt>{key}</dt>
+																<dd>{formatMetadataValue(value)}</dd>
+															</div>
+														))}
+													</dl>
+												) : (
+													<p className="empty-state">No metadata is recorded for this document.</p>
+												)}
+											</div>
+
+											<form className="document-actions-form" onSubmit={handleCurationSubmit}>
+												<div className="metadata-filter-grid">
+													<label className="field-group">
+														<span>Document metadata key</span>
+														<input
+															type="text"
+															value={documentOperationsState.metadataKey}
+															onChange={(event) =>
+																setDocumentOperationsState((current) => ({
+																	...current,
+																	metadataKey: event.target.value,
+																}))
+															}
+															placeholder="tag"
+														/>
+													</label>
+													<label className="field-group">
+														<span>Document metadata value</span>
+														<input
+															type="text"
+															value={documentOperationsState.metadataValue}
+															onChange={(event) =>
+																setDocumentOperationsState((current) => ({
+																	...current,
+																	metadataValue: event.target.value,
+																}))
+															}
+															placeholder="runbook"
+														/>
+													</label>
+												</div>
+
+												<label className="checkbox-field">
+													<input
+														type="checkbox"
+														checked={documentOperationsState.replace}
+														onChange={(event) =>
+															setDocumentOperationsState((current) => ({
+																...current,
+																replace: event.target.checked,
+															}))
+														}
+													/>
+													<span>Replace metadata object</span>
+												</label>
+
+												<div className="document-actions-row">
+													<button
+														type="submit"
+														className="menu-action primary"
+														disabled={documentOperationsState.status === "loading"}
+													>
+														Update Metadata
+													</button>
+													<button
+														type="button"
+														className="menu-action"
+														onClick={() => void handleReprocessSubmit()}
+														disabled={documentOperationsState.status === "loading"}
+													>
+														Queue Reprocess
+													</button>
+												</div>
+
+												{documentOperationsState.error ? (
+													<p className="error-text">{documentOperationsState.error}</p>
+												) : null}
+												{documentOperationsState.message ? (
+													<p className="success-text">{documentOperationsState.message}</p>
+												) : null}
+											</form>
+										</div>
+									) : (
+										<p className="empty-state">Document actions will appear here.</p>
+									)}
 								</section>
 
 								<section className="history-card" aria-live="polite">

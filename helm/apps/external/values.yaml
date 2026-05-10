@@ -65,6 +65,8 @@ generatedSecrets:
         value: document-events
       NATS_EVENTS_SUBJECT:
         value: documents.events.>
+      ORCHESTRATOR_BASE_URL:
+        value: "http://homelab-orchestrator.homelab.svc.cluster.local"
       POSTGRES_HOST:
         value: app-db-rw.data.svc.cluster.local
       POSTGRES_PORT:
@@ -187,6 +189,17 @@ security:
         ports:
           - protocol: TCP
             port: 6379
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: homelab
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: homelab-orchestrator
+                app.kubernetes.io/name: orchestrator
+        ports:
+          - protocol: TCP
+            port: 8080
       - to:
           - namespaceSelector:
               matchLabels:

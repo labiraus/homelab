@@ -44,6 +44,7 @@ The repo already includes:
 - durable document lifecycle history in `rag.document_lifecycle_events`, exposed through `external` and `mcp`
 - the UI Search tab can load that durable lifecycle history for a retrieved document through `/api/documents/history`
 - the UI Search tab can assemble citation-backed context blocks through `/api/documents/context`
+- the UI Search tab can update curated metadata and queue reprocessing for a retrieved document through `external` proxy routes backed by `orchestrator`
 
 Documentation must stay aligned with implementation as these pieces evolve.
 
@@ -172,6 +173,7 @@ Current status:
 - `orchestrator` exposes `POST /documents/curation` for metadata-only curation of existing inventory rows
 - `orchestrator` exposes `POST /documents/edit-text` for text-only edits of existing inventory rows that overwrite the raw MinIO object and queue a newer processing version
 - `orchestrator` exposes `POST /documents/reprocess` for queueing an existing inventory document at a newer processing version
+- `external` exposes `POST /api/documents/curation` and `POST /api/documents/reprocess` as browser-facing proxy routes to the orchestrator control plane
 - `mcp` exposes that curation flow as `documents.curation.update`
 - `mcp` exposes that text editing flow as `documents.editText`
 - `mcp` exposes that reprocessing flow as `documents.reprocess`
@@ -181,6 +183,7 @@ Current status:
 - `external` and `mcp` retrieval can be narrowed by exact-match curated metadata filters without adding a separate graph datastore
 - the `rag` schema includes a JSONB GIN index for metadata containment filters used by retrieval
 - `external` emits the ingest-boundary `documents.events.minio.stored` notification for successful browser uploads
+- the UI Search tab exposes curation and reprocess actions for selected retrieval results without exposing text overwrite/editing in the browser
 
 ### Phase 6 — Durable Processing History
 
@@ -227,6 +230,24 @@ Current status:
 - the Search tab includes an Assemble Context action beside semantic search
 - the context panel calls `POST /api/documents/context` with the current query, prefix, metadata filter, limit, and character budget
 - UI tests cover the context request body, rendered context text, rendered citation label, and truncation state
+
+### Phase 9 — Browser Document Control Actions UX
+
+Deliverables:
+
+- expose metadata curation and reprocess actions in the browser near retrieval results
+- keep browser requests flowing through `external` while preserving `orchestrator` as the workflow/control-plane owner
+- proxy only the already-defined curation and reprocess contracts in this slice
+- avoid browser text overwrite/editing until there is a safer preview/diff/confirmation UX
+- keep Kubernetes network policy and runtime config aligned with the new `external -> orchestrator` dependency
+
+Current status:
+
+- `external` proxies `POST /api/documents/curation` to `orchestrator` `POST /documents/curation`
+- `external` proxies `POST /api/documents/reprocess` to `orchestrator` `POST /documents/reprocess`
+- the Search tab includes a Document actions panel selected from retrieval results
+- the panel displays current document metadata, updates one metadata key/value pair, supports full metadata replacement when explicitly checked, and queues the next processing version
+- tests cover the public API proxy behavior, validation/config errors, and the browser request bodies for curation and reprocess
 
 ## Near-Term Non-Goals
 

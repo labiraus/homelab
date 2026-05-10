@@ -27,16 +27,18 @@ The current ingestion slice is reference-based:
 - `orchestrator` exposes document metadata curation for existing inventory rows
 - `orchestrator` exposes text-object editing for existing inventory rows and queues a newer processing version after the raw object write
 - `orchestrator` exposes explicit reprocessing for existing inventory documents through the same queue path
+- `external` exposes browser-facing curation and reprocess proxy routes while leaving workflow ownership in `orchestrator`
 - `external` and `mcp` expose durable lifecycle history backed by `rag.document_lifecycle_events`
 - `ui` renders durable lifecycle history for selected search results through `external`'s `/api/documents/history`
 - `ui` can assemble cited context blocks from the Search tab through `external`'s `/api/documents/context` using the same query, prefix, and metadata filters
+- `ui` can update curated metadata and queue reprocessing for selected search results through `external` proxy routes
 - retrieval responses search the document's current processed chunk version and include citation objects that identify the source URI and chunk identity for each match
 - `local-embeddings` uses a built-in deterministic 384-dimensional embedding function when no external embedding endpoint is configured
 
 ```mermaid
 flowchart LR
   U[User in browser] --> UI[ui]
-  UI --> EXT[external]
+  UI -->|browse/search/control actions| EXT[external]
   A[Agent / MCP client] --> MCP[mcp]
 
   EXT --> ORCH[orchestrator]
