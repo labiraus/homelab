@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 
@@ -333,6 +333,36 @@ describe("App", () => {
 						},
 					],
 				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					status: "queued",
+					documentId: "doc-1",
+					processingVersion: 4,
+					sourceUri: "s3://documents/runbooks/process.md",
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					documentId: "doc-1",
+					count: 1,
+					events: [
+						{
+							id: 22,
+							documentId: "doc-1",
+							subject: "documents.events.processor.queued",
+							processingVersion: 4,
+							occurredAt: "2026-05-10T17:03:00Z",
+							createdAt: "2026-05-10T17:03:01Z",
+							payload: {
+								documentId: "doc-1",
+								objectKey: "runbooks/process.md",
+							},
+						},
+					],
+				}),
 			});
 
 		render(<App />);
@@ -387,6 +417,39 @@ describe("App", () => {
 				method: "POST",
 				body: JSON.stringify({
 					documentId: "doc-1",
+					limit: 20,
+				}),
+			}),
+		);
+
+		await user.click(
+			screen.getByRole("button", {
+				name: /queue reprocess for inventory runbooks\/process\.md/i,
+			}),
+		);
+
+		expect(
+			await screen.findByText(/queued processing version 4 for runbooks\/process\.md/i),
+		).toBeInTheDocument();
+		expect(screen.getByText(/current v2 \/ desired v4/i)).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/reprocess",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({ documentId: "doc-1" }),
+			}),
+		);
+		expect(await screen.findByText("Processing queued")).toBeInTheDocument();
+		expect(
+			screen.getByText(/runbooks\/process\.md version 4 recorded in postgres/i),
+		).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/history",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					documentId: "doc-1",
+					processingVersion: 4,
 					limit: 20,
 				}),
 			}),
@@ -1018,79 +1081,85 @@ describe("App", () => {
 		const originalEventSource = global.EventSource;
 		global.EventSource = MockEventSource;
 
-		global.fetch = vi
-			.fn()
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ mode: "oidc", email: "oliver@labiraus.com", valid: true }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({
-					providers: [
-						{
-							id: "google",
-							name: "Google",
-							issuer: "https://accounts.google.com",
-							authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
-							configured: true,
-						},
-					],
-				}),
+		try {
+			global.fetch = vi
+				.fn()
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ mode: "oidc", email: "oliver@labiraus.com", valid: true }),
+				})
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({
+						providers: [
+							{
+								id: "google",
+								name: "Google",
+								issuer: "https://accounts.google.com",
+								authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+								configured: true,
+							},
+						],
+					}),
+				});
+
+			const { unmount } = render(<App />);
+			await screen.findByRole("button", { name: /^documents$/i });
+
+			await waitFor(() => expect(MockEventSource.instances).toHaveLength(1));
+			expect(MockEventSource.instances[0].url).toBe("/api/documents/events");
+
+			act(() => {
+				MockEventSource.instances[0].emit("document", {
+					subject: "documents.events.processor.completed",
+					documentId: "doc-1",
+					objectKey: "reports/doc-1.txt",
+					occurredAt: "2026-04-14T10:00:00Z",
+				});
 			});
 
-		const { unmount } = render(<App />);
-		await screen.findByRole("button", { name: /^documents$/i });
+			expect(await screen.findByText("Processing completed")).toBeInTheDocument();
+			expect(screen.getByText("reports/doc-1.txt is ready for retrieval.")).toBeInTheDocument();
 
-		expect(MockEventSource.instances).toHaveLength(1);
-		expect(MockEventSource.instances[0].url).toBe("/api/documents/events");
-
-		act(() => {
-			MockEventSource.instances[0].emit("document", {
-				subject: "documents.events.processor.completed",
-				documentId: "doc-1",
-				objectKey: "reports/doc-1.txt",
-				occurredAt: "2026-04-14T10:00:00Z",
-			});
-		});
-
-		expect(await screen.findByText("Processing completed")).toBeInTheDocument();
-		expect(screen.getByText("reports/doc-1.txt is ready for retrieval.")).toBeInTheDocument();
-
-		unmount();
-		expect(MockEventSource.instances[0].close).toHaveBeenCalled();
-		global.EventSource = originalEventSource;
+			unmount();
+			expect(MockEventSource.instances[0].close).toHaveBeenCalled();
+		} finally {
+			global.EventSource = originalEventSource;
+		}
 	});
 
 	test("does not subscribe to document events when the user is not authenticated", async () => {
 		const originalEventSource = global.EventSource;
 		global.EventSource = MockEventSource;
 
-		global.fetch = vi
-			.fn()
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ mode: "none", valid: false, invalidReason: "none" }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({
-					providers: [
-						{
-							id: "google",
-							name: "Google",
-							issuer: "https://accounts.google.com",
-							authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
-							configured: true,
-						},
-					],
-				}),
-			});
+		try {
+			global.fetch = vi
+				.fn()
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ mode: "none", valid: false, invalidReason: "none" }),
+				})
+				.mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({
+						providers: [
+							{
+								id: "google",
+								name: "Google",
+								issuer: "https://accounts.google.com",
+								authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+								configured: true,
+							},
+						],
+					}),
+				});
 
-		render(<App />);
-		await screen.findByRole("heading", { name: /inspect the deployed labiraus surface/i });
+			render(<App />);
+			await screen.findByRole("heading", { name: /inspect the deployed labiraus surface/i });
 
-		expect(MockEventSource.instances).toHaveLength(0);
-		global.EventSource = originalEventSource;
+			expect(MockEventSource.instances).toHaveLength(0);
+		} finally {
+			global.EventSource = originalEventSource;
+		}
 	});
 });

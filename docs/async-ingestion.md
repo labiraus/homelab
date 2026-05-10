@@ -72,6 +72,8 @@ The current browser inventory slice exposes `POST /api/documents/inventory` thro
 
 Inventory rows can also load durable lifecycle history through the existing `POST /api/documents/history` route. This keeps inventory drilldown read-only and backed by `rag.document_lifecycle_events`, using the same lifecycle panel shape as Search.
 
+Text inventory rows with source object keys can queue reprocessing through the existing `POST /api/documents/reprocess` route. `external` still proxies the request to `orchestrator`, `orchestrator` still chooses and queues the next processing version, and the UI uses the accepted processing version to load the matching durable lifecycle history.
+
 The current retrieval context slice is read-only. `documents.context` in MCP and `POST /api/documents/context` in `external` use the same current-version pgvector search path as semantic search, then assemble the selected chunks into a cited context block with stable `[1]`, `[2]` references. The UI Search tab exposes that browser-facing context route with the same query, prefix, and metadata filters used for semantic search.
 
 The current browser document-control slice is intentionally narrow. The UI Search tab can select a retrieval result, update one curated metadata key/value pair through `/api/documents/curation`, load and save guarded text edits through `/api/documents/edit-text`, or queue reprocessing through `/api/documents/reprocess`. `external` only validates the public request shape and proxies to `orchestrator`; `orchestrator` still owns document validation, raw text writes, metadata persistence, version selection, lifecycle history, and queueing.

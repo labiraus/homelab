@@ -46,6 +46,7 @@ The repo already includes:
 - the UI Search tab can load that durable lifecycle history for a retrieved document through `/api/documents/history`
 - the UI Search tab can assemble citation-backed context blocks through `/api/documents/context`
 - the UI Inventory tab can inspect document status, versions, latest lifecycle summary fields, and metadata without needing a matching retrieval chunk
+- the UI Inventory tab can queue reprocessing for text inventory rows and immediately load the queued version's lifecycle history
 - the UI Search tab can update curated metadata and queue reprocessing for a retrieved document through `external` proxy routes backed by `orchestrator`
 - the UI Search tab can perform guarded raw text edits for selected text documents through `external` proxying to `orchestrator`
 - browser document actions that queue processing automatically load durable lifecycle history for the returned processing version
@@ -319,6 +320,22 @@ Current status:
 - the Inventory tab renders the shared lifecycle panel under the inventory results
 - the existing Search lifecycle panel now uses the same shared component
 - UI tests cover the inventory-to-history request body and rendered lifecycle event
+
+### Phase 14 — Browser Inventory Reprocess Follow-Up UX
+
+Deliverables:
+
+- expose existing reprocess control from Inventory rows without adding a new backend route
+- keep queueing backed by `POST /api/documents/reprocess`, with `orchestrator` choosing the next processing version
+- keep reprocessing limited to text documents with source object keys
+- update the selected row with the accepted desired processing version and load version-specific lifecycle history
+
+Current status:
+
+- Inventory rows include a Queue Reprocess action for text documents with object keys
+- successful queue responses update the row's desired processing version from the orchestrator response
+- Inventory reprocess actions automatically load `POST /api/documents/history` for the queued processing version
+- UI tests cover the inventory reprocess request body, row version update, and version-specific lifecycle event rendering
 
 ## Near-Term Non-Goals
 

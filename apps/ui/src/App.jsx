@@ -483,6 +483,16 @@ function initialDocumentOperationsState() {
 	};
 }
 
+function initialInventoryActionState() {
+	return {
+		status: "idle",
+		documentId: "",
+		sourceLabel: "",
+		message: "",
+		error: "",
+	};
+}
+
 function metadataEntries(metadata) {
 	if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
 		return [];
@@ -662,6 +672,9 @@ function App() {
 	const [inventoryLoaded, setInventoryLoaded] = useState(false);
 	const [inventoryError, setInventoryError] = useState("");
 	const [inventoryDocuments, setInventoryDocuments] = useState([]);
+	const [inventoryActionState, setInventoryActionState] = useState(
+		initialInventoryActionState,
+	);
 	const [toasts, setToasts] = useState([]);
 	const [theme, setTheme] = useState(() => {
 		if (typeof window === "undefined") {
@@ -987,6 +1000,7 @@ function App() {
 
 		setInventoryLoading(true);
 		setInventoryError("");
+		setInventoryActionState(initialInventoryActionState());
 
 		try {
 			const metadataKey = inventoryMetadataKey.trim();
@@ -1309,6 +1323,69 @@ function App() {
 				error: requestError instanceof Error ? requestError.message : "Reprocess request failed",
 				message: "",
 			}));
+		}
+	};
+
+	const handleInventoryReprocess = async (inventoryDocument) => {
+		const documentId = inventoryDocument?.documentId?.trim();
+		if (!documentId) {
+			return;
+		}
+
+		const sourceLabel = inventoryDocument.objectKey || documentId;
+		setInventoryActionState({
+			status: "loading",
+			documentId,
+			sourceLabel,
+			message: "",
+			error: "",
+		});
+
+		try {
+			const response = await reprocessDocument({ documentId });
+			const queuedProcessingVersion =
+				typeof response?.processingVersion === "number" ? response.processingVersion : 0;
+			const version =
+				queuedProcessingVersion > 0
+					? `processing version ${queuedProcessingVersion}`
+					: "a new processing version";
+
+			if (queuedProcessingVersion > 0) {
+				setInventoryDocuments((documents) =>
+					documents.map((entry) =>
+						entry.documentId === documentId
+							? {
+									...entry,
+									desiredProcessingVersion: Math.max(
+										entry.desiredProcessingVersion ?? 0,
+										queuedProcessingVersion,
+									),
+								}
+							: entry,
+					),
+				);
+			}
+
+			setInventoryActionState({
+				status: "success",
+				documentId,
+				sourceLabel,
+				message: `Queued ${version} for ${sourceLabel}.`,
+				error: "",
+			});
+
+			if (queuedProcessingVersion > 0) {
+				await loadDocumentHistory(documentId, sourceLabel, queuedProcessingVersion);
+			}
+		} catch (requestError) {
+			setInventoryActionState({
+				status: "error",
+				documentId,
+				sourceLabel,
+				message: "",
+				error:
+					requestError instanceof Error ? requestError.message : "Reprocess request failed",
+			});
 		}
 	};
 
@@ -2307,6 +2384,7 @@ function App() {
 											setInventoryDocuments([]);
 											setInventoryLoaded(false);
 											setInventoryError("");
+											setInventoryActionState(initialInventoryActionState());
 										}}
 										disabled={inventoryLoading}
 									>
@@ -2345,6 +2423,10 @@ function App() {
 									<div className="inventory-list">
 										{inventoryDocuments.map((document) => {
 											const entries = metadataEntries(document.metadata);
+											const canReprocess =
+												document.objectKey && isTextContentType(document.contentType);
+											const rowActionActive =
+												inventoryActionState.documentId === document.documentId;
 											return (
 												<article key={document.documentId} className="inventory-row">
 													<div className="inventory-row-header">
@@ -2425,6 +2507,20 @@ function App() {
 														>
 															History
 														</button>
+														<button
+															type="button"
+															className="inline-button"
+															onClick={() => void handleInventoryReprocess(document)}
+															disabled={
+																!canReprocess ||
+																inventoryActionState.status === "loading"
+															}
+															aria-label={`Queue reprocess for inventory ${
+																document.objectKey || document.documentId
+															}`}
+														>
+															Queue Reprocess
+														</button>
 														{document.objectKey ? (
 															<>
 																<a className="inline-button" href={documentOpenUrl(document.objectKey)}>
@@ -2436,6 +2532,12 @@ function App() {
 															</>
 														) : null}
 													</div>
+													{rowActionActive && inventoryActionState.error ? (
+														<p className="error-text">{inventoryActionState.error}</p>
+													) : null}
+													{rowActionActive && inventoryActionState.message ? (
+														<p className="success-text">{inventoryActionState.message}</p>
+													) : null}
 												</article>
 											);
 										})}
