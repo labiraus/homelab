@@ -33,6 +33,7 @@ The current ingestion slice is reference-based:
 - `ui` renders durable lifecycle history for selected search results through `external`'s `/api/documents/history`
 - `ui` can assemble cited context blocks from the Search tab through `external`'s `/api/documents/context` using the same query, prefix, and metadata filters
 - `ui` can inspect Postgres-backed inventory rows from the Inventory tab through `external`'s `/api/documents/inventory`
+- `ui` can trigger prefix-scoped bucket reconciliation from the Inventory tab through `external`'s `/api/documents/scan-bucket`
 - `ui` can load durable lifecycle history directly from Inventory tab rows through `external`'s `/api/documents/history`
 - `ui` can update curated metadata directly from Inventory tab rows through `external`'s `/api/documents/curation`
 - `ui` can perform guarded raw text edits directly from text Inventory tab rows through `external`'s `/api/documents/object` and `/api/documents/edit-text`

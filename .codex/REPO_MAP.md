@@ -112,8 +112,9 @@ Current behavior note:
 Current behavior note:
 
 - The frontend calls `/api/users/count` for the overview check.
-- Authenticated document workflows call `/api/documents/inventory`, `/api/documents/search`, `/api/documents/history`, `/api/documents/context`, `/api/documents/curation`, `/api/documents/edit-text`, `/api/documents/reprocess`, `/api/documents/events`, `/api/documents/tree`, `/api/documents/object`, and `/api/documents/upload`.
+- Authenticated document workflows call `/api/documents/inventory`, `/api/documents/search`, `/api/documents/history`, `/api/documents/context`, `/api/documents/curation`, `/api/documents/edit-text`, `/api/documents/reprocess`, `/api/documents/scan-bucket`, `/api/documents/events`, `/api/documents/tree`, `/api/documents/object`, and `/api/documents/upload`.
 - The Inventory tab calls `/api/documents/inventory` to inspect Postgres-backed reconciliation and processing state.
+- The Inventory tab can call `/api/documents/scan-bucket` to ask orchestrator to reconcile the current prefix filter, then refresh inventory rows.
 - The Inventory tab can call `/api/documents/history` for a selected inventory row to inspect durable lifecycle events.
 - The Inventory tab can call `/api/documents/curation` for a selected inventory row to update curated metadata through the orchestrator control plane.
 - The Inventory tab can load raw source text through `/api/documents/object` and save guarded text edits through `/api/documents/edit-text` for text inventory rows with source object keys.
@@ -141,7 +142,7 @@ Current behavior note:
 - `external` and `mcp` expose durable document lifecycle history from `rag.document_lifecycle_events`.
 - `ui` renders durable lifecycle history for retrieved documents by calling `/api/documents/history`.
 - `ui` renders cited context blocks by calling `/api/documents/context` from the Search tab.
-- `ui` exposes metadata curation, guarded text editing, and reprocess actions by calling `/api/documents/curation`, `/api/documents/edit-text`, and `/api/documents/reprocess`; `external` proxies those requests to `orchestrator`.
+- `ui` exposes metadata curation, guarded text editing, reprocess, and scan actions by calling `/api/documents/curation`, `/api/documents/edit-text`, `/api/documents/reprocess`, and `/api/documents/scan-bucket`; `external` proxies those requests to `orchestrator`.
 
 ### MinIO and Ansible
 

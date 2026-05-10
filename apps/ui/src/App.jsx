@@ -16,6 +16,7 @@ const DOCUMENT_HISTORY_PATH = "/api/documents/history";
 const DOCUMENT_CURATION_PATH = "/api/documents/curation";
 const DOCUMENT_EDIT_TEXT_PATH = "/api/documents/edit-text";
 const DOCUMENT_REPROCESS_PATH = "/api/documents/reprocess";
+const DOCUMENT_SCAN_BUCKET_PATH = "/api/documents/scan-bucket";
 const TOAST_DISMISS_MS = 6000;
 
 const actions = [
@@ -192,6 +193,14 @@ async function reprocessDocument(request) {
 	return callApi({
 		method: "POST",
 		path: DOCUMENT_REPROCESS_PATH,
+		body: request,
+	});
+}
+
+async function scanDocumentsBucket(request) {
+	return callApi({
+		method: "POST",
+		path: DOCUMENT_SCAN_BUCKET_PATH,
 		body: request,
 	});
 }
@@ -522,6 +531,15 @@ function initialInventoryEditState() {
 	};
 }
 
+function initialInventoryScanState() {
+	return {
+		status: "idle",
+		message: "",
+		error: "",
+		response: null,
+	};
+}
+
 function metadataEntries(metadata) {
 	if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
 		return [];
@@ -708,6 +726,7 @@ function App() {
 		initialInventoryCurationState,
 	);
 	const [inventoryEditState, setInventoryEditState] = useState(initialInventoryEditState);
+	const [inventoryScanState, setInventoryScanState] = useState(initialInventoryScanState);
 	const [toasts, setToasts] = useState([]);
 	const [theme, setTheme] = useState(() => {
 		if (typeof window === "undefined") {
@@ -1028,9 +1047,21 @@ function App() {
 		}
 	};
 
-	const handleInventorySubmit = async (event) => {
-		event.preventDefault();
+	const buildInventoryRequest = () => {
+		const metadataKey = inventoryMetadataKey.trim();
+		const metadataValue = inventoryMetadataValue.trim();
+		const metadata =
+			metadataKey && metadataValue ? { [metadataKey]: metadataValue } : undefined;
+		return {
+			status: inventoryStatusFilter.trim(),
+			documentId: inventoryDocumentIdFilter.trim(),
+			prefix: inventoryPrefixFilter.trim(),
+			...(metadata ? { metadata } : {}),
+			limit: 50,
+		};
+	};
 
+	const loadInventoryRows = async () => {
 		setInventoryLoading(true);
 		setInventoryError("");
 		setInventoryActionState(initialInventoryActionState());
@@ -1038,17 +1069,7 @@ function App() {
 		setInventoryEditState(initialInventoryEditState());
 
 		try {
-			const metadataKey = inventoryMetadataKey.trim();
-			const metadataValue = inventoryMetadataValue.trim();
-			const metadata =
-				metadataKey && metadataValue ? { [metadataKey]: metadataValue } : undefined;
-			const response = await fetchDocumentInventory({
-				status: inventoryStatusFilter.trim(),
-				documentId: inventoryDocumentIdFilter.trim(),
-				prefix: inventoryPrefixFilter.trim(),
-				...(metadata ? { metadata } : {}),
-				limit: 50,
-			});
+			const response = await fetchDocumentInventory(buildInventoryRequest());
 			setInventoryDocuments(response?.documents ?? []);
 			setInventoryLoaded(true);
 		} catch (requestError) {
@@ -1059,6 +1080,41 @@ function App() {
 			setInventoryLoaded(true);
 		} finally {
 			setInventoryLoading(false);
+		}
+	};
+
+	const handleInventorySubmit = async (event) => {
+		event.preventDefault();
+		await loadInventoryRows();
+	};
+
+	const handleInventoryScanSubmit = async () => {
+		setInventoryScanState({
+			status: "loading",
+			message: "",
+			error: "",
+			response: null,
+		});
+
+		try {
+			const response = await scanDocumentsBucket({
+				prefix: inventoryPrefixFilter.trim(),
+				maxKeys: 50,
+			});
+			setInventoryScanState({
+				status: "success",
+				message: `Scanned ${response?.scanned ?? 0} objects; queued ${response?.queued ?? 0}, skipped ${response?.skipped ?? 0}, unsupported ${response?.unsupported ?? 0}, failed ${response?.failed ?? 0}.`,
+				error: "",
+				response,
+			});
+			await loadInventoryRows();
+		} catch (requestError) {
+			setInventoryScanState({
+				status: "error",
+				message: "",
+				error: requestError instanceof Error ? requestError.message : "Bucket scan failed",
+				response: null,
+			});
 		}
 	};
 
@@ -2656,9 +2712,17 @@ function App() {
 									<button
 										type="submit"
 										className="menu-action primary"
-										disabled={inventoryLoading}
+										disabled={inventoryLoading || inventoryScanState.status === "loading"}
 									>
 										{inventoryLoading ? "Loading..." : "Load Inventory"}
+									</button>
+									<button
+										type="button"
+										className="menu-action"
+										onClick={() => void handleInventoryScanSubmit()}
+										disabled={inventoryLoading || inventoryScanState.status === "loading"}
+									>
+										{inventoryScanState.status === "loading" ? "Scanning..." : "Scan Bucket"}
 									</button>
 									<button
 										type="button"
@@ -2675,14 +2739,21 @@ function App() {
 											setInventoryActionState(initialInventoryActionState());
 											setInventoryCurationState(initialInventoryCurationState());
 											setInventoryEditState(initialInventoryEditState());
+											setInventoryScanState(initialInventoryScanState());
 										}}
-										disabled={inventoryLoading}
+										disabled={inventoryLoading || inventoryScanState.status === "loading"}
 									>
 										Clear
 									</button>
 								</div>
 
 								{inventoryError ? <p className="error-text">{inventoryError}</p> : null}
+								{inventoryScanState.error ? (
+									<p className="error-text">{inventoryScanState.error}</p>
+								) : null}
+								{inventoryScanState.message ? (
+									<p className="success-text">{inventoryScanState.message}</p>
+								) : null}
 							</form>
 
 							<div className="inventory-results-column">

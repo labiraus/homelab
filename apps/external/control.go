@@ -19,6 +19,7 @@ const (
 	documentCurationLabel      = "documentCurationHandler"
 	documentEditTextLabel      = "documentEditTextHandler"
 	documentReprocessLabel     = "documentReprocessHandler"
+	documentScanBucketLabel    = "documentScanBucketHandler"
 	maxDocumentControlBodySize = 1 << 20
 )
 
@@ -43,6 +44,10 @@ func documentEditTextHandler(w http.ResponseWriter, r *http.Request) {
 
 func documentReprocessHandler(w http.ResponseWriter, r *http.Request) {
 	handleOrchestratorDocumentAction(documentReprocessLabel, "/documents/reprocess", w, r)
+}
+
+func documentScanBucketHandler(w http.ResponseWriter, r *http.Request) {
+	handleOrchestratorDocumentAction(documentScanBucketLabel, "/documents/scan-bucket", w, r)
 }
 
 func handleOrchestratorDocumentAction(label string, path string, w http.ResponseWriter, r *http.Request) {

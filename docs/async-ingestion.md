@@ -33,7 +33,7 @@ The initial inventory record should capture:
 
 At this stage, the important outcome is durable document state in Postgres, not immediate extraction.
 
-The current live scan endpoint is `POST /documents/scan-bucket`, also exposed through MCP as the `documents.scanBucket` tool. It accepts optional `bucket`, `prefix`, `maxKeys`, and `processingVersion` fields. Non-text objects are inventoried with status `unsupported`; unchanged known objects keep their current lifecycle status while refreshing reconciliation metadata.
+The current live scan endpoint is `POST /documents/scan-bucket`, exposed through MCP as the `documents.scanBucket` tool and through `external` as `POST /api/documents/scan-bucket`. It accepts optional `bucket`, `prefix`, `maxKeys`, and `processingVersion` fields. Non-text objects are inventoried with status `unsupported`; unchanged known objects keep their current lifecycle status while refreshing reconciliation metadata.
 
 ### Phase 2
 
@@ -69,6 +69,8 @@ The Labiraus MCP server now subscribes to that NATS event stream and forwards do
 The current durable history slice records processor queue/start/complete/fail lifecycle events in `rag.document_lifecycle_events`. The event stream remains best-effort delivery for subscribers, while Postgres provides the audit trail that can be queried later through `documents.history.list` in MCP or `POST /api/documents/history` in `external`. The UI Search tab consumes the external history route to show a lifecycle panel for retrieved documents.
 
 The current browser inventory slice exposes `POST /api/documents/inventory` through `external`. It reads `rag.documents` and returns document IDs, object keys, processing status, current and desired processing versions, latest lifecycle summary fields, errors, timestamps, and curated metadata. The UI Inventory tab uses that route with optional status, exact document ID, prefix, and exact metadata filters so browser operators can inspect reconciliation and processing state without needing a matching retrieval chunk.
+
+The Inventory tab can also trigger reconciliation through `POST /api/documents/scan-bucket`, sending the current prefix filter with a bounded scan limit. `external` proxies the request to `orchestrator`, and the UI refreshes the current inventory filters after a successful scan response.
 
 Inventory rows can also load durable lifecycle history through the existing `POST /api/documents/history` route. This keeps inventory drilldown read-only and backed by `rag.document_lifecycle_events`, using the same lifecycle panel shape as Search.
 

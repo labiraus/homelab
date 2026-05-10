@@ -766,6 +766,53 @@ func TestDocumentReprocessHandlerProxiesToOrchestrator(t *testing.T) {
 	}
 }
 
+func TestDocumentScanBucketHandlerProxiesToOrchestrator(t *testing.T) {
+	setOrchestratorEnv(t)
+	base.ServiceName = "external_test_" + t.Name()
+	prometheusutil.Start(http.NewServeMux())
+
+	previousProxy := proxyOrchestratorDocumentAction
+	t.Cleanup(func() {
+		proxyOrchestratorDocumentAction = previousProxy
+	})
+
+	proxyOrchestratorDocumentAction = func(ctx context.Context, path string, body []byte) (orchestratorDocumentActionResponse, error) {
+		if path != "/documents/scan-bucket" {
+			t.Fatalf("expected scan path, got %q", path)
+		}
+
+		var request map[string]any
+		if err := json.Unmarshal(body, &request); err != nil {
+			t.Fatalf("expected valid proxied json: %v", err)
+		}
+		if request["prefix"] != "runbooks/" {
+			t.Fatalf("expected prefix runbooks/, got %#v", request["prefix"])
+		}
+		if request["maxKeys"] != float64(50) {
+			t.Fatalf("expected maxKeys 50, got %#v", request["maxKeys"])
+		}
+
+		return orchestratorDocumentActionResponse{
+			statusCode:  http.StatusOK,
+			contentType: "application/json",
+			body:        []byte(`{"status":"scanned","bucket":"documents","prefix":"runbooks/","scanned":2,"queued":1,"skipped":1}`),
+		}, nil
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api/documents/scan-bucket", strings.NewReader(`{"prefix":"runbooks/","maxKeys":50}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	documentScanBucketHandler(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"queued":1`) {
+		t.Fatalf("expected orchestrator body to be returned, got %q", recorder.Body.String())
+	}
+}
+
 func TestDocumentControlHandlerRequiresConfiguredOrchestrator(t *testing.T) {
 	base.ServiceName = "external_test_" + t.Name()
 	prometheusutil.Start(http.NewServeMux())

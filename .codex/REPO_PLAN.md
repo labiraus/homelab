@@ -43,8 +43,10 @@ The repo already includes:
 - a built-in deterministic `local-embeddings` fallback used by processor, `external`, and `mcp` when no external embedding endpoint is configured
 - durable document lifecycle history in `rag.document_lifecycle_events`, exposed through `external` and `mcp`
 - browser-facing document inventory reads through `/api/documents/inventory`, backed by `rag.documents`
+- browser-facing bucket reconciliation through `/api/documents/scan-bucket`, proxied to `orchestrator`
 - the UI Search tab can load that durable lifecycle history for a retrieved document through `/api/documents/history`
 - the UI Search tab can assemble citation-backed context blocks through `/api/documents/context`
+- the UI Inventory tab can ask `orchestrator` to reconcile the current prefix filter and refresh inventory rows
 - the UI Inventory tab can inspect document status, versions, latest lifecycle summary fields, and metadata without needing a matching retrieval chunk
 - the UI Inventory tab can curate metadata for inventory rows through `external` proxy routes backed by `orchestrator`
 - the UI Inventory tab can perform guarded raw text edits for text inventory rows through `external` proxying to `orchestrator`
@@ -180,7 +182,7 @@ Current status:
 - `orchestrator` exposes `POST /documents/curation` for metadata-only curation of existing inventory rows
 - `orchestrator` exposes `POST /documents/edit-text` for text-only edits of existing inventory rows that overwrite the raw MinIO object and queue a newer processing version
 - `orchestrator` exposes `POST /documents/reprocess` for queueing an existing inventory document at a newer processing version
-- `external` exposes `POST /api/documents/curation`, `POST /api/documents/edit-text`, and `POST /api/documents/reprocess` as browser-facing proxy routes to the orchestrator control plane
+- `external` exposes `POST /api/documents/curation`, `POST /api/documents/edit-text`, `POST /api/documents/reprocess`, and `POST /api/documents/scan-bucket` as browser-facing proxy routes to the orchestrator control plane
 - `mcp` exposes that curation flow as `documents.curation.update`
 - `mcp` exposes that text editing flow as `documents.editText`
 - `mcp` exposes that reprocessing flow as `documents.reprocess`
@@ -372,6 +374,23 @@ Current status:
 - successful saves update the row's desired processing version from the orchestrator response
 - Inventory text edit actions automatically load `POST /api/documents/history` for the queued processing version
 - UI tests cover the inventory object load, edit-text request body, row version update, and version-specific lifecycle event rendering
+
+### Phase 17 — Browser Inventory Bucket Scan UX
+
+Deliverables:
+
+- expose existing orchestrator bucket reconciliation through the browser-facing `external` API
+- keep scan execution backed by `POST /api/documents/scan-bucket`, with `orchestrator` owning MinIO reconciliation and queueing
+- let Inventory operators scan the current object-key prefix filter without leaving the Inventory tab
+- refresh inventory rows after a successful scan so reconciled state is visible immediately
+
+Current status:
+
+- `external` proxies `POST /api/documents/scan-bucket` to `orchestrator` `POST /documents/scan-bucket`
+- the Inventory tab includes a Scan Bucket action that sends the current prefix filter and a bounded scan limit
+- successful scan responses render scanned, queued, skipped, unsupported, and failed counts
+- successful scans reload the current inventory filters
+- external and UI tests cover the scan proxy request body, browser request body, scan summary, and inventory refresh
 
 ## Near-Term Non-Goals
 

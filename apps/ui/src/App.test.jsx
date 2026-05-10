@@ -316,6 +316,44 @@ describe("App", () => {
 			.mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({
+					status: "scanned",
+					bucket: "documents",
+					prefix: "runbooks/",
+					scanned: 2,
+					created: 0,
+					updated: 1,
+					queued: 1,
+					skipped: 1,
+					unsupported: 0,
+					failed: 0,
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					count: 1,
+					documents: [
+						{
+							documentId: "doc-1",
+							bucket: "documents",
+							objectKey: "runbooks/process.md",
+							sourceUri: "s3://documents/runbooks/process.md",
+							contentType: "text/markdown",
+							status: "processed",
+							metadata: { tag: "runbook" },
+							desiredProcessingVersion: 3,
+							currentProcessingVersion: 2,
+							lastReconciledAt: "2026-05-10T17:02:00Z",
+							lastProcessedAt: "2026-05-10T17:01:00Z",
+							lastEventSubject: "documents.events.processor.completed",
+							lastEventAt: "2026-05-10T17:01:00Z",
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
 					status: "updated",
 					documentId: "doc-1",
 					metadata: { tag: "runbook", owner: "ops" },
@@ -434,6 +472,35 @@ describe("App", () => {
 		expect(screen.getByText(/current v2 \/ desired v3/i)).toBeInTheDocument();
 		expect(screen.getByText(/Processing completed/)).toBeInTheDocument();
 		expect(screen.getByText("runbook")).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/inventory",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					status: "processed",
+					documentId: "doc-1",
+					prefix: "runbooks/",
+					metadata: { tag: "runbook" },
+					limit: 50,
+				}),
+			}),
+		);
+
+		await user.click(screen.getByRole("button", { name: /scan bucket/i }));
+
+		expect(
+			await screen.findByText(/scanned 2 objects; queued 1, skipped 1, unsupported 0, failed 0/i),
+		).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/scan-bucket",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					prefix: "runbooks/",
+					maxKeys: 50,
+				}),
+			}),
+		);
 		expect(global.fetch).toHaveBeenCalledWith(
 			"/api/documents/inventory",
 			expect.objectContaining({
