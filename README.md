@@ -143,6 +143,7 @@ Mounted local-only files:
 Included tooling:
 
 - Docker outside Docker
+- GitHub CLI (`gh`)
 - Terraform
 - Ansible Core 2.15.x
 - MinIO client (`mc`)
