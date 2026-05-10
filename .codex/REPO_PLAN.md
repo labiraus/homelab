@@ -46,6 +46,7 @@ The repo already includes:
 - the UI Search tab can assemble citation-backed context blocks through `/api/documents/context`
 - the UI Search tab can update curated metadata and queue reprocessing for a retrieved document through `external` proxy routes backed by `orchestrator`
 - the UI Search tab can perform guarded raw text edits for selected text documents through `external` proxying to `orchestrator`
+- browser document actions that queue processing automatically load durable lifecycle history for the returned processing version
 
 Documentation must stay aligned with implementation as these pieces evolve.
 
@@ -267,6 +268,22 @@ Current status:
 - the edit form requires a changed body plus explicit overwrite confirmation before saving
 - successful saves show the queued processing version returned by the orchestrator
 - tests cover the public API proxy and the browser load/edit/save request bodies
+
+### Phase 11 — Browser Action Lifecycle Follow-Up UX
+
+Deliverables:
+
+- connect browser-triggered processing actions to the existing durable lifecycle history panel
+- use the processing version returned by orchestrator action responses
+- keep the lifecycle view read-only and backed by `POST /api/documents/history`
+- avoid adding new workflow state or duplicating lifecycle decisions in the browser
+
+Current status:
+
+- reprocess actions automatically load lifecycle history for the queued processing version
+- guarded text edits automatically load lifecycle history for the queued processing version
+- the history panel labels version-specific action timelines distinctly from broad document history
+- UI tests cover the version-specific history request bodies after reprocess and text edit actions
 
 ## Near-Term Non-Goals
 

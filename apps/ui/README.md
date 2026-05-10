@@ -30,6 +30,8 @@ The authenticated Search tab submits natural-language queries to the public API,
 
 Text editing is limited to selected text documents with source object keys. The UI loads the current text through `/api/documents/object`, requires the user to change the text and confirm the raw overwrite, then sends the replacement to `/api/documents/edit-text` so `orchestrator` writes MinIO and queues the next processing version.
 
+When reprocess or text-edit actions return a queued processing version, the UI automatically loads `/api/documents/history` for that exact version so the lifecycle panel shows the queued/start/complete trail for the action the user just triggered.
+
 ## Local Development
 
 Install dependencies:

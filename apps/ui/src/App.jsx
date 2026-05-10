@@ -530,6 +530,7 @@ function App() {
 		status: "idle",
 		documentId: "",
 		sourceLabel: "",
+		processingVersion: 0,
 		events: [],
 		error: "",
 	});
@@ -864,6 +865,7 @@ function App() {
 			status: "idle",
 			documentId: "",
 			sourceLabel: "",
+			processingVersion: 0,
 			events: [],
 			error: "",
 		});
@@ -965,27 +967,27 @@ function App() {
 		}
 	};
 
-	const handleLoadHistory = async (result) => {
-		const documentId = result?.documentId?.trim();
-		if (!documentId) {
-			return;
-		}
-
-		const sourceLabel = result.objectKey || documentId;
+	const loadDocumentHistory = async (documentId, sourceLabel, processingVersion = 0) => {
 		setHistoryState({
 			status: "loading",
 			documentId,
 			sourceLabel,
+			processingVersion,
 			events: [],
 			error: "",
 		});
 
 		try {
-			const response = await fetchDocumentHistory({ documentId, limit: 20 });
+			const response = await fetchDocumentHistory({
+				documentId,
+				...(processingVersion > 0 ? { processingVersion } : {}),
+				limit: 20,
+			});
 			setHistoryState({
 				status: "ready",
 				documentId,
 				sourceLabel,
+				processingVersion,
 				events: response?.events ?? [],
 				error: "",
 			});
@@ -994,10 +996,20 @@ function App() {
 				status: "error",
 				documentId,
 				sourceLabel,
+				processingVersion,
 				events: [],
 				error: requestError instanceof Error ? requestError.message : "History request failed",
 			});
 		}
+	};
+
+	const handleLoadHistory = async (result) => {
+		const documentId = result?.documentId?.trim();
+		if (!documentId) {
+			return;
+		}
+
+		await loadDocumentHistory(documentId, result.objectKey || documentId);
 	};
 
 	const handleStartDocumentOperations = (result) => {
@@ -1109,9 +1121,11 @@ function App() {
 
 		try {
 			const response = await reprocessDocument({ documentId });
+			const queuedProcessingVersion =
+				typeof response?.processingVersion === "number" ? response.processingVersion : 0;
 			const version =
-				typeof response?.processingVersion === "number"
-					? `processing version ${response.processingVersion}`
+				queuedProcessingVersion > 0
+					? `processing version ${queuedProcessingVersion}`
 					: "a new processing version";
 			setDocumentOperationsState((current) => ({
 				...current,
@@ -1119,6 +1133,13 @@ function App() {
 				message: `Queued ${version} for ${current.sourceLabel || documentId}.`,
 				error: "",
 			}));
+			if (queuedProcessingVersion > 0) {
+				await loadDocumentHistory(
+					documentId,
+					documentOperationsState.sourceLabel || documentId,
+					queuedProcessingVersion,
+				);
+			}
 		} catch (requestError) {
 			setDocumentOperationsState((current) => ({
 				...current,
@@ -1218,9 +1239,11 @@ function App() {
 				text: documentOperationsState.editText,
 				contentType: documentOperationsState.contentType || "text/plain; charset=utf-8",
 			});
+			const queuedProcessingVersion =
+				typeof response?.processingVersion === "number" ? response.processingVersion : 0;
 			const version =
-				typeof response?.processingVersion === "number"
-					? `processing version ${response.processingVersion}`
+				queuedProcessingVersion > 0
+					? `processing version ${queuedProcessingVersion}`
 					: "a new processing version";
 			setDocumentOperationsState((current) => ({
 				...current,
@@ -1230,6 +1253,13 @@ function App() {
 				editMessage: `Queued text edit as ${version}.`,
 				editError: "",
 			}));
+			if (queuedProcessingVersion > 0) {
+				await loadDocumentHistory(
+					documentId,
+					documentOperationsState.sourceLabel || documentId,
+					queuedProcessingVersion,
+				);
+			}
 		} catch (requestError) {
 			setDocumentOperationsState((current) => ({
 				...current,
@@ -1613,6 +1643,7 @@ function App() {
 												status: "idle",
 												documentId: "",
 												sourceLabel: "",
+												processingVersion: 0,
 												events: [],
 												error: "",
 											});
@@ -1993,7 +2024,11 @@ function App() {
 											<h3>Lifecycle history</h3>
 											<p>
 												{historyState.documentId
-													? `${historyState.sourceLabel} recorded in Postgres.`
+													? `${historyState.sourceLabel}${
+															historyState.processingVersion
+																? ` version ${historyState.processingVersion}`
+																: ""
+														} recorded in Postgres.`
 													: "Select a search result to inspect durable processing events."}
 											</p>
 										</div>

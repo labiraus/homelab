@@ -114,6 +114,7 @@ Current behavior note:
 - Authenticated document workflows call `/api/documents/search`, `/api/documents/history`, `/api/documents/context`, `/api/documents/curation`, `/api/documents/edit-text`, `/api/documents/reprocess`, `/api/documents/events`, `/api/documents/tree`, `/api/documents/object`, and `/api/documents/upload`.
 - The Search tab also calls `/api/documents/context` to assemble cited context blocks from the current query and filters.
 - The Search tab can select a result for document actions, updating curated metadata, performing guarded text edits, and queueing reprocessing through `external` proxy routes backed by `orchestrator`.
+- Reprocess and guarded edit actions automatically load `/api/documents/history` for the queued processing version returned by `orchestrator`.
 - Browser login is currently expected to be challenged at the edge through `oauth2-proxy`, not implemented directly in React.
 - This app is Vite-based, not Create React App.
 

@@ -579,6 +579,27 @@ describe("App", () => {
 					processingVersion: 4,
 					sourceUri: "s3://documents/runbooks/process.md",
 				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					documentId: "doc-1",
+					count: 1,
+					events: [
+						{
+							id: 11,
+							documentId: "doc-1",
+							subject: "documents.events.processor.queued",
+							processingVersion: 4,
+							occurredAt: "2026-05-10T16:50:00Z",
+							createdAt: "2026-05-10T16:50:00Z",
+							payload: {
+								documentId: "doc-1",
+								objectKey: "runbooks/process.md",
+							},
+						},
+					],
+				}),
 			});
 
 		render(<App />);
@@ -628,6 +649,19 @@ describe("App", () => {
 			expect.objectContaining({
 				method: "POST",
 				body: JSON.stringify({ documentId: "doc-1" }),
+			}),
+		);
+		expect(await screen.findByText("Processing queued")).toBeInTheDocument();
+		expect(screen.getByText(/runbooks\/process\.md version 4 recorded in postgres/i)).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/history",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					documentId: "doc-1",
+					processingVersion: 4,
+					limit: 20,
+				}),
 			}),
 		);
 	});
@@ -685,6 +719,27 @@ describe("App", () => {
 					sourceUri: "s3://documents/runbooks/process.md",
 					objectKey: "runbooks/process.md",
 				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					documentId: "doc-1",
+					count: 1,
+					events: [
+						{
+							id: 12,
+							documentId: "doc-1",
+							subject: "documents.events.processor.queued",
+							processingVersion: 6,
+							occurredAt: "2026-05-10T16:51:00Z",
+							createdAt: "2026-05-10T16:51:00Z",
+							payload: {
+								documentId: "doc-1",
+								objectKey: "runbooks/process.md",
+							},
+						},
+					],
+				}),
 			});
 
 		render(<App />);
@@ -727,6 +782,19 @@ describe("App", () => {
 					documentId: "doc-1",
 					text: "updated process notes",
 					contentType: "text/markdown",
+				}),
+			}),
+		);
+		expect(await screen.findByText("Processing queued")).toBeInTheDocument();
+		expect(screen.getByText(/runbooks\/process\.md version 6 recorded in postgres/i)).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/history",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					documentId: "doc-1",
+					processingVersion: 6,
+					limit: 20,
 				}),
 			}),
 		);

@@ -72,6 +72,8 @@ The current retrieval context slice is read-only. `documents.context` in MCP and
 
 The current browser document-control slice is intentionally narrow. The UI Search tab can select a retrieval result, update one curated metadata key/value pair through `/api/documents/curation`, load and save guarded text edits through `/api/documents/edit-text`, or queue reprocessing through `/api/documents/reprocess`. `external` only validates the public request shape and proxies to `orchestrator`; `orchestrator` still owns document validation, raw text writes, metadata persistence, version selection, lifecycle history, and queueing.
 
+When a browser reprocess or text-edit action returns a processing version, the UI immediately queries `POST /api/documents/history` with that `documentId` and `processingVersion`. This keeps action follow-up read-only and Postgres-backed while giving the user the specific queued/start/complete trail for the operation they just requested.
+
 ### Phase 3
 
 `processor` consumes the job, performs extraction, chunking, and embedding, and writes derived results back to Postgres.
