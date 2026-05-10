@@ -42,6 +42,7 @@ The repo already includes:
 - browser uploads emit `documents.events.minio.stored` after raw objects are written to MinIO
 - a built-in deterministic `local-embeddings` fallback used by processor, `external`, and `mcp` when no external embedding endpoint is configured
 - durable document lifecycle history in `rag.document_lifecycle_events`, exposed through `external` and `mcp`
+- the MCP prompt catalog includes prompt-first guidance for ingestion, scan planning, inventory reads, metadata curation, guarded text editing, reprocessing, retrieval, context assembly, lifecycle history, auth health, MinIO browsing, and document notification subscriptions
 - browser-facing document inventory reads through `/api/documents/inventory`, backed by `rag.documents`
 - browser-facing bucket reconciliation through `/api/documents/scan-bucket`, proxied to `orchestrator`
 - the UI Search tab can load that durable lifecycle history for a retrieved document through `/api/documents/history`
@@ -166,6 +167,7 @@ Current status:
 - `external` exposes `/api/documents/search` for UI retrieval
 - `mcp` exposes `documents.inventory.list` and `documents.search` for agent-facing inventory and semantic retrieval
 - search responses now include citation objects that identify source URI and chunk identity, and the UI renders those citations with source links
+- `mcp` prompt guidance covers the current live document inventory, retrieval, curation, reprocessing, history, notification, and storage capability surface
 - `mcp` has no currently advertised planned operations in the manifest catalog
 
 ### Phase 5 — Editing, Reprocessing, Citations, And Richer Context
@@ -391,6 +393,23 @@ Current status:
 - successful scan responses render scanned, queued, skipped, unsupported, and failed counts
 - successful scans reload the current inventory filters
 - external and UI tests cover the scan proxy request body, browser request body, scan summary, and inventory refresh
+
+### Phase 18 — MCP Prompt Coverage For Inventory And Control Actions
+
+Deliverables:
+
+- keep the Labiraus MCP prompt catalog aligned with live inventory and control-plane tools
+- add prompt-first guidance for `documents.inventory.list`, `documents.curation.update`, and `documents.reprocess`
+- keep prompts grounded in the existing Postgres/orchestrator ownership model rather than introducing separate workflow state
+- update MCP prompt docs and manifest tests with the new prompt names and arguments
+
+Current status:
+
+- `mcp` publishes `documents.inventory.prompt`, `documents.curation.update.prompt`, and `documents.reprocess.prompt`
+- the inventory prompt explains status, prefix, document ID, and exact-match metadata filters plus when to scan before listing
+- the curation prompt explains targeted metadata merge versus full replacement
+- the reprocess prompt explains orchestrator-owned next-version selection and following the returned version through durable history
+- MCP tests cover the new prompt catalog entries and rendered control prompt arguments
 
 ## Near-Term Non-Goals
 

@@ -64,6 +64,26 @@ var capabilityCatalog = []manifestCapabilitySource{
 				},
 				documentScanBucketSchema(),
 			),
+			livePrompt(
+				"documents.reprocess.prompt",
+				"reprocessDocumentPrompt",
+				"/prompts/documents/reprocess",
+				"Show how to queue a newer processing version for an existing inventory document.",
+				false,
+				[]manifestPromptArgument{
+					{Name: "documentId", Description: "Existing document identifier from inventory or search results.", Required: true},
+					{Name: "processingVersion", Description: "Optional explicit processing version to request."},
+				},
+				[]manifestPromptMessage{
+					{
+						Role: "user",
+						Content: manifestPromptMessagePart{
+							Type: "text",
+							Text: "Use the live `documents.reprocess` tool on Labiraus to queue a fresh processing attempt for `{{documentId}}`. Send a body with `documentId` and, only when you need to override the orchestrator's next-version choice, `processingVersion`. After the tool returns, inspect the returned processing version with `documents.history.list` to follow queued, started, completed, or failed events.",
+						},
+					},
+				},
+			),
 			liveTool(
 				"documents.reprocess",
 				"reprocessDocument",
@@ -105,6 +125,26 @@ var capabilityCatalog = []manifestCapabilitySource{
 		Summary: "Curate document inventory metadata through the orchestrator control plane.",
 		Backend: manifestBackendOrchestrator,
 		Operations: []manifestOperationSource{
+			livePrompt(
+				"documents.curation.update.prompt",
+				"updateDocumentCurationPrompt",
+				"/prompts/documents/curation/update",
+				"Show how to update curated metadata for an existing inventory document.",
+				false,
+				[]manifestPromptArgument{
+					{Name: "documentId", Description: "Existing document identifier from inventory or search results.", Required: true},
+					{Name: "metadata", Description: "Optional JSON metadata example to merge, such as {\"tag\":\"runbook\"}."},
+				},
+				[]manifestPromptMessage{
+					{
+						Role: "user",
+						Content: manifestPromptMessagePart{
+							Type: "text",
+							Text: "Use the live `documents.curation.update` tool on Labiraus to curate metadata for `{{documentId}}`. Send a body with `documentId` and a `metadata` object such as `{{metadata}}`; omit `replace` or set it to false for a targeted merge, and set `replace` only when intentionally replacing the full curated metadata object. The orchestrator writes the metadata to `rag.documents.metadata`, where inventory, search, and context exact-match filters can use it.",
+						},
+					},
+				},
+			),
 			liveTool(
 				"documents.curation.update",
 				"updateDocumentCuration",
@@ -206,6 +246,28 @@ var capabilityCatalog = []manifestCapabilitySource{
 						Content: manifestPromptMessagePart{
 							Type: "text",
 							Text: "Use the live `documents.context` tool on Labiraus with query `{{query}}`. Optional filters: set `prefix` to a documents-bucket object-key prefix, and set `metadata` to exact-match JSON such as `{\"tag\":\"runbook\"}`. The tool searches the current processed chunk version, then assembles a compact context block with `[1]`, `[2]` style references and citation objects for each included chunk.",
+						},
+					},
+				},
+			),
+			livePrompt(
+				"documents.inventory.prompt",
+				"listDocumentInventoryPrompt",
+				"/prompts/documents/inventory",
+				"Show how to inspect Postgres-backed document inventory and processing state.",
+				false,
+				[]manifestPromptArgument{
+					{Name: "status", Description: "Optional document lifecycle status filter."},
+					{Name: "prefix", Description: "Optional documents-bucket object-key prefix."},
+					{Name: "documentId", Description: "Optional exact document identifier."},
+					{Name: "metadata", Description: "Optional exact-match JSON metadata filters, for example {\"tag\":\"runbook\"}."},
+				},
+				[]manifestPromptMessage{
+					{
+						Role: "user",
+						Content: manifestPromptMessagePart{
+							Type: "text",
+							Text: "Use the live `documents.inventory.list` tool on Labiraus to inspect Postgres-backed document inventory. Optional filters: `status` for lifecycle state, `prefix` for a documents-bucket object-key prefix, `documentId` for one exact inventory row, and `metadata` for exact-match JSON such as `{{metadata}}`. Inventory rows include source identity, metadata, processing versions, latest lifecycle summary fields, reconciliation timestamps, and errors. If the inventory appears stale for a prefix, use `documents.scanBucket` first, then list inventory again.",
 						},
 					},
 				},

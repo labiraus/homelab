@@ -140,6 +140,7 @@ Current behavior note:
 - `external` exposes semantic document search for the UI.
 - `mcp` exposes document inventory and semantic search for agents.
 - `external` and `mcp` expose durable document lifecycle history from `rag.document_lifecycle_events`.
+- `mcp` publishes prompt guidance for live document inventory, retrieval, curation, editing, reprocessing, history, notification, and MinIO browsing workflows.
 - `ui` renders durable lifecycle history for retrieved documents by calling `/api/documents/history`.
 - `ui` renders cited context blocks by calling `/api/documents/context` from the Search tab.
 - `ui` exposes metadata curation, guarded text editing, reprocess, and scan actions by calling `/api/documents/curation`, `/api/documents/edit-text`, `/api/documents/reprocess`, and `/api/documents/scan-bucket`; `external` proxies those requests to `orchestrator`.

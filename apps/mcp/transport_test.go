@@ -43,6 +43,18 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 	if !promptHasArgument(historyPrompt, "documentId") {
 		t.Fatalf("expected history prompt to advertise documentId argument, got %#v", historyPrompt.Arguments)
 	}
+	inventoryPrompt := findPromptInManifest(t, manifest, "documents.inventory.prompt")
+	if !promptHasArgument(inventoryPrompt, "metadata") {
+		t.Fatalf("expected inventory prompt to advertise metadata argument, got %#v", inventoryPrompt.Arguments)
+	}
+	curationPrompt := findPromptInManifest(t, manifest, "documents.curation.update.prompt")
+	if !promptHasArgument(curationPrompt, "documentId") || !promptHasArgument(curationPrompt, "metadata") {
+		t.Fatalf("expected curation prompt to advertise documentId and metadata arguments, got %#v", curationPrompt.Arguments)
+	}
+	reprocessPrompt := findPromptInManifest(t, manifest, "documents.reprocess.prompt")
+	if !promptHasArgument(reprocessPrompt, "documentId") {
+		t.Fatalf("expected reprocess prompt to advertise documentId argument, got %#v", reprocessPrompt.Arguments)
+	}
 	if !manifestHasTransport(manifest, "streamable-http", "https://mcp.labiraus.com/mcp") {
 		t.Fatalf("expected streamable-http transport in manifest, got %#v", manifest.Transports)
 	}
@@ -813,6 +825,46 @@ func TestHandlePromptsGetRendersArguments(t *testing.T) {
 	}
 	if !strings.Contains(content["text"].(string), "doc-123") {
 		t.Fatalf("expected rendered document id in prompt message, got %#v", content["text"])
+	}
+}
+
+func TestHandlePromptsGetRendersControlPromptArguments(t *testing.T) {
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "prompts/get",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "documents.curation.update.prompt",
+			"arguments": map[string]any{
+				"documentId": "doc-456",
+				"metadata":   `{"tag":"runbook"}`,
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful prompt get response, got %#v", responseBody)
+	}
+
+	result, ok := responseBody.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected prompt result map, got %#v", responseBody.Result)
+	}
+
+	messages, ok := result["messages"].([]manifestPromptMessage)
+	if !ok || len(messages) != 1 {
+		t.Fatalf("expected one prompt message, got %#v", result["messages"])
+	}
+
+	if !strings.Contains(messages[0].Content.Text, "doc-456") {
+		t.Fatalf("expected rendered document id in prompt message, got %#v", messages[0].Content.Text)
+	}
+	if !strings.Contains(messages[0].Content.Text, `{"tag":"runbook"}`) {
+		t.Fatalf("expected rendered metadata in prompt message, got %#v", messages[0].Content.Text)
 	}
 }
 
