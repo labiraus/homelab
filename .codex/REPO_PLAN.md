@@ -46,6 +46,7 @@ The repo already includes:
 - the UI Search tab can load that durable lifecycle history for a retrieved document through `/api/documents/history`
 - the UI Search tab can assemble citation-backed context blocks through `/api/documents/context`
 - the UI Inventory tab can inspect document status, versions, latest lifecycle summary fields, and metadata without needing a matching retrieval chunk
+- the UI Inventory tab can curate metadata for inventory rows through `external` proxy routes backed by `orchestrator`
 - the UI Inventory tab can queue reprocessing for text inventory rows and immediately load the queued version's lifecycle history
 - the UI Search tab can update curated metadata and queue reprocessing for a retrieved document through `external` proxy routes backed by `orchestrator`
 - the UI Search tab can perform guarded raw text edits for selected text documents through `external` proxying to `orchestrator`
@@ -336,6 +337,22 @@ Current status:
 - successful queue responses update the row's desired processing version from the orchestrator response
 - Inventory reprocess actions automatically load `POST /api/documents/history` for the queued processing version
 - UI tests cover the inventory reprocess request body, row version update, and version-specific lifecycle event rendering
+
+### Phase 15 — Browser Inventory Metadata Curation UX
+
+Deliverables:
+
+- expose existing metadata curation from Inventory rows without adding a new backend route
+- keep curation backed by `POST /api/documents/curation`, with `orchestrator` owning metadata persistence
+- show current row metadata before submitting a focused one-key update
+- update the selected inventory row from the accepted metadata response
+
+Current status:
+
+- Inventory rows include a Curate Metadata action that selects the row into a metadata curation panel
+- the panel submits one key/value update through `POST /api/documents/curation`
+- successful responses update the selected inventory row metadata and clear the edit fields
+- UI tests cover the inventory curation request body and rendered metadata update
 
 ## Near-Term Non-Goals
 

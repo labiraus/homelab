@@ -316,6 +316,14 @@ describe("App", () => {
 			.mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({
+					status: "updated",
+					documentId: "doc-1",
+					metadata: { tag: "runbook", owner: "ops" },
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
 					documentId: "doc-1",
 					count: 1,
 					events: [
@@ -401,6 +409,51 @@ describe("App", () => {
 					prefix: "runbooks/",
 					metadata: { tag: "runbook" },
 					limit: 50,
+				}),
+			}),
+		);
+
+		await user.click(
+			screen.getByRole("button", {
+				name: /curate inventory metadata for runbooks\/process\.md/i,
+			}),
+		);
+
+		const inventoryMetadataPanel = screen.getByRole("region", {
+			name: /inventory metadata curation/i,
+		});
+		await user.type(
+			within(inventoryMetadataPanel).getByRole("textbox", {
+				name: /inventory curation metadata key/i,
+			}),
+			"owner",
+		);
+		await user.type(
+			within(inventoryMetadataPanel).getByRole("textbox", {
+				name: /inventory curation metadata value/i,
+			}),
+			"ops",
+		);
+		await user.click(
+			within(inventoryMetadataPanel).getByRole("button", {
+				name: /update inventory metadata/i,
+			}),
+		);
+
+		expect(
+			await within(inventoryMetadataPanel).findByText(
+				/updated metadata for runbooks\/process\.md/i,
+			),
+		).toBeInTheDocument();
+		expect(within(inventoryMetadataPanel).getByText("ops")).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/curation",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					documentId: "doc-1",
+					metadata: { owner: "ops" },
+					replace: false,
 				}),
 			}),
 		);

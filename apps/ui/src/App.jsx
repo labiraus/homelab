@@ -493,6 +493,20 @@ function initialInventoryActionState() {
 	};
 }
 
+function initialInventoryCurationState() {
+	return {
+		documentId: "",
+		sourceLabel: "",
+		metadataKey: "",
+		metadataValue: "",
+		replace: false,
+		status: "idle",
+		message: "",
+		error: "",
+		metadata: null,
+	};
+}
+
 function metadataEntries(metadata) {
 	if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
 		return [];
@@ -674,6 +688,9 @@ function App() {
 	const [inventoryDocuments, setInventoryDocuments] = useState([]);
 	const [inventoryActionState, setInventoryActionState] = useState(
 		initialInventoryActionState,
+	);
+	const [inventoryCurationState, setInventoryCurationState] = useState(
+		initialInventoryCurationState,
 	);
 	const [toasts, setToasts] = useState([]);
 	const [theme, setTheme] = useState(() => {
@@ -1001,6 +1018,7 @@ function App() {
 		setInventoryLoading(true);
 		setInventoryError("");
 		setInventoryActionState(initialInventoryActionState());
+		setInventoryCurationState(initialInventoryCurationState());
 
 		try {
 			const metadataKey = inventoryMetadataKey.trim();
@@ -1389,6 +1407,103 @@ function App() {
 		}
 	};
 
+	const handleStartInventoryCuration = (inventoryDocument) => {
+		const documentId = inventoryDocument?.documentId?.trim();
+		if (!documentId) {
+			return;
+		}
+
+		setInventoryCurationState({
+			...initialInventoryCurationState(),
+			documentId,
+			sourceLabel: inventoryDocument.objectKey || documentId,
+			metadata: inventoryDocument.metadata ?? null,
+		});
+	};
+
+	const handleInventoryCurationSubmit = async (event) => {
+		event.preventDefault();
+
+		const documentId = inventoryCurationState.documentId.trim();
+		const metadataKey = inventoryCurationState.metadataKey.trim();
+		const metadataValue = inventoryCurationState.metadataValue.trim();
+		if (!documentId) {
+			setInventoryCurationState((current) => ({
+				...current,
+				status: "error",
+				error: "Select an inventory row first.",
+				message: "",
+			}));
+			return;
+		}
+		if (!metadataKey || !metadataValue) {
+			setInventoryCurationState((current) => ({
+				...current,
+				status: "error",
+				error: "Enter a metadata key and value.",
+				message: "",
+			}));
+			return;
+		}
+
+		setInventoryCurationState((current) => ({
+			...current,
+			status: "loading",
+			error: "",
+			message: "",
+		}));
+
+		try {
+			const response = await updateDocumentCuration({
+				documentId,
+				metadata: { [metadataKey]: metadataValue },
+				replace: inventoryCurationState.replace,
+			});
+			const fallbackMetadata = inventoryCurationState.replace
+				? { [metadataKey]: metadataValue }
+				: {
+						...(inventoryCurationState.metadata ?? {}),
+						[metadataKey]: metadataValue,
+					};
+			const nextMetadata = response?.metadata ?? fallbackMetadata;
+
+			setInventoryDocuments((documents) =>
+				documents.map((document) =>
+					document.documentId === documentId
+						? { ...document, metadata: nextMetadata }
+						: document,
+				),
+			);
+			setSearchResults((results) =>
+				results.map((result) =>
+					result.documentId === documentId ? { ...result, metadata: nextMetadata } : result,
+				),
+			);
+			setDocumentOperationsState((current) =>
+				current.documentId === documentId
+					? { ...current, metadata: nextMetadata }
+					: current,
+			);
+			setInventoryCurationState((current) => ({
+				...current,
+				metadataKey: "",
+				metadataValue: "",
+				replace: false,
+				status: "success",
+				message: `Updated metadata for ${current.sourceLabel || documentId}.`,
+				error: "",
+				metadata: nextMetadata,
+			}));
+		} catch (requestError) {
+			setInventoryCurationState((current) => ({
+				...current,
+				status: "error",
+				error: requestError instanceof Error ? requestError.message : "Metadata update failed",
+				message: "",
+			}));
+		}
+	};
+
 	const handleLoadEditableText = async () => {
 		if (!documentOperationsState.objectKey) {
 			return;
@@ -1510,6 +1625,7 @@ function App() {
 	};
 
 	const documentOperationMetadataEntries = metadataEntries(documentOperationsState.metadata);
+	const inventoryCurationMetadataEntries = metadataEntries(inventoryCurationState.metadata);
 	const canEditSelectedDocument =
 		documentOperationsState.objectKey &&
 		isTextContentType(documentOperationsState.contentType);
@@ -2385,6 +2501,7 @@ function App() {
 											setInventoryLoaded(false);
 											setInventoryError("");
 											setInventoryActionState(initialInventoryActionState());
+											setInventoryCurationState(initialInventoryCurationState());
 										}}
 										disabled={inventoryLoading}
 									>
@@ -2510,6 +2627,16 @@ function App() {
 														<button
 															type="button"
 															className="inline-button"
+															onClick={() => handleStartInventoryCuration(document)}
+															aria-label={`Curate inventory metadata for ${
+																document.objectKey || document.documentId
+															}`}
+														>
+															Curate Metadata
+														</button>
+														<button
+															type="button"
+															className="inline-button"
 															onClick={() => void handleInventoryReprocess(document)}
 															disabled={
 																!canReprocess ||
@@ -2542,6 +2669,117 @@ function App() {
 											);
 										})}
 									</div>
+								</section>
+
+								<section
+									className="document-actions-card"
+									aria-label="Inventory metadata curation"
+									aria-live="polite"
+								>
+									<div className="panel-heading compact">
+										<div>
+											<h3>Inventory metadata</h3>
+											<p>
+												{inventoryCurationState.documentId
+													? `${inventoryCurationState.sourceLabel} selected for metadata curation.`
+													: "Select an inventory row to curate its metadata."}
+											</p>
+										</div>
+										{inventoryCurationState.status === "loading" ? (
+											<span className="status-pill busy">Working</span>
+										) : inventoryCurationState.status === "success" ? (
+											<span className="status-pill">Done</span>
+										) : null}
+									</div>
+
+									{inventoryCurationState.documentId ? (
+										<div className="document-actions-grid">
+											<div className="metadata-preview">
+												<p className="meta-label">Current metadata</p>
+												{inventoryCurationMetadataEntries.length > 0 ? (
+													<dl>
+														{inventoryCurationMetadataEntries.map(([key, value]) => (
+															<div key={key}>
+																<dt>{key}</dt>
+																<dd>{formatMetadataValue(value)}</dd>
+															</div>
+														))}
+													</dl>
+												) : (
+													<p className="empty-state">No metadata is recorded for this document.</p>
+												)}
+											</div>
+
+											<form
+												className="document-actions-form"
+												onSubmit={handleInventoryCurationSubmit}
+											>
+												<div className="metadata-filter-grid">
+													<label className="field-group">
+														<span>Inventory curation metadata key</span>
+														<input
+															type="text"
+															value={inventoryCurationState.metadataKey}
+															onChange={(event) =>
+																setInventoryCurationState((current) => ({
+																	...current,
+																	metadataKey: event.target.value,
+																}))
+															}
+															placeholder="tag"
+														/>
+													</label>
+													<label className="field-group">
+														<span>Inventory curation metadata value</span>
+														<input
+															type="text"
+															value={inventoryCurationState.metadataValue}
+															onChange={(event) =>
+																setInventoryCurationState((current) => ({
+																	...current,
+																	metadataValue: event.target.value,
+																}))
+															}
+															placeholder="runbook"
+														/>
+													</label>
+												</div>
+
+												<label className="checkbox-field">
+													<input
+														type="checkbox"
+														checked={inventoryCurationState.replace}
+														onChange={(event) =>
+															setInventoryCurationState((current) => ({
+																...current,
+																replace: event.target.checked,
+															}))
+														}
+													/>
+													<span>Replace inventory metadata object</span>
+												</label>
+
+												<div className="document-actions-row">
+													<button
+														type="submit"
+														className="menu-action primary"
+														disabled={inventoryCurationState.status === "loading"}
+													>
+														Update Inventory Metadata
+													</button>
+												</div>
+
+												{inventoryCurationState.error ? (
+													<p className="error-text">{inventoryCurationState.error}</p>
+												) : null}
+												{inventoryCurationState.message ? (
+													<p className="success-text">{inventoryCurationState.message}</p>
+												) : null}
+											</form>
+										</div>
+									) : (
+										<p className="empty-state">Metadata curation controls will appear here.</p>
+									)}
 								</section>
 
 								<LifecycleHistoryPanel
