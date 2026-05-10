@@ -312,6 +312,27 @@ describe("App", () => {
 						},
 					],
 				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					documentId: "doc-1",
+					count: 1,
+					events: [
+						{
+							id: 21,
+							documentId: "doc-1",
+							subject: "documents.events.processor.started",
+							processingVersion: 2,
+							occurredAt: "2026-05-10T17:00:30Z",
+							createdAt: "2026-05-10T17:00:31Z",
+							payload: {
+								documentId: "doc-1",
+								objectKey: "runbooks/process.md",
+							},
+						},
+					],
+				}),
 			});
 
 		render(<App />);
@@ -350,6 +371,23 @@ describe("App", () => {
 					prefix: "runbooks/",
 					metadata: { tag: "runbook" },
 					limit: 50,
+				}),
+			}),
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: /inventory history for runbooks\/process\.md/i }),
+		);
+
+		expect(await screen.findByText("Processing started")).toBeInTheDocument();
+		expect(screen.getByText(/runbooks\/process\.md recorded in postgres/i)).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/history",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					documentId: "doc-1",
+					limit: 20,
 				}),
 			}),
 		);

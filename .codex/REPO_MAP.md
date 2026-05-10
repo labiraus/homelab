@@ -114,6 +114,7 @@ Current behavior note:
 - The frontend calls `/api/users/count` for the overview check.
 - Authenticated document workflows call `/api/documents/inventory`, `/api/documents/search`, `/api/documents/history`, `/api/documents/context`, `/api/documents/curation`, `/api/documents/edit-text`, `/api/documents/reprocess`, `/api/documents/events`, `/api/documents/tree`, `/api/documents/object`, and `/api/documents/upload`.
 - The Inventory tab calls `/api/documents/inventory` to inspect Postgres-backed reconciliation and processing state.
+- The Inventory tab can call `/api/documents/history` for a selected inventory row to inspect durable lifecycle events.
 - The Search tab also calls `/api/documents/context` to assemble cited context blocks from the current query and filters.
 - The Search tab can select a result for document actions, updating curated metadata, performing guarded text edits, and queueing reprocessing through `external` proxy routes backed by `orchestrator`.
 - Reprocess and guarded edit actions automatically load `/api/documents/history` for the queued processing version returned by `orchestrator`.

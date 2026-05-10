@@ -33,6 +33,7 @@ The current ingestion slice is reference-based:
 - `ui` renders durable lifecycle history for selected search results through `external`'s `/api/documents/history`
 - `ui` can assemble cited context blocks from the Search tab through `external`'s `/api/documents/context` using the same query, prefix, and metadata filters
 - `ui` can inspect Postgres-backed inventory rows from the Inventory tab through `external`'s `/api/documents/inventory`
+- `ui` can load durable lifecycle history directly from Inventory tab rows through `external`'s `/api/documents/history`
 - `ui` can update curated metadata, perform guarded raw text edits, and queue reprocessing for selected search results through `external` proxy routes
 - `ui` automatically loads version-specific durable lifecycle history after browser actions that queue processing
 - retrieval responses search the document's current processed chunk version and include citation objects that identify the source URI and chunk identity for each match

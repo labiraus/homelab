@@ -304,6 +304,22 @@ Current status:
 - the UI includes an authenticated Inventory tab with status, exact document ID, prefix, and one metadata key/value filter
 - UI and API tests cover the inventory request body, response rendering, and validation path
 
+### Phase 13 — Browser Inventory Lifecycle Drilldown UX
+
+Deliverables:
+
+- connect inventory rows to the existing durable lifecycle history route
+- keep the drilldown read-only and backed by `POST /api/documents/history`
+- reuse the existing lifecycle panel shape so Search and Inventory explain processing timelines consistently
+- avoid adding new workflow state or duplicating lifecycle ownership in the browser
+
+Current status:
+
+- Inventory rows include a History action that calls `POST /api/documents/history` for the selected `documentId`
+- the Inventory tab renders the shared lifecycle panel under the inventory results
+- the existing Search lifecycle panel now uses the same shared component
+- UI tests cover the inventory-to-history request body and rendered lifecycle event
+
 ## Near-Term Non-Goals
 
 For now, do not introduce:

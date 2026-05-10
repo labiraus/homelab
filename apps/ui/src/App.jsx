@@ -517,6 +517,79 @@ function createToastFromLifecycleEvent(event) {
 	};
 }
 
+function LifecycleHistoryPanel({ historyState, idleMessage }) {
+	return (
+		<section className="history-card" aria-live="polite">
+			<div className="panel-heading compact">
+				<div>
+					<h3>Lifecycle history</h3>
+					<p>
+						{historyState.documentId
+							? `${historyState.sourceLabel}${
+									historyState.processingVersion
+										? ` version ${historyState.processingVersion}`
+										: ""
+								} recorded in Postgres.`
+							: idleMessage}
+					</p>
+				</div>
+				{historyState.status === "loading" ? (
+					<span className="status-pill busy">Loading</span>
+				) : historyState.status === "ready" ? (
+					<span className="status-pill">Loaded</span>
+				) : null}
+			</div>
+
+			{historyState.error ? <p className="error-text">{historyState.error}</p> : null}
+			{historyState.status === "idle" ? (
+				<p className="empty-state">Lifecycle events will appear here.</p>
+			) : null}
+			{historyState.status === "loading" ? (
+				<p className="empty-state">Loading lifecycle events...</p>
+			) : null}
+			{historyState.status === "ready" && historyState.events.length === 0 ? (
+				<p className="empty-state">No lifecycle events are recorded for this document yet.</p>
+			) : null}
+
+			{historyState.events.length > 0 ? (
+				<ol className="history-event-list">
+					{historyState.events.map((event) => (
+						<li key={event.id} className="history-event">
+							<span
+								className={`history-event-marker ${lifecycleTone(event.subject)}`}
+								aria-hidden="true"
+							/>
+							<div className="history-event-body">
+								<div className="history-event-header">
+									<p className="history-event-title">{lifecycleTitle(event.subject)}</p>
+									<span className="history-version-pill">
+										v{event.processingVersion}
+									</span>
+								</div>
+								<p className="search-result-meta">
+									{formatTimestamp(event.occurredAt)}
+									{event.createdAt
+										? ` • recorded ${formatTimestamp(event.createdAt)}`
+										: ""}
+								</p>
+								{lifecycleHistorySummary(event) ? (
+									<p className="history-event-summary">
+										{lifecycleHistorySummary(event)}
+									</p>
+								) : null}
+								<details className="history-payload">
+									<summary>Payload</summary>
+									<pre>{stringifyHistoryPayload(event.payload)}</pre>
+								</details>
+							</div>
+						</li>
+					))}
+				</ol>
+			) : null}
+		</section>
+	);
+}
+
 function App() {
 	const [page, setPage] = useState(pageFromHash);
 	const [authMenuOpen, setAuthMenuOpen] = useState(false);
@@ -2116,74 +2189,10 @@ function App() {
 									)}
 								</section>
 
-								<section className="history-card" aria-live="polite">
-									<div className="panel-heading compact">
-										<div>
-											<h3>Lifecycle history</h3>
-											<p>
-												{historyState.documentId
-													? `${historyState.sourceLabel}${
-															historyState.processingVersion
-																? ` version ${historyState.processingVersion}`
-																: ""
-														} recorded in Postgres.`
-													: "Select a search result to inspect durable processing events."}
-											</p>
-										</div>
-										{historyState.status === "loading" ? (
-											<span className="status-pill busy">Loading</span>
-										) : historyState.status === "ready" ? (
-											<span className="status-pill">Loaded</span>
-										) : null}
-									</div>
-
-									{historyState.error ? <p className="error-text">{historyState.error}</p> : null}
-									{historyState.status === "idle" ? (
-										<p className="empty-state">Lifecycle events will appear here.</p>
-									) : null}
-									{historyState.status === "loading" ? (
-										<p className="empty-state">Loading lifecycle events…</p>
-									) : null}
-									{historyState.status === "ready" && historyState.events.length === 0 ? (
-										<p className="empty-state">No lifecycle events are recorded for this document yet.</p>
-									) : null}
-
-									{historyState.events.length > 0 ? (
-										<ol className="history-event-list">
-											{historyState.events.map((event) => (
-												<li key={event.id} className="history-event">
-													<span
-														className={`history-event-marker ${lifecycleTone(event.subject)}`}
-														aria-hidden="true"
-													/>
-													<div className="history-event-body">
-														<div className="history-event-header">
-															<p className="history-event-title">{lifecycleTitle(event.subject)}</p>
-															<span className="history-version-pill">
-																v{event.processingVersion}
-															</span>
-														</div>
-														<p className="search-result-meta">
-															{formatTimestamp(event.occurredAt)}
-															{event.createdAt
-																? ` • recorded ${formatTimestamp(event.createdAt)}`
-																: ""}
-														</p>
-														{lifecycleHistorySummary(event) ? (
-															<p className="history-event-summary">
-																{lifecycleHistorySummary(event)}
-															</p>
-														) : null}
-														<details className="history-payload">
-															<summary>Payload</summary>
-															<pre>{stringifyHistoryPayload(event.payload)}</pre>
-														</details>
-													</div>
-												</li>
-											))}
-										</ol>
-									) : null}
-								</section>
+								<LifecycleHistoryPanel
+									historyState={historyState}
+									idleMessage="Select a search result to inspect durable processing events."
+								/>
 							</div>
 						</div>
 					</section>
@@ -2308,110 +2317,136 @@ function App() {
 								{inventoryError ? <p className="error-text">{inventoryError}</p> : null}
 							</form>
 
-							<section className="inventory-results-card" aria-live="polite">
-								<div className="panel-heading compact">
-									<div>
-										<h3>Inventory rows</h3>
-										<p>
-											{inventoryLoaded
-												? "Current document state from the control-plane table."
-												: "Load inventory to inspect known documents."}
-										</p>
+							<div className="inventory-results-column">
+								<section className="inventory-results-card" aria-live="polite">
+									<div className="panel-heading compact">
+										<div>
+											<h3>Inventory rows</h3>
+											<p>
+												{inventoryLoaded
+													? "Current document state from the control-plane table."
+													: "Load inventory to inspect known documents."}
+											</p>
+										</div>
+										{inventoryLoading ? (
+											<span className="status-pill busy">Loading</span>
+										) : inventoryLoaded ? (
+											<span className="status-pill">Loaded</span>
+										) : null}
 									</div>
-									{inventoryLoading ? (
-										<span className="status-pill busy">Loading</span>
-									) : inventoryLoaded ? (
-										<span className="status-pill">Loaded</span>
+
+									{!inventoryLoaded && !inventoryError ? (
+										<p className="empty-state">Inventory rows will appear here.</p>
 									) : null}
-								</div>
+									{inventoryLoaded && inventoryDocuments.length === 0 && !inventoryError ? (
+										<p className="empty-state">No inventory rows matched these filters.</p>
+									) : null}
 
-								{!inventoryLoaded && !inventoryError ? (
-									<p className="empty-state">Inventory rows will appear here.</p>
-								) : null}
-								{inventoryLoaded && inventoryDocuments.length === 0 && !inventoryError ? (
-									<p className="empty-state">No inventory rows matched these filters.</p>
-								) : null}
+									<div className="inventory-list">
+										{inventoryDocuments.map((document) => {
+											const entries = metadataEntries(document.metadata);
+											return (
+												<article key={document.documentId} className="inventory-row">
+													<div className="inventory-row-header">
+														<div>
+															<p className="search-result-title">
+																{document.objectKey || document.documentId}
+															</p>
+															<p className="search-result-meta">
+																{document.contentType || "Unknown type"} • {document.documentId}
+															</p>
+														</div>
+														<span className={`status-pill ${statusClass(document.status)}`}>
+															{statusLabel(document.status)}
+														</span>
+													</div>
 
-								<div className="inventory-list">
-									{inventoryDocuments.map((document) => {
-										const entries = metadataEntries(document.metadata);
-										return (
-											<article key={document.documentId} className="inventory-row">
-												<div className="inventory-row-header">
-													<div>
-														<p className="search-result-title">
-															{document.objectKey || document.documentId}
-														</p>
-														<p className="search-result-meta">
-															{document.contentType || "Unknown type"} • {document.documentId}
-														</p>
+													<div className="inventory-facts">
+														<div>
+															<p className="meta-label">Processing version</p>
+															<p>
+																current v{document.currentProcessingVersion ?? 0} / desired v{document.desiredProcessingVersion ?? 0}
+															</p>
+														</div>
+														<div>
+															<p className="meta-label">Last event</p>
+															<p>
+																{document.lastEventSubject
+																	? lifecycleTitle(document.lastEventSubject)
+																	: "No event recorded"}
+																{document.lastEventAt
+																	? ` • ${formatTimestamp(document.lastEventAt)}`
+																	: ""}
+															</p>
+														</div>
+														<div>
+															<p className="meta-label">Last processed</p>
+															<p>{formatTimestamp(document.lastProcessedAt)}</p>
+														</div>
+														<div>
+															<p className="meta-label">Last reconciled</p>
+															<p>{formatTimestamp(document.lastReconciledAt)}</p>
+														</div>
 													</div>
-													<span className={`status-pill ${statusClass(document.status)}`}>
-														{statusLabel(document.status)}
-													</span>
-												</div>
 
-												<div className="inventory-facts">
-													<div>
-														<p className="meta-label">Processing version</p>
-														<p>
-															current v{document.currentProcessingVersion ?? 0} / desired v{document.desiredProcessingVersion ?? 0}
-														</p>
-													</div>
-													<div>
-														<p className="meta-label">Last event</p>
-														<p>
-															{document.lastEventSubject
-																? lifecycleTitle(document.lastEventSubject)
-																: "No event recorded"}
-															{document.lastEventAt
-																? ` • ${formatTimestamp(document.lastEventAt)}`
-																: ""}
-														</p>
-													</div>
-													<div>
-														<p className="meta-label">Last processed</p>
-														<p>{formatTimestamp(document.lastProcessedAt)}</p>
-													</div>
-													<div>
-														<p className="meta-label">Last reconciled</p>
-														<p>{formatTimestamp(document.lastReconciledAt)}</p>
-													</div>
-												</div>
+													{document.lastError ? (
+														<p className="error-text">Last error: {document.lastError}</p>
+													) : null}
 
-												{document.lastError ? (
-													<p className="error-text">Last error: {document.lastError}</p>
-												) : null}
+													{entries.length > 0 ? (
+														<div className="metadata-preview compact">
+															<p className="meta-label">Metadata</p>
+															<dl>
+																{entries.map(([key, value]) => (
+																	<div key={key}>
+																		<dt>{key}</dt>
+																		<dd>{formatMetadataValue(value)}</dd>
+																	</div>
+																))}
+															</dl>
+														</div>
+													) : null}
 
-												{entries.length > 0 ? (
-													<div className="metadata-preview compact">
-														<p className="meta-label">Metadata</p>
-														<dl>
-															{entries.map(([key, value]) => (
-																<div key={key}>
-																	<dt>{key}</dt>
-																	<dd>{formatMetadataValue(value)}</dd>
-																</div>
-															))}
-														</dl>
-													</div>
-												) : null}
-
-												{document.objectKey ? (
 													<div className="search-result-actions">
-														<a className="inline-button" href={documentOpenUrl(document.objectKey)}>
-															Open Source
-														</a>
-														<a className="inline-button" href={documentDownloadUrl(document.objectKey)}>
-															Download
-														</a>
+														<button
+															type="button"
+															className="inline-button"
+															onClick={() =>
+																void loadDocumentHistory(
+																	document.documentId,
+																	document.objectKey || document.documentId,
+																)
+															}
+															disabled={
+																historyState.status === "loading" &&
+																historyState.documentId === document.documentId
+															}
+															aria-label={`Inventory history for ${document.objectKey || document.documentId}`}
+														>
+															History
+														</button>
+														{document.objectKey ? (
+															<>
+																<a className="inline-button" href={documentOpenUrl(document.objectKey)}>
+																	Open Source
+																</a>
+																<a className="inline-button" href={documentDownloadUrl(document.objectKey)}>
+																	Download
+																</a>
+															</>
+														) : null}
 													</div>
-												) : null}
-											</article>
-										);
-									})}
-								</div>
-							</section>
+												</article>
+											);
+										})}
+									</div>
+								</section>
+
+								<LifecycleHistoryPanel
+									historyState={historyState}
+									idleMessage="Select an inventory row to inspect durable processing events."
+								/>
+							</div>
 						</div>
 					</section>
 				) : (

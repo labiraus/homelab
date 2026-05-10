@@ -694,7 +694,8 @@ a {
 	align-items: start;
 }
 
-.search-results-column {
+.search-results-column,
+.inventory-results-column {
 	display: grid;
 	gap: 1rem;
 }
