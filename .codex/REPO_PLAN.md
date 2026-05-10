@@ -45,6 +45,7 @@ The repo already includes:
 - the UI Search tab can load that durable lifecycle history for a retrieved document through `/api/documents/history`
 - the UI Search tab can assemble citation-backed context blocks through `/api/documents/context`
 - the UI Search tab can update curated metadata and queue reprocessing for a retrieved document through `external` proxy routes backed by `orchestrator`
+- the UI Search tab can perform guarded raw text edits for selected text documents through `external` proxying to `orchestrator`
 
 Documentation must stay aligned with implementation as these pieces evolve.
 
@@ -173,7 +174,7 @@ Current status:
 - `orchestrator` exposes `POST /documents/curation` for metadata-only curation of existing inventory rows
 - `orchestrator` exposes `POST /documents/edit-text` for text-only edits of existing inventory rows that overwrite the raw MinIO object and queue a newer processing version
 - `orchestrator` exposes `POST /documents/reprocess` for queueing an existing inventory document at a newer processing version
-- `external` exposes `POST /api/documents/curation` and `POST /api/documents/reprocess` as browser-facing proxy routes to the orchestrator control plane
+- `external` exposes `POST /api/documents/curation`, `POST /api/documents/edit-text`, and `POST /api/documents/reprocess` as browser-facing proxy routes to the orchestrator control plane
 - `mcp` exposes that curation flow as `documents.curation.update`
 - `mcp` exposes that text editing flow as `documents.editText`
 - `mcp` exposes that reprocessing flow as `documents.reprocess`
@@ -183,7 +184,7 @@ Current status:
 - `external` and `mcp` retrieval can be narrowed by exact-match curated metadata filters without adding a separate graph datastore
 - the `rag` schema includes a JSONB GIN index for metadata containment filters used by retrieval
 - `external` emits the ingest-boundary `documents.events.minio.stored` notification for successful browser uploads
-- the UI Search tab exposes curation and reprocess actions for selected retrieval results without exposing text overwrite/editing in the browser
+- the UI Search tab exposes curation, guarded text editing, and reprocess actions for selected retrieval results
 
 ### Phase 6 — Durable Processing History
 
@@ -248,6 +249,24 @@ Current status:
 - the Search tab includes a Document actions panel selected from retrieval results
 - the panel displays current document metadata, updates one metadata key/value pair, supports full metadata replacement when explicitly checked, and queues the next processing version
 - tests cover the public API proxy behavior, validation/config errors, and the browser request bodies for curation and reprocess
+
+### Phase 10 — Browser Guarded Text Editing UX
+
+Deliverables:
+
+- expose existing orchestrator text-edit capability in the browser without bypassing the control plane
+- keep raw text loading through the existing authenticated document object route
+- require an explicit confirmation before overwriting the raw MinIO text object
+- queue a newer processing version through `orchestrator` after the edit
+- keep editing limited to selected text documents with known object keys
+
+Current status:
+
+- `external` proxies `POST /api/documents/edit-text` to `orchestrator` `POST /documents/edit-text`
+- the Search tab Document actions panel can load the current raw text for a selected text result
+- the edit form requires a changed body plus explicit overwrite confirmation before saving
+- successful saves show the queued processing version returned by the orchestrator
+- tests cover the public API proxy and the browser load/edit/save request bodies
 
 ## Near-Term Non-Goals
 

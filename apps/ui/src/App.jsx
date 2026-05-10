@@ -13,6 +13,7 @@ const DOCUMENT_SEARCH_PATH = "/api/documents/search";
 const DOCUMENT_CONTEXT_PATH = "/api/documents/context";
 const DOCUMENT_HISTORY_PATH = "/api/documents/history";
 const DOCUMENT_CURATION_PATH = "/api/documents/curation";
+const DOCUMENT_EDIT_TEXT_PATH = "/api/documents/edit-text";
 const DOCUMENT_REPROCESS_PATH = "/api/documents/reprocess";
 const TOAST_DISMISS_MS = 6000;
 
@@ -164,6 +165,14 @@ async function updateDocumentCuration(request) {
 	return callApi({
 		method: "POST",
 		path: DOCUMENT_CURATION_PATH,
+		body: request,
+	});
+}
+
+async function editTextDocument(request) {
+	return callApi({
+		method: "POST",
+		path: DOCUMENT_EDIT_TEXT_PATH,
 		body: request,
 	});
 }
@@ -413,6 +422,8 @@ function initialDocumentOperationsState() {
 	return {
 		documentId: "",
 		sourceLabel: "",
+		objectKey: "",
+		contentType: "",
 		metadataKey: "",
 		metadataValue: "",
 		replace: false,
@@ -420,6 +431,12 @@ function initialDocumentOperationsState() {
 		message: "",
 		error: "",
 		metadata: null,
+		editStatus: "idle",
+		editText: "",
+		originalText: "",
+		editConfirmed: false,
+		editMessage: "",
+		editError: "",
 	};
 }
 
@@ -994,6 +1011,8 @@ function App() {
 			...initialDocumentOperationsState(),
 			documentId,
 			sourceLabel,
+			objectKey: result.objectKey ?? "",
+			contentType: result.contentType ?? "",
 			metadata: result.metadata ?? null,
 		});
 	};
@@ -1110,7 +1129,121 @@ function App() {
 		}
 	};
 
+	const handleLoadEditableText = async () => {
+		if (!documentOperationsState.objectKey) {
+			return;
+		}
+
+		setDocumentOperationsState((current) => ({
+			...current,
+			editStatus: "loading",
+			editError: "",
+			editMessage: "",
+			editConfirmed: false,
+		}));
+
+		try {
+			const response = await fetchDocumentObject(documentOperationsState.objectKey);
+			const text = await response.text();
+			setDocumentOperationsState((current) => ({
+				...current,
+				editStatus: "ready",
+				editText: text,
+				originalText: text,
+				editConfirmed: false,
+				editMessage: "",
+				editError: "",
+			}));
+		} catch (requestError) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				editStatus: "error",
+				editError: requestError instanceof Error ? requestError.message : "Text load failed",
+				editMessage: "",
+			}));
+		}
+	};
+
+	const handleEditTextSubmit = async (event) => {
+		event.preventDefault();
+
+		const documentId = documentOperationsState.documentId.trim();
+		if (!documentId || !documentOperationsState.objectKey) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				editStatus: "error",
+				editError: "Select a text search result first.",
+				editMessage: "",
+			}));
+			return;
+		}
+		if (documentOperationsState.editStatus !== "ready") {
+			setDocumentOperationsState((current) => ({
+				...current,
+				editStatus: "error",
+				editError: "Load the current text before saving an edit.",
+				editMessage: "",
+			}));
+			return;
+		}
+		if (!documentOperationsState.editConfirmed) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				editStatus: "ready",
+				editError: "Confirm the raw text overwrite before saving.",
+				editMessage: "",
+			}));
+			return;
+		}
+		if (documentOperationsState.editText === documentOperationsState.originalText) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				editStatus: "ready",
+				editError: "Change the text before saving.",
+				editMessage: "",
+			}));
+			return;
+		}
+
+		setDocumentOperationsState((current) => ({
+			...current,
+			editStatus: "saving",
+			editError: "",
+			editMessage: "",
+		}));
+
+		try {
+			const response = await editTextDocument({
+				documentId,
+				text: documentOperationsState.editText,
+				contentType: documentOperationsState.contentType || "text/plain; charset=utf-8",
+			});
+			const version =
+				typeof response?.processingVersion === "number"
+					? `processing version ${response.processingVersion}`
+					: "a new processing version";
+			setDocumentOperationsState((current) => ({
+				...current,
+				editStatus: "ready",
+				originalText: current.editText,
+				editConfirmed: false,
+				editMessage: `Queued text edit as ${version}.`,
+				editError: "",
+			}));
+		} catch (requestError) {
+			setDocumentOperationsState((current) => ({
+				...current,
+				editStatus: "error",
+				editError: requestError instanceof Error ? requestError.message : "Text edit failed",
+				editMessage: "",
+			}));
+		}
+	};
+
 	const documentOperationMetadataEntries = metadataEntries(documentOperationsState.metadata);
+	const canEditSelectedDocument =
+		documentOperationsState.objectKey &&
+		isTextContentType(documentOperationsState.contentType);
 
 	return (
 		<main className="app-shell">
@@ -1648,7 +1781,7 @@ function App() {
 											<h3>Document actions</h3>
 											<p>
 												{documentOperationsState.documentId
-													? `${documentOperationsState.sourceLabel} selected for curation and reprocessing.`
+													? `${documentOperationsState.sourceLabel} selected for curation, editing, and reprocessing.`
 													: "Select a search result to manage its control-plane state."}
 											</p>
 										</div>
@@ -1748,6 +1881,106 @@ function App() {
 													<p className="success-text">{documentOperationsState.message}</p>
 												) : null}
 											</form>
+
+											<div className="text-edit-panel">
+												<div className="panel-heading compact">
+													<div>
+														<h4>Text edit</h4>
+														<p>
+															{canEditSelectedDocument
+																? "Load the current raw text before overwriting the source object."
+																: "Text editing is available for text documents with a source object."}
+														</p>
+													</div>
+													{documentOperationsState.editStatus === "loading" ? (
+														<span className="status-pill busy">Loading</span>
+													) : documentOperationsState.editStatus === "saving" ? (
+														<span className="status-pill busy">Saving</span>
+													) : documentOperationsState.editStatus === "ready" ? (
+														<span className="status-pill">Loaded</span>
+													) : null}
+												</div>
+
+												{canEditSelectedDocument ? (
+													<>
+														<div className="document-actions-row">
+															<button
+																type="button"
+																className="menu-action"
+																onClick={() => void handleLoadEditableText()}
+																disabled={
+																	documentOperationsState.editStatus === "loading" ||
+																	documentOperationsState.editStatus === "saving"
+																}
+															>
+																{documentOperationsState.editStatus === "ready"
+																	? "Reload Current Text"
+																	: "Load Current Text"}
+															</button>
+														</div>
+
+														{documentOperationsState.editError ? (
+															<p className="error-text">{documentOperationsState.editError}</p>
+														) : null}
+														{documentOperationsState.editMessage ? (
+															<p className="success-text">{documentOperationsState.editMessage}</p>
+														) : null}
+
+														{documentOperationsState.editStatus === "ready" ||
+														documentOperationsState.editStatus === "saving" ? (
+															<form className="document-edit-form" onSubmit={handleEditTextSubmit}>
+																<label className="field-group">
+																	<span>Editable document text</span>
+																	<textarea
+																		value={documentOperationsState.editText}
+																		onChange={(event) =>
+																			setDocumentOperationsState((current) => ({
+																				...current,
+																				editText: event.target.value,
+																				editError: "",
+																				editMessage: "",
+																				editConfirmed: false,
+																			}))
+																		}
+																		rows={12}
+																	/>
+																</label>
+
+																<label className="checkbox-field">
+																	<input
+																		type="checkbox"
+																		checked={documentOperationsState.editConfirmed}
+																		onChange={(event) =>
+																			setDocumentOperationsState((current) => ({
+																				...current,
+																				editConfirmed: event.target.checked,
+																				editError: "",
+																			}))
+																		}
+																	/>
+																	<span>Confirm raw text overwrite</span>
+																</label>
+
+																<div className="document-actions-row">
+																	<button
+																		type="submit"
+																		className="menu-action primary"
+																		disabled={documentOperationsState.editStatus === "saving"}
+																	>
+																		{documentOperationsState.editStatus === "saving"
+																			? "Saving Text..."
+																			: "Save Text Edit"}
+																	</button>
+																</div>
+															</form>
+														) : (
+															<p className="empty-state">Load the current text to start a guarded edit.</p>
+														)}
+													</>
+												) : (
+													<p className="empty-state">Select a text search result with an object key.</p>
+												)}
+											</div>
 										</div>
 									) : (
 										<p className="empty-state">Document actions will appear here.</p>

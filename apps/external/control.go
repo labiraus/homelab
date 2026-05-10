@@ -17,6 +17,7 @@ import (
 
 const (
 	documentCurationLabel      = "documentCurationHandler"
+	documentEditTextLabel      = "documentEditTextHandler"
 	documentReprocessLabel     = "documentReprocessHandler"
 	maxDocumentControlBodySize = 1 << 20
 )
@@ -34,6 +35,10 @@ var (
 
 func documentCurationHandler(w http.ResponseWriter, r *http.Request) {
 	handleOrchestratorDocumentAction(documentCurationLabel, "/documents/curation", w, r)
+}
+
+func documentEditTextHandler(w http.ResponseWriter, r *http.Request) {
+	handleOrchestratorDocumentAction(documentEditTextLabel, "/documents/edit-text", w, r)
 }
 
 func documentReprocessHandler(w http.ResponseWriter, r *http.Request) {

@@ -52,7 +52,7 @@ The current scan-driven slice uses the same queue path for new or changed `text/
 
 The current curation slice is metadata-only. `POST /documents/curation`, exposed through MCP as the `documents.curation.update` tool and through `external` as `POST /api/documents/curation`, updates `rag.documents.metadata` for an existing inventory row without changing raw MinIO objects, chunks, embeddings, or lifecycle status.
 
-The current edit slice is text-only. `POST /documents/edit-text`, exposed through MCP as the `documents.editText` tool, overwrites the existing MinIO object for an inventory row, merges edit metadata, and queues a newer processing version through the same control-plane path. It intentionally edits only existing `text/*` inventory rows so object identity, access assumptions, and derived-state refreshes stay explicit.
+The current edit slice is text-only. `POST /documents/edit-text`, exposed through MCP as the `documents.editText` tool and through `external` as `POST /api/documents/edit-text`, overwrites the existing MinIO object for an inventory row, merges edit metadata, and queues a newer processing version through the same control-plane path. It intentionally edits only existing `text/*` inventory rows so object identity, access assumptions, and derived-state refreshes stay explicit.
 
 The current reprocess-driven slice also uses that queue path. `POST /documents/reprocess`, exposed through MCP as the `documents.reprocess` tool and through `external` as `POST /api/documents/reprocess`, accepts an existing `documentId` and optional `processingVersion`; when the version is omitted, `orchestrator` queues the next processing version after the current desired or completed version.
 
@@ -70,7 +70,7 @@ The current durable history slice records processor queue/start/complete/fail li
 
 The current retrieval context slice is read-only. `documents.context` in MCP and `POST /api/documents/context` in `external` use the same current-version pgvector search path as semantic search, then assemble the selected chunks into a cited context block with stable `[1]`, `[2]` references. The UI Search tab exposes that browser-facing context route with the same query, prefix, and metadata filters used for semantic search.
 
-The current browser document-control slice is intentionally narrow. The UI Search tab can select a retrieval result, update one curated metadata key/value pair through `/api/documents/curation`, or queue reprocessing through `/api/documents/reprocess`. `external` only validates the public request shape and proxies to `orchestrator`; `orchestrator` still owns document validation, metadata persistence, version selection, lifecycle history, and queueing.
+The current browser document-control slice is intentionally narrow. The UI Search tab can select a retrieval result, update one curated metadata key/value pair through `/api/documents/curation`, load and save guarded text edits through `/api/documents/edit-text`, or queue reprocessing through `/api/documents/reprocess`. `external` only validates the public request shape and proxies to `orchestrator`; `orchestrator` still owns document validation, raw text writes, metadata persistence, version selection, lifecycle history, and queueing.
 
 ### Phase 3
 

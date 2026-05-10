@@ -594,6 +594,56 @@ func TestDocumentCurationHandlerProxiesToOrchestrator(t *testing.T) {
 	}
 }
 
+func TestDocumentEditTextHandlerProxiesToOrchestrator(t *testing.T) {
+	setOrchestratorEnv(t)
+	base.ServiceName = "external_test_" + t.Name()
+	prometheusutil.Start(http.NewServeMux())
+
+	previousProxy := proxyOrchestratorDocumentAction
+	t.Cleanup(func() {
+		proxyOrchestratorDocumentAction = previousProxy
+	})
+
+	proxyOrchestratorDocumentAction = func(ctx context.Context, path string, body []byte) (orchestratorDocumentActionResponse, error) {
+		if path != "/documents/edit-text" {
+			t.Fatalf("expected edit-text path, got %q", path)
+		}
+
+		var request map[string]any
+		if err := json.Unmarshal(body, &request); err != nil {
+			t.Fatalf("expected valid proxied json: %v", err)
+		}
+		if request["documentId"] != "doc-1" {
+			t.Fatalf("expected document id doc-1, got %#v", request["documentId"])
+		}
+		if request["text"] != "updated notes" {
+			t.Fatalf("expected replacement text to be proxied, got %#v", request["text"])
+		}
+		if request["contentType"] != "text/markdown" {
+			t.Fatalf("expected content type to be proxied, got %#v", request["contentType"])
+		}
+
+		return orchestratorDocumentActionResponse{
+			statusCode:  http.StatusAccepted,
+			contentType: "application/json",
+			body:        []byte(`{"status":"queued","documentId":"doc-1","processingVersion":6,"sourceUri":"s3://documents/runbooks/process.md","objectKey":"runbooks/process.md"}`),
+		}, nil
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api/documents/edit-text", strings.NewReader(`{"documentId":"doc-1","text":"updated notes","contentType":"text/markdown"}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	documentEditTextHandler(recorder, request)
+
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("expected status 202, got %d", recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"processingVersion":6`) {
+		t.Fatalf("expected orchestrator body to be returned, got %q", recorder.Body.String())
+	}
+}
+
 func TestDocumentReprocessHandlerProxiesToOrchestrator(t *testing.T) {
 	setOrchestratorEnv(t)
 	base.ServiceName = "external_test_" + t.Name()

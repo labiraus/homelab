@@ -688,6 +688,7 @@ a {
 .upload-card input[type="file"],
 .upload-card input[type="text"],
 .document-actions-form input[type="text"],
+.document-edit-form textarea,
 .search-card input[type="text"],
 .search-card textarea {
 	width: 100%;
@@ -701,6 +702,13 @@ a {
 .search-card textarea {
 	resize: vertical;
 	min-height: 8rem;
+}
+
+.document-edit-form textarea {
+	resize: vertical;
+	min-height: 16rem;
+	font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+	line-height: 1.55;
 }
 
 .metadata-filter-grid {
@@ -830,9 +838,21 @@ a {
 }
 
 .document-actions-grid,
-.document-actions-form {
+.document-actions-form,
+.document-edit-form {
 	display: grid;
 	gap: 0.9rem;
+}
+
+.text-edit-panel {
+	display: grid;
+	gap: 0.85rem;
+	padding-top: 0.95rem;
+	border-top: 1px solid var(--line);
+}
+
+.text-edit-panel h4 {
+	margin: 0;
 }
 
 .metadata-preview {

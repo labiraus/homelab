@@ -17,6 +17,7 @@ It is the browser-facing API for `ui` and should remain a stable surface even as
 - `/api/documents/search`
 - `/api/documents/context`
 - `/api/documents/curation`
+- `/api/documents/edit-text`
 - `/api/documents/reprocess`
 - `/readiness`
 - `/liveness`
@@ -46,13 +47,14 @@ The browser-facing path is published through `oauth2-proxy` at `/api/...`, and t
 - `/api/documents/search` embeds a natural-language query, runs pgvector similarity search against the current processed chunk version, and returns ranked matches with document metadata and citation objects for the source URI plus chunk identity
 - `/api/documents/context` uses the same retrieval path and assembles a compact context block with `[1]`, `[2]` style references plus citation objects
 - `/api/documents/curation` proxies metadata-only updates to `orchestrator` `POST /documents/curation`
+- `/api/documents/edit-text` proxies guarded text-object replacement requests to `orchestrator` `POST /documents/edit-text`
 - `/api/documents/reprocess` proxies explicit processing refresh requests to `orchestrator` `POST /documents/reprocess`
 
 Search and context requests accept optional `documentId`, folder-like `prefix`, and `metadata` filters. The `metadata` filter is an exact-match JSON object applied to `rag.documents.metadata`, for example `{"metadata":{"tag":"runbook"}}`.
 
 History requests require `documentId` and accept optional `processingVersion` and `limit` fields. Results are read from `rag.document_lifecycle_events`, while `rag.documents.last_event_*` remains the quick inventory summary.
 
-Control action requests require `ORCHESTRATOR_BASE_URL` and preserve the orchestrator response status and JSON body. `external` validates method, configuration, and JSON shape, but the orchestrator remains responsible for document existence checks, version decisions, metadata persistence, and queueing.
+Control action requests require `ORCHESTRATOR_BASE_URL` and preserve the orchestrator response status and JSON body. `external` validates method, configuration, and JSON shape, but the orchestrator remains responsible for document existence checks, raw text writes, version decisions, metadata persistence, and queueing.
 
 The MinIO-backed browser routes expect the standard MinIO runtime configuration:
 

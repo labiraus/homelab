@@ -632,6 +632,106 @@ describe("App", () => {
 		);
 	});
 
+	test("loads and saves a guarded text edit for a search result", async () => {
+		const user = userEvent.setup();
+		global.fetch = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ mode: "oidc", email: "oliver@labiraus.com", valid: true }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					providers: [
+						{
+							id: "google",
+							name: "Google",
+							issuer: "https://accounts.google.com",
+							authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+							configured: true,
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					query: "processing status",
+					hits: [
+						{
+							documentId: "doc-1",
+							objectKey: "runbooks/process.md",
+							contentType: "text/markdown",
+							metadata: { tag: "runbook" },
+							chunkId: 12,
+							chunkIndex: 0,
+							chunkText: "Processor completion is recorded in Postgres.",
+							similarity: 0.88,
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				text: async () => "old process notes",
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					status: "queued",
+					documentId: "doc-1",
+					processingVersion: 6,
+					sourceUri: "s3://documents/runbooks/process.md",
+					objectKey: "runbooks/process.md",
+				}),
+			});
+
+		render(<App />);
+		await user.click(await screen.findByRole("button", { name: /^search$/i }));
+		await user.type(
+			screen.getByRole("textbox", { name: /search query/i }),
+			"processing status",
+		);
+		await user.click(screen.getByRole("button", { name: /search chunks/i }));
+
+		expect(await screen.findByText("runbooks/process.md")).toBeInTheDocument();
+		await user.click(
+			screen.getByRole("button", { name: /manage runbooks\/process\.md/i }),
+		);
+
+		const actionsPanel = screen.getByRole("region", { name: /document actions/i });
+		await user.click(within(actionsPanel).getByRole("button", { name: /load current text/i }));
+
+		const editTextArea = await within(actionsPanel).findByRole("textbox", {
+			name: /editable document text/i,
+		});
+		expect(editTextArea).toHaveValue("old process notes");
+
+		await user.clear(editTextArea);
+		await user.type(editTextArea, "updated process notes");
+		await user.click(
+			within(actionsPanel).getByRole("checkbox", { name: /confirm raw text overwrite/i }),
+		);
+		await user.click(within(actionsPanel).getByRole("button", { name: /save text edit/i }));
+
+		expect(await within(actionsPanel).findByText(/queued text edit as processing version 6/i)).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/object?objectKey=runbooks%2Fprocess.md",
+		);
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/edit-text",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					documentId: "doc-1",
+					text: "updated process notes",
+					contentType: "text/markdown",
+				}),
+			}),
+		);
+	});
+
 	test("navigates to the documents page and shows folder entries", async () => {
 		const user = userEvent.setup();
 		global.fetch = vi
