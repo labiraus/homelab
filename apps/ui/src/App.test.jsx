@@ -371,6 +371,41 @@ describe("App", () => {
 						},
 					],
 				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				text: async () => "old inventory process notes",
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					status: "queued",
+					documentId: "doc-1",
+					processingVersion: 5,
+					sourceUri: "s3://documents/runbooks/process.md",
+					objectKey: "runbooks/process.md",
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					documentId: "doc-1",
+					count: 1,
+					events: [
+						{
+							id: 23,
+							documentId: "doc-1",
+							subject: "documents.events.processor.queued",
+							processingVersion: 5,
+							occurredAt: "2026-05-10T17:04:00Z",
+							createdAt: "2026-05-10T17:04:01Z",
+							payload: {
+								documentId: "doc-1",
+								objectKey: "runbooks/process.md",
+							},
+						},
+					],
+				}),
 			});
 
 		render(<App />);
@@ -503,6 +538,70 @@ describe("App", () => {
 				body: JSON.stringify({
 					documentId: "doc-1",
 					processingVersion: 4,
+					limit: 20,
+				}),
+			}),
+		);
+
+		await user.click(
+			screen.getByRole("button", {
+				name: /edit inventory text for runbooks\/process\.md/i,
+			}),
+		);
+
+		const inventoryEditPanel = screen.getByRole("region", {
+			name: /inventory text edit/i,
+		});
+		await user.click(
+			within(inventoryEditPanel).getByRole("button", { name: /load inventory text/i }),
+		);
+
+		const inventoryEditTextArea = await within(inventoryEditPanel).findByRole("textbox", {
+			name: /inventory editable document text/i,
+		});
+		expect(inventoryEditTextArea).toHaveValue("old inventory process notes");
+
+		await user.clear(inventoryEditTextArea);
+		await user.type(inventoryEditTextArea, "updated inventory process notes");
+		await user.click(
+			within(inventoryEditPanel).getByRole("checkbox", {
+				name: /confirm inventory raw text overwrite/i,
+			}),
+		);
+		await user.click(
+			within(inventoryEditPanel).getByRole("button", {
+				name: /save inventory text edit/i,
+			}),
+		);
+
+		expect(
+			await within(inventoryEditPanel).findByText(/queued text edit as processing version 5/i),
+		).toBeInTheDocument();
+		expect(screen.getByText(/current v2 \/ desired v5/i)).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/object?objectKey=runbooks%2Fprocess.md",
+		);
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/edit-text",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					documentId: "doc-1",
+					text: "updated inventory process notes",
+					contentType: "text/markdown",
+				}),
+			}),
+		);
+		expect(
+			await screen.findByText(/runbooks\/process\.md version 5 recorded in postgres/i),
+		).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/documents/history",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					documentId: "doc-1",
+					processingVersion: 5,
 					limit: 20,
 				}),
 			}),

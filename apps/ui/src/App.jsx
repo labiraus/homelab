@@ -507,6 +507,21 @@ function initialInventoryCurationState() {
 	};
 }
 
+function initialInventoryEditState() {
+	return {
+		documentId: "",
+		sourceLabel: "",
+		objectKey: "",
+		contentType: "",
+		status: "idle",
+		text: "",
+		originalText: "",
+		confirmed: false,
+		message: "",
+		error: "",
+	};
+}
+
 function metadataEntries(metadata) {
 	if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
 		return [];
@@ -692,6 +707,7 @@ function App() {
 	const [inventoryCurationState, setInventoryCurationState] = useState(
 		initialInventoryCurationState,
 	);
+	const [inventoryEditState, setInventoryEditState] = useState(initialInventoryEditState);
 	const [toasts, setToasts] = useState([]);
 	const [theme, setTheme] = useState(() => {
 		if (typeof window === "undefined") {
@@ -1019,6 +1035,7 @@ function App() {
 		setInventoryError("");
 		setInventoryActionState(initialInventoryActionState());
 		setInventoryCurationState(initialInventoryCurationState());
+		setInventoryEditState(initialInventoryEditState());
 
 		try {
 			const metadataKey = inventoryMetadataKey.trim();
@@ -1504,6 +1521,159 @@ function App() {
 		}
 	};
 
+	const handleStartInventoryEdit = (inventoryDocument) => {
+		const documentId = inventoryDocument?.documentId?.trim();
+		if (!documentId || !inventoryDocument.objectKey) {
+			return;
+		}
+
+		setInventoryEditState({
+			...initialInventoryEditState(),
+			documentId,
+			sourceLabel: inventoryDocument.objectKey || documentId,
+			objectKey: inventoryDocument.objectKey,
+			contentType: inventoryDocument.contentType ?? "",
+		});
+	};
+
+	const handleLoadInventoryEditableText = async () => {
+		if (!inventoryEditState.objectKey) {
+			return;
+		}
+
+		setInventoryEditState((current) => ({
+			...current,
+			status: "loading",
+			error: "",
+			message: "",
+			confirmed: false,
+		}));
+
+		try {
+			const response = await fetchDocumentObject(inventoryEditState.objectKey);
+			const text = await response.text();
+			setInventoryEditState((current) => ({
+				...current,
+				status: "ready",
+				text,
+				originalText: text,
+				confirmed: false,
+				message: "",
+				error: "",
+			}));
+		} catch (requestError) {
+			setInventoryEditState((current) => ({
+				...current,
+				status: "error",
+				error: requestError instanceof Error ? requestError.message : "Text load failed",
+				message: "",
+			}));
+		}
+	};
+
+	const handleInventoryEditTextSubmit = async (event) => {
+		event.preventDefault();
+
+		const documentId = inventoryEditState.documentId.trim();
+		if (!documentId || !inventoryEditState.objectKey) {
+			setInventoryEditState((current) => ({
+				...current,
+				status: "error",
+				error: "Select a text inventory row first.",
+				message: "",
+			}));
+			return;
+		}
+		if (inventoryEditState.status !== "ready") {
+			setInventoryEditState((current) => ({
+				...current,
+				status: "error",
+				error: "Load the current text before saving an edit.",
+				message: "",
+			}));
+			return;
+		}
+		if (!inventoryEditState.confirmed) {
+			setInventoryEditState((current) => ({
+				...current,
+				status: "ready",
+				error: "Confirm the raw text overwrite before saving.",
+				message: "",
+			}));
+			return;
+		}
+		if (inventoryEditState.text === inventoryEditState.originalText) {
+			setInventoryEditState((current) => ({
+				...current,
+				status: "ready",
+				error: "Change the text before saving.",
+				message: "",
+			}));
+			return;
+		}
+
+		setInventoryEditState((current) => ({
+			...current,
+			status: "saving",
+			error: "",
+			message: "",
+		}));
+
+		try {
+			const response = await editTextDocument({
+				documentId,
+				text: inventoryEditState.text,
+				contentType: inventoryEditState.contentType || "text/plain; charset=utf-8",
+			});
+			const queuedProcessingVersion =
+				typeof response?.processingVersion === "number" ? response.processingVersion : 0;
+			const version =
+				queuedProcessingVersion > 0
+					? `processing version ${queuedProcessingVersion}`
+					: "a new processing version";
+
+			if (queuedProcessingVersion > 0) {
+				setInventoryDocuments((documents) =>
+					documents.map((entry) =>
+						entry.documentId === documentId
+							? {
+									...entry,
+									desiredProcessingVersion: Math.max(
+										entry.desiredProcessingVersion ?? 0,
+										queuedProcessingVersion,
+									),
+								}
+							: entry,
+					),
+				);
+			}
+
+			setInventoryEditState((current) => ({
+				...current,
+				status: "ready",
+				originalText: current.text,
+				confirmed: false,
+				message: `Queued text edit as ${version}.`,
+				error: "",
+			}));
+
+			if (queuedProcessingVersion > 0) {
+				await loadDocumentHistory(
+					documentId,
+					inventoryEditState.sourceLabel || documentId,
+					queuedProcessingVersion,
+				);
+			}
+		} catch (requestError) {
+			setInventoryEditState((current) => ({
+				...current,
+				status: "error",
+				error: requestError instanceof Error ? requestError.message : "Text edit failed",
+				message: "",
+			}));
+		}
+	};
+
 	const handleLoadEditableText = async () => {
 		if (!documentOperationsState.objectKey) {
 			return;
@@ -1629,6 +1799,8 @@ function App() {
 	const canEditSelectedDocument =
 		documentOperationsState.objectKey &&
 		isTextContentType(documentOperationsState.contentType);
+	const canEditInventoryDocument =
+		inventoryEditState.objectKey && isTextContentType(inventoryEditState.contentType);
 
 	return (
 		<main className="app-shell">
@@ -2502,6 +2674,7 @@ function App() {
 											setInventoryError("");
 											setInventoryActionState(initialInventoryActionState());
 											setInventoryCurationState(initialInventoryCurationState());
+											setInventoryEditState(initialInventoryEditState());
 										}}
 										disabled={inventoryLoading}
 									>
@@ -2633,6 +2806,17 @@ function App() {
 															}`}
 														>
 															Curate Metadata
+														</button>
+														<button
+															type="button"
+															className="inline-button"
+															onClick={() => handleStartInventoryEdit(document)}
+															disabled={!canReprocess}
+															aria-label={`Edit inventory text for ${
+																document.objectKey || document.documentId
+															}`}
+														>
+															Edit Text
 														</button>
 														<button
 															type="button"
@@ -2779,6 +2963,117 @@ function App() {
 										</div>
 									) : (
 										<p className="empty-state">Metadata curation controls will appear here.</p>
+									)}
+								</section>
+
+								<section
+									className="document-actions-card"
+									aria-label="Inventory text edit"
+									aria-live="polite"
+								>
+									<div className="panel-heading compact">
+										<div>
+											<h3>Inventory text edit</h3>
+											<p>
+												{inventoryEditState.documentId
+													? `${inventoryEditState.sourceLabel} selected for guarded text editing.`
+													: "Select a text inventory row to edit its raw source object."}
+											</p>
+										</div>
+										{inventoryEditState.status === "loading" ? (
+											<span className="status-pill busy">Loading</span>
+										) : inventoryEditState.status === "saving" ? (
+											<span className="status-pill busy">Saving</span>
+										) : inventoryEditState.status === "ready" ? (
+											<span className="status-pill">Loaded</span>
+										) : null}
+									</div>
+
+									{inventoryEditState.documentId ? (
+										canEditInventoryDocument ? (
+											<div className="text-edit-panel">
+												<div className="document-actions-row">
+													<button
+														type="button"
+														className="menu-action"
+														onClick={() => void handleLoadInventoryEditableText()}
+														disabled={
+															inventoryEditState.status === "loading" ||
+															inventoryEditState.status === "saving"
+														}
+													>
+														{inventoryEditState.status === "ready"
+															? "Reload Inventory Text"
+															: "Load Inventory Text"}
+													</button>
+												</div>
+
+												{inventoryEditState.error ? (
+													<p className="error-text">{inventoryEditState.error}</p>
+												) : null}
+												{inventoryEditState.message ? (
+													<p className="success-text">{inventoryEditState.message}</p>
+												) : null}
+
+												{inventoryEditState.status === "ready" ||
+												inventoryEditState.status === "saving" ? (
+													<form
+														className="document-edit-form"
+														onSubmit={handleInventoryEditTextSubmit}
+													>
+														<label className="field-group">
+															<span>Inventory editable document text</span>
+															<textarea
+																value={inventoryEditState.text}
+																onChange={(event) =>
+																	setInventoryEditState((current) => ({
+																		...current,
+																		text: event.target.value,
+																		error: "",
+																		message: "",
+																		confirmed: false,
+																	}))
+																}
+																rows={12}
+															/>
+														</label>
+
+														<label className="checkbox-field">
+															<input
+																type="checkbox"
+																checked={inventoryEditState.confirmed}
+																onChange={(event) =>
+																	setInventoryEditState((current) => ({
+																		...current,
+																		confirmed: event.target.checked,
+																		error: "",
+																	}))
+																}
+															/>
+															<span>Confirm inventory raw text overwrite</span>
+														</label>
+
+														<div className="document-actions-row">
+															<button
+																type="submit"
+																className="menu-action primary"
+																disabled={inventoryEditState.status === "saving"}
+															>
+																{inventoryEditState.status === "saving"
+																	? "Saving Inventory Text..."
+																	: "Save Inventory Text Edit"}
+															</button>
+														</div>
+													</form>
+												) : (
+													<p className="empty-state">Load the current text to start a guarded edit.</p>
+												)}
+											</div>
+										) : (
+											<p className="empty-state">Text editing is available for text inventory rows with source object keys.</p>
+										)
+									) : (
+										<p className="empty-state">Text editing controls will appear here.</p>
 									)}
 								</section>
 

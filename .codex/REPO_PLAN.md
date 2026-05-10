@@ -47,6 +47,7 @@ The repo already includes:
 - the UI Search tab can assemble citation-backed context blocks through `/api/documents/context`
 - the UI Inventory tab can inspect document status, versions, latest lifecycle summary fields, and metadata without needing a matching retrieval chunk
 - the UI Inventory tab can curate metadata for inventory rows through `external` proxy routes backed by `orchestrator`
+- the UI Inventory tab can perform guarded raw text edits for text inventory rows through `external` proxying to `orchestrator`
 - the UI Inventory tab can queue reprocessing for text inventory rows and immediately load the queued version's lifecycle history
 - the UI Search tab can update curated metadata and queue reprocessing for a retrieved document through `external` proxy routes backed by `orchestrator`
 - the UI Search tab can perform guarded raw text edits for selected text documents through `external` proxying to `orchestrator`
@@ -353,6 +354,24 @@ Current status:
 - the panel submits one key/value update through `POST /api/documents/curation`
 - successful responses update the selected inventory row metadata and clear the edit fields
 - UI tests cover the inventory curation request body and rendered metadata update
+
+### Phase 16 — Browser Inventory Guarded Text Editing UX
+
+Deliverables:
+
+- expose existing guarded text editing from Inventory rows without adding a new backend route
+- keep raw text loading through the existing authenticated `/api/documents/object` route
+- keep saves backed by `POST /api/documents/edit-text`, with `orchestrator` owning raw object writes and version queueing
+- require explicit confirmation before overwriting raw source text
+- update the selected inventory row with the accepted desired processing version and load version-specific lifecycle history
+
+Current status:
+
+- Inventory rows include an Edit Text action for text documents with object keys
+- the Inventory tab renders a guarded text edit panel that loads the current raw source text before editing
+- successful saves update the row's desired processing version from the orchestrator response
+- Inventory text edit actions automatically load `POST /api/documents/history` for the queued processing version
+- UI tests cover the inventory object load, edit-text request body, row version update, and version-specific lifecycle event rendering
 
 ## Near-Term Non-Goals
 

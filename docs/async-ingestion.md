@@ -74,6 +74,8 @@ Inventory rows can also load durable lifecycle history through the existing `POS
 
 Inventory rows can update curated metadata through the existing `POST /api/documents/curation` route. The browser still sends the request through `external`, while `orchestrator` owns validation and metadata persistence on the inventory row.
 
+Text inventory rows with source object keys can also load raw text through `GET /api/documents/object` and save guarded text edits through the existing `POST /api/documents/edit-text` route. The browser requires an explicit overwrite confirmation, while `orchestrator` remains responsible for writing the raw MinIO object, selecting the processing version, updating inventory state, and queueing processor work.
+
 Text inventory rows with source object keys can queue reprocessing through the existing `POST /api/documents/reprocess` route. `external` still proxies the request to `orchestrator`, `orchestrator` still chooses and queues the next processing version, and the UI uses the accepted processing version to load the matching durable lifecycle history.
 
 The current retrieval context slice is read-only. `documents.context` in MCP and `POST /api/documents/context` in `external` use the same current-version pgvector search path as semantic search, then assemble the selected chunks into a cited context block with stable `[1]`, `[2]` references. The UI Search tab exposes that browser-facing context route with the same query, prefix, and metadata filters used for semantic search.

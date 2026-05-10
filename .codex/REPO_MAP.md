@@ -116,6 +116,7 @@ Current behavior note:
 - The Inventory tab calls `/api/documents/inventory` to inspect Postgres-backed reconciliation and processing state.
 - The Inventory tab can call `/api/documents/history` for a selected inventory row to inspect durable lifecycle events.
 - The Inventory tab can call `/api/documents/curation` for a selected inventory row to update curated metadata through the orchestrator control plane.
+- The Inventory tab can load raw source text through `/api/documents/object` and save guarded text edits through `/api/documents/edit-text` for text inventory rows with source object keys.
 - The Inventory tab can call `/api/documents/reprocess` for text inventory rows with source object keys, then load version-specific lifecycle history for the queued version.
 - The Search tab also calls `/api/documents/context` to assemble cited context blocks from the current query and filters.
 - The Search tab can select a result for document actions, updating curated metadata, performing guarded text edits, and queueing reprocessing through `external` proxy routes backed by `orchestrator`.
