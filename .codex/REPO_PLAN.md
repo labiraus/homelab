@@ -43,7 +43,7 @@ The repo already includes:
 - a built-in deterministic `local-embeddings` fallback used by processor, `external`, and `mcp` when no external embedding endpoint is configured
 - durable document lifecycle history in `rag.document_lifecycle_events`, exposed through `external` and `mcp`
 - the MCP prompt catalog includes prompt-first guidance for ingestion, scan planning, inventory reads, metadata curation, guarded text editing, reprocessing, retrieval, context assembly, lifecycle history, auth health, MinIO browsing, and document notification subscriptions, with prompt arguments aligned to the live tool schemas for common filters and control fields, omitted optional arguments rendered without leaking template placeholders, and unknown prompt argument names rejected
-- `mcp` rejects unknown top-level `tools/call` argument names before execution so misspelled filters do not silently fall back to broader default reads
+- `mcp` rejects unknown and missing required top-level `tools/call` arguments before execution so misspelled filters or incomplete calls do not silently fall back to broader default reads
 - browser-facing document inventory reads through `/api/documents/inventory`, backed by `rag.documents`
 - browser-facing bucket reconciliation through `/api/documents/scan-bucket`, proxied to `orchestrator`
 - the UI Search tab can load that durable lifecycle history for a retrieved document through `/api/documents/history`
@@ -473,6 +473,22 @@ Current status:
 - `tools/call` validates submitted top-level argument names against the selected tool schema
 - unknown top-level tool arguments return `-32602` with the unknown argument name
 - MCP tests cover a misspelled MinIO folder prefix argument and verify execution is skipped
+
+### Phase 23 — MCP Tool Required Argument Validation
+
+Deliverables:
+
+- validate required top-level `tools/call` arguments against each advertised tool input schema before execution
+- reject incomplete tool calls with invalid-params errors rather than empty adapter/upstream error bodies
+- cover both local adapter tools and orchestrator-proxied tools so validation stays aligned across MCP execution modes
+- keep nested `body` and `metadata` field validation owned by the relevant tool or upstream service
+
+Current status:
+
+- `tools/call` returns `-32602` when a required top-level argument is missing or an advertised required string argument is blank
+- local MinIO tools skip execution when a required top-level object key argument is missing
+- orchestrator-proxied tools skip execution when the required top-level `body` argument is missing
+- MCP tests cover missing required top-level arguments for both MinIO move and document reprocess calls
 
 ## Near-Term Non-Goals
 

@@ -1199,6 +1199,80 @@ func TestHandleToolsCallRejectsUnknownTopLevelArguments(t *testing.T) {
 	}
 }
 
+func TestHandleToolsCallRejectsMissingRequiredTopLevelArguments(t *testing.T) {
+	previous := moveBucketObject
+	t.Cleanup(func() {
+		moveBucketObject = previous
+	})
+
+	moveBucketObject = func(ctx context.Context, bucket string, sourceObjectKey string, destinationObjectKey string) (operationResponse, *jsonRPCError) {
+		t.Fatalf("expected missing required tool argument to be rejected before execution")
+		return operationResponse{}, nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "minio.documents.moveObject",
+			"arguments": map[string]any{
+				"sourceObjectKey": "codex-smoke/demo.txt",
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error == nil {
+		t.Fatalf("expected missing required tool argument error, got %#v", responseBody)
+	}
+	if responseBody.Error.Code != -32602 {
+		t.Fatalf("expected invalid params error code, got %#v", responseBody.Error)
+	}
+	if responseBody.Error.Message != `missing required tool argument "destinationObjectKey"` {
+		t.Fatalf("expected missing argument message, got %#v", responseBody.Error)
+	}
+}
+
+func TestHandleToolsCallRejectsMissingRequiredProxyBody(t *testing.T) {
+	previous := proxyOperationRequest
+	t.Cleanup(func() {
+		proxyOperationRequest = previous
+	})
+
+	proxyOperationRequest = func(ctx context.Context, r *http.Request, method string, path string, body any) (string, string, *jsonRPCError) {
+		t.Fatalf("expected missing required proxy body to be rejected before execution")
+		return "", "", nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name":      "documents.reprocess",
+			"arguments": map[string]any{},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error == nil {
+		t.Fatalf("expected missing required tool argument error, got %#v", responseBody)
+	}
+	if responseBody.Error.Code != -32602 {
+		t.Fatalf("expected invalid params error code, got %#v", responseBody.Error)
+	}
+	if responseBody.Error.Message != `missing required tool argument "body"` {
+		t.Fatalf("expected missing body message, got %#v", responseBody.Error)
+	}
+}
+
 func TestProxyAPIRequestDefaultsToOrchestratorService(t *testing.T) {
 	previous := mcpHTTPClient
 	t.Cleanup(func() {

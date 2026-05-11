@@ -463,7 +463,7 @@ func handleToolsCall(ctx context.Context, r *http.Request, req jsonRPCRequest) (
 	}
 
 	inputSchema := toToolInputSchema(resolution.operation)
-	if err := validateToolArgumentNames(params.Arguments, inputSchema); err != nil {
+	if err := validateToolArguments(params.Arguments, inputSchema); err != nil {
 		return http.StatusOK, &jsonRPCResponse{
 			JSONRPC: "2.0",
 			ID:      req.ID,
@@ -1195,6 +1195,28 @@ func validateToolArgumentNames(arguments map[string]any, schema manifestSchema) 
 	}
 
 	return validateKnownArgumentNames("tool", arguments, knownNames)
+}
+
+func validateToolArguments(arguments map[string]any, schema manifestSchema) error {
+	if err := validateToolArgumentNames(arguments, schema); err != nil {
+		return err
+	}
+
+	return validateRequiredToolArguments(arguments, schema.Required)
+}
+
+func validateRequiredToolArguments(arguments map[string]any, required []string) error {
+	for _, name := range required {
+		value, ok := arguments[name]
+		if !ok || value == nil {
+			return fmt.Errorf("missing required tool argument %q", name)
+		}
+		if stringValue, ok := value.(string); ok && strings.TrimSpace(stringValue) == "" {
+			return fmt.Errorf("missing required tool argument %q", name)
+		}
+	}
+
+	return nil
 }
 
 func validateKnownArgumentNames(label string, arguments map[string]any, knownNames []string) error {
