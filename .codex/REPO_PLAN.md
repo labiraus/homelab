@@ -535,6 +535,21 @@ Current status:
 - nested orchestrator `body` schemas continue to allow service-owned extension fields
 - MCP tests verify strict top-level advertising for retrieval and orchestrator-proxied tools
 
+### Phase 27 — MCP Notification Resource URI Robustness
+
+Deliverables:
+
+- preserve full document identifiers when matching notification resource URIs
+- keep scanned document IDs such as `s3://documents/...` usable with `resources/read`, `resources/subscribe`, and `resources/unsubscribe`
+- retain nested MinIO object-key resource matching while avoiding lossy path normalization for final URI template parameters
+- cover scheme-style document IDs in MCP transport regression tests
+
+Current status:
+
+- final resource-template path parameters are matched from the raw URI tail so embedded `://` sequences are preserved
+- notification subscriptions accept scanned source-URI document IDs without collapsing `s3://` to `s3:/`
+- MCP tests cover both the matcher and the session-bound subscription path for scheme-style document IDs
+
 ## Near-Term Non-Goals
 
 For now, do not introduce:

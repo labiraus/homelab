@@ -1122,7 +1122,20 @@ func matchOperationURI(templateURI string, uri string) (map[string]string, bool)
 
 		name := strings.TrimSuffix(strings.TrimPrefix(templatePart, "{"), "}")
 		if index == len(templateParts)-1 {
-			value, err := url.PathUnescape(strings.Join(resourceParts[index:], "/"))
+			prefix := "/"
+			if index > 0 {
+				prefix += strings.Join(resourceParts[:index], "/") + "/"
+			}
+			if !strings.HasPrefix(resourcePath, prefix) {
+				return nil, false
+			}
+
+			rawValue := strings.TrimPrefix(resourcePath, prefix)
+			if rawValue == "" {
+				return nil, false
+			}
+
+			value, err := url.PathUnescape(rawValue)
 			if err != nil {
 				return nil, false
 			}

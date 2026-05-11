@@ -531,6 +531,25 @@ func TestMCPPostRejectsSessionBoundSubscribeWithoutSessionHeader(t *testing.T) {
 	}
 }
 
+func TestMCPPostSubscribesToNotificationDocumentIDWithScheme(t *testing.T) {
+	session := sessionRegistry.create(supportedProtocolVersions[0])
+	t.Cleanup(func() {
+		sessionRegistry.delete(session.ID)
+	})
+
+	documentID := "s3://documents/codex-audit/document.txt"
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/subscribe","params":{"uri":"`+documentNotificationResourceURI(documentID)+`"}}`)
+	request.Header.Set("MCP-Session-Id", session.ID)
+	request.Header.Set("MCP-Protocol-Version", session.ProtocolVersion)
+
+	mcpPostAPI(recorder, request)
+
+	response := assertRecorderJSONRPCEventResponse(t, recorder, http.StatusOK)
+	if response.Error != nil {
+		t.Fatalf("expected subscribe to preserve scheme-style document ID, got %#v", response.Error)
+	}
+}
+
 func TestMCPPostAcceptsSessionRequestWithoutProtocolHeader(t *testing.T) {
 	session := sessionRegistry.create(supportedProtocolVersions[0])
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":"1","method":"resources/list"}`)
@@ -1957,6 +1976,17 @@ func TestHandleResourcesReadMatchesNestedMinIOObjectKey(t *testing.T) {
 	}
 	if content["text"] != "hello" {
 		t.Fatalf("expected hello body, got %#v", content["text"])
+	}
+}
+
+func TestMatchOperationURIPreservesFinalParameterWithScheme(t *testing.T) {
+	documentID := "s3://documents/codex-audit/document.txt"
+	params, ok := matchOperationURI("homelab://mcp/documents/notifications/{documentId}", documentNotificationResourceURI(documentID))
+	if !ok {
+		t.Fatal("expected URI to match notification resource template")
+	}
+	if params["documentId"] != documentID {
+		t.Fatalf("expected document ID %q, got %q", documentID, params["documentId"])
 	}
 }
 
