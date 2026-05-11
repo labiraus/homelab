@@ -1203,28 +1203,29 @@ func validateToolArguments(arguments map[string]any, schema manifestSchema) erro
 		return err
 	}
 
-	if err := validateRequiredToolArguments(arguments, schema.Required); err != nil {
+	if err := validateRequiredToolArguments(arguments, schema.Required, ""); err != nil {
 		return err
 	}
 
-	return validateToolArgumentTypes(arguments, schema.Properties)
+	return validateToolArgumentTypes(arguments, schema.Properties, "")
 }
 
-func validateRequiredToolArguments(arguments map[string]any, required []string) error {
+func validateRequiredToolArguments(arguments map[string]any, required []string, pathPrefix string) error {
 	for _, name := range required {
+		path := toolArgumentPath(pathPrefix, name)
 		value, ok := arguments[name]
 		if !ok || value == nil {
-			return fmt.Errorf("missing required tool argument %q", name)
+			return fmt.Errorf("missing required tool argument %q", path)
 		}
 		if stringValue, ok := value.(string); ok && strings.TrimSpace(stringValue) == "" {
-			return fmt.Errorf("missing required tool argument %q", name)
+			return fmt.Errorf("missing required tool argument %q", path)
 		}
 	}
 
 	return nil
 }
 
-func validateToolArgumentTypes(arguments map[string]any, properties map[string]manifestSchema) error {
+func validateToolArgumentTypes(arguments map[string]any, properties map[string]manifestSchema, pathPrefix string) error {
 	for name, value := range arguments {
 		if value == nil {
 			continue
@@ -1235,12 +1236,35 @@ func validateToolArgumentTypes(arguments map[string]any, properties map[string]m
 			continue
 		}
 
-		if err := validateToolArgumentType(name, value, property.Type); err != nil {
+		path := toolArgumentPath(pathPrefix, name)
+		if err := validateToolArgumentType(path, value, property.Type); err != nil {
+			return err
+		}
+
+		if property.Type != "object" {
+			continue
+		}
+
+		objectValue, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		if err := validateRequiredToolArguments(objectValue, property.Required, path); err != nil {
+			return err
+		}
+		if err := validateToolArgumentTypes(objectValue, property.Properties, path); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func toolArgumentPath(prefix string, name string) string {
+	if strings.TrimSpace(prefix) == "" {
+		return name
+	}
+	return prefix + "." + name
 }
 
 func validateToolArgumentType(name string, value any, schemaType string) error {

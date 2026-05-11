@@ -1349,6 +1349,85 @@ func TestHandleToolsCallRejectsWrongTopLevelBodyType(t *testing.T) {
 	}
 }
 
+func TestHandleToolsCallRejectsMissingNestedRequiredBodyArgument(t *testing.T) {
+	previous := proxyOperationRequest
+	t.Cleanup(func() {
+		proxyOperationRequest = previous
+	})
+
+	proxyOperationRequest = func(ctx context.Context, r *http.Request, method string, path string, body any) (string, string, *jsonRPCError) {
+		t.Fatalf("expected missing nested body field to be rejected before execution")
+		return "", "", nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "documents.reprocess",
+			"arguments": map[string]any{
+				"body": map[string]any{},
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error == nil {
+		t.Fatalf("expected missing nested required tool argument error, got %#v", responseBody)
+	}
+	if responseBody.Error.Code != -32602 {
+		t.Fatalf("expected invalid params error code, got %#v", responseBody.Error)
+	}
+	if responseBody.Error.Message != `missing required tool argument "body.documentId"` {
+		t.Fatalf("expected missing nested argument message, got %#v", responseBody.Error)
+	}
+}
+
+func TestHandleToolsCallRejectsWrongNestedBodyArgumentType(t *testing.T) {
+	previous := proxyOperationRequest
+	t.Cleanup(func() {
+		proxyOperationRequest = previous
+	})
+
+	proxyOperationRequest = func(ctx context.Context, r *http.Request, method string, path string, body any) (string, string, *jsonRPCError) {
+		t.Fatalf("expected wrong-typed nested body field to be rejected before execution")
+		return "", "", nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "documents.reprocess",
+			"arguments": map[string]any{
+				"body": map[string]any{
+					"documentId":        "doc-1",
+					"processingVersion": "2",
+				},
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error == nil {
+		t.Fatalf("expected wrong nested type tool argument error, got %#v", responseBody)
+	}
+	if responseBody.Error.Code != -32602 {
+		t.Fatalf("expected invalid params error code, got %#v", responseBody.Error)
+	}
+	if responseBody.Error.Message != `tool argument "body.processingVersion" must be an integer` {
+		t.Fatalf("expected wrong nested type message, got %#v", responseBody.Error)
+	}
+}
+
 func TestProxyAPIRequestDefaultsToOrchestratorService(t *testing.T) {
 	previous := mcpHTTPClient
 	t.Cleanup(func() {

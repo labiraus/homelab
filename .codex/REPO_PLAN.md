@@ -43,7 +43,7 @@ The repo already includes:
 - a built-in deterministic `local-embeddings` fallback used by processor, `external`, and `mcp` when no external embedding endpoint is configured
 - durable document lifecycle history in `rag.document_lifecycle_events`, exposed through `external` and `mcp`
 - the MCP prompt catalog includes prompt-first guidance for ingestion, scan planning, inventory reads, metadata curation, guarded text editing, reprocessing, retrieval, context assembly, lifecycle history, auth health, MinIO browsing, and document notification subscriptions, with prompt arguments aligned to the live tool schemas for common filters and control fields, omitted optional arguments rendered without leaking template placeholders, and unknown prompt argument names rejected
-- `mcp` rejects unknown, missing required, and wrong-typed top-level `tools/call` arguments before execution so misspelled filters, malformed limits, or incomplete calls do not silently fall back to broader default reads
+- `mcp` rejects unknown top-level, missing required, and wrong-typed advertised `tools/call` arguments before execution so misspelled filters, malformed limits, or incomplete calls do not silently fall back to broader default reads
 - browser-facing document inventory reads through `/api/documents/inventory`, backed by `rag.documents`
 - browser-facing bucket reconciliation through `/api/documents/scan-bucket`, proxied to `orchestrator`
 - the UI Search tab can load that durable lifecycle history for a retrieved document through `/api/documents/history`
@@ -504,6 +504,21 @@ Current status:
 - top-level schema types `string`, `integer`, `boolean`, and `object` are validated before tool execution
 - malformed top-level tool arguments return `-32602` with a field-specific type error
 - MCP tests cover wrong-typed MinIO `maxKeys` and wrong-typed orchestrator proxy `body` arguments, and verify execution is skipped
+
+### Phase 25 — MCP Tool Nested Body Schema Validation
+
+Deliverables:
+
+- validate advertised nested object fields in `tools/call` payloads before execution
+- reject missing required nested `body` fields such as `body.documentId` before calling orchestrator-backed tools
+- reject wrong-typed advertised nested fields such as string `body.processingVersion` values for integer fields
+- leave unknown nested body and metadata fields to the owning upstream service contract
+
+Current status:
+
+- nested schema paths are reported in invalid-params errors, for example `body.documentId` and `body.processingVersion`
+- orchestrator-proxied tools skip execution when advertised nested body requirements are not met
+- MCP tests cover missing nested required fields and wrong-typed nested fields for document reprocess calls
 
 ## Near-Term Non-Goals
 
