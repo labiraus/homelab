@@ -42,7 +42,7 @@ The repo already includes:
 - browser uploads emit `documents.events.minio.stored` after raw objects are written to MinIO
 - a built-in deterministic `local-embeddings` fallback used by processor, `external`, and `mcp` when no external embedding endpoint is configured
 - durable document lifecycle history in `rag.document_lifecycle_events`, exposed through `external` and `mcp`
-- the MCP prompt catalog includes prompt-first guidance for ingestion, scan planning, inventory reads, metadata curation, guarded text editing, reprocessing, retrieval, context assembly, lifecycle history, auth health, MinIO browsing, and document notification subscriptions
+- the MCP prompt catalog includes prompt-first guidance for ingestion, scan planning, inventory reads, metadata curation, guarded text editing, reprocessing, retrieval, context assembly, lifecycle history, auth health, MinIO browsing, and document notification subscriptions, with prompt arguments aligned to the live tool schemas for common filters and control fields
 - browser-facing document inventory reads through `/api/documents/inventory`, backed by `rag.documents`
 - browser-facing bucket reconciliation through `/api/documents/scan-bucket`, proxied to `orchestrator`
 - the UI Search tab can load that durable lifecycle history for a retrieved document through `/api/documents/history`
@@ -410,6 +410,23 @@ Current status:
 - the curation prompt explains targeted metadata merge versus full replacement
 - the reprocess prompt explains orchestrator-owned next-version selection and following the returned version through durable history
 - MCP tests cover the new prompt catalog entries and rendered control prompt arguments
+
+### Phase 19 — MCP Prompt Argument Rendering Completeness
+
+Deliverables:
+
+- keep `prompts/list` argument metadata aligned with live MCP tool schemas for scan, edit, retrieval, context, and history workflows
+- render optional prompt arguments in `prompts/get` so prompt-first calls preserve bucket scan bounds, edit metadata/versioning, retrieval filters/limits, context budgets, and lifecycle history filters
+- keep raw document replacement text as an explicit `documents.editText` tool payload rather than embedding large source bodies into prompt templates
+- update MCP prompt docs and manifest tests with the expanded argument coverage
+
+Current status:
+
+- `documents.scanBucket.plan` renders optional bucket, prefix, maxKeys, and processingVersion fields
+- `documents.editText.prompt` renders optional contentType, metadata, and processingVersion fields while requiring documentId
+- `documents.search.prompt` and `documents.context.prompt` render query, prefix, documentId, metadata, and limit filters; context also renders maxChars
+- `documents.history.prompt` renders documentId, processingVersion, and limit
+- MCP tests cover the expanded prompt argument catalog and rendered prompt messages
 
 ## Near-Term Non-Goals
 

@@ -80,7 +80,7 @@ The current browser-login choice in this repo is `oauth2-proxy + Google` for `ui
 
 ## Prompt And Notification Surface
 
-The MCP manifest now lists example prompts for the current capability surface. Prompt coverage includes ingestion, scan planning, inventory reads, metadata curation, text edits, reprocessing, retrieval, context assembly, lifecycle history, auth health, MinIO browsing, and document notification subscriptions. The durable prompt catalog is documented in [docs/MCPPrompts.md](/workspaces/homelab/docs/MCPPrompts.md).
+The MCP manifest now lists example prompts for the current capability surface. Prompt coverage includes ingestion, scan planning, inventory reads, metadata curation, text edits, reprocessing, retrieval, context assembly, lifecycle history, auth health, MinIO browsing, and document notification subscriptions. Prompt argument rendering follows the live tool schemas for scan bounds, edit metadata and versioning, retrieval filters and limits, and history filters. The durable prompt catalog is documented in [docs/MCPPrompts.md](/workspaces/homelab/docs/MCPPrompts.md).
 
 Document lifecycle notifications are live through the Streamable HTTP transport:
 

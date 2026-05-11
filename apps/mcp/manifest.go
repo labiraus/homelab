@@ -79,7 +79,7 @@ var capabilityCatalog = []manifestCapabilitySource{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.reprocess` tool on Labiraus to queue a fresh processing attempt for `{{documentId}}`. Send a body with `documentId` and, only when you need to override the orchestrator's next-version choice, `processingVersion`. After the tool returns, inspect the returned processing version with `documents.history.list` to follow queued, started, completed, or failed events.",
+							Text: "Use the live `documents.reprocess` tool on Labiraus to queue a fresh processing attempt for `{{documentId}}`. Send a body with `documentId`; include `processingVersion: {{processingVersion}}` only when you need to override the orchestrator's next-version choice. After the tool returns, inspect the returned processing version with `documents.history.list` to follow queued, started, completed, or failed events.",
 						},
 					},
 				},
@@ -105,14 +105,17 @@ var capabilityCatalog = []manifestCapabilitySource{
 				"Describe the bucket-reconciliation flow that scans MinIO and upserts document inventory into Postgres.",
 				false,
 				[]manifestPromptArgument{
+					{Name: "bucket", Description: "Optional bucket name. Defaults to the configured documents bucket."},
 					{Name: "prefix", Description: "Optional MinIO prefix to constrain the scan scope."},
+					{Name: "maxKeys", Description: "Optional maximum number of objects to scan."},
+					{Name: "processingVersion", Description: "Optional desired processing version for queued text documents."},
 				},
 				[]manifestPromptMessage{
 					{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.scanBucket` tool on Labiraus to reconcile the external MinIO documents bucket. Optionally constrain reconciliation to the `{{prefix}}` prefix. The scan upserts control-plane inventory into Postgres, marks non-text objects as unsupported, and queues new or changed `text/*` objects for processor work.",
+							Text: "Use the live `documents.scanBucket` tool on Labiraus to reconcile the external MinIO documents bucket. Send optional body fields only when needed: `bucket` such as `{{bucket}}`, `prefix` such as `{{prefix}}`, `maxKeys` such as `{{maxKeys}}`, and `processingVersion` such as `{{processingVersion}}`. The scan upserts control-plane inventory into Postgres, marks non-text objects as unsupported, and queues new or changed `text/*` objects for processor work.",
 						},
 					},
 				},
@@ -175,13 +178,16 @@ var capabilityCatalog = []manifestCapabilitySource{
 				false,
 				[]manifestPromptArgument{
 					{Name: "documentId", Description: "Existing document identifier from inventory or search results.", Required: true},
+					{Name: "contentType", Description: "Optional replacement MIME type. Defaults to the current document content type and must be text/*."},
+					{Name: "metadata", Description: "Optional JSON metadata fields to merge into the inventory row."},
+					{Name: "processingVersion", Description: "Optional explicit processing version. Defaults to the next version after the current desired version."},
 				},
 				[]manifestPromptMessage{
 					{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.editText` tool on Labiraus to update the raw text for `{{documentId}}`. Send a body with `documentId`, `text`, and optional `contentType`, `metadata`, or `processingVersion`. The orchestrator overwrites the existing MinIO text object, records edit metadata, and queues a newer processing version so retrieval uses refreshed chunks after processing completes.",
+							Text: "Use the live `documents.editText` tool on Labiraus to update the raw text for `{{documentId}}`. Send a body with `documentId`, replacement `text`, and optional `contentType` such as `{{contentType}}`, `metadata` such as `{{metadata}}`, or `processingVersion` such as `{{processingVersion}}`. The orchestrator overwrites the existing MinIO text object, records edit metadata, and queues a newer processing version so retrieval uses refreshed chunks after processing completes.",
 						},
 					},
 				},
@@ -217,14 +223,16 @@ var capabilityCatalog = []manifestCapabilitySource{
 				[]manifestPromptArgument{
 					{Name: "query", Description: "Natural-language retrieval query.", Required: true},
 					{Name: "prefix", Description: "Optional documents-bucket object-key prefix."},
+					{Name: "documentId", Description: "Optional exact document identifier."},
 					{Name: "metadata", Description: "Optional exact-match JSON metadata filters, for example {\"tag\":\"runbook\"}."},
+					{Name: "limit", Description: "Optional maximum number of chunk hits to return."},
 				},
 				[]manifestPromptMessage{
 					{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.search` tool on Labiraus with query `{{query}}`. Optional filters: set `prefix` to a documents-bucket object-key prefix, and set `metadata` to exact-match JSON such as `{\"tag\":\"runbook\"}`. Results come from pgvector similarity search over processed chunks and include document metadata, document IDs, object keys, chunk text, scores, processing versions, and citation objects that identify the source URI plus chunk.",
+							Text: "Use the live `documents.search` tool on Labiraus with query `{{query}}`. Optional filters: set `prefix` to a documents-bucket object-key prefix such as `{{prefix}}`, `documentId` to `{{documentId}}`, `metadata` to exact-match JSON such as `{{metadata}}`, and `limit` to `{{limit}}`. Results come from pgvector similarity search over processed chunks and include document metadata, document IDs, object keys, chunk text, scores, processing versions, and citation objects that identify the source URI plus chunk.",
 						},
 					},
 				},
@@ -238,14 +246,17 @@ var capabilityCatalog = []manifestCapabilitySource{
 				[]manifestPromptArgument{
 					{Name: "query", Description: "Natural-language context query.", Required: true},
 					{Name: "prefix", Description: "Optional documents-bucket object-key prefix."},
+					{Name: "documentId", Description: "Optional exact document identifier."},
 					{Name: "metadata", Description: "Optional exact-match JSON metadata filters, for example {\"tag\":\"runbook\"}."},
+					{Name: "limit", Description: "Optional maximum number of chunk hits to assemble."},
+					{Name: "maxChars", Description: "Optional maximum character budget for the assembled context block."},
 				},
 				[]manifestPromptMessage{
 					{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.context` tool on Labiraus with query `{{query}}`. Optional filters: set `prefix` to a documents-bucket object-key prefix, and set `metadata` to exact-match JSON such as `{\"tag\":\"runbook\"}`. The tool searches the current processed chunk version, then assembles a compact context block with `[1]`, `[2]` style references and citation objects for each included chunk.",
+							Text: "Use the live `documents.context` tool on Labiraus with query `{{query}}`. Optional filters: set `prefix` to a documents-bucket object-key prefix such as `{{prefix}}`, `documentId` to `{{documentId}}`, `metadata` to exact-match JSON such as `{{metadata}}`, `limit` to `{{limit}}`, and `maxChars` to `{{maxChars}}`. The tool searches the current processed chunk version, then assembles a compact context block with `[1]`, `[2]` style references and citation objects for each included chunk.",
 						},
 					},
 				},
@@ -267,7 +278,7 @@ var capabilityCatalog = []manifestCapabilitySource{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.inventory.list` tool on Labiraus to inspect Postgres-backed document inventory. Optional filters: `status` for lifecycle state, `prefix` for a documents-bucket object-key prefix, `documentId` for one exact inventory row, and `metadata` for exact-match JSON such as `{{metadata}}`. Inventory rows include source identity, metadata, processing versions, latest lifecycle summary fields, reconciliation timestamps, and errors. If the inventory appears stale for a prefix, use `documents.scanBucket` first, then list inventory again.",
+							Text: "Use the live `documents.inventory.list` tool on Labiraus to inspect Postgres-backed document inventory. Optional filters: `status` such as `{{status}}`, `prefix` such as `{{prefix}}`, `documentId` such as `{{documentId}}`, and `metadata` for exact-match JSON such as `{{metadata}}`. Inventory rows include source identity, metadata, processing versions, latest lifecycle summary fields, reconciliation timestamps, and errors. If the inventory appears stale for a prefix, use `documents.scanBucket` first, then list inventory again.",
 						},
 					},
 				},
@@ -328,13 +339,14 @@ var capabilityCatalog = []manifestCapabilitySource{
 				[]manifestPromptArgument{
 					{Name: "documentId", Description: "Document identifier from inventory, search results, or a lifecycle notification.", Required: true},
 					{Name: "processingVersion", Description: "Optional processing version to narrow the lifecycle timeline."},
+					{Name: "limit", Description: "Optional maximum number of lifecycle events to return."},
 				},
 				[]manifestPromptMessage{
 					{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.history.list` tool on Labiraus with `documentId` set to `{{documentId}}`. Add `processingVersion` when you need the lifecycle timeline for one reprocess attempt. The response is sourced from `rag.document_lifecycle_events` and includes the recorded queued, started, completed, and failed lifecycle events with the original event payloads.",
+							Text: "Use the live `documents.history.list` tool on Labiraus with `documentId` set to `{{documentId}}`. Add `processingVersion` `{{processingVersion}}` when you need the lifecycle timeline for one reprocess attempt, and `limit` `{{limit}}` when you need to bound returned events. The response is sourced from `rag.document_lifecycle_events` and includes the recorded queued, started, completed, and failed lifecycle events with the original event payloads.",
 						},
 					},
 				},

@@ -31,30 +31,14 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 	if len(manifest.Prompts) == 0 {
 		t.Fatalf("expected prompts to be published in the manifest")
 	}
-	searchPrompt := findPromptInManifest(t, manifest, "documents.search.prompt")
-	if !promptHasArgument(searchPrompt, "metadata") {
-		t.Fatalf("expected search prompt to advertise metadata argument, got %#v", searchPrompt.Arguments)
-	}
-	contextPrompt := findPromptInManifest(t, manifest, "documents.context.prompt")
-	if !promptHasArgument(contextPrompt, "metadata") {
-		t.Fatalf("expected context prompt to advertise metadata argument, got %#v", contextPrompt.Arguments)
-	}
-	historyPrompt := findPromptInManifest(t, manifest, "documents.history.prompt")
-	if !promptHasArgument(historyPrompt, "documentId") {
-		t.Fatalf("expected history prompt to advertise documentId argument, got %#v", historyPrompt.Arguments)
-	}
-	inventoryPrompt := findPromptInManifest(t, manifest, "documents.inventory.prompt")
-	if !promptHasArgument(inventoryPrompt, "metadata") {
-		t.Fatalf("expected inventory prompt to advertise metadata argument, got %#v", inventoryPrompt.Arguments)
-	}
-	curationPrompt := findPromptInManifest(t, manifest, "documents.curation.update.prompt")
-	if !promptHasArgument(curationPrompt, "documentId") || !promptHasArgument(curationPrompt, "metadata") {
-		t.Fatalf("expected curation prompt to advertise documentId and metadata arguments, got %#v", curationPrompt.Arguments)
-	}
-	reprocessPrompt := findPromptInManifest(t, manifest, "documents.reprocess.prompt")
-	if !promptHasArgument(reprocessPrompt, "documentId") {
-		t.Fatalf("expected reprocess prompt to advertise documentId argument, got %#v", reprocessPrompt.Arguments)
-	}
+	assertPromptHasArguments(t, findPromptInManifest(t, manifest, "documents.search.prompt"), "query", "prefix", "documentId", "metadata", "limit")
+	assertPromptHasArguments(t, findPromptInManifest(t, manifest, "documents.context.prompt"), "query", "prefix", "documentId", "metadata", "limit", "maxChars")
+	assertPromptHasArguments(t, findPromptInManifest(t, manifest, "documents.history.prompt"), "documentId", "processingVersion", "limit")
+	assertPromptHasArguments(t, findPromptInManifest(t, manifest, "documents.inventory.prompt"), "status", "prefix", "documentId", "metadata")
+	assertPromptHasArguments(t, findPromptInManifest(t, manifest, "documents.curation.update.prompt"), "documentId", "metadata")
+	assertPromptHasArguments(t, findPromptInManifest(t, manifest, "documents.reprocess.prompt"), "documentId", "processingVersion")
+	assertPromptHasArguments(t, findPromptInManifest(t, manifest, "documents.scanBucket.plan"), "bucket", "prefix", "maxKeys", "processingVersion")
+	assertPromptHasArguments(t, findPromptInManifest(t, manifest, "documents.editText.prompt"), "documentId", "contentType", "metadata", "processingVersion")
 	if !manifestHasTransport(manifest, "streamable-http", "https://mcp.labiraus.com/mcp") {
 		t.Fatalf("expected streamable-http transport in manifest, got %#v", manifest.Transports)
 	}
@@ -868,6 +852,191 @@ func TestHandlePromptsGetRendersControlPromptArguments(t *testing.T) {
 	}
 }
 
+func TestHandlePromptsGetRendersReprocessPromptArguments(t *testing.T) {
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "prompts/get",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "documents.reprocess.prompt",
+			"arguments": map[string]any{
+				"documentId":        "doc-789",
+				"processingVersion": "9",
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful prompt get response, got %#v", responseBody)
+	}
+
+	result, ok := responseBody.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected prompt result map, got %#v", responseBody.Result)
+	}
+
+	messages, ok := result["messages"].([]manifestPromptMessage)
+	if !ok || len(messages) != 1 {
+		t.Fatalf("expected one prompt message, got %#v", result["messages"])
+	}
+
+	if !strings.Contains(messages[0].Content.Text, "doc-789") {
+		t.Fatalf("expected rendered document id in prompt message, got %#v", messages[0].Content.Text)
+	}
+	if !strings.Contains(messages[0].Content.Text, "processingVersion: 9") {
+		t.Fatalf("expected rendered processing version in prompt message, got %#v", messages[0].Content.Text)
+	}
+}
+
+func TestHandlePromptsGetRendersInventoryPromptArguments(t *testing.T) {
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "prompts/get",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "documents.inventory.prompt",
+			"arguments": map[string]any{
+				"status":     "processed",
+				"prefix":     "codex-smoke/",
+				"documentId": "doc-123",
+				"metadata":   `{"editedBy":"orchestrator.editText"}`,
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful prompt get response, got %#v", responseBody)
+	}
+
+	result, ok := responseBody.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected prompt result map, got %#v", responseBody.Result)
+	}
+
+	messages, ok := result["messages"].([]manifestPromptMessage)
+	if !ok || len(messages) != 1 {
+		t.Fatalf("expected one prompt message, got %#v", result["messages"])
+	}
+
+	for _, expected := range []string{"processed", "codex-smoke/", "doc-123", `{"editedBy":"orchestrator.editText"}`} {
+		if !strings.Contains(messages[0].Content.Text, expected) {
+			t.Fatalf("expected rendered %q in prompt message, got %#v", expected, messages[0].Content.Text)
+		}
+	}
+}
+
+func TestHandlePromptsGetRendersScanBucketPromptArguments(t *testing.T) {
+	text := renderedPromptTextForTest(t, "documents.scanBucket.plan", map[string]any{
+		"bucket":            "documents",
+		"prefix":            "codex-smoke/",
+		"maxKeys":           25,
+		"processingVersion": 11,
+	})
+
+	for _, expected := range []string{"documents", "codex-smoke/", "25", "11"} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("expected rendered %q in prompt message, got %#v", expected, text)
+		}
+	}
+}
+
+func TestHandlePromptsGetRendersEditTextPromptArguments(t *testing.T) {
+	text := renderedPromptTextForTest(t, "documents.editText.prompt", map[string]any{
+		"documentId":        "doc-edit",
+		"contentType":       "text/markdown",
+		"metadata":          `{"editedBy":"agent"}`,
+		"processingVersion": 12,
+	})
+
+	for _, expected := range []string{"doc-edit", "text/markdown", `{"editedBy":"agent"}`, "12"} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("expected rendered %q in prompt message, got %#v", expected, text)
+		}
+	}
+}
+
+func TestHandlePromptsGetRendersRetrievalPromptArguments(t *testing.T) {
+	for _, prompt := range []string{"documents.search.prompt", "documents.context.prompt"} {
+		t.Run(prompt, func(t *testing.T) {
+			arguments := map[string]any{
+				"query":      "find deployment notes",
+				"prefix":     "ops/",
+				"documentId": "doc-retrieval",
+				"metadata":   `{"tag":"runbook"}`,
+				"limit":      4,
+			}
+			expected := []string{"find deployment notes", "ops/", "doc-retrieval", `{"tag":"runbook"}`, "4"}
+			if prompt == "documents.context.prompt" {
+				arguments["maxChars"] = 900
+				expected = append(expected, "900")
+			}
+
+			text := renderedPromptTextForTest(t, prompt, arguments)
+			for _, value := range expected {
+				if !strings.Contains(text, value) {
+					t.Fatalf("expected rendered %q in prompt message, got %#v", value, text)
+				}
+			}
+		})
+	}
+}
+
+func TestHandlePromptsGetRendersHistoryPromptArguments(t *testing.T) {
+	text := renderedPromptTextForTest(t, "documents.history.prompt", map[string]any{
+		"documentId":        "doc-history",
+		"processingVersion": 9,
+		"limit":             20,
+	})
+
+	for _, expected := range []string{"doc-history", "9", "20"} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("expected rendered %q in prompt message, got %#v", expected, text)
+		}
+	}
+}
+
+func renderedPromptTextForTest(t *testing.T, name string, arguments map[string]any) string {
+	t.Helper()
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "prompts/get",
+		Params: mustMarshalParams(t, map[string]any{
+			"name":      name,
+			"arguments": arguments,
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error != nil {
+		t.Fatalf("expected successful prompt get response, got %#v", responseBody)
+	}
+
+	result, ok := responseBody.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected prompt result map, got %#v", responseBody.Result)
+	}
+
+	messages, ok := result["messages"].([]manifestPromptMessage)
+	if !ok || len(messages) != 1 {
+		t.Fatalf("expected one prompt message, got %#v", result["messages"])
+	}
+
+	return messages[0].Content.Text
+}
+
 func TestHandleToolsCallUsesMinIOAdapter(t *testing.T) {
 	previous := listFolderEntries
 	t.Cleanup(func() {
@@ -1530,6 +1699,16 @@ func findPromptInManifest(t *testing.T, manifest manifestDocument, name string) 
 
 	t.Fatalf("prompt %q not found", name)
 	return manifestPrompt{}
+}
+
+func assertPromptHasArguments(t *testing.T, prompt manifestPrompt, names ...string) {
+	t.Helper()
+
+	for _, name := range names {
+		if !promptHasArgument(prompt, name) {
+			t.Fatalf("expected prompt %q to advertise argument %q, got %#v", prompt.Name, name, prompt.Arguments)
+		}
+	}
 }
 
 func promptHasArgument(prompt manifestPrompt, name string) bool {

@@ -51,14 +51,17 @@ This live ingestion path currently supports `text/*` documents only.
 - lifecycle: `live`
 - purpose: describe the MinIO scan and Postgres reconciliation flow
 - arguments:
+  - `bucket` optional
   - `prefix` optional
+  - `maxKeys` optional
+  - `processingVersion` optional
 
 Use this when:
 
 - preparing a live `documents.scanBucket` call
 - reviewing how bucket reconciliation decides what should be queued
 
-The live scan upserts document inventory rows, marks non-`text/*` objects as `unsupported`, preserves unchanged known object status, and queues new or changed text objects through the orchestrator/processor path.
+The prompt renders supplied scan bounds and versioning fields so a generated `documents.scanBucket` call can stay scoped. The live scan upserts document inventory rows, marks non-`text/*` objects as `unsupported`, preserves unchanged known object status, and queues new or changed text objects through the orchestrator/processor path.
 
 ### `documents.reprocess.prompt`
 
@@ -96,13 +99,16 @@ The live `documents.curation.update` tool writes through the orchestrator contro
 - purpose: show how to overwrite an existing text object and queue refreshed derived state
 - arguments:
   - `documentId` required
+  - `contentType` optional
+  - `metadata` optional
+  - `processingVersion` optional
 
 Use this when:
 
 - an agent needs to edit a known `text/*` inventory document
 - the edit should trigger a newer processing version without a separate scan or reprocess call
 
-The live `documents.editText` tool writes replacement text to the existing MinIO bucket/object key, merges optional metadata into `rag.documents.metadata`, marks the edit with `editedBy: orchestrator.editText`, and queues processor work for the next processing version by default.
+The prompt renders supplied content type, metadata, and processing-version overrides while keeping replacement text as the tool payload. The live `documents.editText` tool writes replacement text to the existing MinIO bucket/object key, merges optional metadata into `rag.documents.metadata`, marks the edit with `editedBy: orchestrator.editText`, and queues processor work for the next processing version by default.
 
 ### `documents.context.prompt`
 
@@ -111,14 +117,17 @@ The live `documents.editText` tool writes replacement text to the existing MinIO
 - arguments:
   - `query` required
   - `prefix` optional
+  - `documentId` optional
   - `metadata` optional
+  - `limit` optional
+  - `maxChars` optional
 
 Use this when:
 
 - an agent needs ready-to-use context rather than raw search hits
 - cited context should stay tied to the current processed chunk version
 
-The live `documents.context` tool uses the same pgvector retrieval path as `documents.search`, then emits a compact context string with `[1]`, `[2]` style references. Each reference has a corresponding citation object that identifies the source URI, object key, chunk ID, chunk index, and processing version. The optional `metadata` object applies exact-match filters against curated `rag.documents.metadata` fields.
+The live `documents.context` tool uses the same pgvector retrieval path as `documents.search`, then emits a compact context string with `[1]`, `[2]` style references. Each reference has a corresponding citation object that identifies the source URI, object key, chunk ID, chunk index, and processing version. Optional prefix, document ID, metadata, limit, and max-character arguments are rendered by the prompt and map to the live context tool schema.
 
 ### `documents.search.prompt`
 
@@ -127,14 +136,16 @@ The live `documents.context` tool uses the same pgvector retrieval path as `docu
 - arguments:
   - `query` required
   - `prefix` optional
+  - `documentId` optional
   - `metadata` optional
+  - `limit` optional
 
 Use this when:
 
 - an agent needs semantic retrieval over processed documents
 - narrowing search to a folder-like object-key prefix would improve the answer
 
-The live `documents.search` tool embeds the query with the configured embedding path and searches the current processed chunk version across `rag.embeddings`, `rag.chunks`, and `rag.documents` in Postgres. Results include document metadata plus citation objects with source URI and chunk identity. Optional `metadata` filters use exact JSON containment, for example `{"tag":"runbook"}`. With `EMBEDDING_MODEL=local-embeddings` and no `EMBEDDING_ENDPOINT`, that embedding path is the built-in deterministic 384-dimensional local embedding function.
+The live `documents.search` tool embeds the query with the configured embedding path and searches the current processed chunk version across `rag.embeddings`, `rag.chunks`, and `rag.documents` in Postgres. Results include document metadata plus citation objects with source URI and chunk identity. Optional prefix, document ID, metadata, and limit arguments are rendered by the prompt and map to the live search tool schema. With `EMBEDDING_MODEL=local-embeddings` and no `EMBEDDING_ENDPOINT`, that embedding path is the built-in deterministic 384-dimensional local embedding function.
 
 ### `documents.inventory.prompt`
 
@@ -160,13 +171,14 @@ The live `documents.inventory.list` tool reads `rag.documents` and returns sourc
 - arguments:
   - `documentId` required
   - `processingVersion` optional
+  - `limit` optional
 
 Use this when:
 
 - an agent needs to audit whether a document was queued, started, completed, or failed
 - a reprocess attempt needs a timeline separate from the current inventory summary
 
-The live `documents.history.list` tool reads `rag.document_lifecycle_events` and returns lifecycle events with their original event payloads. The current inventory row still exposes only the latest event summary through `lastEventSubject` and `lastEventAt`.
+The prompt renders supplied processing-version and limit fields so a history lookup can target one attempt or bound the event list. The live `documents.history.list` tool reads `rag.document_lifecycle_events` and returns lifecycle events with their original event payloads. The current inventory row still exposes only the latest event summary through `lastEventSubject` and `lastEventAt`.
 
 ### `postgres.auth.userCount.prompt`
 
