@@ -69,6 +69,8 @@ The live Postgres shape also supports `homelab://mcp/postgres/auth/users/{email}
 
 `documents.inventory.list`, `documents.search`, and `documents.context` accept optional `documentId`, folder-like `prefix`, and exact-match `metadata` filters. Metadata filters are applied to `rag.documents.metadata`, so curated fields from `documents.curation.update` can narrow inventory and retrieval without introducing a separate graph or index service.
 
+`tools/call` validates top-level argument names against the selected tool's advertised input schema before execution. Unknown top-level arguments return invalid-params errors so misspelled filters or object keys do not silently fall back to broader defaults.
+
 ## Auth Surface
 
 The current all-or-nothing access model is:

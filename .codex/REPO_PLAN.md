@@ -43,6 +43,7 @@ The repo already includes:
 - a built-in deterministic `local-embeddings` fallback used by processor, `external`, and `mcp` when no external embedding endpoint is configured
 - durable document lifecycle history in `rag.document_lifecycle_events`, exposed through `external` and `mcp`
 - the MCP prompt catalog includes prompt-first guidance for ingestion, scan planning, inventory reads, metadata curation, guarded text editing, reprocessing, retrieval, context assembly, lifecycle history, auth health, MinIO browsing, and document notification subscriptions, with prompt arguments aligned to the live tool schemas for common filters and control fields, omitted optional arguments rendered without leaking template placeholders, and unknown prompt argument names rejected
+- `mcp` rejects unknown top-level `tools/call` argument names before execution so misspelled filters do not silently fall back to broader default reads
 - browser-facing document inventory reads through `/api/documents/inventory`, backed by `rag.documents`
 - browser-facing bucket reconciliation through `/api/documents/scan-bucket`, proxied to `orchestrator`
 - the UI Search tab can load that durable lifecycle history for a retrieved document through `/api/documents/history`
@@ -457,6 +458,21 @@ Current status:
 - `prompts/get` validates submitted prompt argument names against the selected prompt definition
 - unknown prompt arguments return `-32602` with the unknown argument name
 - MCP tests cover a misspelled optional retrieval argument so typos cannot be silently ignored
+
+### Phase 22 — MCP Tool Top-Level Argument Validation
+
+Deliverables:
+
+- keep `tools/call` strict about top-level argument names advertised by each tool input schema
+- reject unknown top-level tool argument names with an invalid-params error before executing local adapters or orchestrator proxies
+- prevent misspelled tool filters from silently broadening reads, while leaving nested `body` and `metadata` payload validation to the owning tool/upstream contract
+- document the tool argument validation contract
+
+Current status:
+
+- `tools/call` validates submitted top-level argument names against the selected tool schema
+- unknown top-level tool arguments return `-32602` with the unknown argument name
+- MCP tests cover a misspelled MinIO folder prefix argument and verify execution is skipped
 
 ## Near-Term Non-Goals
 

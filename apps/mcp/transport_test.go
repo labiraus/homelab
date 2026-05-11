@@ -1161,6 +1161,44 @@ func TestHandleToolsCallUsesMinIOAdapter(t *testing.T) {
 	}
 }
 
+func TestHandleToolsCallRejectsUnknownTopLevelArguments(t *testing.T) {
+	previous := listFolderEntries
+	t.Cleanup(func() {
+		listFolderEntries = previous
+	})
+
+	listFolderEntries = func(ctx context.Context, bucket string, arguments map[string]any) (operationResponse, *jsonRPCError) {
+		t.Fatalf("expected unknown tool argument to be rejected before execution")
+		return operationResponse{}, nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "minio.documents.listFolder",
+			"arguments": map[string]any{
+				"prefxi": "codex-smoke/",
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error == nil {
+		t.Fatalf("expected unknown tool argument error, got %#v", responseBody)
+	}
+	if responseBody.Error.Code != -32602 {
+		t.Fatalf("expected invalid params error code, got %#v", responseBody.Error)
+	}
+	if responseBody.Error.Message != `unknown tool argument "prefxi"` {
+		t.Fatalf("expected unknown argument message, got %#v", responseBody.Error)
+	}
+}
+
 func TestProxyAPIRequestDefaultsToOrchestratorService(t *testing.T) {
 	previous := mcpHTTPClient
 	t.Cleanup(func() {

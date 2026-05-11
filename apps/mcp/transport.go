@@ -462,6 +462,18 @@ func handleToolsCall(ctx context.Context, r *http.Request, req jsonRPCRequest) (
 		}
 	}
 
+	inputSchema := toToolInputSchema(resolution.operation)
+	if err := validateToolArgumentNames(params.Arguments, inputSchema); err != nil {
+		return http.StatusOK, &jsonRPCResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Error: &jsonRPCError{
+				Code:    -32602,
+				Message: err.Error(),
+			},
+		}
+	}
+
 	response, upstreamErr := executeToolOperation(ctx, r, resolution, params.Arguments)
 	result := map[string]any{
 		"content": []map[string]any{
@@ -1169,6 +1181,23 @@ func promptArgumentNames(arguments []manifestPromptArgument) []string {
 }
 
 func validatePromptArgumentNames(arguments map[string]any, knownNames []string) error {
+	return validateKnownArgumentNames("prompt", arguments, knownNames)
+}
+
+func validateToolArgumentNames(arguments map[string]any, schema manifestSchema) error {
+	if schema.AdditionalProperties == true {
+		return nil
+	}
+
+	knownNames := make([]string, 0, len(schema.Properties))
+	for name := range schema.Properties {
+		knownNames = append(knownNames, name)
+	}
+
+	return validateKnownArgumentNames("tool", arguments, knownNames)
+}
+
+func validateKnownArgumentNames(label string, arguments map[string]any, knownNames []string) error {
 	if len(arguments) == 0 {
 		return nil
 	}
@@ -1190,10 +1219,10 @@ func validatePromptArgumentNames(arguments map[string]any, knownNames []string) 
 
 	sort.Strings(unknown)
 	if len(unknown) == 1 {
-		return fmt.Errorf("unknown prompt argument %q", unknown[0])
+		return fmt.Errorf("unknown %s argument %q", label, unknown[0])
 	}
 
-	return fmt.Errorf("unknown prompt arguments %q", strings.Join(unknown, ", "))
+	return fmt.Errorf("unknown %s arguments %q", label, strings.Join(unknown, ", "))
 }
 
 func validatePromptArguments(definitions []manifestPromptArgument, arguments map[string]string) error {
