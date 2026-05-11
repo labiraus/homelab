@@ -215,7 +215,7 @@ func handlePromptsGet(ctx context.Context, r *http.Request, req jsonRPCRequest) 
 		ID:      req.ID,
 		Result: map[string]any{
 			"description": operationDescription(resolution.capability, resolution.operation),
-			"messages":    renderPromptMessages(resolution.operation.PromptMessages, arguments),
+			"messages":    renderPromptMessages(resolution.operation.PromptMessages, resolution.operation.PromptArguments, arguments),
 		},
 	}
 }
@@ -1165,14 +1165,27 @@ func validatePromptArguments(definitions []manifestPromptArgument, arguments map
 	return nil
 }
 
-func renderPromptMessages(templates []manifestPromptMessage, arguments map[string]string) []manifestPromptMessage {
+func renderPromptMessages(templates []manifestPromptMessage, definitions []manifestPromptArgument, arguments map[string]string) []manifestPromptMessage {
+	renderArguments := promptRenderArguments(definitions, arguments)
 	rendered := make([]manifestPromptMessage, 0, len(templates))
 	for _, template := range templates {
 		message := template
-		message.Content.Text = renderPromptText(template.Content.Text, arguments)
+		message.Content.Text = renderPromptText(template.Content.Text, renderArguments)
 		rendered = append(rendered, message)
 	}
 	return rendered
+}
+
+func promptRenderArguments(definitions []manifestPromptArgument, arguments map[string]string) map[string]string {
+	renderArguments := make(map[string]string, len(definitions))
+	for _, definition := range definitions {
+		value := arguments[definition.Name]
+		if strings.TrimSpace(value) == "" && !definition.Required {
+			value = "not supplied"
+		}
+		renderArguments[definition.Name] = value
+	}
+	return renderArguments
 }
 
 func renderPromptText(template string, arguments map[string]string) string {

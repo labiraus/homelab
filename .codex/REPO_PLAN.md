@@ -42,7 +42,7 @@ The repo already includes:
 - browser uploads emit `documents.events.minio.stored` after raw objects are written to MinIO
 - a built-in deterministic `local-embeddings` fallback used by processor, `external`, and `mcp` when no external embedding endpoint is configured
 - durable document lifecycle history in `rag.document_lifecycle_events`, exposed through `external` and `mcp`
-- the MCP prompt catalog includes prompt-first guidance for ingestion, scan planning, inventory reads, metadata curation, guarded text editing, reprocessing, retrieval, context assembly, lifecycle history, auth health, MinIO browsing, and document notification subscriptions, with prompt arguments aligned to the live tool schemas for common filters and control fields
+- the MCP prompt catalog includes prompt-first guidance for ingestion, scan planning, inventory reads, metadata curation, guarded text editing, reprocessing, retrieval, context assembly, lifecycle history, auth health, MinIO browsing, and document notification subscriptions, with prompt arguments aligned to the live tool schemas for common filters and control fields and omitted optional arguments rendered without leaking template placeholders
 - browser-facing document inventory reads through `/api/documents/inventory`, backed by `rag.documents`
 - browser-facing bucket reconciliation through `/api/documents/scan-bucket`, proxied to `orchestrator`
 - the UI Search tab can load that durable lifecycle history for a retrieved document through `/api/documents/history`
@@ -427,6 +427,21 @@ Current status:
 - `documents.search.prompt` and `documents.context.prompt` render query, prefix, documentId, metadata, and limit filters; context also renders maxChars
 - `documents.history.prompt` renders documentId, processingVersion, and limit
 - MCP tests cover the expanded prompt argument catalog and rendered prompt messages
+
+### Phase 20 — MCP Prompt Optional Argument Resilience
+
+Deliverables:
+
+- keep `prompts/get` responses clean when callers provide only required arguments
+- replace omitted optional prompt placeholders with an explicit neutral value instead of exposing template syntax to MCP clients
+- adjust prompt wording so supplied and omitted optional values read naturally across scan, curation, edit, retrieval, inventory, history, and MinIO browsing prompts
+- cover the required-only retrieval path with MCP transport tests
+
+Current status:
+
+- the prompt renderer fills every declared optional argument with `not supplied` when the caller omits it
+- prompt copy now describes optional values as supplied fields, so required-only calls do not produce awkward examples
+- MCP tests verify that omitted retrieval filters do not leave raw `{{placeholder}}` text in rendered prompt messages
 
 ## Near-Term Non-Goals
 

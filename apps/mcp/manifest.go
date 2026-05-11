@@ -79,7 +79,7 @@ var capabilityCatalog = []manifestCapabilitySource{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.reprocess` tool on Labiraus to queue a fresh processing attempt for `{{documentId}}`. Send a body with `documentId`; include `processingVersion: {{processingVersion}}` only when you need to override the orchestrator's next-version choice. After the tool returns, inspect the returned processing version with `documents.history.list` to follow queued, started, completed, or failed events.",
+							Text: "Use the live `documents.reprocess` tool on Labiraus to queue a fresh processing attempt for `{{documentId}}`. Send a body with `documentId`; include `processingVersion` only when you need to override the orchestrator's next-version choice. Supplied processingVersion: `{{processingVersion}}`. After the tool returns, inspect the returned processing version with `documents.history.list` to follow queued, started, completed, or failed events.",
 						},
 					},
 				},
@@ -115,7 +115,7 @@ var capabilityCatalog = []manifestCapabilitySource{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.scanBucket` tool on Labiraus to reconcile the external MinIO documents bucket. Send optional body fields only when needed: `bucket` such as `{{bucket}}`, `prefix` such as `{{prefix}}`, `maxKeys` such as `{{maxKeys}}`, and `processingVersion` such as `{{processingVersion}}`. The scan upserts control-plane inventory into Postgres, marks non-text objects as unsupported, and queues new or changed `text/*` objects for processor work.",
+							Text: "Use the live `documents.scanBucket` tool on Labiraus to reconcile the external MinIO documents bucket. Send optional body fields only when needed. Supplied values: `bucket` `{{bucket}}`, `prefix` `{{prefix}}`, `maxKeys` `{{maxKeys}}`, and `processingVersion` `{{processingVersion}}`. The scan upserts control-plane inventory into Postgres, marks non-text objects as unsupported, and queues new or changed `text/*` objects for processor work.",
 						},
 					},
 				},
@@ -143,7 +143,7 @@ var capabilityCatalog = []manifestCapabilitySource{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.curation.update` tool on Labiraus to curate metadata for `{{documentId}}`. Send a body with `documentId` and a `metadata` object such as `{{metadata}}`; omit `replace` or set it to false for a targeted merge, and set `replace` only when intentionally replacing the full curated metadata object. The orchestrator writes the metadata to `rag.documents.metadata`, where inventory, search, and context exact-match filters can use it.",
+							Text: "Use the live `documents.curation.update` tool on Labiraus to curate metadata for `{{documentId}}`. Send a body with `documentId` and a `metadata` object. Supplied metadata example: `{{metadata}}`. Omit `replace` or set it to false for a targeted merge, and set `replace` only when intentionally replacing the full curated metadata object. The orchestrator writes the metadata to `rag.documents.metadata`, where inventory, search, and context exact-match filters can use it.",
 						},
 					},
 				},
@@ -187,7 +187,7 @@ var capabilityCatalog = []manifestCapabilitySource{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.editText` tool on Labiraus to update the raw text for `{{documentId}}`. Send a body with `documentId`, replacement `text`, and optional `contentType` such as `{{contentType}}`, `metadata` such as `{{metadata}}`, or `processingVersion` such as `{{processingVersion}}`. The orchestrator overwrites the existing MinIO text object, records edit metadata, and queues a newer processing version so retrieval uses refreshed chunks after processing completes.",
+							Text: "Use the live `documents.editText` tool on Labiraus to update the raw text for `{{documentId}}`. Send a body with `documentId`, replacement `text`, and optional `contentType`, `metadata`, or `processingVersion`. Supplied values: `contentType` `{{contentType}}`, `metadata` `{{metadata}}`, and `processingVersion` `{{processingVersion}}`. The orchestrator overwrites the existing MinIO text object, records edit metadata, and queues a newer processing version so retrieval uses refreshed chunks after processing completes.",
 						},
 					},
 				},
@@ -232,7 +232,7 @@ var capabilityCatalog = []manifestCapabilitySource{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.search` tool on Labiraus with query `{{query}}`. Optional filters: set `prefix` to a documents-bucket object-key prefix such as `{{prefix}}`, `documentId` to `{{documentId}}`, `metadata` to exact-match JSON such as `{{metadata}}`, and `limit` to `{{limit}}`. Results come from pgvector similarity search over processed chunks and include document metadata, document IDs, object keys, chunk text, scores, processing versions, and citation objects that identify the source URI plus chunk.",
+							Text: "Use the live `documents.search` tool on Labiraus with query `{{query}}`. Optional filters can set `prefix`, `documentId`, `metadata`, and `limit`. Supplied values: `prefix` `{{prefix}}`, `documentId` `{{documentId}}`, `metadata` `{{metadata}}`, and `limit` `{{limit}}`. Results come from pgvector similarity search over processed chunks and include document metadata, document IDs, object keys, chunk text, scores, processing versions, and citation objects that identify the source URI plus chunk.",
 						},
 					},
 				},
@@ -256,7 +256,7 @@ var capabilityCatalog = []manifestCapabilitySource{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.context` tool on Labiraus with query `{{query}}`. Optional filters: set `prefix` to a documents-bucket object-key prefix such as `{{prefix}}`, `documentId` to `{{documentId}}`, `metadata` to exact-match JSON such as `{{metadata}}`, `limit` to `{{limit}}`, and `maxChars` to `{{maxChars}}`. The tool searches the current processed chunk version, then assembles a compact context block with `[1]`, `[2]` style references and citation objects for each included chunk.",
+							Text: "Use the live `documents.context` tool on Labiraus with query `{{query}}`. Optional filters can set `prefix`, `documentId`, `metadata`, `limit`, and `maxChars`. Supplied values: `prefix` `{{prefix}}`, `documentId` `{{documentId}}`, `metadata` `{{metadata}}`, `limit` `{{limit}}`, and `maxChars` `{{maxChars}}`. The tool searches the current processed chunk version, then assembles a compact context block with `[1]`, `[2]` style references and citation objects for each included chunk.",
 						},
 					},
 				},
@@ -278,7 +278,7 @@ var capabilityCatalog = []manifestCapabilitySource{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.inventory.list` tool on Labiraus to inspect Postgres-backed document inventory. Optional filters: `status` such as `{{status}}`, `prefix` such as `{{prefix}}`, `documentId` such as `{{documentId}}`, and `metadata` for exact-match JSON such as `{{metadata}}`. Inventory rows include source identity, metadata, processing versions, latest lifecycle summary fields, reconciliation timestamps, and errors. If the inventory appears stale for a prefix, use `documents.scanBucket` first, then list inventory again.",
+							Text: "Use the live `documents.inventory.list` tool on Labiraus to inspect Postgres-backed document inventory. Optional filters can set `status`, `prefix`, `documentId`, and exact-match `metadata`. Supplied values: `status` `{{status}}`, `prefix` `{{prefix}}`, `documentId` `{{documentId}}`, and `metadata` `{{metadata}}`. Inventory rows include source identity, metadata, processing versions, latest lifecycle summary fields, reconciliation timestamps, and errors. If the inventory appears stale for a prefix, use `documents.scanBucket` first, then list inventory again.",
 						},
 					},
 				},
@@ -346,7 +346,7 @@ var capabilityCatalog = []manifestCapabilitySource{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.history.list` tool on Labiraus with `documentId` set to `{{documentId}}`. Add `processingVersion` `{{processingVersion}}` when you need the lifecycle timeline for one reprocess attempt, and `limit` `{{limit}}` when you need to bound returned events. The response is sourced from `rag.document_lifecycle_events` and includes the recorded queued, started, completed, and failed lifecycle events with the original event payloads.",
+							Text: "Use the live `documents.history.list` tool on Labiraus with `documentId` set to `{{documentId}}`. Add `processingVersion` when you need the lifecycle timeline for one reprocess attempt, and `limit` when you need to bound returned events. Supplied values: `processingVersion` `{{processingVersion}}` and `limit` `{{limit}}`. The response is sourced from `rag.document_lifecycle_events` and includes the recorded queued, started, completed, and failed lifecycle events with the original event payloads.",
 						},
 					},
 				},
@@ -436,7 +436,7 @@ var capabilityCatalog = []manifestCapabilitySource{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `minio.documents.listFolder` tool to inspect the external documents bucket as folders and files. If you want to narrow the search, start with the `{{prefix}}` prefix, then follow up with `homelab://mcp/minio/documents/objects/{objectKey}` reads for the specific files you need to inspect or `minio.documents.putObject` to upload new content.",
+							Text: "Use the live `minio.documents.listFolder` tool to inspect the external documents bucket as folders and files. Optional prefix supplied: `{{prefix}}`. Follow up with `homelab://mcp/minio/documents/objects/{objectKey}` reads for the specific files you need to inspect or `minio.documents.putObject` to upload new content.",
 						},
 					},
 				},

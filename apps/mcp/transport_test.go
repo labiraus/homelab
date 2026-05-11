@@ -887,7 +887,7 @@ func TestHandlePromptsGetRendersReprocessPromptArguments(t *testing.T) {
 	if !strings.Contains(messages[0].Content.Text, "doc-789") {
 		t.Fatalf("expected rendered document id in prompt message, got %#v", messages[0].Content.Text)
 	}
-	if !strings.Contains(messages[0].Content.Text, "processingVersion: 9") {
+	if !strings.Contains(messages[0].Content.Text, "Supplied processingVersion: `9`") {
 		t.Fatalf("expected rendered processing version in prompt message, got %#v", messages[0].Content.Text)
 	}
 }
@@ -1000,6 +1000,43 @@ func TestHandlePromptsGetRendersHistoryPromptArguments(t *testing.T) {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("expected rendered %q in prompt message, got %#v", expected, text)
 		}
+	}
+}
+
+func TestHandlePromptsGetReplacesOmittedOptionalPromptArguments(t *testing.T) {
+	text := renderedPromptTextForTest(t, "documents.search.prompt", map[string]any{
+		"query": "deployment notes",
+	})
+
+	if strings.Contains(text, "{{") || strings.Contains(text, "}}") {
+		t.Fatalf("expected omitted optional arguments to be rendered without template placeholders, got %#v", text)
+	}
+	if !strings.Contains(text, "deployment notes") {
+		t.Fatalf("expected required query to render in prompt message, got %#v", text)
+	}
+	if count := strings.Count(text, "not supplied"); count != 4 {
+		t.Fatalf("expected four omitted optional arguments to render as not supplied, got %d in %#v", count, text)
+	}
+}
+
+func TestHandlePromptsGetRendersAllPromptsWithoutTemplatePlaceholders(t *testing.T) {
+	request, _ := httptestJSONRequest(t, http.MethodGet, "/.well-known/mcp.json", "")
+	manifest := buildManifest(request)
+
+	for _, prompt := range manifest.Prompts {
+		t.Run(prompt.Name, func(t *testing.T) {
+			arguments := map[string]any{}
+			for _, argument := range prompt.Arguments {
+				if argument.Required {
+					arguments[argument.Name] = "test-" + argument.Name
+				}
+			}
+
+			text := renderedPromptTextForTest(t, prompt.Name, arguments)
+			if strings.Contains(text, "{{") || strings.Contains(text, "}}") {
+				t.Fatalf("expected prompt to render without template placeholders, got %#v", text)
+			}
+		})
 	}
 }
 

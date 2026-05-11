@@ -4,6 +4,8 @@ This document tracks the prompt catalog that the Labiraus MCP server publishes t
 
 Use it alongside [.codex/REPO_PLAN.md](/workspaces/homelab/.codex/REPO_PLAN.md) when shaping future MCP capabilities so the prompt surface grows in step with the actual repo plan.
 
+When `prompts/get` receives only required arguments, omitted optional arguments render as `not supplied` instead of leaving raw `{{placeholder}}` text in the response.
+
 ## Current Prompt Catalog
 
 The manifest currently lists these prompt names:
