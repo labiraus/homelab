@@ -6,6 +6,8 @@ Use it alongside [.codex/REPO_PLAN.md](/workspaces/homelab/.codex/REPO_PLAN.md) 
 
 When `prompts/get` receives only required arguments, omitted optional arguments render as `not supplied` instead of leaving raw `{{placeholder}}` text in the response.
 
+`prompts/get` accepts only the argument names advertised by `prompts/list` for the selected prompt. Unknown argument names return an invalid-params error so misspelled optional filters do not silently disappear.
+
 ## Current Prompt Catalog
 
 The manifest currently lists these prompt names:

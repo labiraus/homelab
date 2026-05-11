@@ -1040,6 +1040,35 @@ func TestHandlePromptsGetRendersAllPromptsWithoutTemplatePlaceholders(t *testing
 	}
 }
 
+func TestHandlePromptsGetRejectsUnknownPromptArguments(t *testing.T) {
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "prompts/get",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "documents.search.prompt",
+			"arguments": map[string]any{
+				"query": "deployment notes",
+				"limti": 4,
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error == nil {
+		t.Fatalf("expected unknown prompt argument error, got %#v", responseBody)
+	}
+	if responseBody.Error.Code != -32602 {
+		t.Fatalf("expected invalid params error code, got %#v", responseBody.Error)
+	}
+	if responseBody.Error.Message != `unknown prompt argument "limti"` {
+		t.Fatalf("expected unknown argument message, got %#v", responseBody.Error)
+	}
+}
+
 func renderedPromptTextForTest(t *testing.T, name string, arguments map[string]any) string {
 	t.Helper()
 

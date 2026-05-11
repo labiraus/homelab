@@ -42,7 +42,7 @@ The repo already includes:
 - browser uploads emit `documents.events.minio.stored` after raw objects are written to MinIO
 - a built-in deterministic `local-embeddings` fallback used by processor, `external`, and `mcp` when no external embedding endpoint is configured
 - durable document lifecycle history in `rag.document_lifecycle_events`, exposed through `external` and `mcp`
-- the MCP prompt catalog includes prompt-first guidance for ingestion, scan planning, inventory reads, metadata curation, guarded text editing, reprocessing, retrieval, context assembly, lifecycle history, auth health, MinIO browsing, and document notification subscriptions, with prompt arguments aligned to the live tool schemas for common filters and control fields and omitted optional arguments rendered without leaking template placeholders
+- the MCP prompt catalog includes prompt-first guidance for ingestion, scan planning, inventory reads, metadata curation, guarded text editing, reprocessing, retrieval, context assembly, lifecycle history, auth health, MinIO browsing, and document notification subscriptions, with prompt arguments aligned to the live tool schemas for common filters and control fields, omitted optional arguments rendered without leaking template placeholders, and unknown prompt argument names rejected
 - browser-facing document inventory reads through `/api/documents/inventory`, backed by `rag.documents`
 - browser-facing bucket reconciliation through `/api/documents/scan-bucket`, proxied to `orchestrator`
 - the UI Search tab can load that durable lifecycle history for a retrieved document through `/api/documents/history`
@@ -442,6 +442,21 @@ Current status:
 - the prompt renderer fills every declared optional argument with `not supplied` when the caller omits it
 - prompt copy now describes optional values as supplied fields, so required-only calls do not produce awkward examples
 - MCP tests verify that omitted retrieval filters do not leave raw `{{placeholder}}` text in rendered prompt messages
+
+### Phase 21 — MCP Prompt Argument Name Validation
+
+Deliverables:
+
+- keep `prompts/get` strict about the argument names advertised by `prompts/list`
+- reject unknown prompt argument names with an invalid-params error before rendering messages
+- prevent misspelled optional filters from silently becoming `not supplied`
+- document the prompt argument validation contract
+
+Current status:
+
+- `prompts/get` validates submitted prompt argument names against the selected prompt definition
+- unknown prompt arguments return `-32602` with the unknown argument name
+- MCP tests cover a misspelled optional retrieval argument so typos cannot be silently ignored
 
 ## Near-Term Non-Goals
 

@@ -12,6 +12,7 @@ import (
 	"pkg/base"
 	"pkg/minioutil"
 	"pkg/postgresutil"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -198,7 +199,19 @@ func handlePromptsGet(ctx context.Context, r *http.Request, req jsonRPCRequest) 
 		}
 	}
 
-	arguments := extractArgumentStrings(params.Arguments, promptArgumentNames(resolution.operation.PromptArguments))
+	argumentNames := promptArgumentNames(resolution.operation.PromptArguments)
+	if err := validatePromptArgumentNames(params.Arguments, argumentNames); err != nil {
+		return http.StatusOK, &jsonRPCResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Error: &jsonRPCError{
+				Code:    -32602,
+				Message: err.Error(),
+			},
+		}
+	}
+
+	arguments := extractArgumentStrings(params.Arguments, argumentNames)
 	if err := validatePromptArguments(resolution.operation.PromptArguments, arguments); err != nil {
 		return http.StatusOK, &jsonRPCResponse{
 			JSONRPC: "2.0",
@@ -1153,6 +1166,34 @@ func promptArgumentNames(arguments []manifestPromptArgument) []string {
 		names = append(names, argument.Name)
 	}
 	return names
+}
+
+func validatePromptArgumentNames(arguments map[string]any, knownNames []string) error {
+	if len(arguments) == 0 {
+		return nil
+	}
+
+	known := make(map[string]struct{}, len(knownNames))
+	for _, name := range knownNames {
+		known[name] = struct{}{}
+	}
+
+	unknown := make([]string, 0)
+	for name := range arguments {
+		if _, ok := known[name]; !ok {
+			unknown = append(unknown, name)
+		}
+	}
+	if len(unknown) == 0 {
+		return nil
+	}
+
+	sort.Strings(unknown)
+	if len(unknown) == 1 {
+		return fmt.Errorf("unknown prompt argument %q", unknown[0])
+	}
+
+	return fmt.Errorf("unknown prompt arguments %q", strings.Join(unknown, ", "))
 }
 
 func validatePromptArguments(definitions []manifestPromptArgument, arguments map[string]string) error {
