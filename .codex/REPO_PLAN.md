@@ -43,7 +43,7 @@ The repo already includes:
 - a built-in deterministic `local-embeddings` fallback used by processor, `external`, and `mcp` when no external embedding endpoint is configured
 - durable document lifecycle history in `rag.document_lifecycle_events`, exposed through `external` and `mcp`
 - the MCP prompt catalog includes prompt-first guidance for ingestion, scan planning, inventory reads, metadata curation, guarded text editing, reprocessing, retrieval, context assembly, lifecycle history, auth health, MinIO browsing, and document notification subscriptions, with prompt arguments aligned to the live tool schemas for common filters and control fields, omitted optional arguments rendered without leaking template placeholders, and unknown prompt argument names rejected
-- `mcp` rejects unknown and missing required top-level `tools/call` arguments before execution so misspelled filters or incomplete calls do not silently fall back to broader default reads
+- `mcp` rejects unknown, missing required, and wrong-typed top-level `tools/call` arguments before execution so misspelled filters, malformed limits, or incomplete calls do not silently fall back to broader default reads
 - browser-facing document inventory reads through `/api/documents/inventory`, backed by `rag.documents`
 - browser-facing bucket reconciliation through `/api/documents/scan-bucket`, proxied to `orchestrator`
 - the UI Search tab can load that durable lifecycle history for a retrieved document through `/api/documents/history`
@@ -489,6 +489,21 @@ Current status:
 - local MinIO tools skip execution when a required top-level object key argument is missing
 - orchestrator-proxied tools skip execution when the required top-level `body` argument is missing
 - MCP tests cover missing required top-level arguments for both MinIO move and document reprocess calls
+
+### Phase 24 — MCP Tool Top-Level Type Validation
+
+Deliverables:
+
+- validate top-level `tools/call` argument types against each advertised tool input schema before execution
+- reject wrong-typed primitive filters such as string limits for integer fields
+- reject wrong-typed top-level object payloads such as string `body` values for orchestrator-proxied tools
+- keep nested `body` and `metadata` field validation owned by the relevant tool or upstream service
+
+Current status:
+
+- top-level schema types `string`, `integer`, `boolean`, and `object` are validated before tool execution
+- malformed top-level tool arguments return `-32602` with a field-specific type error
+- MCP tests cover wrong-typed MinIO `maxKeys` and wrong-typed orchestrator proxy `body` arguments, and verify execution is skipped
 
 ## Near-Term Non-Goals
 

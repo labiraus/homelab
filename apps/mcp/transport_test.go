@@ -1273,6 +1273,82 @@ func TestHandleToolsCallRejectsMissingRequiredProxyBody(t *testing.T) {
 	}
 }
 
+func TestHandleToolsCallRejectsWrongTopLevelArgumentType(t *testing.T) {
+	previous := listFolderEntries
+	t.Cleanup(func() {
+		listFolderEntries = previous
+	})
+
+	listFolderEntries = func(ctx context.Context, bucket string, arguments map[string]any) (operationResponse, *jsonRPCError) {
+		t.Fatalf("expected wrong-typed tool argument to be rejected before execution")
+		return operationResponse{}, nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "minio.documents.listFolder",
+			"arguments": map[string]any{
+				"maxKeys": "2",
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error == nil {
+		t.Fatalf("expected wrong type tool argument error, got %#v", responseBody)
+	}
+	if responseBody.Error.Code != -32602 {
+		t.Fatalf("expected invalid params error code, got %#v", responseBody.Error)
+	}
+	if responseBody.Error.Message != `tool argument "maxKeys" must be an integer` {
+		t.Fatalf("expected wrong type message, got %#v", responseBody.Error)
+	}
+}
+
+func TestHandleToolsCallRejectsWrongTopLevelBodyType(t *testing.T) {
+	previous := proxyOperationRequest
+	t.Cleanup(func() {
+		proxyOperationRequest = previous
+	})
+
+	proxyOperationRequest = func(ctx context.Context, r *http.Request, method string, path string, body any) (string, string, *jsonRPCError) {
+		t.Fatalf("expected wrong-typed proxy body to be rejected before execution")
+		return "", "", nil
+	}
+
+	request, _ := httptestJSONRequest(t, http.MethodPost, "/mcp", "")
+	responseStatus, responseBody := handleMCPRequest(context.Background(), request, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "1",
+		Method:  "tools/call",
+		Params: mustMarshalParams(t, map[string]any{
+			"name": "documents.reprocess",
+			"arguments": map[string]any{
+				"body": "doc-1",
+			},
+		}),
+	})
+
+	if responseStatus != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", responseStatus)
+	}
+	if responseBody == nil || responseBody.Error == nil {
+		t.Fatalf("expected wrong type tool argument error, got %#v", responseBody)
+	}
+	if responseBody.Error.Code != -32602 {
+		t.Fatalf("expected invalid params error code, got %#v", responseBody.Error)
+	}
+	if responseBody.Error.Message != `tool argument "body" must be an object` {
+		t.Fatalf("expected wrong type message, got %#v", responseBody.Error)
+	}
+}
+
 func TestProxyAPIRequestDefaultsToOrchestratorService(t *testing.T) {
 	previous := mcpHTTPClient
 	t.Cleanup(func() {

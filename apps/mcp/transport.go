@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"pkg/base"
@@ -1202,7 +1203,11 @@ func validateToolArguments(arguments map[string]any, schema manifestSchema) erro
 		return err
 	}
 
-	return validateRequiredToolArguments(arguments, schema.Required)
+	if err := validateRequiredToolArguments(arguments, schema.Required); err != nil {
+		return err
+	}
+
+	return validateToolArgumentTypes(arguments, schema.Properties)
 }
 
 func validateRequiredToolArguments(arguments map[string]any, required []string) error {
@@ -1217,6 +1222,69 @@ func validateRequiredToolArguments(arguments map[string]any, required []string) 
 	}
 
 	return nil
+}
+
+func validateToolArgumentTypes(arguments map[string]any, properties map[string]manifestSchema) error {
+	for name, value := range arguments {
+		if value == nil {
+			continue
+		}
+
+		property, ok := properties[name]
+		if !ok {
+			continue
+		}
+
+		if err := validateToolArgumentType(name, value, property.Type); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateToolArgumentType(name string, value any, schemaType string) error {
+	switch schemaType {
+	case "", "any":
+		return nil
+	case "string":
+		if _, ok := value.(string); !ok {
+			return fmt.Errorf("tool argument %q must be a string", name)
+		}
+	case "integer":
+		if !isIntegerArgument(value) {
+			return fmt.Errorf("tool argument %q must be an integer", name)
+		}
+	case "boolean":
+		if _, ok := value.(bool); !ok {
+			return fmt.Errorf("tool argument %q must be a boolean", name)
+		}
+	case "object":
+		if _, ok := value.(map[string]any); !ok {
+			return fmt.Errorf("tool argument %q must be an object", name)
+		}
+	}
+
+	return nil
+}
+
+func isIntegerArgument(value any) bool {
+	switch typed := value.(type) {
+	case int, int8, int16, int32, int64:
+		return true
+	case uint, uint8, uint16, uint32, uint64:
+		return true
+	case float32:
+		value := float64(typed)
+		return !math.IsNaN(value) && !math.IsInf(value, 0) && math.Trunc(value) == value
+	case float64:
+		return !math.IsNaN(typed) && !math.IsInf(typed, 0) && math.Trunc(typed) == typed
+	case json.Number:
+		_, err := typed.Int64()
+		return err == nil
+	default:
+		return false
+	}
 }
 
 func validateKnownArgumentNames(label string, arguments map[string]any, knownNames []string) error {
