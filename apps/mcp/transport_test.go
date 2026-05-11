@@ -93,6 +93,12 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 	if reprocessTool.Meta.ExecutionMode != manifestExecutionModeHTTPProxy {
 		t.Fatalf("expected reprocess tool to proxy to orchestrator, got %q", reprocessTool.Meta.ExecutionMode)
 	}
+	if reprocessTool.InputSchema.AdditionalProperties != false {
+		t.Fatalf("expected reprocess tool to advertise strict top-level arguments, got %#v", reprocessTool.InputSchema.AdditionalProperties)
+	}
+	if reprocessBodySchema := reprocessTool.InputSchema.Properties["body"]; reprocessBodySchema.AdditionalProperties == false {
+		t.Fatalf("expected reprocess body schema to allow upstream-owned nested fields, got %#v", reprocessBodySchema.AdditionalProperties)
+	}
 
 	searchTool := findToolInManifest(t, manifest, "documents.search")
 	if searchTool.Meta.ExecutionMode != manifestExecutionModeDocumentSearch {
@@ -100,6 +106,9 @@ func TestBuildWellKnownManifestIncludesLiveAndPlannedCapabilities(t *testing.T) 
 	}
 	if searchTool.Annotations == nil || !searchTool.Annotations.ReadOnlyHint {
 		t.Fatalf("expected search tool to be marked read-only, got %#v", searchTool.Annotations)
+	}
+	if searchTool.InputSchema.AdditionalProperties != false {
+		t.Fatalf("expected search tool to advertise strict top-level arguments, got %#v", searchTool.InputSchema.AdditionalProperties)
 	}
 
 	inventoryTool := findToolInManifest(t, manifest, "documents.inventory.list")

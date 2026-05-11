@@ -43,7 +43,7 @@ The repo already includes:
 - a built-in deterministic `local-embeddings` fallback used by processor, `external`, and `mcp` when no external embedding endpoint is configured
 - durable document lifecycle history in `rag.document_lifecycle_events`, exposed through `external` and `mcp`
 - the MCP prompt catalog includes prompt-first guidance for ingestion, scan planning, inventory reads, metadata curation, guarded text editing, reprocessing, retrieval, context assembly, lifecycle history, auth health, MinIO browsing, and document notification subscriptions, with prompt arguments aligned to the live tool schemas for common filters and control fields, omitted optional arguments rendered without leaking template placeholders, and unknown prompt argument names rejected
-- `mcp` rejects unknown top-level, missing required, and wrong-typed advertised `tools/call` arguments before execution so misspelled filters, malformed limits, or incomplete calls do not silently fall back to broader default reads
+- `mcp` advertises strict top-level tool input schemas and rejects unknown top-level, missing required, and wrong-typed advertised `tools/call` arguments before execution so misspelled filters, malformed limits, or incomplete calls do not silently fall back to broader default reads
 - browser-facing document inventory reads through `/api/documents/inventory`, backed by `rag.documents`
 - browser-facing bucket reconciliation through `/api/documents/scan-bucket`, proxied to `orchestrator`
 - the UI Search tab can load that durable lifecycle history for a retrieved document through `/api/documents/history`
@@ -519,6 +519,21 @@ Current status:
 - nested schema paths are reported in invalid-params errors, for example `body.documentId` and `body.processingVersion`
 - orchestrator-proxied tools skip execution when advertised nested body requirements are not met
 - MCP tests cover missing nested required fields and wrong-typed nested fields for document reprocess calls
+
+### Phase 26 — MCP Tool Schema Strictness Advertising
+
+Deliverables:
+
+- keep `tools/list` schemas aligned with the `tools/call` top-level validation contract
+- advertise `additionalProperties: false` on top-level tool input schemas so clients can see unknown top-level arguments are rejected
+- preserve upstream-owned nested payload flexibility by not advertising nested `body` objects as strict unless the schema explicitly says so
+- cover strict top-level schema advertising in MCP manifest tests
+
+Current status:
+
+- explicit and generated tool input schemas advertise strict top-level argument objects
+- nested orchestrator `body` schemas continue to allow service-owned extension fields
+- MCP tests verify strict top-level advertising for retrieval and orchestrator-proxied tools
 
 ## Near-Term Non-Goals
 

@@ -926,7 +926,8 @@ func operationIsIdempotent(operation manifestOperationSource) bool {
 
 func toToolInputSchema(operation manifestOperationSource) manifestSchema {
 	if operation.InputSchema != nil {
-		return *operation.InputSchema
+		schema := *operation.InputSchema
+		return strictTopLevelToolSchema(schema)
 	}
 
 	properties := map[string]manifestSchema{}
@@ -949,10 +950,18 @@ func toToolInputSchema(operation manifestOperationSource) manifestSchema {
 	}
 
 	return manifestSchema{
-		Type:       "object",
-		Properties: properties,
-		Required:   required,
+		Type:                 "object",
+		Properties:           properties,
+		Required:             required,
+		AdditionalProperties: false,
 	}
+}
+
+func strictTopLevelToolSchema(schema manifestSchema) manifestSchema {
+	if schema.Type == "object" && schema.AdditionalProperties == nil {
+		schema.AdditionalProperties = false
+	}
+	return schema
 }
 
 func operationDescription(capability manifestCapabilitySource, operation manifestOperationSource) string {
