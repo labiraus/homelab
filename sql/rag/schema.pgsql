@@ -67,6 +67,35 @@ CREATE INDEX IF NOT EXISTS rag_document_lifecycle_events_version_idx
 CREATE INDEX IF NOT EXISTS rag_document_lifecycle_events_subject_idx
     ON rag.document_lifecycle_events (subject, occurred_at DESC);
 
+CREATE TABLE IF NOT EXISTS rag.document_change_audits (
+    id BIGSERIAL PRIMARY KEY,
+    audit_id TEXT NOT NULL UNIQUE,
+    document_pk BIGINT REFERENCES rag.documents(id) ON DELETE SET NULL,
+    document_id TEXT NOT NULL,
+    bucket_name TEXT,
+    object_key TEXT NOT NULL,
+    action TEXT NOT NULL,
+    actor_email TEXT NOT NULL,
+    conversation_id TEXT,
+    proposal_id TEXT,
+    old_version_marker TEXT,
+    new_version_marker TEXT,
+    reverted_to_version_marker TEXT,
+    processing_version INTEGER NOT NULL DEFAULT 0,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS rag_document_change_audits_document_created_idx
+    ON rag.document_change_audits (document_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS rag_document_change_audits_actor_created_idx
+    ON rag.document_change_audits (actor_email, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS rag_document_change_audits_proposal_idx
+    ON rag.document_change_audits (proposal_id)
+    WHERE proposal_id IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS rag.chunks (
     id BIGSERIAL PRIMARY KEY,
     document_pk BIGINT NOT NULL REFERENCES rag.documents(id) ON DELETE CASCADE,

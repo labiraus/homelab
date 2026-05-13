@@ -85,6 +85,7 @@ func main() {
 	prometheusutil.Start(mux)
 	mux.HandleFunc("/api/auth/status", authStatusHandler)
 	mux.HandleFunc("/api/auth/providers", authProvidersHandler)
+	mux.HandleFunc("/api/assistant/", assistantProxyHandler)
 	mux.HandleFunc("/api/users/count", userCountHandler)
 	mux.HandleFunc("/api/documents/tree", documentsTreeHandler)
 	mux.HandleFunc("/api/documents/object", documentObjectHandler)
@@ -94,9 +95,11 @@ func main() {
 	mux.HandleFunc("/api/documents/history", documentHistoryHandler)
 	mux.HandleFunc("/api/documents/search", documentSearchHandler)
 	mux.HandleFunc("/api/documents/context", documentContextHandler)
+	mux.HandleFunc("/api/documents/create-text", documentCreateTextHandler)
 	mux.HandleFunc("/api/documents/curation", documentCurationHandler)
 	mux.HandleFunc("/api/documents/edit-text", documentEditTextHandler)
 	mux.HandleFunc("/api/documents/reprocess", documentReprocessHandler)
+	mux.HandleFunc("/api/documents/revert", documentRevertHandler)
 	mux.HandleFunc("/api/documents/scan-bucket", documentScanBucketHandler)
 
 	done := api.Start(ctx, mux, 8080, api.NewAuthMiddleware(api.AuthOptions{

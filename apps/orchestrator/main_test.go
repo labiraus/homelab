@@ -153,10 +153,12 @@ func TestEditTextDocumentHandlerWritesObjectAndQueuesNextVersion(t *testing.T) {
 	originalLookup := lookupReprocessRecord
 	originalWrite := writeTextObjectForEdit
 	originalQueue := queueDocument
+	originalAudit := recordChangeAudit
 	t.Cleanup(func() {
 		lookupReprocessRecord = originalLookup
 		writeTextObjectForEdit = originalWrite
 		queueDocument = originalQueue
+		recordChangeAudit = originalAudit
 	})
 
 	lookupReprocessRecord = func(ctx context.Context, documentID string) (reprocessDocumentRecord, bool, error) {
@@ -200,6 +202,11 @@ func TestEditTextDocumentHandlerWritesObjectAndQueuesNextVersion(t *testing.T) {
 		queued = event
 		return nil
 	}
+	var audit documentChangeAudit
+	recordChangeAudit = func(ctx context.Context, record documentChangeAudit) error {
+		audit = record
+		return nil
+	}
 
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/documents/edit-text", `{"documentId":"doc-1","text":"edited notes","metadata":{"summary":"edited"}}`)
 	editTextDocumentHandler(recorder, request)
@@ -216,6 +223,9 @@ func TestEditTextDocumentHandlerWritesObjectAndQueuesNextVersion(t *testing.T) {
 	if queued.Metadata["source"] != "session-notes" || queued.Metadata["summary"] != "edited" || queued.Metadata["editedBy"] != "orchestrator.editText" {
 		t.Fatalf("expected merged edit metadata, got %+v", queued.Metadata)
 	}
+	if audit.Action != "edit" || audit.DocumentID != "doc-1" || audit.NewVersionMarker != "version-edited" {
+		t.Fatalf("expected edit audit, got %+v", audit)
+	}
 
 	var response editTextDocumentResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
@@ -230,10 +240,12 @@ func TestEditTextDocumentHandlerAllowsEmptyText(t *testing.T) {
 	originalLookup := lookupReprocessRecord
 	originalWrite := writeTextObjectForEdit
 	originalQueue := queueDocument
+	originalAudit := recordChangeAudit
 	t.Cleanup(func() {
 		lookupReprocessRecord = originalLookup
 		writeTextObjectForEdit = originalWrite
 		queueDocument = originalQueue
+		recordChangeAudit = originalAudit
 	})
 
 	lookupReprocessRecord = func(ctx context.Context, documentID string) (reprocessDocumentRecord, bool, error) {
@@ -256,12 +268,128 @@ func TestEditTextDocumentHandlerAllowsEmptyText(t *testing.T) {
 	queueDocument = func(ctx context.Context, event documentEvent) error {
 		return nil
 	}
+	recordChangeAudit = func(ctx context.Context, record documentChangeAudit) error {
+		return nil
+	}
 
 	request, recorder := httptestJSONRequest(t, http.MethodPost, "/documents/edit-text", `{"documentId":"doc-1","text":""}`)
 	editTextDocumentHandler(recorder, request)
 
 	if recorder.Code != http.StatusAccepted {
 		t.Fatalf("expected status %d, got %d", http.StatusAccepted, recorder.Code)
+	}
+}
+
+func TestCreateTextDocumentHandlerWritesObjectQueuesAndAudits(t *testing.T) {
+	originalStat := statObjectForCreate
+	originalWrite := writeTextObjectForEdit
+	originalQueue := queueDocument
+	originalAudit := recordChangeAudit
+	t.Cleanup(func() {
+		statObjectForCreate = originalStat
+		writeTextObjectForEdit = originalWrite
+		queueDocument = originalQueue
+		recordChangeAudit = originalAudit
+	})
+
+	statObjectForCreate = func(ctx context.Context, bucket string, objectKey string) (minio.ObjectInfo, error) {
+		return minio.ObjectInfo{}, errors.New("not found")
+	}
+	writeTextObjectForEdit = func(ctx context.Context, bucket string, objectKey string, text string, contentType string) (minio.ObjectInfo, error) {
+		if bucket != "documents" || objectKey != "campaign/new.md" {
+			t.Fatalf("unexpected create target: %s/%s", bucket, objectKey)
+		}
+		if text != "new notes" {
+			t.Fatalf("unexpected text payload: %q", text)
+		}
+		return minio.ObjectInfo{Key: objectKey, ETag: "etag-new", VersionID: "version-new", Size: int64(len(text))}, nil
+	}
+
+	var queued documentEvent
+	queueDocument = func(ctx context.Context, event documentEvent) error {
+		queued = event
+		return nil
+	}
+	var audit documentChangeAudit
+	recordChangeAudit = func(ctx context.Context, record documentChangeAudit) error {
+		audit = record
+		return nil
+	}
+
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/documents/create-text", `{"objectKey":"campaign/new.md","text":"new notes","contentType":"text/markdown","actorEmail":"user@example.com","conversationId":"conv-1","proposalId":"prop-1"}`)
+	createTextDocumentHandler(recorder, request)
+
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("expected status %d, got %d", http.StatusAccepted, recorder.Code)
+	}
+	if queued.DocumentID != "s3://documents/campaign/new.md" || queued.VersionMarker != "version-new" || queued.Metadata["createdBy"] != "orchestrator.createText" {
+		t.Fatalf("unexpected queued create event: %+v", queued)
+	}
+	if audit.Action != "create" || audit.ActorEmail != "user@example.com" || audit.ProposalID != "prop-1" || audit.NewVersionMarker != "version-new" {
+		t.Fatalf("unexpected create audit: %+v", audit)
+	}
+}
+
+func TestRevertDocumentHandlerRestoresVersionQueuesAndAudits(t *testing.T) {
+	originalLookup := lookupReprocessRecord
+	originalRead := readObjectVersionForRevert
+	originalWrite := writeTextObjectForEdit
+	originalQueue := queueDocument
+	originalAudit := recordChangeAudit
+	t.Cleanup(func() {
+		lookupReprocessRecord = originalLookup
+		readObjectVersionForRevert = originalRead
+		writeTextObjectForEdit = originalWrite
+		queueDocument = originalQueue
+		recordChangeAudit = originalAudit
+	})
+
+	lookupReprocessRecord = func(ctx context.Context, documentID string) (reprocessDocumentRecord, bool, error) {
+		return reprocessDocumentRecord{
+			DocumentID:               documentID,
+			Bucket:                   "documents",
+			ObjectKey:                "campaign/doc-1.md",
+			SourceURI:                "s3://documents/campaign/doc-1.md",
+			ContentType:              "text/markdown",
+			VersionMarker:            "version-current",
+			DesiredProcessingVersion: 3,
+			CurrentProcessingVersion: 3,
+		}, true, nil
+	}
+	readObjectVersionForRevert = func(ctx context.Context, bucket string, objectKey string, versionMarker string) ([]byte, error) {
+		if versionMarker != "version-old" {
+			t.Fatalf("unexpected revert target version: %q", versionMarker)
+		}
+		return []byte("old notes"), nil
+	}
+	writeTextObjectForEdit = func(ctx context.Context, bucket string, objectKey string, text string, contentType string) (minio.ObjectInfo, error) {
+		if text != "old notes" {
+			t.Fatalf("unexpected reverted body: %q", text)
+		}
+		return minio.ObjectInfo{Key: objectKey, VersionID: "version-reverted", Size: int64(len(text))}, nil
+	}
+	var queued documentEvent
+	queueDocument = func(ctx context.Context, event documentEvent) error {
+		queued = event
+		return nil
+	}
+	var audit documentChangeAudit
+	recordChangeAudit = func(ctx context.Context, record documentChangeAudit) error {
+		audit = record
+		return nil
+	}
+
+	request, recorder := httptestJSONRequest(t, http.MethodPost, "/documents/revert", `{"documentId":"doc-1","versionMarker":"version-old","actorEmail":"user@example.com","conversationId":"conv-1"}`)
+	revertDocumentHandler(recorder, request)
+
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("expected status %d, got %d", http.StatusAccepted, recorder.Code)
+	}
+	if queued.ProcessingVersion != 4 || queued.VersionMarker != "version-reverted" || queued.Metadata["revertedBy"] != "orchestrator.revert" {
+		t.Fatalf("unexpected queued revert event: %+v", queued)
+	}
+	if audit.Action != "revert" || audit.OldVersionMarker != "version-current" || audit.NewVersionMarker != "version-reverted" || audit.RevertedToVersionMarker != "version-old" {
+		t.Fatalf("unexpected revert audit: %+v", audit)
 	}
 }
 

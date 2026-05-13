@@ -33,6 +33,8 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - `MCPPrompts.md`: current MCP prompt catalog
   - `GoogleOIDCSetup.md`: Google-side OIDC setup and redirect URI guidance
   - `OAuth2ProxyGoogle.md`: current chosen `oauth2-proxy + Google` browser-auth path
+- `evals/`
+  - `ragas/`: RAGAS chunking/retrieval quality harness and example JSONL case file
 - `bin/`
   - `tf`: Terraform wrapper used by the Makefile
 - `components/`
@@ -129,6 +131,7 @@ Current behavior note:
 
 - Working architecture and phase plan: `.codex/REPO_PLAN.md`
 - Initial document/control-plane schema: `sql/rag/schema.pgsql`
+- Chunking quality checks: `evals/ragas/`
 - Async ingestion design note: `docs/async-ingestion.md`
 - High-level RAG and retrieval direction: `docs/RAG.md`
 
@@ -140,6 +143,7 @@ Current behavior note:
 - `external` exposes semantic document search for the UI.
 - `mcp` exposes document inventory and semantic search for agents.
 - `external` and `mcp` expose durable document lifecycle history from `rag.document_lifecycle_events`.
+- `evals/ragas` can score live processed chunks against gold retrieval cases with RAGAS context precision/recall metrics.
 - `mcp` publishes prompt guidance for live document inventory, retrieval, curation, editing, reprocessing, history, notification, and MinIO browsing workflows.
 - `mcp` advertises strict top-level tool input schemas and validates prompt arguments plus advertised tool argument names, required fields, and primitive/object types before execution while leaving unknown nested payload fields to the owning service contract.
 - `ui` renders durable lifecycle history for retrieved documents by calling `/api/documents/history`.

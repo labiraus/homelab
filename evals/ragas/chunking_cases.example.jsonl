@@ -1,0 +1,1 @@
+{"id":"replace-me","query":"What fact should this query retrieve from the indexed documents?","prefix":"Setting/","limit":8,"reference_context_ids":["s3://documents/path/to/source.md#chunk-0"],"reference_contexts":["Paste the exact source passage, or a close excerpt, that should be retrievable for this query."]}

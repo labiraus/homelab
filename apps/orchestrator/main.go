@@ -59,8 +59,10 @@ func main() {
 	mux := http.NewServeMux()
 	prometheusutil.Start(mux)
 	mux.HandleFunc("/documents", documentsHandler)
+	mux.HandleFunc("/documents/create-text", createTextDocumentHandler)
 	mux.HandleFunc("/documents/curation", documentCurationHandler)
 	mux.HandleFunc("/documents/edit-text", editTextDocumentHandler)
+	mux.HandleFunc("/documents/revert", revertDocumentHandler)
 	mux.HandleFunc("/documents/scan-bucket", scanBucketHandler)
 	mux.HandleFunc("/documents/reprocess", reprocessDocumentHandler)
 

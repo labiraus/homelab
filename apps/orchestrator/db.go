@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"pkg/documentevents"
@@ -43,12 +44,28 @@ type reprocessDocumentRecord struct {
 	CurrentProcessingVersion int
 }
 
+type documentChangeAudit struct {
+	DocumentID              string
+	Bucket                  string
+	ObjectKey               string
+	Action                  string
+	ActorEmail              string
+	ConversationID          string
+	ProposalID              string
+	OldVersionMarker        string
+	NewVersionMarker        string
+	RevertedToVersionMarker string
+	ProcessingVersion       int
+	Metadata                map[string]interface{}
+}
+
 var (
 	runDocumentTx         = withDocumentTx
 	upsertPendingRecord   = upsertPendingDocument
 	recordLifecycleEvent  = updateDocumentLifecycleEvent
 	lookupReprocessRecord = findDocumentForReprocess
 	updateCurationRecord  = updateDocumentCuration
+	recordChangeAudit     = insertDocumentChangeAudit
 )
 
 const updateDocumentLifecycleEventStatement = `WITH updated_document AS (
@@ -393,4 +410,70 @@ func updateDocumentLifecycleEvent(ctx context.Context, event documentevents.Life
 		string(payload),
 	)
 	return err
+}
+
+func insertDocumentChangeAudit(ctx context.Context, audit documentChangeAudit) error {
+	if postgresutil.Exec == nil {
+		return fmt.Errorf("postgres is not initialized")
+	}
+	metadata := audit.Metadata
+	if metadata == nil {
+		metadata = map[string]interface{}{}
+	}
+	payload, err := json.Marshal(metadata)
+	if err != nil {
+		return err
+	}
+
+	_, err = postgresutil.Exec(ctx, `INSERT INTO rag.document_change_audits (
+	document_pk,
+	document_id,
+	bucket_name,
+	object_key,
+	action,
+	actor_email,
+	conversation_id,
+	proposal_id,
+	old_version_marker,
+	new_version_marker,
+	reverted_to_version_marker,
+	processing_version,
+	metadata
+) VALUES (
+	(SELECT id FROM rag.documents WHERE document_id = $1),
+	$1,
+	$2,
+	$3,
+	$4,
+	$5,
+	$6,
+	$7,
+	$8,
+	$9,
+	$10,
+	$11,
+	$12::jsonb
+)`,
+		audit.DocumentID,
+		audit.Bucket,
+		audit.ObjectKey,
+		audit.Action,
+		nonEmptyOrDefault(audit.ActorEmail, "system"),
+		nullIfEmpty(audit.ConversationID),
+		nullIfEmpty(audit.ProposalID),
+		nullIfEmpty(audit.OldVersionMarker),
+		nullIfEmpty(audit.NewVersionMarker),
+		nullIfEmpty(audit.RevertedToVersionMarker),
+		defaultProcessingVersion(audit.ProcessingVersion),
+		string(payload),
+	)
+	return err
+}
+
+func nonEmptyOrDefault(value string, fallback string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback
+	}
+	return value
 }

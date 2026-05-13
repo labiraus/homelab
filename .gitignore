@@ -38,8 +38,13 @@ k8s/generated-secrets/
 node_modules/
 __pycache__/
 *.py[cod]
+.venv*/
 
 *.mkv
+
+# Local evaluation data can include private source excerpts
+evals/ragas/chunking_cases.jsonl
+evals/ragas/*.report.json
 
 # Frontend local artifacts
 apps/ui/node_modules/

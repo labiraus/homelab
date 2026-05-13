@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -12,8 +13,9 @@ import (
 	"github.com/minio/minio-go/v7"
 )
 
-type editTextDocumentRequest struct {
-	DocumentID        string                 `json:"documentId"`
+type createTextDocumentRequest struct {
+	DocumentID        string                 `json:"documentId,omitempty"`
+	ObjectKey         string                 `json:"objectKey"`
 	Text              *string                `json:"text"`
 	ContentType       string                 `json:"contentType,omitempty"`
 	Metadata          map[string]interface{} `json:"metadata,omitempty"`
@@ -23,82 +25,51 @@ type editTextDocumentRequest struct {
 	ProposalID        string                 `json:"proposalId,omitempty"`
 }
 
-type editTextDocumentResponse struct {
-	Status            string `json:"status"`
-	DocumentID        string `json:"documentId"`
-	ProcessingVersion int    `json:"processingVersion"`
-	SourceURI         string `json:"sourceUri"`
-	ObjectKey         string `json:"objectKey"`
-	ETag              string `json:"etag,omitempty"`
-	VersionMarker     string `json:"versionMarker,omitempty"`
-	SizeBytes         int64  `json:"sizeBytes,omitempty"`
-	LastModified      string `json:"lastModified,omitempty"`
-}
+var statObjectForCreate = statDocumentObject
 
-var writeTextObjectForEdit = writeEditedTextObject
-
-func editTextDocumentHandler(w http.ResponseWriter, r *http.Request) {
+func createTextDocumentHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
-	var request editTextDocumentRequest
+	var request createTextDocumentRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
-
-	request.DocumentID = strings.TrimSpace(request.DocumentID)
-	if request.DocumentID == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "documentId is required"})
+	request.ObjectKey = strings.Trim(strings.TrimSpace(request.ObjectKey), "/")
+	if request.ObjectKey == "" {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "objectKey is required"})
 		return
 	}
 	if request.Text == nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "text is required"})
 		return
 	}
-
-	record, found, err := lookupReprocessRecord(r.Context(), request.DocumentID)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to read document inventory"})
-		return
-	}
-	if !found {
-		writeJSON(w, http.StatusNotFound, errorResponse{Error: "document not found"})
-		return
-	}
-
-	if err := validateReprocessRecord(record); err != nil {
-		writeJSON(w, http.StatusConflict, errorResponse{Error: err.Error()})
-		return
-	}
-
 	contentType := strings.TrimSpace(request.ContentType)
 	if contentType == "" {
-		contentType = record.ContentType
+		contentType = "text/plain; charset=utf-8"
 	}
 	if !supportedTextContentType(contentType) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "contentType must be text/* for this endpoint"})
 		return
 	}
 
-	processingVersion := request.ProcessingVersion
-	if processingVersion <= 0 {
-		processingVersion = nextProcessingVersion(record)
-	}
-	if processingVersion <= maxInt(record.DesiredProcessingVersion, record.CurrentProcessingVersion) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "processingVersion must be newer than the current desired processing version"})
+	bucket := documentsBucket()
+	if _, err := statObjectForCreate(r.Context(), bucket, request.ObjectKey); err == nil {
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "object already exists"})
 		return
 	}
 
-	object, err := writeTextObjectForEdit(r.Context(), record.Bucket, record.ObjectKey, *request.Text, contentType)
+	object, err := writeTextObjectForEdit(r.Context(), bucket, request.ObjectKey, *request.Text, contentType)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to write document object"})
 		return
 	}
 
-	event := eventFromEditedRecord(record, object, contentType, request.Metadata, processingVersion)
+	processingVersion := defaultProcessingVersion(request.ProcessingVersion)
+	event := eventFromCreatedText(bucket, request, object, contentType, processingVersion)
 	if err := queueDocument(r.Context(), event); err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to enqueue document"})
 		return
@@ -107,11 +78,10 @@ func editTextDocumentHandler(w http.ResponseWriter, r *http.Request) {
 		DocumentID:        event.DocumentID,
 		Bucket:            event.Bucket,
 		ObjectKey:         event.ObjectKey,
-		Action:            "edit",
+		Action:            "create",
 		ActorEmail:        request.ActorEmail,
 		ConversationID:    request.ConversationID,
 		ProposalID:        request.ProposalID,
-		OldVersionMarker:  record.VersionMarker,
 		NewVersionMarker:  event.VersionMarker,
 		ProcessingVersion: event.ProcessingVersion,
 		Metadata:          request.Metadata,
@@ -133,27 +103,27 @@ func editTextDocumentHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func writeEditedTextObject(ctx context.Context, bucket string, objectKey string, text string, contentType string) (minio.ObjectInfo, error) {
-	return minioutil.PutTextObjectToBucket(ctx, bucket, objectKey, text, minio.PutObjectOptions{
-		ContentType: contentType,
-	})
+func statDocumentObject(ctx context.Context, bucket string, objectKey string) (minio.ObjectInfo, error) {
+	return minioutil.StatObjectInBucket(ctx, bucket, objectKey, minio.StatObjectOptions{})
 }
 
-func eventFromEditedRecord(record reprocessDocumentRecord, object minio.ObjectInfo, contentType string, requestMetadata map[string]interface{}, processingVersion int) documentEvent {
+func eventFromCreatedText(bucket string, request createTextDocumentRequest, object minio.ObjectInfo, contentType string, processingVersion int) documentEvent {
+	sourceURI := fmt.Sprintf("s3://%s/%s", bucket, request.ObjectKey)
+	documentID := strings.TrimSpace(request.DocumentID)
+	if documentID == "" {
+		documentID = sourceURI
+	}
 	metadata := map[string]interface{}{}
-	for key, value := range record.Metadata {
+	for key, value := range request.Metadata {
 		metadata[key] = value
 	}
-	for key, value := range requestMetadata {
-		metadata[key] = value
-	}
-	metadata["editedBy"] = "orchestrator.editText"
+	metadata["createdBy"] = "orchestrator.createText"
 
 	event := documentEvent{
-		DocumentID:        record.DocumentID,
-		Bucket:            record.Bucket,
-		ObjectKey:         record.ObjectKey,
-		SourceURI:         record.SourceURI,
+		DocumentID:        documentID,
+		Bucket:            bucket,
+		ObjectKey:         request.ObjectKey,
+		SourceURI:         sourceURI,
 		ContentType:       contentType,
 		VersionMarker:     strings.TrimSpace(object.VersionID),
 		ETag:              strings.TrimSpace(object.ETag),

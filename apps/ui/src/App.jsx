@@ -16,7 +16,13 @@ const DOCUMENT_HISTORY_PATH = "/api/documents/history";
 const DOCUMENT_CURATION_PATH = "/api/documents/curation";
 const DOCUMENT_EDIT_TEXT_PATH = "/api/documents/edit-text";
 const DOCUMENT_REPROCESS_PATH = "/api/documents/reprocess";
+const DOCUMENT_REVERT_PATH = "/api/documents/revert";
 const DOCUMENT_SCAN_BUCKET_PATH = "/api/documents/scan-bucket";
+const ASSISTANT_CONVERSATIONS_PATH = "/api/assistant/conversations";
+const ASSISTANT_CHAT_PATH = "/api/assistant/chat";
+const ASSISTANT_MEMORIES_PATH = "/api/assistant/memories";
+const ASSISTANT_PROPOSALS_PATH = "/api/assistant/proposals";
+const ASSISTANT_AUDITS_PATH = "/api/assistant/audits";
 const TOAST_DISMISS_MS = 6000;
 
 const actions = [
@@ -34,6 +40,8 @@ function pageFromHash() {
 		return "overview";
 	}
 	switch (window.location.hash) {
+		case "#/assistant":
+			return "assistant";
 		case "#/documents":
 			return "documents";
 		case "#/inventory":
@@ -197,11 +205,99 @@ async function reprocessDocument(request) {
 	});
 }
 
+async function revertDocument(request) {
+	return callApi({
+		method: "POST",
+		path: DOCUMENT_REVERT_PATH,
+		body: request,
+	});
+}
+
 async function scanDocumentsBucket(request) {
 	return callApi({
 		method: "POST",
 		path: DOCUMENT_SCAN_BUCKET_PATH,
 		body: request,
+	});
+}
+
+async function fetchAssistantConversations() {
+	return callApi({
+		method: "GET",
+		path: ASSISTANT_CONVERSATIONS_PATH,
+	});
+}
+
+async function fetchAssistantConversation(conversationId) {
+	return callApi({
+		method: "GET",
+		path: `${ASSISTANT_CONVERSATIONS_PATH}/${encodeURIComponent(conversationId)}`,
+	});
+}
+
+async function sendAssistantChat(request) {
+	return callApi({
+		method: "POST",
+		path: ASSISTANT_CHAT_PATH,
+		body: request,
+	});
+}
+
+async function fetchAssistantMemories() {
+	return callApi({
+		method: "GET",
+		path: ASSISTANT_MEMORIES_PATH,
+	});
+}
+
+async function createAssistantMemory(request) {
+	return callApi({
+		method: "POST",
+		path: ASSISTANT_MEMORIES_PATH,
+		body: request,
+	});
+}
+
+async function archiveAssistantMemory(memoryId) {
+	return callApi({
+		method: "POST",
+		path: `${ASSISTANT_MEMORIES_PATH}/${encodeURIComponent(memoryId)}/archive`,
+		body: {},
+	});
+}
+
+async function createAssistantProposal(request) {
+	return callApi({
+		method: "POST",
+		path: ASSISTANT_PROPOSALS_PATH,
+		body: request,
+	});
+}
+
+async function fetchAssistantProposals(conversationId) {
+	const params = new URLSearchParams({ conversationId });
+	return callApi({
+		method: "GET",
+		path: `${ASSISTANT_PROPOSALS_PATH}?${params.toString()}`,
+	});
+}
+
+async function decideAssistantProposal(proposalId, action, body = {}) {
+	return callApi({
+		method: "POST",
+		path: `${ASSISTANT_PROPOSALS_PATH}/${encodeURIComponent(proposalId)}/${action}`,
+		body,
+	});
+}
+
+async function fetchAssistantAudits(conversationId = "") {
+	const params = new URLSearchParams();
+	if (conversationId) {
+		params.set("conversationId", conversationId);
+	}
+	return callApi({
+		method: "GET",
+		path: `${ASSISTANT_AUDITS_PATH}${params.size > 0 ? `?${params.toString()}` : ""}`,
 	});
 }
 
@@ -531,6 +627,30 @@ function initialInventoryEditState() {
 	};
 }
 
+function initialAssistantProposalState() {
+	return {
+		action: "create",
+		documentId: "",
+		objectKey: "",
+		contentType: "text/plain; charset=utf-8",
+		proposedText: "",
+		rationale: "",
+		status: "idle",
+		message: "",
+		error: "",
+	};
+}
+
+function initialAssistantRevertState() {
+	return {
+		documentId: "",
+		versionMarker: "",
+		status: "idle",
+		message: "",
+		error: "",
+	};
+}
+
 function initialInventoryScanState() {
 	return {
 		status: "idle",
@@ -727,6 +847,22 @@ function App() {
 	);
 	const [inventoryEditState, setInventoryEditState] = useState(initialInventoryEditState);
 	const [inventoryScanState, setInventoryScanState] = useState(initialInventoryScanState);
+	const [assistantConversations, setAssistantConversations] = useState([]);
+	const [assistantConversationId, setAssistantConversationId] = useState("");
+	const [assistantMessages, setAssistantMessages] = useState([]);
+	const [assistantMemories, setAssistantMemories] = useState([]);
+	const [assistantProposals, setAssistantProposals] = useState([]);
+	const [assistantAudits, setAssistantAudits] = useState([]);
+	const [assistantInput, setAssistantInput] = useState("");
+	const [assistantMemoryText, setAssistantMemoryText] = useState("");
+	const [assistantLoading, setAssistantLoading] = useState(false);
+	const [assistantError, setAssistantError] = useState("");
+	const [assistantProposalState, setAssistantProposalState] = useState(
+		initialAssistantProposalState,
+	);
+	const [assistantRevertState, setAssistantRevertState] = useState(
+		initialAssistantRevertState,
+	);
 	const [toasts, setToasts] = useState([]);
 	const [theme, setTheme] = useState(() => {
 		if (typeof window === "undefined") {
@@ -887,7 +1023,10 @@ function App() {
 	}, []);
 
 	useEffect(() => {
-		if (!documentsEnabled && (page === "documents" || page === "inventory" || page === "search")) {
+		if (
+			!documentsEnabled &&
+			(page === "assistant" || page === "documents" || page === "inventory" || page === "search")
+		) {
 			setPage("overview");
 			if (typeof window !== "undefined") {
 				window.location.hash = "#/";
@@ -924,6 +1063,238 @@ function App() {
 		};
 	}, [documentsEnabled]);
 
+	const loadAssistantConversation = async (conversationId) => {
+		if (!conversationId) {
+			setAssistantConversationId("");
+			setAssistantMessages([]);
+			setAssistantProposals([]);
+			setAssistantAudits([]);
+			return;
+		}
+		setAssistantLoading(true);
+		setAssistantError("");
+		try {
+			const response = await fetchAssistantConversation(conversationId);
+			setAssistantConversationId(response?.conversation?.conversationId ?? conversationId);
+			setAssistantMessages(response?.messages ?? []);
+			setAssistantProposals(response?.proposals ?? []);
+			setAssistantAudits(response?.audits ?? []);
+		} catch (requestError) {
+			setAssistantError(
+				requestError instanceof Error ? requestError.message : "Assistant conversation failed",
+			);
+		} finally {
+			setAssistantLoading(false);
+		}
+	};
+
+	const loadAssistantDashboard = async () => {
+		setAssistantLoading(true);
+		setAssistantError("");
+		try {
+			const [conversationResponse, memoryResponse, auditResponse] = await Promise.all([
+				fetchAssistantConversations(),
+				fetchAssistantMemories(),
+				fetchAssistantAudits(assistantConversationId),
+			]);
+			const conversations = conversationResponse?.conversations ?? [];
+			setAssistantConversations(conversations);
+			setAssistantMemories(memoryResponse?.memories ?? []);
+			setAssistantAudits(auditResponse?.audits ?? []);
+			const selectedConversationId =
+				assistantConversationId || conversations[0]?.conversationId || "";
+			if (selectedConversationId) {
+				const detail = await fetchAssistantConversation(selectedConversationId);
+				setAssistantConversationId(detail?.conversation?.conversationId ?? selectedConversationId);
+				setAssistantMessages(detail?.messages ?? []);
+				setAssistantProposals(detail?.proposals ?? []);
+				setAssistantAudits(detail?.audits ?? []);
+			}
+		} catch (requestError) {
+			setAssistantError(
+				requestError instanceof Error ? requestError.message : "Assistant request failed",
+			);
+		} finally {
+			setAssistantLoading(false);
+		}
+	};
+
+	useEffect(() => {
+		if (page !== "assistant" || !documentsEnabled) {
+			return;
+		}
+		void loadAssistantDashboard();
+	}, [page, documentsEnabled]);
+
+	const refreshAssistantConversationSidebars = async (conversationId = assistantConversationId) => {
+		if (!conversationId) {
+			return;
+		}
+		const [proposalResponse, auditResponse] = await Promise.all([
+			fetchAssistantProposals(conversationId),
+			fetchAssistantAudits(conversationId),
+		]);
+		setAssistantProposals(proposalResponse?.proposals ?? []);
+		setAssistantAudits(auditResponse?.audits ?? []);
+	};
+
+	const handleAssistantSend = async (event) => {
+		event.preventDefault();
+		const trimmed = assistantInput.trim();
+		if (!trimmed) {
+			setAssistantError("Enter a message before sending.");
+			return;
+		}
+
+		setAssistantLoading(true);
+		setAssistantError("");
+		try {
+			const response = await sendAssistantChat({
+				conversationId: assistantConversationId,
+				message: trimmed,
+				title: trimmed.slice(0, 80),
+			});
+			const conversationId = response?.conversation?.conversationId ?? assistantConversationId;
+			setAssistantConversationId(conversationId);
+			setAssistantInput("");
+			setAssistantMessages((current) => [
+				...current,
+				...(response?.userMessage ? [response.userMessage] : []),
+				...(response?.reply ? [response.reply] : []),
+			]);
+			const conversations = await fetchAssistantConversations();
+			setAssistantConversations(conversations?.conversations ?? []);
+			await refreshAssistantConversationSidebars(conversationId);
+		} catch (requestError) {
+			setAssistantError(
+				requestError instanceof Error ? requestError.message : "Assistant chat failed",
+			);
+		} finally {
+			setAssistantLoading(false);
+		}
+	};
+
+	const handleAssistantMemorySubmit = async (event) => {
+		event.preventDefault();
+		const text = assistantMemoryText.trim();
+		if (!text) {
+			return;
+		}
+		setAssistantError("");
+		try {
+			const response = await createAssistantMemory({
+				text,
+				sourceConversationId: assistantConversationId,
+			});
+			setAssistantMemoryText("");
+			setAssistantMemories((current) => [response.memory, ...current].filter(Boolean));
+		} catch (requestError) {
+			setAssistantError(
+				requestError instanceof Error ? requestError.message : "Memory save failed",
+			);
+		}
+	};
+
+	const handleArchiveAssistantMemory = async (memoryId) => {
+		setAssistantError("");
+		try {
+			await archiveAssistantMemory(memoryId);
+			setAssistantMemories((current) =>
+				current.filter((memory) => memory.memoryId !== memoryId),
+			);
+		} catch (requestError) {
+			setAssistantError(
+				requestError instanceof Error ? requestError.message : "Memory archive failed",
+			);
+		}
+	};
+
+	const handleAssistantProposalSubmit = async (event) => {
+		event.preventDefault();
+		if (!assistantConversationId) {
+			setAssistantProposalState((current) => ({
+				...current,
+				error: "Start or select a conversation before proposing a file change.",
+			}));
+			return;
+		}
+		setAssistantProposalState((current) => ({ ...current, status: "loading", error: "", message: "" }));
+		try {
+			const response = await createAssistantProposal({
+				conversationId: assistantConversationId,
+				action: assistantProposalState.action,
+				documentId: assistantProposalState.documentId.trim(),
+				objectKey: assistantProposalState.objectKey.trim(),
+				contentType: assistantProposalState.contentType.trim(),
+				proposedText: assistantProposalState.proposedText,
+				rationale: assistantProposalState.rationale.trim(),
+			});
+			setAssistantProposals((current) => [response.proposal, ...current].filter(Boolean));
+			setAssistantProposalState({
+				...initialAssistantProposalState(),
+				status: "success",
+				message: "Proposal queued for approval.",
+			});
+		} catch (requestError) {
+			setAssistantProposalState((current) => ({
+				...current,
+				status: "error",
+				error: requestError instanceof Error ? requestError.message : "Proposal failed",
+			}));
+		}
+	};
+
+	const handleAssistantProposalDecision = async (proposalId, action) => {
+		setAssistantError("");
+		try {
+			const response = await decideAssistantProposal(proposalId, action);
+			setAssistantProposals((current) =>
+				current.map((proposal) =>
+					proposal.proposalId === proposalId ? response.proposal : proposal,
+				),
+			);
+			await refreshAssistantConversationSidebars();
+		} catch (requestError) {
+			setAssistantError(
+				requestError instanceof Error ? requestError.message : "Proposal decision failed",
+			);
+		}
+	};
+
+	const handleAssistantRevertSubmit = async (event) => {
+		event.preventDefault();
+		setAssistantRevertState((current) => ({ ...current, status: "loading", error: "", message: "" }));
+		try {
+			const response = await revertDocument({
+				documentId: assistantRevertState.documentId.trim(),
+				versionMarker: assistantRevertState.versionMarker.trim(),
+				conversationId: assistantConversationId,
+			});
+			setAssistantRevertState((current) => ({
+				...current,
+				status: "success",
+				message: `Queued revert at processing version ${response?.processingVersion ?? "next"}.`,
+			}));
+			await refreshAssistantConversationSidebars();
+		} catch (requestError) {
+			setAssistantRevertState((current) => ({
+				...current,
+				status: "error",
+				error: requestError instanceof Error ? requestError.message : "Revert failed",
+			}));
+		}
+	};
+
+	const stageAssistantRevert = (audit) => {
+		setAssistantRevertState({
+			documentId: audit.documentId ?? "",
+			versionMarker: audit.oldVersionMarker || audit.revertedToVersionMarker || "",
+			status: "idle",
+			message: "",
+			error: "",
+		});
+	};
+
 	const handleAction = async (action) => {
 		setActiveRequest(action.id);
 		setError("");
@@ -959,7 +1330,9 @@ function App() {
 			return;
 		}
 		window.location.hash =
-			nextPage === "documents"
+			nextPage === "assistant"
+				? "#/assistant"
+				: nextPage === "documents"
 				? "#/documents"
 				: nextPage === "inventory"
 					? "#/inventory"
@@ -1857,6 +2230,13 @@ function App() {
 		isTextContentType(documentOperationsState.contentType);
 	const canEditInventoryDocument =
 		inventoryEditState.objectKey && isTextContentType(inventoryEditState.contentType);
+	const currentAssistantConversation =
+		assistantConversations.find(
+			(conversation) => conversation.conversationId === assistantConversationId,
+		) ?? null;
+	const pendingAssistantProposals = assistantProposals.filter(
+		(proposal) => proposal.status === "pending",
+	);
 
 	return (
 		<main className="app-shell">
@@ -1898,6 +2278,15 @@ function App() {
 					>
 						Overview
 					</button>
+					{documentsEnabled ? (
+						<button
+							type="button"
+							className={`topbar-tab ${page === "assistant" ? "active" : ""}`}
+							onClick={() => navigateToPage("assistant")}
+						>
+							Assistant
+						</button>
+					) : null}
 					{documentsEnabled ? (
 						<button
 							type="button"
@@ -2119,6 +2508,390 @@ function App() {
 								<p className="response-value">{message}</p>
 								{error ? <p className="error-text">Request failed: {error}</p> : null}
 							</section>
+						</div>
+					</section>
+				) : page === "assistant" ? (
+					<section className="workspace-shell">
+						<header className="workspace-header">
+							<div>
+								<p className="workspace-eyebrow">Assistant</p>
+								<h1>Talk to Labiraus.</h1>
+								<p className="workspace-intro">
+									Use a saved conversation trail to query RAG context, approve memories,
+									and gate file changes before they touch the documents bucket.
+								</p>
+							</div>
+							<div className="header-badge-card">
+								<p className="meta-label">Assistant state</p>
+								<p className="header-badge-value">
+									{assistantLoading ? "Working" : currentAssistantConversation?.title || "Ready"}
+								</p>
+								<p className="header-badge-copy">
+									{pendingAssistantProposals.length} pending file proposal
+									{pendingAssistantProposals.length === 1 ? "" : "s"}.
+								</p>
+							</div>
+						</header>
+
+						<div className="assistant-layout">
+							<aside className="assistant-sidebar">
+								<div className="panel-heading compact">
+									<div>
+										<h3>Conversations</h3>
+										<p>{assistantConversations.length} saved trails</p>
+									</div>
+									<button
+										type="button"
+										className="inline-button"
+										onClick={() => {
+											setAssistantConversationId("");
+											setAssistantMessages([]);
+											setAssistantProposals([]);
+											setAssistantAudits([]);
+										}}
+									>
+										New
+									</button>
+								</div>
+								<div className="conversation-list">
+									{assistantConversations.map((conversation) => (
+										<button
+											type="button"
+											key={conversation.conversationId}
+											className={`conversation-row ${
+												conversation.conversationId === assistantConversationId ? "active" : ""
+											}`}
+											onClick={() => void loadAssistantConversation(conversation.conversationId)}
+										>
+											<span>{conversation.title || "New conversation"}</span>
+											<small>{formatTimestamp(conversation.updatedAt)}</small>
+										</button>
+									))}
+									{assistantConversations.length === 0 ? (
+										<p className="empty-state">No conversations yet.</p>
+									) : null}
+								</div>
+
+								<form className="assistant-memory-form" onSubmit={handleAssistantMemorySubmit}>
+									<label className="field-group">
+										<span>Approved memory</span>
+										<textarea
+											rows={3}
+											value={assistantMemoryText}
+											onChange={(event) => setAssistantMemoryText(event.target.value)}
+											placeholder="Remember that..."
+										/>
+									</label>
+									<button type="submit" className="menu-action primary">
+										Save Memory
+									</button>
+								</form>
+
+								<div className="memory-list">
+									{assistantMemories.map((memory) => (
+										<article key={memory.memoryId} className="memory-row">
+											<p>{memory.text}</p>
+											<button
+												type="button"
+												className="inline-button"
+												onClick={() => void handleArchiveAssistantMemory(memory.memoryId)}
+											>
+												Archive
+											</button>
+										</article>
+									))}
+								</div>
+							</aside>
+
+							<section className="assistant-chat-panel">
+								<div className="panel-heading compact">
+									<div>
+										<h3>{currentAssistantConversation?.title || "Current conversation"}</h3>
+										<p>{assistantMessages.length} messages</p>
+									</div>
+									<button
+										type="button"
+										className="inline-button"
+										onClick={() => void loadAssistantDashboard()}
+										disabled={assistantLoading}
+									>
+										Refresh
+									</button>
+								</div>
+
+								{assistantError ? <p className="error-text">{assistantError}</p> : null}
+
+								<div className="assistant-message-list" aria-live="polite">
+									{assistantMessages.map((entry) => (
+										<article
+											key={entry.messageId}
+											className={`assistant-message ${entry.role === "user" ? "user" : "assistant"}`}
+										>
+											<p className="assistant-message-role">{entry.role}</p>
+											<p className="assistant-message-content">{entry.content}</p>
+											{entry.citations?.length > 0 ? (
+												<div className="context-citations compact">
+													<p className="meta-label">Citations</p>
+													<ol>
+														{entry.citations.map((citation, index) => (
+															<li key={`${entry.messageId}-citation-${index}`}>
+																<span className="citation-code">
+																	{citation.reference || citation.label || `[${index + 1}]`}
+																</span>
+																<span>{citationLabel({ citation })}</span>
+															</li>
+														))}
+													</ol>
+												</div>
+											) : null}
+										</article>
+									))}
+									{assistantMessages.length === 0 ? (
+										<p className="empty-state">Send a message to start a saved trail.</p>
+									) : null}
+								</div>
+
+								<form className="assistant-compose" onSubmit={handleAssistantSend}>
+									<label className="field-group">
+										<span>Message</span>
+										<textarea
+											rows={5}
+											value={assistantInput}
+											onChange={(event) => setAssistantInput(event.target.value)}
+											placeholder="Which runbook explains kubeconfig refresh?"
+										/>
+									</label>
+									<button type="submit" className="menu-action primary" disabled={assistantLoading}>
+										{assistantLoading ? "Sending..." : "Send"}
+									</button>
+								</form>
+							</section>
+
+							<aside className="assistant-tools-panel">
+								<section className="document-actions-card">
+									<div className="panel-heading compact">
+										<div>
+											<h3>File proposals</h3>
+											<p>Create or edit text documents after approval.</p>
+										</div>
+									</div>
+									<form className="document-actions-form" onSubmit={handleAssistantProposalSubmit}>
+										<label className="field-group">
+											<span>Action</span>
+											<select
+												value={assistantProposalState.action}
+												onChange={(event) =>
+													setAssistantProposalState((current) => ({
+														...current,
+														action: event.target.value,
+													}))
+												}
+											>
+												<option value="create">Create text file</option>
+												<option value="edit">Edit text file</option>
+											</select>
+										</label>
+										<label className="field-group">
+											<span>Object key</span>
+											<input
+												value={assistantProposalState.objectKey}
+												onChange={(event) =>
+													setAssistantProposalState((current) => ({
+														...current,
+														objectKey: event.target.value,
+													}))
+												}
+												placeholder="notes/new-file.md"
+											/>
+										</label>
+										<label className="field-group">
+											<span>Document ID</span>
+											<input
+												value={assistantProposalState.documentId}
+												onChange={(event) =>
+													setAssistantProposalState((current) => ({
+														...current,
+														documentId: event.target.value,
+													}))
+												}
+												placeholder="required for edit"
+											/>
+										</label>
+										<label className="field-group">
+											<span>Content type</span>
+											<input
+												value={assistantProposalState.contentType}
+												onChange={(event) =>
+													setAssistantProposalState((current) => ({
+														...current,
+														contentType: event.target.value,
+													}))
+												}
+											/>
+										</label>
+										<label className="field-group">
+											<span>Proposed text</span>
+											<textarea
+												rows={8}
+												value={assistantProposalState.proposedText}
+												onChange={(event) =>
+													setAssistantProposalState((current) => ({
+														...current,
+														proposedText: event.target.value,
+													}))
+												}
+											/>
+										</label>
+										<label className="field-group">
+											<span>Rationale</span>
+											<input
+												value={assistantProposalState.rationale}
+												onChange={(event) =>
+													setAssistantProposalState((current) => ({
+														...current,
+														rationale: event.target.value,
+													}))
+												}
+											/>
+										</label>
+										<button
+											type="submit"
+											className="menu-action primary"
+											disabled={assistantProposalState.status === "loading"}
+										>
+											Create Proposal
+										</button>
+										{assistantProposalState.error ? (
+											<p className="error-text">{assistantProposalState.error}</p>
+										) : null}
+										{assistantProposalState.message ? (
+											<p className="success-text">{assistantProposalState.message}</p>
+										) : null}
+									</form>
+
+									<div className="proposal-list">
+										{assistantProposals.map((proposal) => (
+											<article key={proposal.proposalId} className="proposal-row">
+												<div className="inventory-row-header">
+													<div>
+														<p className="search-result-title">{proposal.objectKey}</p>
+														<p className="search-result-meta">
+															{proposal.action} • {proposal.status}
+														</p>
+													</div>
+													<span className={`status-pill ${statusClass(proposal.status)}`}>
+														{proposal.status}
+													</span>
+												</div>
+												<p className="search-result-text">{proposal.rationale}</p>
+												{proposal.status === "pending" ? (
+													<div className="document-actions-row">
+														<button
+															type="button"
+															className="menu-action primary"
+															onClick={() =>
+																void handleAssistantProposalDecision(
+																	proposal.proposalId,
+																	"approve",
+																)
+															}
+														>
+															Approve
+														</button>
+														<button
+															type="button"
+															className="menu-action danger"
+															onClick={() =>
+																void handleAssistantProposalDecision(
+																	proposal.proposalId,
+																	"reject",
+																)
+															}
+														>
+															Reject
+														</button>
+													</div>
+												) : null}
+											</article>
+										))}
+									</div>
+								</section>
+
+								<section className="document-actions-card">
+									<div className="panel-heading compact">
+										<div>
+											<h3>Audit and revert</h3>
+											<p>{assistantAudits.length} recorded document changes</p>
+										</div>
+									</div>
+									<form className="document-actions-form" onSubmit={handleAssistantRevertSubmit}>
+										<label className="field-group">
+											<span>Document ID</span>
+											<input
+												value={assistantRevertState.documentId}
+												onChange={(event) =>
+													setAssistantRevertState((current) => ({
+														...current,
+														documentId: event.target.value,
+													}))
+												}
+											/>
+										</label>
+										<label className="field-group">
+											<span>Version marker</span>
+											<input
+												value={assistantRevertState.versionMarker}
+												onChange={(event) =>
+													setAssistantRevertState((current) => ({
+														...current,
+														versionMarker: event.target.value,
+													}))
+												}
+											/>
+										</label>
+										<button
+											type="submit"
+											className="menu-action primary"
+											disabled={assistantRevertState.status === "loading"}
+										>
+											Queue Revert
+										</button>
+										{assistantRevertState.error ? (
+											<p className="error-text">{assistantRevertState.error}</p>
+										) : null}
+										{assistantRevertState.message ? (
+											<p className="success-text">{assistantRevertState.message}</p>
+										) : null}
+									</form>
+									<div className="audit-list">
+										{assistantAudits.map((audit) => (
+											<article key={audit.auditId} className="audit-row">
+												<p className="search-result-title">{audit.objectKey || audit.documentId}</p>
+												<p className="search-result-meta">
+													{audit.action} • v{audit.processingVersion} •{" "}
+													{formatTimestamp(audit.createdAt)}
+												</p>
+												<p className="search-result-meta">
+													old {audit.oldVersionMarker || "none"} • new{" "}
+													{audit.newVersionMarker || "none"}
+												</p>
+												{audit.oldVersionMarker || audit.revertedToVersionMarker ? (
+													<button
+														type="button"
+														className="inline-button"
+														onClick={() => stageAssistantRevert(audit)}
+													>
+														Stage Revert
+													</button>
+												) : null}
+											</article>
+										))}
+										{assistantAudits.length === 0 ? (
+											<p className="empty-state">Audit rows will appear after approvals.</p>
+										) : null}
+									</div>
+								</section>
+							</aside>
 						</div>
 					</section>
 				) : page === "search" ? (

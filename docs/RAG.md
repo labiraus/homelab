@@ -43,6 +43,31 @@ The current ingestion slice is reference-based:
 - retrieval responses search the document's current processed chunk version and include citation objects that identify the source URI and chunk identity for each match
 - `local-embeddings` uses a built-in deterministic 384-dimensional embedding function when no external embedding endpoint is configured
 
+## Chunking Evaluation
+
+Use `evals/ragas` to score whether the current processed chunks retrieve the right gold context for representative queries.
+The harness reads the live `rag.documents`, `rag.chunks`, and `rag.embeddings` rows through Postgres, embeds each query with the same local embedding function used by the processor when `EMBEDDING_MODEL=local-embeddings`, and evaluates the retrieved contexts with RAGAS retrieval metrics.
+
+Setup:
+
+```bash
+python3 -m venv .venv-ragas
+. .venv-ragas/bin/activate
+python3 -m pip install -r evals/ragas/requirements.txt
+cp evals/ragas/chunking_cases.example.jsonl evals/ragas/chunking_cases.jsonl
+```
+
+Replace the example case with real JSONL rows. Each row should include a `query` plus `reference_context_ids`, `reference_contexts`, or both. Stable reference IDs use the citation format returned by search: `s3://documents/path/to/source.md#chunk-0`. Optional `prefix`, `documentId`, `metadata`, and `limit` fields use the same meaning as `documents.search`.
+The local `chunking_cases.jsonl` file is ignored because gold cases can include private source excerpts.
+
+Run it through the repo target, which reads the cluster Postgres credentials and opens a temporary port-forward:
+
+```bash
+make ragas-chunking-eval RAGAS_ARGS="--min-id-recall 0.8 --min-context-recall 0.8"
+```
+
+The script prints per-case RAGAS scores and returns a non-zero exit code when a configured threshold is missed. Use low or zero thresholds while building the first gold set, then raise them once the baseline is understood.
+
 ```mermaid
 flowchart LR
   U[User in browser] --> UI[ui]

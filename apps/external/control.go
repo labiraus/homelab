@@ -16,9 +16,11 @@ import (
 )
 
 const (
+	documentCreateTextLabel    = "documentCreateTextHandler"
 	documentCurationLabel      = "documentCurationHandler"
 	documentEditTextLabel      = "documentEditTextHandler"
 	documentReprocessLabel     = "documentReprocessHandler"
+	documentRevertLabel        = "documentRevertHandler"
 	documentScanBucketLabel    = "documentScanBucketHandler"
 	maxDocumentControlBodySize = 1 << 20
 )
@@ -38,12 +40,20 @@ func documentCurationHandler(w http.ResponseWriter, r *http.Request) {
 	handleOrchestratorDocumentAction(documentCurationLabel, "/documents/curation", w, r)
 }
 
+func documentCreateTextHandler(w http.ResponseWriter, r *http.Request) {
+	handleOrchestratorDocumentAction(documentCreateTextLabel, "/documents/create-text", w, r)
+}
+
 func documentEditTextHandler(w http.ResponseWriter, r *http.Request) {
 	handleOrchestratorDocumentAction(documentEditTextLabel, "/documents/edit-text", w, r)
 }
 
 func documentReprocessHandler(w http.ResponseWriter, r *http.Request) {
 	handleOrchestratorDocumentAction(documentReprocessLabel, "/documents/reprocess", w, r)
+}
+
+func documentRevertHandler(w http.ResponseWriter, r *http.Request) {
+	handleOrchestratorDocumentAction(documentRevertLabel, "/documents/revert", w, r)
 }
 
 func documentScanBucketHandler(w http.ResponseWriter, r *http.Request) {
@@ -96,6 +106,17 @@ func handleOrchestratorDocumentAction(label string, path string, w http.Response
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "invalid request body"})
 		return
+	}
+	if email, ok := proxiedEmail(r.Context()); ok {
+		if _, exists := request["actorEmail"]; !exists {
+			request["actorEmail"] = email
+		}
+		body, err = json.Marshal(request)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "invalid request body"})
+			return
+		}
 	}
 
 	response, proxyErr := proxyOrchestratorDocumentAction(r.Context(), path, body)

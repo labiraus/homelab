@@ -3,18 +3,18 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"pkg/minioutil"
 
 	"github.com/minio/minio-go/v7"
 )
 
-type editTextDocumentRequest struct {
+type revertDocumentRequest struct {
 	DocumentID        string                 `json:"documentId"`
-	Text              *string                `json:"text"`
+	VersionMarker     string                 `json:"versionMarker"`
 	ContentType       string                 `json:"contentType,omitempty"`
 	Metadata          map[string]interface{} `json:"metadata,omitempty"`
 	ProcessingVersion int                    `json:"processingVersion,omitempty"`
@@ -23,39 +23,27 @@ type editTextDocumentRequest struct {
 	ProposalID        string                 `json:"proposalId,omitempty"`
 }
 
-type editTextDocumentResponse struct {
-	Status            string `json:"status"`
-	DocumentID        string `json:"documentId"`
-	ProcessingVersion int    `json:"processingVersion"`
-	SourceURI         string `json:"sourceUri"`
-	ObjectKey         string `json:"objectKey"`
-	ETag              string `json:"etag,omitempty"`
-	VersionMarker     string `json:"versionMarker,omitempty"`
-	SizeBytes         int64  `json:"sizeBytes,omitempty"`
-	LastModified      string `json:"lastModified,omitempty"`
-}
+var readObjectVersionForRevert = readDocumentObjectVersion
 
-var writeTextObjectForEdit = writeEditedTextObject
-
-func editTextDocumentHandler(w http.ResponseWriter, r *http.Request) {
+func revertDocumentHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
-	var request editTextDocumentRequest
+	var request revertDocumentRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
-
 	request.DocumentID = strings.TrimSpace(request.DocumentID)
+	request.VersionMarker = strings.TrimSpace(request.VersionMarker)
 	if request.DocumentID == "" {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "documentId is required"})
 		return
 	}
-	if request.Text == nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "text is required"})
+	if request.VersionMarker == "" {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "versionMarker is required"})
 		return
 	}
 
@@ -68,7 +56,6 @@ func editTextDocumentHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "document not found"})
 		return
 	}
-
 	if err := validateReprocessRecord(record); err != nil {
 		writeJSON(w, http.StatusConflict, errorResponse{Error: err.Error()})
 		return
@@ -92,29 +79,42 @@ func editTextDocumentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	object, err := writeTextObjectForEdit(r.Context(), record.Bucket, record.ObjectKey, *request.Text, contentType)
+	body, err := readObjectVersionForRevert(r.Context(), record.Bucket, record.ObjectKey, request.VersionMarker)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "failed to read requested object version"})
+		return
+	}
+	object, err := writeTextObjectForEdit(r.Context(), record.Bucket, record.ObjectKey, string(body), contentType)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to write document object"})
 		return
 	}
 
-	event := eventFromEditedRecord(record, object, contentType, request.Metadata, processingVersion)
+	metadata := map[string]interface{}{}
+	for key, value := range request.Metadata {
+		metadata[key] = value
+	}
+	metadata["revertedBy"] = "orchestrator.revert"
+	metadata["revertedToVersionMarker"] = request.VersionMarker
+
+	event := eventFromEditedRecord(record, object, contentType, metadata, processingVersion)
 	if err := queueDocument(r.Context(), event); err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to enqueue document"})
 		return
 	}
 	if err := recordChangeAudit(r.Context(), documentChangeAudit{
-		DocumentID:        event.DocumentID,
-		Bucket:            event.Bucket,
-		ObjectKey:         event.ObjectKey,
-		Action:            "edit",
-		ActorEmail:        request.ActorEmail,
-		ConversationID:    request.ConversationID,
-		ProposalID:        request.ProposalID,
-		OldVersionMarker:  record.VersionMarker,
-		NewVersionMarker:  event.VersionMarker,
-		ProcessingVersion: event.ProcessingVersion,
-		Metadata:          request.Metadata,
+		DocumentID:              event.DocumentID,
+		Bucket:                  event.Bucket,
+		ObjectKey:               event.ObjectKey,
+		Action:                  "revert",
+		ActorEmail:              request.ActorEmail,
+		ConversationID:          request.ConversationID,
+		ProposalID:              request.ProposalID,
+		OldVersionMarker:        record.VersionMarker,
+		NewVersionMarker:        event.VersionMarker,
+		RevertedToVersionMarker: request.VersionMarker,
+		ProcessingVersion:       event.ProcessingVersion,
+		Metadata:                metadata,
 	}); err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to record document audit"})
 		return
@@ -133,37 +133,14 @@ func editTextDocumentHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func writeEditedTextObject(ctx context.Context, bucket string, objectKey string, text string, contentType string) (minio.ObjectInfo, error) {
-	return minioutil.PutTextObjectToBucket(ctx, bucket, objectKey, text, minio.PutObjectOptions{
-		ContentType: contentType,
+func readDocumentObjectVersion(ctx context.Context, bucket string, objectKey string, versionMarker string) ([]byte, error) {
+	object, err := minioutil.GetObjectFromBucket(ctx, bucket, objectKey, minio.GetObjectOptions{
+		VersionID: versionMarker,
 	})
-}
+	if err != nil {
+		return nil, err
+	}
+	defer object.Close()
 
-func eventFromEditedRecord(record reprocessDocumentRecord, object minio.ObjectInfo, contentType string, requestMetadata map[string]interface{}, processingVersion int) documentEvent {
-	metadata := map[string]interface{}{}
-	for key, value := range record.Metadata {
-		metadata[key] = value
-	}
-	for key, value := range requestMetadata {
-		metadata[key] = value
-	}
-	metadata["editedBy"] = "orchestrator.editText"
-
-	event := documentEvent{
-		DocumentID:        record.DocumentID,
-		Bucket:            record.Bucket,
-		ObjectKey:         record.ObjectKey,
-		SourceURI:         record.SourceURI,
-		ContentType:       contentType,
-		VersionMarker:     strings.TrimSpace(object.VersionID),
-		ETag:              strings.TrimSpace(object.ETag),
-		SizeBytes:         object.Size,
-		Metadata:          metadata,
-		RequestedAt:       time.Now().UTC().Format(time.RFC3339),
-		ProcessingVersion: processingVersion,
-	}
-	if !object.LastModified.IsZero() {
-		event.LastModified = object.LastModified.UTC().Format(time.RFC3339Nano)
-	}
-	return event
+	return io.ReadAll(object)
 }

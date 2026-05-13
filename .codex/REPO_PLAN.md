@@ -56,6 +56,7 @@ The repo already includes:
 - the UI Search tab can update curated metadata and queue reprocessing for a retrieved document through `external` proxy routes backed by `orchestrator`
 - the UI Search tab can perform guarded raw text edits for selected text documents through `external` proxying to `orchestrator`
 - browser document actions that queue processing automatically load durable lifecycle history for the returned processing version
+- RAGAS-based chunking evaluation lives under `evals/ragas` and can score live processed chunks against gold retrieval cases through Postgres
 
 Documentation must stay aligned with implementation as these pieces evolve.
 

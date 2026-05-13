@@ -47,6 +47,7 @@ Use the nearest relevant `AGENTS.md` for local conventions, and update it when a
 │   ├── kubernetes/         # Terraform component for Kubernetes worker VMs
 │   └── minecraft-vm/       # Terraform component for the dedicated Minecraft VM
 ├── docs/                   # Setup and notes
+├── evals/                  # RAGAS and other evaluation harnesses
 ├── etc/
 │   ├── env/                # Environment tfvars
 │   └── nodes/              # Per-node tfvars
@@ -106,6 +107,7 @@ The app stack under `apps/` is intentionally small:
 - `apps/orchestrator`: internal Go control-plane service for reconciliation and task dispatch
 - `apps/processor`: internal TypeScript NATS JetStream worker for extraction, chunking, embedding, and persistence
 - `apps/pkg/*`: shared Go packages for HTTP server startup, logging, metrics, and integrations
+- `evals/ragas`: RAGAS-based retrieval/chunking quality checks against live processed chunks
 
 Current document-platform direction:
 
@@ -113,6 +115,7 @@ Current document-platform direction:
 - Postgres via CNPG plus pgvector is the source of truth for metadata, state, chunks, and embeddings
 - document lifecycle history is also persisted in Postgres for processing and reprocessing audits
 - browser and MCP surfaces expose retrieval, cited context, lifecycle history, metadata curation, guarded text edits, and reprocess requests while `orchestrator` keeps workflow ownership
+- RAGAS chunking evaluation can score current processed chunks against gold retrieval cases under `evals/ragas/`
 - NATS JetStream plus KEDA handle asynchronous execution and worker scaling
 - Redis is available but not yet a core design dependency
 - Mongo is intentionally not part of the active application architecture
