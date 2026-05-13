@@ -59,7 +59,7 @@ If `docker ps` or `docker logs` returns a permission error for `/var/run/docker.
 
 When updating a managed profile such as `atm11`, take the server offline first so the world data is consistent, archive the profile data, copy that archive to the external MinIO host `svartalfheim`, then bump the pinned modpack version in Ansible and reapply the role.
 
-Example: update `atm11` from `0.0.5` to `0.0.15`.
+Example: update `atm11` from `0.0.5` to `0.0.16`.
 
 1. Stop the active Minecraft service.
 
@@ -85,7 +85,7 @@ ssh nidavellir '\
   scp "$latest" svartalfheim:/srv/minio/backups/minecraft/'
 ```
 
-4. Update the pinned profile version in [minecraft_vm.yml](/workspaces/homelab/ansible/inventory/group_vars/minecraft_vm.yml) by changing `atm11.runtime_env.CF_FILENAME_MATCHER` from `0.0.5` to `0.0.15`, keep `atm11.runtime_env.NEOFORGE_VERSION` aligned with the loader version the ATM11 release was tested against, and preserve `atm11.start_mode=preinstalled_run_script` unless the upstream AUTO_CURSEFORGE NeoForge mismatch is known to be fixed.
+4. Update the pinned profile version in [minecraft_vm.yml](/workspaces/homelab/ansible/inventory/group_vars/minecraft_vm.yml) by changing `atm11.runtime_env.CF_FILENAME_MATCHER` from `0.0.5` to `0.0.16`, keep `atm11.runtime_env.NEOFORGE_VERSION` aligned with the loader version the ATM11 release was tested against, and preserve `atm11.start_mode=preinstalled_run_script` unless the upstream AUTO_CURSEFORGE NeoForge mismatch is known to be fixed.
 
 5. Reapply the VM configuration so the container restarts on the new game version.
 

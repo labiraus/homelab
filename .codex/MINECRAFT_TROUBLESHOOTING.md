@@ -54,7 +54,7 @@ The Ansible playbook installs Docker, renders per-profile files under `/etc/mine
 - `atm11`:
   - `image=itzg/minecraft-server:java25`
   - `CF_SLUG=all-the-mods-11`
-  - `CF_FILENAME_MATCHER=0.0.15`
+  - `CF_FILENAME_MATCHER=0.0.16`
   - `NEOFORGE_VERSION=26.1.2.43-beta`
   - `start_mode=preinstalled_run_script`
 - `atm10_tts`:
