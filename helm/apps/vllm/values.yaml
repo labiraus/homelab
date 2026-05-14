@@ -4,7 +4,7 @@ fullnameOverride: ""
 
 image:
   repository: vllm/vllm-openai
-  tag: "latest"
+  tag: "v0.20.2"
   pullPolicy: IfNotPresent
 
 model:
@@ -18,7 +18,24 @@ model:
   enablePrefixCaching: true
 
 replicaCount: 1
-progressDeadlineSeconds: 3600
+progressDeadlineSeconds: 7200
+
+probes:
+  startup:
+    initialDelaySeconds: 20
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 360
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 12
+  liveness:
+    initialDelaySeconds: 60
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 6
 
 service:
   type: ClusterIP

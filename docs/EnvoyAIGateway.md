@@ -36,9 +36,11 @@ Current repo note:
 Local vLLM integration:
 
 - chart: `helm/apps/vllm`
+- default image: `vllm/vllm-openai:v0.20.2`
 - default model: `Qwen/Qwen2.5-7B-Instruct-AWQ`
 - default node path: `helheim` with `node-llm=gpu` and `nvidia.com/gpu: 1`
 - runtime flags enable OpenAI-compatible serving, AWQ quantization, tool-call parsing, automatic tool choice, and prefix caching
+- the startup probe allows roughly one hour for first-load model download, CUDA setup, and compilation on the lab GPU path before Kubernetes restarts the container
 - the assistant service uses `LLM_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`; Envoy AI Gateway routes that OpenAI-compatible traffic to the in-cluster vLLM backend
 
 Upstream references used for this integration:

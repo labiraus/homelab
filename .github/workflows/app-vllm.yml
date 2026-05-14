@@ -42,4 +42,4 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           values: values-ghcr.yaml
           tag: uat
-          app-version: latest
+          app-version: v0.20.2
