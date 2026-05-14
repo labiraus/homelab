@@ -82,7 +82,7 @@ generatedSecrets:
       LLM_BASE_URL:
         value: "http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1"
       LLM_MODEL:
-        value: "Qwen/Qwen2.5-7B-Instruct-AWQ"
+        value: "Qwen/Qwen2.5-0.5B-Instruct"
       LLM_MAX_TOKENS:
         value: "768"
 

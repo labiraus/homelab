@@ -8,11 +8,11 @@ image:
   pullPolicy: IfNotPresent
 
 model:
-  id: Qwen/Qwen2.5-7B-Instruct-AWQ
-  servedName: Qwen/Qwen2.5-7B-Instruct-AWQ
+  id: Qwen/Qwen2.5-0.5B-Instruct
+  servedName: Qwen/Qwen2.5-0.5B-Instruct
   maxModelLen: 4096
   gpuMemoryUtilization: "0.85"
-  quantization: awq
+  quantization: ""
   toolCallParser: hermes
   enableAutoToolChoice: true
   enablePrefixCaching: true

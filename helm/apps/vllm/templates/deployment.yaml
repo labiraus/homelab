@@ -54,8 +54,10 @@ spec:
             - {{ .Values.model.maxModelLen | quote }}
             - --gpu-memory-utilization
             - {{ .Values.model.gpuMemoryUtilization | quote }}
+            {{- if .Values.model.quantization }}
             - --quantization
             - {{ .Values.model.quantization | quote }}
+            {{- end }}
             {{- if .Values.model.enableAutoToolChoice }}
             - --enable-auto-tool-choice
             - --tool-call-parser

@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	defaultLLMModel = "Qwen/Qwen2.5-7B-Instruct-AWQ"
+	defaultLLMModel = "Qwen/Qwen2.5-0.5B-Instruct"
 )
 
 type assistantRunResult struct {

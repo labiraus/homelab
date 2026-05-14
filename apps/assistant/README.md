@@ -20,7 +20,7 @@ Important environment variables:
 - `MCP_BASE_URL`: Labiraus MCP endpoint, usually `http://homelab-mcp.homelab.svc.cluster.local/mcp`
 - `ORCHESTRATOR_BASE_URL`: internal orchestrator endpoint
 - `LLM_BASE_URL`: OpenAI-compatible base URL, including `/v1`
-- `LLM_MODEL`: served model name
+- `LLM_MODEL`: served model name, defaulting to `Qwen/Qwen2.5-0.5B-Instruct`
 
 Run tests:
 
