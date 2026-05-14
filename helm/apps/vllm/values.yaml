@@ -16,6 +16,7 @@ model:
   toolCallParser: hermes
   enableAutoToolChoice: true
   enablePrefixCaching: true
+  enforceEager: true
 
 replicaCount: 1
 progressDeadlineSeconds: 7200

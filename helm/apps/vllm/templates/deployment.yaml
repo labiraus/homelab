@@ -64,6 +64,9 @@ spec:
             {{- if .Values.model.enablePrefixCaching }}
             - --enable-prefix-caching
             {{- end }}
+            {{- if .Values.model.enforceEager }}
+            - --enforce-eager
+            {{- end }}
           env:
             - name: HF_HOME
               value: /models
