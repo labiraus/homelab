@@ -184,6 +184,7 @@ describe("App", () => {
 			});
 
 		render(<App />);
+		expect(await screen.findByRole("button", { name: /^assistant$/i })).toBeInTheDocument();
 		expect(await screen.findByRole("button", { name: /^documents$/i })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /^search$/i })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /^inventory$/i })).toBeInTheDocument();
@@ -192,6 +193,195 @@ describe("App", () => {
 		expect(screen.getAllByText("oliver@labiraus.com").length).toBeGreaterThan(0);
 		expect(screen.getByText("certificate")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /sign out/i })).toBeInTheDocument();
+	});
+
+	test("sends an assistant chat message through the browser API", async () => {
+		const user = userEvent.setup();
+		global.fetch = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ mode: "oidc", email: "oliver@labiraus.com", valid: true }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ providers: [] }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ conversations: [] }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ memories: [] }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ audits: [] }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					conversation: {
+						conversationId: "conv-1",
+						title: "Runbook",
+						updatedAt: "2026-05-13T12:00:00Z",
+					},
+					userMessage: {
+						messageId: "msg-user",
+						conversationId: "conv-1",
+						role: "user",
+						content: "Which runbook?",
+						citations: [],
+						metadata: {},
+					},
+					reply: {
+						messageId: "msg-assistant",
+						conversationId: "conv-1",
+						role: "assistant",
+						content: "Use the kubeconfig runbook.",
+						citations: [{ reference: "[1]", citation: { label: "runbooks/process.md chunk 0" } }],
+						metadata: {},
+					},
+					toolCalls: [],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					conversations: [
+						{
+							conversationId: "conv-1",
+							title: "Runbook",
+							updatedAt: "2026-05-13T12:00:00Z",
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ proposals: [] }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ audits: [] }),
+			});
+
+		render(<App />);
+		await user.click(await screen.findByRole("button", { name: /^assistant$/i }));
+		await screen.findByRole("heading", { name: /talk to labiraus/i });
+		await user.type(screen.getByLabelText(/^message$/i), "Which runbook?");
+		await user.click(screen.getByRole("button", { name: /^send$/i }));
+
+		expect(await screen.findByText("Use the kubeconfig runbook.")).toBeInTheDocument();
+		expect(global.fetch).toHaveBeenCalledWith(
+			"/api/assistant/chat",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					conversationId: "",
+					message: "Which runbook?",
+					title: "Which runbook?",
+				}),
+			}),
+		);
+	});
+
+	test("approves an assistant file proposal", async () => {
+		const user = userEvent.setup();
+		const pendingProposal = {
+			proposalId: "prop-1",
+			conversationId: "conv-1",
+			action: "edit",
+			documentId: "doc-1",
+			objectKey: "runbooks/process.md",
+			contentType: "text/markdown",
+			proposedText: "edited",
+			rationale: "Tighten wording",
+			status: "pending",
+			createdAt: "2026-05-13T12:00:00Z",
+		};
+		global.fetch = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ mode: "oidc", email: "oliver@labiraus.com", valid: true }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ providers: [] }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					conversations: [
+						{
+							conversationId: "conv-1",
+							title: "Runbook",
+							updatedAt: "2026-05-13T12:00:00Z",
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ memories: [] }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ audits: [] }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					conversation: {
+						conversationId: "conv-1",
+						title: "Runbook",
+						updatedAt: "2026-05-13T12:00:00Z",
+					},
+					messages: [],
+					proposals: [pendingProposal],
+					audits: [],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					proposal: {
+						...pendingProposal,
+						status: "approved",
+						orchestratorResponse: { status: "queued", processingVersion: 4 },
+					},
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					proposals: [
+						{
+							...pendingProposal,
+							status: "approved",
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ audits: [] }),
+			});
+
+		render(<App />);
+		await user.click(await screen.findByRole("button", { name: /^assistant$/i }));
+		await screen.findByText("Tighten wording");
+		await user.click(screen.getByRole("button", { name: /^approve$/i }));
+
+		await waitFor(() => {
+			expect(global.fetch).toHaveBeenCalledWith(
+				"/api/assistant/proposals/prop-1/approve",
+				expect.objectContaining({ method: "POST" }),
+			);
+		});
+		expect(await screen.findByText(/^approved$/i)).toBeInTheDocument();
 	});
 
 	test("uses the configured federated provider URL for sign in", async () => {

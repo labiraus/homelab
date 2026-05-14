@@ -1,4 +1,4 @@
-# Default values for external.
+# Default values for assistant.
 
 replicaCount: 1
 minReadySeconds: 5
@@ -39,7 +39,7 @@ lifecycle:
 namespace: homelab
 
 image:
-  repository: external
+  repository: assistant
   pullPolicy: IfNotPresent
   tag: ""
 
@@ -49,26 +49,16 @@ fullnameOverride: ""
 
 serviceAccount:
   create: true
-  automount: true
+  automount: false
   annotations: {}
   name: ""
 
 envFromSecrets:
-  - external-data-connections
+  - assistant-config
 
 generatedSecrets:
-  - name: external-data-connections
+  - name: assistant-config
     stringData:
-      NATS_URLS:
-        value: nats://nats-nats.nats.svc.cluster.local:4222
-      NATS_EVENTS_STREAM:
-        value: document-events
-      NATS_EVENTS_SUBJECT:
-        value: documents.events.>
-      ORCHESTRATOR_BASE_URL:
-        value: "http://homelab-orchestrator.homelab.svc.cluster.local"
-      ASSISTANT_BASE_URL:
-        value: "http://homelab-assistant.homelab.svc.cluster.local"
       POSTGRES_HOST:
         value: app-db-rw.data.svc.cluster.local
       POSTGRES_PORT:
@@ -85,46 +75,22 @@ generatedSecrets:
           namespace: data
           name: app-db-bootstrap
           key: password
-      EMBEDDING_ENDPOINT:
-        value: ""
-      EMBEDDING_MODEL:
-        value: local-embeddings
-      OIDC_LOGIN_URL:
-        value: "https://mcp.labiraus.com/oauth2/start?rd=https%3A%2F%2Fmcp.labiraus.com%2F"
-      OIDC_ISSUER_URL:
-        value: "https://accounts.google.com"
-      MINIO_ENDPOINT:
-        value: "svartalfheim:9000"
-      MINIO_USE_SSL:
-        value: "false"
-      MINIO_BUCKET:
-        value: "documents"
-      MINIO_ACCESS_KEY:
-        fromSecretRef:
-          namespace: homelab
-          name: documents-minio-credentials
-          key: accessKey
-      MINIO_SECRET_KEY:
-        fromSecretRef:
-          namespace: homelab
-          name: documents-minio-credentials
-          key: secretKey
-      REDIS_HOST:
-        value: redis.data.svc.cluster.local
-      REDIS_PORT:
-        value: "6379"
-      REDIS_PASSWORD:
-        fromSecretRef:
-          namespace: data
-          name: redis-auth
-          key: password
+      MCP_BASE_URL:
+        value: "http://homelab-mcp.homelab.svc.cluster.local/mcp"
+      ORCHESTRATOR_BASE_URL:
+        value: "http://homelab-orchestrator.homelab.svc.cluster.local"
+      LLM_BASE_URL:
+        value: "http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1"
+      LLM_MODEL:
+        value: "Qwen/Qwen2.5-7B-Instruct-AWQ"
+      LLM_MAX_TOKENS:
+        value: "768"
 
 security:
   istio:
     peerAuthentication:
       enabled: true
       mode: STRICT
-    authorizationPolicies: []
   networkPolicy:
     enabled: true
     defaultDenyIngress: true
@@ -136,8 +102,8 @@ security:
                 kubernetes.io/metadata.name: homelab
             podSelector:
               matchLabels:
-                app.kubernetes.io/instance: homelab-oauth2-proxy
-                app.kubernetes.io/name: oauth2-proxy
+                app.kubernetes.io/instance: homelab-external
+                app.kubernetes.io/name: external
         ports:
           - protocol: TCP
             port: 8080
@@ -167,13 +133,6 @@ security:
       - to:
           - namespaceSelector:
               matchLabels:
-                kubernetes.io/metadata.name: nats
-        ports:
-          - protocol: TCP
-            port: 4222
-      - to:
-          - namespaceSelector:
-              matchLabels:
                 kubernetes.io/metadata.name: data
             podSelector:
               matchLabels:
@@ -184,21 +143,11 @@ security:
       - to:
           - namespaceSelector:
               matchLabels:
-                kubernetes.io/metadata.name: data
-            podSelector:
-              matchLabels:
-                app.kubernetes.io/name: redis
-        ports:
-          - protocol: TCP
-            port: 6379
-      - to:
-          - namespaceSelector:
-              matchLabels:
                 kubernetes.io/metadata.name: homelab
             podSelector:
               matchLabels:
-                app.kubernetes.io/instance: homelab-assistant
-                app.kubernetes.io/name: assistant
+                app.kubernetes.io/instance: homelab-mcp
+                app.kubernetes.io/name: mcp
         ports:
           - protocol: TCP
             port: 8080
@@ -216,20 +165,22 @@ security:
       - to:
           - namespaceSelector:
               matchLabels:
-                kubernetes.io/metadata.name: homelab
+                kubernetes.io/metadata.name: envoy-gateway-system
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/component: proxy
+                app.kubernetes.io/name: envoy
+                gateway.envoyproxy.io/owning-gateway-name: vllm-ai-gateway
+                gateway.envoyproxy.io/owning-gateway-namespace: homelab
         ports:
           - protocol: TCP
             port: 80
-      - to:
-          - ipBlock:
-              cidr: 0.0.0.0/0
-        ports:
           - protocol: TCP
-            port: 9000
+            port: 10080
 
 podAnnotations: {}
 podLabels:
-  testing_label_key: external
+  testing_label_key: assistant
 
 podSecurityContext: {}
 securityContext: {}
@@ -240,14 +191,7 @@ service:
 
 ingress:
   enabled: false
-  httpsRedirect: true
-  className: ""
-  annotations: {}
-  hosts:
-    - host: mcp.labiraus.com
-      paths:
-        - path: /api
-          pathType: PathPrefix
+  hosts: []
   tls: []
 
 resources: {}
@@ -255,7 +199,7 @@ resources: {}
 autoscaling:
   enabled: false
   minReplicas: 1
-  maxReplicas: 100
+  maxReplicas: 10
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
 

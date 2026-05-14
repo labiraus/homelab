@@ -9,10 +9,11 @@ This repo is taking an async-first path to document ingestion and retrieval.
 - `orchestrator` owns control-plane reconciliation and task dispatch
 - `processor` is the stateless worker for extraction, chunking, embedding, and persistence
 - `external` and `mcp` are the stable public and AI-facing surfaces
+- `assistant` is the browser-first LLM surface for RAG-backed chat, explicit per-user memories, file proposals, and audit views
 - `mcp` forwards document lifecycle notifications sourced from NATS JetStream to MCP subscribers
 
-Near-term scope is the document, chunk, and embedding foundation.
-CAG and graph-style knowledge layers are future phases built on top of that base rather than separate immediate datastores.
+Near-term scope is now the document, chunk, embedding, and browser assistant foundation.
+CAG starts as explicit user-approved memory records assembled into the assistant prompt for the authenticated email; graph-style knowledge layers remain future phases built on top of the same base rather than separate immediate datastores.
 
 The current ingestion slice is reference-based:
 
@@ -29,7 +30,13 @@ The current ingestion slice is reference-based:
 - `orchestrator` exposes text-object editing for existing inventory rows and queues a newer processing version after the raw object write
 - `orchestrator` exposes explicit reprocessing for existing inventory documents through the same queue path
 - `external` exposes browser-facing curation, guarded text edit, and reprocess proxy routes while leaving workflow ownership in `orchestrator`
+- `external` proxies `/api/assistant/...` to the assistant service and forwards the authenticated browser identity
 - `external` and `mcp` expose durable lifecycle history backed by `rag.document_lifecycle_events`
+- `assistant` stores conversations, messages, tool calls, approved memories, and file-change proposals under the `assistant` Postgres schema
+- `assistant` calls the read-only MCP `documents.context` tool to ground chat responses in current RAG data
+- write-like assistant outcomes are persisted as proposals; approvals call `orchestrator` create/edit endpoints instead of letting the model write files directly
+- `rag.document_change_audits` stores create/edit/revert audit rows linked to actor email, conversation ID, proposal ID, object key, MinIO version markers, and processing version
+- MinIO versioning is enabled for the external `documents` bucket so approved revert operations can restore prior raw content and queue reingestion
 - `ui` renders durable lifecycle history for selected search results through `external`'s `/api/documents/history`
 - `ui` can assemble cited context blocks from the Search tab through `external`'s `/api/documents/context` using the same query, prefix, and metadata filters
 - `ui` can inspect Postgres-backed inventory rows from the Inventory tab through `external`'s `/api/documents/inventory`
@@ -72,10 +79,15 @@ The script prints per-case RAGAS scores and returns a non-zero exit code when a 
 flowchart LR
   U[User in browser] --> UI[ui]
   UI -->|browse/search/control actions| EXT[external]
+  UI -->|chat/memory/proposals/audit| ASSIST[assistant]
   A[Agent / MCP client] --> MCP[mcp]
 
   EXT --> ORCH[orchestrator]
+  EXT --> ASSIST
+  ASSIST -->|read-only RAG tool call| MCP
+  ASSIST -->|approved file proposals| ORCH
   MCP --> ORCH
+  ASSIST -->|chat, memory, proposal state| PG
 
   subgraph Storage
     MINIO[MinIO on svartalfheim]
@@ -89,8 +101,10 @@ flowchart LR
   end
 
   ORCH -->|reconcile raw objects| MINIO
+  ORCH -->|create/edit/revert text objects| MINIO
   ORCH -->|edit existing text objects| MINIO
   ORCH -->|upsert inventory and state| PG
+  ORCH -->|append file change audit| PG
   ORCH -->|append queued lifecycle history| PG
   ORCH -->|enqueue processing work| NATS
   NATS --> PROC

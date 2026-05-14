@@ -1,0 +1,8 @@
+image:
+  tag: "latest"
+
+tolerations:
+  - key: "karpenter.sh/controller"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"

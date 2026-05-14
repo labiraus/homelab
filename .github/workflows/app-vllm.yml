@@ -1,0 +1,45 @@
+name: App vLLM CI/CD
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Commit SHA to package
+        required: false
+        type: string
+      trigger_reason:
+        description: Why this workflow was invoked
+        required: false
+        type: string
+  push:
+    paths:
+      - "helm/apps/vllm/**"
+      - ".github/actions/helm/**"
+      - ".github/workflows/app-vllm.yml"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency: ci-vllm-helm-pipeline
+
+jobs:
+  ghcr:
+    name: "vLLM Chart to GHCR"
+    runs-on: ubuntu-latest
+    environment: uat
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && !contains(github.event.head_commit.message, 'no-ci')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.1
+        with:
+          ref: ${{ github.event.inputs.commit_sha || github.sha }}
+
+      - name: Publish Helm chart to GHCR
+        uses: ./.github/actions/helm/ghcr
+        with:
+          chart: apps/vllm
+          token: ${{ secrets.GITHUB_TOKEN }}
+          values: values-ghcr.yaml
+          tag: uat
+          app-version: latest

@@ -36,6 +36,7 @@ Use the nearest relevant `AGENTS.md` for local conventions, and update it when a
 ├── ansible/                # External services and VM-hosted workloads
 ├── apps/
 │   ├── external/           # Public Go HTTP service
+│   ├── assistant/          # Browser LLM assistant, memory, proposal, and audit service
 │   ├── mcp/                # Public Go MCP service
 │   ├── orchestrator/       # Internal Go document service
 │   ├── processor/          # Internal TypeScript NATS JetStream worker
@@ -103,6 +104,7 @@ The app stack under `apps/` is intentionally small:
 
 - `apps/ui`: public React frontend
 - `apps/external`: public Go API for the UI and stable browser-facing integrations
+- `apps/assistant`: browser-first LLM chat service for RAG-backed conversations, explicit user memories, file-change proposals, and audit views
 - `apps/mcp`: public Go MCP service for AI-native access
 - `apps/orchestrator`: internal Go control-plane service for reconciliation and task dispatch
 - `apps/processor`: internal TypeScript NATS JetStream worker for extraction, chunking, embedding, and persistence
@@ -115,6 +117,9 @@ Current document-platform direction:
 - Postgres via CNPG plus pgvector is the source of truth for metadata, state, chunks, and embeddings
 - document lifecycle history is also persisted in Postgres for processing and reprocessing audits
 - browser and MCP surfaces expose retrieval, cited context, lifecycle history, metadata curation, guarded text edits, and reprocess requests while `orchestrator` keeps workflow ownership
+- the Assistant tab lets authenticated users ask RAG-backed questions, save approved per-user memories, approve or reject proposed text create/edit operations, and inspect file-change audit rows
+- approved assistant file changes are routed through `orchestrator`, written to MinIO, audited in Postgres, and reingested through the existing processor path
+- local vLLM is the first LLM runtime target for the assistant, scheduled onto the GPU worker path and accompanied by Envoy AI Gateway resources
 - RAGAS chunking evaluation can score current processed chunks against gold retrieval cases under `evals/ragas/`
 - NATS JetStream plus KEDA handle asynchronous execution and worker scaling
 - Redis is available but not yet a core design dependency

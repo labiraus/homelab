@@ -12,6 +12,7 @@ The chosen application boundary is:
 
 - `ui`: React frontend
 - `external`: public Go API for browser clients
+- `assistant`: browser-first LLM chat, user memory, proposal, and audit service
 - `mcp`: Go MCP server for AI-native access
 - `orchestrator`: internal Go control-plane API
 - `processor`: TypeScript NATS JetStream worker for document operations
@@ -22,6 +23,7 @@ The intended platform shape is:
 - Postgres via CNPG plus pgvector is the system of record for metadata, workflow state, chunks, and embeddings
 - NATS JetStream plus KEDA provide asynchronous execution and worker scaling
 - Redis is available but is not yet a core architectural dependency
+- local vLLM is the first LLM runtime target, scheduled onto the GPU worker path and fronted by Envoy AI Gateway resources
 - Mongo is not part of the active plan
 - browser authentication currently standardizes on `oauth2-proxy + Google` on the shared public host
 - certificate authentication is already part of the Labiraus MCP access story and currently sits alongside the shared Google-backed path as the all-or-nothing access choice for deployed MCP clients
@@ -35,7 +37,7 @@ The repo already includes:
 - Envoy AI Gateway infra chart under `helm/infra/envoy-ai-gateway/` for future AI traffic routing
 - app charts under `helm/apps/`
 - data/platform charts under `helm/data/` and `helm/bootstrap/`
-- the `ui`, `external`, `mcp`, `orchestrator`, and `processor` apps under `apps/`
+- the `ui`, `external`, `assistant`, `mcp`, `orchestrator`, and `processor` apps under `apps/`
 - SQL bootstrap under `sql/`
 - external MinIO management through Ansible on `svartalfheim`
 - orchestrator-backed `documents.scanBucket` reconciliation that inventories MinIO objects into Postgres and queues new or changed text objects for processing
@@ -56,6 +58,11 @@ The repo already includes:
 - the UI Search tab can update curated metadata and queue reprocessing for a retrieved document through `external` proxy routes backed by `orchestrator`
 - the UI Search tab can perform guarded raw text edits for selected text documents through `external` proxying to `orchestrator`
 - browser document actions that queue processing automatically load durable lifecycle history for the returned processing version
+- the `assistant` app stores conversations, messages, per-user approved memories, tool calls, file proposals, and proposal decisions in Postgres
+- the Assistant browser tab can ask RAG-backed questions, save approved user memories, stage create/edit proposals, approve or reject proposals, and inspect audit rows
+- approved assistant create/edit proposals call `orchestrator`, write text objects to MinIO, queue reingestion, and append `rag.document_change_audits`
+- `orchestrator` exposes text create and MinIO-version-backed revert endpoints in addition to guarded text editing
+- Ansible bucket management enables versioning on the external `documents` bucket while leaving current-object lifecycle expiration disabled
 - RAGAS-based chunking evaluation lives under `evals/ragas` and can score live processed chunks against gold retrieval cases through Postgres
 
 Documentation must stay aligned with implementation as these pieces evolve.
@@ -66,10 +73,12 @@ Documentation must stay aligned with implementation as these pieces evolve.
 
 - `ui` is the browser-facing React application.
 - `external` is the stable public API for the UI. It serves Postgres-backed data and triggers orchestrator actions without exposing internal pipeline details.
+- `assistant` is the browser-first LLM and memory service. It owns conversation state, explicit per-user memories, read-only MCP tool-call allowlisting, file-change proposals, approval state, and assistant audit views.
 - `mcp` is the stable AI-native front door for agents and MCP-compatible clients.
 - the Labiraus MCP server is a primary product surface of this repo, not a sidecar utility, and should be evaluated alongside the rest of the deployed stack
 - `orchestrator` is the internal control plane. It owns workflow state transitions, reconciliation, and task dispatch decisions.
 - `processor` is the stateless data-plane worker. It performs extraction, chunking, embedding, and persistence work when triggered asynchronously.
+- `vllm` is the local OpenAI-compatible model runtime, initially scheduled onto `helheim` through `node-llm=gpu` and one `nvidia.com/gpu`.
 
 ## Data And Control Model
 
@@ -86,6 +95,8 @@ Documentation must stay aligned with implementation as these pieces evolve.
 - Keep raw storage in MinIO and derived state in Postgres.
 - Treat reprocessing and versioning as first-class future concerns even when early implementations stay small.
 - keep browser login at the edge and avoid embedding provider-specific browser OAuth logic directly into app services
+- keep write-like LLM outcomes as durable proposals until the authenticated user approves them in the browser
+- keep CAG memory explicit, user-approved, and scoped by authenticated email rather than inferred globally
 
 ## Service Roles
 
@@ -551,6 +562,27 @@ Current status:
 - notification subscriptions accept scanned source-URI document IDs without collapsing `s3://` to `s3:/`
 - MCP tests cover both the matcher and the session-bound subscription path for scheme-style document IDs
 
+### Phase 28 — Browser LLM Assistant, Memory, And File Audit
+
+Deliverables:
+
+- add a browser-first `assistant` app for RAG-backed chat, per-user memories, conversation trails, file proposals, and audit views
+- deploy local vLLM on the GPU node path with Envoy AI Gateway resources for OpenAI-compatible routing
+- keep model-readable tool use limited to allowlisted read-only MCP/RAG context calls
+- require authenticated user approval before create/edit writes reach `orchestrator`
+- append `rag.document_change_audits` rows for create, edit, and revert operations
+- enable MinIO object versioning on the external `documents` bucket so revert operations can restore prior raw content
+
+Current status:
+
+- `assistant` exposes conversation, chat, memory, proposal, approval, and audit endpoints under `/assistant/...`
+- `external` proxies `/api/assistant/...` to the assistant service and forwards the authenticated email identity
+- the UI has an Assistant tab for conversation trails, RAG-backed chat, explicit memory saves, proposal approval/rejection, and audit-driven revert staging
+- `orchestrator` supports `/documents/create-text`, `/documents/edit-text`, and `/documents/revert`, all of which queue reingestion and write audit metadata when used by approved assistant proposals or browser actions
+- `sql/assistant/schema.pgsql` defines assistant-owned state, while `sql/rag/schema.pgsql` includes `rag.document_change_audits`
+- `helm/apps/assistant` and `helm/apps/vllm` are wired into the Flux app release plan, with vLLM pinned to the `helheim` GPU path by default
+- Ansible now marks the `documents` bucket as versioned and enforces that versioning through the MinIO bucket role
+
 ## Near-Term Non-Goals
 
 For now, do not introduce:
@@ -576,6 +608,8 @@ CAG and semantic graph ambitions remain later phases, not the initial implementa
 - keep the client-certificate MCP access story aligned with the manifest metadata and auth docs
 - keep MCP client compatibility broad across Codex, Claude, VS Code/Copilot, Cursor, Windsurf, and legacy SSE clients without weakening Origin validation or edge auth assumptions
 - keep the `rag` Postgres schema aligned with document inventory, chunk, embedding, and retrieval behavior
+- keep the `assistant` Postgres schema, browser API contract, and UI trail/proposal/audit UX aligned as the LLM surface evolves
+- validate the vLLM/Envoy AI Gateway runtime path on `helheim` before promoting larger models or wider tool-use behavior
 - shape orchestrator and processor around clean control-plane versus data-plane boundaries
 - keep public access flowing through `external` and `mcp`
 - build the Labiraus prompt and notification surfaces in step with the repo plan rather than as disconnected demos

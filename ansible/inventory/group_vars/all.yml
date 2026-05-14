@@ -30,6 +30,7 @@ minio_buckets:
     lifecycle_days: 90
   - name: documents
     lifecycle_days: 0
+    versioning: true
   - name: static-sites-site1
     lifecycle_days: 0
 

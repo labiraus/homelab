@@ -117,11 +117,13 @@ The bootstrap wrapper automatically handles first install versus reapply:
 
 On `svartalfheim`, both MinIO and the Samba share currently run through user `oliver` because the attached NTFS disk is mounted with ownership mapped to that account. If the disk is later migrated to a Linux-native filesystem, consider switching MinIO and file-sharing ownership to dedicated service users.
 
-Apply MinIO buckets, policies, users, and lifecycle rules against `svartalfheim`:
+Apply MinIO buckets, policies, users, lifecycle rules, and requested bucket versioning against `svartalfheim`:
 
 ```bash
 make ansible-minio-state
 ```
+
+The `documents` bucket is versioned so assistant-approved edits and reverts have raw-object rollback points. Its current-object lifecycle remains disabled until a noncurrent-version retention policy is chosen.
 
 Configure the dedicated Minecraft VM:
 

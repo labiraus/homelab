@@ -1,0 +1,63 @@
+namespace: homelab
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: vllm/vllm-openai
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+model:
+  id: Qwen/Qwen2.5-7B-Instruct-AWQ
+  servedName: Qwen/Qwen2.5-7B-Instruct-AWQ
+  maxModelLen: 4096
+  gpuMemoryUtilization: "0.85"
+  quantization: awq
+  toolCallParser: hermes
+  enableAutoToolChoice: true
+  enablePrefixCaching: true
+
+replicaCount: 1
+progressDeadlineSeconds: 3600
+
+service:
+  type: ClusterIP
+  port: 8000
+
+resources:
+  limits:
+    nvidia.com/gpu: 1
+    cpu: "6"
+    memory: 10Gi
+  requests:
+    nvidia.com/gpu: 1
+    cpu: "2"
+    memory: 2Gi
+
+nodeSelector:
+  kubernetes.io/hostname: helheim
+  node-llm: gpu
+
+tolerations: []
+affinity: {}
+
+persistence:
+  cache:
+    sizeLimit: 80Gi
+
+podAnnotations: {}
+podLabels: {}
+
+security:
+  networkPolicy:
+    enabled: true
+
+aiGateway:
+  enabled: true
+  gatewayClassName: envoy-ai-gateway
+  gatewayName: vllm-ai-gateway
+  envoyProxyName: vllm-ai-gateway
+  envoyServiceName: homelab-vllm-ai-gateway
+  envoyServiceType: ClusterIP
+  backendName: vllm
+  routeName: vllm-openai

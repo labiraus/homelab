@@ -11,8 +11,10 @@ When work is queued, the orchestrator emits the `documents.events.processor.queu
 ## Endpoints
 
 - `POST /documents`
+- `POST /documents/create-text`
 - `POST /documents/curation`
 - `POST /documents/edit-text`
+- `POST /documents/revert`
 - `POST /documents/scan-bucket`
 - `POST /documents/reprocess`
 - `/readiness`
@@ -74,9 +76,28 @@ Optional fields:
 
 - `replace`, defaulting to `false`. When omitted, the metadata object is merged into existing `rag.documents.metadata`; when true, it replaces the full metadata object.
 
+## Text Create Contract
+
+`POST /documents/create-text` creates a new raw MinIO text object, inventories it, queues the first processing version, and records a `rag.document_change_audits` row.
+
+Required fields:
+
+- `objectKey`
+- `text`, which may be an empty string when intentionally creating an empty text object
+
+Optional fields:
+
+- `documentId`, defaulting to `s3://<bucket>/<objectKey>`
+- `contentType`, defaulting to `text/plain; charset=utf-8` and limited to `text/*`
+- `metadata`
+- `processingVersion`
+- `actorEmail`
+- `conversationId`
+- `proposalId`
+
 ## Text Edit Contract
 
-`POST /documents/edit-text` overwrites the raw MinIO text object for an existing inventory document and queues a newer processing version.
+`POST /documents/edit-text` overwrites the raw MinIO text object for an existing inventory document, queues a newer processing version, and records a `rag.document_change_audits` row.
 
 Required fields:
 
@@ -88,8 +109,29 @@ Optional fields:
 - `contentType`, defaulting to the current document content type and still limited to `text/*`
 - `metadata`, merged into existing document metadata alongside `editedBy: orchestrator.editText`
 - `processingVersion`, defaulting to the next version after the current desired or completed version
+- `actorEmail`
+- `conversationId`
+- `proposalId`
 
 The endpoint rejects non-`text/*` inventory rows, writes the replacement object to the existing bucket and object key, captures the new object ETag/version metadata, and reuses the normal pending-row plus JetStream queue path.
+
+## Revert Contract
+
+`POST /documents/revert` reads a prior MinIO object version for an existing inventory document, writes that content as the new current object version, queues a newer processing version, and records a `rag.document_change_audits` row.
+
+Required fields:
+
+- `documentId`
+- `versionMarker`, the MinIO version ID to restore from
+
+Optional fields:
+
+- `contentType`, defaulting to the current inventory content type and limited to `text/*`
+- `metadata`
+- `processingVersion`, defaulting to the next version after the current desired or completed version
+- `actorEmail`
+- `conversationId`
+- `proposalId`
 
 ## Reprocess Contract
 

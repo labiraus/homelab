@@ -14,6 +14,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
 - `.devcontainer/`
   - Devcontainer config, mounted kubeconfig, SSH config, env file
 - `apps/`
+  - `assistant/`: browser-first LLM assistant, memory, proposal, and audit service
   - `external/`: public Go service
   - `mcp/`: public Go MCP service; see `apps/mcp/AGENTS.md` for transport/client-compatibility rules
   - `orchestrator/`: internal Go document service
@@ -68,6 +69,8 @@ Current behavior note:
 ### Kubernetes App Deployment
 
 - App charts: `helm/apps/`
+  - `helm/apps/assistant/`: assistant service deployment
+  - `helm/apps/vllm/`: local GPU vLLM deployment and Envoy AI Gateway resources
 - Infra charts: `helm/infra/`
 - Bootstrap child infra chart: `helm/bootstrap/flux-infra/`
 - Browser edge auth chart: `helm/infra/oauth2-proxy/`
@@ -82,6 +85,9 @@ Current behavior note:
 ### Go Service Work
 
 - Public API entry point: `apps/external/main.go`
+- Assistant entry point: `apps/assistant/main.go`
+- Assistant persistence and browser API: `apps/assistant/db.go`, `apps/assistant/handlers.go`
+- Assistant RAG/LLM and approval clients: `apps/assistant/llm.go`, `apps/assistant/orchestrator.go`
 - MCP entry point: `apps/mcp/main.go`
 - Orchestrator entry point: `apps/orchestrator/main.go`
 - Orchestrator request, scan, and async contract shapes: `apps/orchestrator/documents.go` and `apps/orchestrator/scan.go`
@@ -114,6 +120,7 @@ Current behavior note:
 Current behavior note:
 
 - The frontend calls `/api/users/count` for the overview check.
+- Authenticated assistant workflows call `/api/assistant/conversations`, `/api/assistant/chat`, `/api/assistant/memories`, `/api/assistant/proposals`, and `/api/assistant/audits`.
 - Authenticated document workflows call `/api/documents/inventory`, `/api/documents/search`, `/api/documents/history`, `/api/documents/context`, `/api/documents/curation`, `/api/documents/edit-text`, `/api/documents/reprocess`, `/api/documents/scan-bucket`, `/api/documents/events`, `/api/documents/tree`, `/api/documents/object`, and `/api/documents/upload`.
 - The Inventory tab calls `/api/documents/inventory` to inspect Postgres-backed reconciliation and processing state.
 - The Inventory tab can call `/api/documents/scan-bucket` to ask orchestrator to reconcile the current prefix filter, then refresh inventory rows.
@@ -124,6 +131,7 @@ Current behavior note:
 - The Search tab also calls `/api/documents/context` to assemble cited context blocks from the current query and filters.
 - The Search tab can select a result for document actions, updating curated metadata, performing guarded text edits, and queueing reprocessing through `external` proxy routes backed by `orchestrator`.
 - Reprocess and guarded edit actions automatically load `/api/documents/history` for the queued processing version returned by `orchestrator`.
+- The Assistant tab renders saved conversation trails, per-user approved memories, proposal approval/rejection, and audit-backed revert staging.
 - Browser login is currently expected to be challenged at the edge through `oauth2-proxy`, not implemented directly in React.
 - This app is Vite-based, not Create React App.
 
@@ -131,6 +139,7 @@ Current behavior note:
 
 - Working architecture and phase plan: `.codex/REPO_PLAN.md`
 - Initial document/control-plane schema: `sql/rag/schema.pgsql`
+- Assistant state schema: `sql/assistant/schema.pgsql`
 - Chunking quality checks: `evals/ragas/`
 - Async ingestion design note: `docs/async-ingestion.md`
 - High-level RAG and retrieval direction: `docs/RAG.md`
@@ -143,12 +152,15 @@ Current behavior note:
 - `external` exposes semantic document search for the UI.
 - `mcp` exposes document inventory and semantic search for agents.
 - `external` and `mcp` expose durable document lifecycle history from `rag.document_lifecycle_events`.
+- `assistant` stores conversations, per-user memories, tool calls, file proposals, and audit views in Postgres.
+- `rag.document_change_audits` links create/edit/revert operations to actor email, conversation ID, proposal ID, MinIO version markers, and processing versions.
 - `evals/ragas` can score live processed chunks against gold retrieval cases with RAGAS context precision/recall metrics.
 - `mcp` publishes prompt guidance for live document inventory, retrieval, curation, editing, reprocessing, history, notification, and MinIO browsing workflows.
 - `mcp` advertises strict top-level tool input schemas and validates prompt arguments plus advertised tool argument names, required fields, and primitive/object types before execution while leaving unknown nested payload fields to the owning service contract.
 - `ui` renders durable lifecycle history for retrieved documents by calling `/api/documents/history`.
 - `ui` renders cited context blocks by calling `/api/documents/context` from the Search tab.
 - `ui` exposes metadata curation, guarded text editing, reprocess, and scan actions by calling `/api/documents/curation`, `/api/documents/edit-text`, `/api/documents/reprocess`, and `/api/documents/scan-bucket`; `external` proxies those requests to `orchestrator`.
+- approved assistant proposals use `orchestrator` create/edit endpoints so file changes are written to MinIO and reingested through the existing processor path.
 
 ### MinIO and Ansible
 

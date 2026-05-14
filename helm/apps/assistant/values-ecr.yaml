@@ -1,0 +1,14 @@
+image:
+  tag: "uat"
+
+ingress:
+  enabled: false
+
+tolerations:
+  - key: "karpenter.sh/controller"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+
+env:
+  configValue: "eks"

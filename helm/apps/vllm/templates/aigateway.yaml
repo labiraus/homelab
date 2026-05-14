@@ -1,0 +1,92 @@
+{{- if .Values.aiGateway.enabled }}
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: {{ .Values.aiGateway.envoyProxyName }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vllm.labels" . | nindent 4 }}
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        name: {{ .Values.aiGateway.envoyServiceName }}
+        type: {{ .Values.aiGateway.envoyServiceType }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: {{ .Values.aiGateway.gatewayClassName }}
+  labels:
+    {{- include "vllm.labels" . | nindent 4 }}
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+  parametersRef:
+    group: gateway.envoyproxy.io
+    kind: EnvoyProxy
+    name: {{ .Values.aiGateway.envoyProxyName }}
+    namespace: {{ .Values.namespace }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.aiGateway.gatewayName }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vllm.labels" . | nindent 4 }}
+spec:
+  gatewayClassName: {{ .Values.aiGateway.gatewayClassName }}
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: {{ .Values.aiGateway.backendName }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vllm.labels" . | nindent 4 }}
+spec:
+  type: Endpoints
+  endpoints:
+    - fqdn:
+        hostname: {{ include "vllm.fullname" . }}.{{ .Values.namespace }}.svc.cluster.local
+        port: {{ .Values.service.port }}
+---
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: AIServiceBackend
+metadata:
+  name: {{ .Values.aiGateway.backendName }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vllm.labels" . | nindent 4 }}
+spec:
+  schema:
+    name: OpenAI
+    prefix: /v1
+  backendRef:
+    group: gateway.envoyproxy.io
+    kind: Backend
+    name: {{ .Values.aiGateway.backendName }}
+---
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: AIGatewayRoute
+metadata:
+  name: {{ .Values.aiGateway.routeName }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vllm.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.aiGateway.gatewayName }}
+  rules:
+    - backendRefs:
+        - name: {{ .Values.aiGateway.backendName }}
+          modelNameOverride: {{ .Values.model.servedName | quote }}
+{{- end }}

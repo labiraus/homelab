@@ -1,0 +1,6 @@
+image:
+  repository: vllm/vllm-openai
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+podLabels: {}

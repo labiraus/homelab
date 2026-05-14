@@ -14,8 +14,9 @@ The Envoy Gateway Helm values include the upstream AI Gateway compatibility sett
 Current scope:
 
 - installs the control-plane components only
-- does not yet create a default `GatewayClass`, `Gateway`, `AIGatewayRoute`, `AIServiceBackend`, or provider credentials
-- leaves tenant- or app-specific AI routing resources to follow-up charts once concrete models, backends, and auth secrets are defined
+- app-specific AI routing resources now live with the app chart that owns the model runtime
+- `helm/apps/vllm` creates a local vLLM service plus Envoy Gateway `Backend`, Envoy AI Gateway `AIServiceBackend`, `AIGatewayRoute`, and an internal `GatewayClass`/`Gateway` for the first OpenAI-compatible local model path
+- provider credentials are still not managed by the infra chart; the local vLLM backend does not require an upstream provider API key
 
 Pinned upstream versions in this repo:
 
@@ -31,6 +32,14 @@ Current repo note:
 - clean installs split CRD ownership so Flux bootstrap owns Gateway API CRDs, a Flux `GitRepository` + `Kustomization` owns Envoy Gateway CRDs from `envoyproxy/gateway`, a dedicated Flux `HelmRelease` owns Envoy AI Gateway CRDs from the upstream CRD chart, and the controller HelmReleases install with CRD management disabled
 - the top-level `envoy-ai-gateway` wrapper release in `flux-infra` is configured with wait disabled because it bootstraps child Flux objects; readiness is tracked on the child `HelmRelease` and `Kustomization` resources instead of on the wrapper chart itself
 - operator access to Postgres no longer depends on a permanent Gateway API `TCPRoute`; the supported workflow is local `make postgres` with a temporary `kubectl port-forward`
+
+Local vLLM integration:
+
+- chart: `helm/apps/vllm`
+- default model: `Qwen/Qwen2.5-7B-Instruct-AWQ`
+- default node path: `helheim` with `node-llm=gpu` and `nvidia.com/gpu: 1`
+- runtime flags enable OpenAI-compatible serving, AWQ quantization, tool-call parsing, automatic tool choice, and prefix caching
+- the assistant service uses `LLM_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`; Envoy AI Gateway routes that OpenAI-compatible traffic to the in-cluster vLLM backend
 
 Upstream references used for this integration:
 

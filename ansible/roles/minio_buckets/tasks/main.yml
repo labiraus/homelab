@@ -14,6 +14,27 @@
   loop_control:
     label: "{{ item.name }}"
 
+- name: Read current bucket versioning state
+  ansible.builtin.command: "mc version info --json {{ minio_target_cfg.alias }}/{{ item.name }}"
+  register: versioning_info
+  changed_when: false
+  failed_when: false
+  loop: "{{ minio_buckets }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.versioning | default(false) | bool
+
+- name: Enable bucket versioning when requested
+  ansible.builtin.command: "mc version enable {{ minio_target_cfg.alias }}/{{ item.item.name }}"
+  register: versioning_enable
+  changed_when: true
+  loop: "{{ versioning_info.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when:
+    - item.item.versioning | default(false) | bool
+    - item.rc != 0 or ('Enabled' not in (item.stdout | default('')))
+
 - name: Render desired lifecycle config files
   ansible.builtin.copy:
     dest: "{{ minio_lifecycle_dir }}/{{ item.name }}.json"

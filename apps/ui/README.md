@@ -9,6 +9,7 @@ Externally, the UI should present itself as Labiraus even though the repo keeps 
 The UI exposes:
 
 - a GitHub-style top bar with an Overview tab and a Documents tab for authenticated users
+- an authenticated Assistant tab backed by `/api/assistant/...` for RAG chat, explicit memories, file proposals, and audit/revert views
 - an auth status menu backed by `/api/auth/status` and `/api/auth/providers`
 - sign-in and sign-out actions from the header auth menu
 - `/api/users/count`
@@ -29,6 +30,8 @@ In the current repo choice, the shared-host browser path is fronted by `oauth2-p
 When `authStatus.valid === true`, the app opens an `EventSource` to `/api/documents/events`, shows toast notifications for lifecycle updates, and tears the stream down again on sign-out or unmount. Toast copy is derived from the document lifecycle subject and document identifiers, with success, info, and error tones.
 
 The authenticated Inventory tab lists `rag.documents` state through `/api/documents/inventory`. It can filter by lifecycle status, exact document ID, object-key prefix, or one exact metadata key/value pair, and renders current/desired processing versions, latest lifecycle summary fields, timestamps, errors, source links, and curated metadata. The tab can ask `orchestrator` to scan the current prefix filter through `/api/documents/scan-bucket`, then refresh the same inventory filters. Each inventory row can load durable lifecycle history through `/api/documents/history` without leaving the Inventory tab. Inventory rows can update curated metadata through `/api/documents/curation`, and text inventory rows with source object keys can load raw source text through `/api/documents/object`, save guarded text edits through `/api/documents/edit-text`, or queue reprocessing through `/api/documents/reprocess`; successful queue responses update the row's desired processing version and load version-specific lifecycle history.
+
+The authenticated Assistant tab lists saved conversation trails, sends chat messages through `/api/assistant/chat`, saves explicit user-approved memories through `/api/assistant/memories`, and manages file proposals through `/api/assistant/proposals`. Proposal approvals are handled by the assistant service and routed to `orchestrator`; the UI can also inspect assistant audit rows and stage MinIO-version-backed reverts through `/api/documents/revert`.
 
 The authenticated Search tab submits natural-language queries to the public API, optionally narrows by object-key prefix or one exact metadata key/value pair, and renders the top matching processed chunks with similarity scores and download links. The same filters can assemble a compact cited context block through `/api/documents/context`. Each search result can also load its durable lifecycle history from `/api/documents/history`, showing processing versions, timestamps, lifecycle subjects, and recorded payload details. Search results can be selected for document actions that update curated metadata, load and save guarded raw text edits, or queue reprocessing through `external`.
 

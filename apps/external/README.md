@@ -8,6 +8,7 @@ It is the browser-facing API for `ui` and should remain a stable surface even as
 
 - `/api/auth/status`
 - `/api/auth/providers`
+- `/api/assistant/...`
 - `/api/users/count`
 - `/api/documents/tree`
 - `/api/documents/object`
@@ -17,9 +18,11 @@ It is the browser-facing API for `ui` and should remain a stable surface even as
 - `/api/documents/history`
 - `/api/documents/search`
 - `/api/documents/context`
+- `/api/documents/create-text`
 - `/api/documents/curation`
 - `/api/documents/edit-text`
 - `/api/documents/reprocess`
+- `/api/documents/revert`
 - `/api/documents/scan-bucket`
 - `/readiness`
 - `/liveness`
@@ -49,9 +52,11 @@ The browser-facing path is published through `oauth2-proxy` at `/api/...`, and t
 - `/api/documents/history` returns the durable Postgres-backed lifecycle history for a document, optionally narrowed to one processing version
 - `/api/documents/search` embeds a natural-language query, runs pgvector similarity search against the current processed chunk version, and returns ranked matches with document metadata and citation objects for the source URI plus chunk identity
 - `/api/documents/context` uses the same retrieval path and assembles a compact context block with `[1]`, `[2]` style references plus citation objects
+- `/api/documents/create-text` proxies text-object creation to `orchestrator` `POST /documents/create-text`
 - `/api/documents/curation` proxies metadata-only updates to `orchestrator` `POST /documents/curation`
 - `/api/documents/edit-text` proxies guarded text-object replacement requests to `orchestrator` `POST /documents/edit-text`
 - `/api/documents/reprocess` proxies explicit processing refresh requests to `orchestrator` `POST /documents/reprocess`
+- `/api/documents/revert` proxies MinIO-version-backed raw text reverts to `orchestrator` `POST /documents/revert`
 - `/api/documents/scan-bucket` proxies bucket or prefix reconciliation requests to `orchestrator` `POST /documents/scan-bucket`
 
 Inventory, search, and context requests accept optional `documentId`, folder-like `prefix`, and `metadata` filters. Inventory also accepts `status`. The `metadata` filter is an exact-match JSON object applied to `rag.documents.metadata`, for example `{"metadata":{"tag":"runbook"}}`.
@@ -81,6 +86,15 @@ When `EMBEDDING_MODEL=local-embeddings` and `EMBEDDING_ENDPOINT` is empty, `exte
 Document control proxying also uses:
 
 - `ORCHESTRATOR_BASE_URL`
+
+## Assistant Proxy Surface
+
+`/api/assistant/...` proxies the authenticated browser assistant API to the internal `assistant` service.
+The proxy forwards the resolved authenticated email through `X-Forwarded-Email` and `UserID` so assistant state remains scoped by user.
+
+The assistant proxy expects:
+
+- `ASSISTANT_BASE_URL`
 
 ## Document Event Stream
 

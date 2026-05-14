@@ -680,6 +680,13 @@ a {
 	align-items: start;
 }
 
+.assistant-layout {
+	display: grid;
+	grid-template-columns: minmax(260px, 0.7fr) minmax(0, 1.35fr) minmax(320px, 0.85fr);
+	gap: 1rem;
+	align-items: start;
+}
+
 .search-layout {
 	display: grid;
 	grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.3fr);
@@ -702,6 +709,9 @@ a {
 
 .upload-card,
 .preview-card,
+.assistant-sidebar,
+.assistant-chat-panel,
+.assistant-tools-panel,
 .search-card,
 .inventory-card {
 	display: grid;
@@ -711,7 +721,11 @@ a {
 .upload-card input[type="file"],
 .upload-card input[type="text"],
 .document-actions-form input[type="text"],
+.document-actions-form select,
+.document-actions-form textarea,
 .document-edit-form textarea,
+.assistant-compose textarea,
+.assistant-memory-form textarea,
 .search-card input[type="text"],
 .search-card textarea,
 .inventory-card input[type="text"],
@@ -734,6 +748,81 @@ a {
 	min-height: 16rem;
 	font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
 	line-height: 1.55;
+}
+
+.assistant-compose textarea,
+.assistant-memory-form textarea,
+.document-actions-form textarea {
+	resize: vertical;
+}
+
+.assistant-message-list,
+.conversation-list,
+.memory-list,
+.proposal-list,
+.audit-list {
+	display: grid;
+	gap: 0.75rem;
+}
+
+.assistant-message-list {
+	max-height: min(58vh, 760px);
+	overflow: auto;
+	padding-right: 0.25rem;
+}
+
+.conversation-row,
+.memory-row,
+.proposal-row,
+.audit-row,
+.assistant-message {
+	border: 1px solid var(--line);
+	border-radius: 0.85rem;
+	background: var(--surface-muted);
+	padding: 0.9rem;
+}
+
+.conversation-row {
+	width: 100%;
+	display: grid;
+	gap: 0.25rem;
+	text-align: left;
+	color: var(--ink);
+	cursor: pointer;
+}
+
+.conversation-row.active {
+	border-color: var(--accent);
+	background: rgba(47, 129, 247, 0.08);
+}
+
+.conversation-row span,
+.assistant-message-role {
+	font-weight: 800;
+}
+
+.conversation-row small,
+.assistant-message-role {
+	color: var(--ink-muted);
+}
+
+.assistant-message {
+	display: grid;
+	gap: 0.4rem;
+}
+
+.assistant-message.user {
+	border-color: var(--line-strong);
+}
+
+.assistant-message-content {
+	white-space: pre-wrap;
+	line-height: 1.55;
+}
+
+.memory-row {
+	display: grid;
+	gap: 0.6rem;
 }
 
 .metadata-filter-grid {
@@ -1159,6 +1248,7 @@ a {
 @media (max-width: 1024px) {
 	.workspace-header,
 	.content-grid,
+	.assistant-layout,
 	.documents-layout,
 	.inventory-layout,
 	.search-layout {
