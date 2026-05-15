@@ -265,6 +265,19 @@
     - item.value.runtime_env.CF_FILENAME_MATCHER is defined
     - item.value.runtime_env.NEOFORGE_VERSION is defined
 
+- name: Ensure drifted preinstalled AUTO_CURSEFORGE data is writable before refresh
+  ansible.builtin.file:
+    path: "{{ item.item.value.data_dir }}"
+    state: directory
+    owner: "{{ minecraft_vm_dir_owner }}"
+    group: "{{ minecraft_vm_dir_group }}"
+    follow: false
+    recurse: true
+  loop: "{{ minecraft_vm_preinstalled_profile_state.results | default([]) }}"
+  when:
+    - item.rc is defined
+    - item.rc != 0
+
 - name: Refresh preinstalled AUTO_CURSEFORGE profile files when pinned version drifts
   ansible.builtin.command:
     argv:
@@ -286,6 +299,10 @@
       - -v
       - "{{ item.item.value.backup_dir }}:/backups"
       - "{{ item.item.value.image | default(minecraft_vm_image_default) }}"
+  register: minecraft_vm_preinstalled_profile_refresh
+  until: minecraft_vm_preinstalled_profile_refresh.rc == 0
+  retries: "{{ minecraft_vm_curseforge_refresh_retries | int }}"
+  delay: "{{ minecraft_vm_curseforge_refresh_delay_seconds | int }}"
   loop: "{{ minecraft_vm_preinstalled_profile_state.results | default([]) }}"
   when:
     - item.rc is defined

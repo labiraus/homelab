@@ -54,8 +54,8 @@ The Ansible playbook installs Docker, renders per-profile files under `/etc/mine
 - `atm11`:
   - `image=itzg/minecraft-server:java25`
   - `CF_SLUG=all-the-mods-11`
-  - `CF_FILENAME_MATCHER=0.0.16`
-  - `NEOFORGE_VERSION=26.1.2.43-beta`
+  - `CF_FILENAME_MATCHER=0.0.18`
+  - `NEOFORGE_VERSION=26.1.2.48-beta`
   - `start_mode=preinstalled_run_script`
 - `atm10_tts`:
   - `CF_SLUG=all-the-mods-10-sky`
@@ -85,6 +85,9 @@ The next `make ansible-minecraft-vm` reapplies the repo-selected active profile.
 - Repo fix: have the Ansible role inspect the installed prebuilt files and rerun the image with `SETUP_ONLY=true`, `CF_FORCE_SYNCHRONIZE=true`, and `CF_FORCE_REINSTALL_MODLOADER=true` whenever the generated profile files drift from the repo pin.
 - Repo fix: mirror the pinned NeoForge value into `CF_MOD_LOADER_VERSION` for AUTO_CURSEFORGE profiles so the refreshed install and generated `run.sh` stay on the same loader version the repo expects.
 - Note: `atm11.start_mode=preinstalled_run_script` remains intentional so restarts keep using the repo-pinned NeoForge version instead of re-resolving the loader during AUTO_CURSEFORGE bootstrap.
+- May 15, 2026 finding: the refresh container runs as uid/gid `1000`, so existing root-owned override paths can fail with `AccessDeniedException`, as seen with `/data/./local/kubejs`.
+- Repo fix: before rerunning the one-shot CurseForge refresh for a drifted preinstalled profile, recursively restore the profile data tree to the configured Minecraft upload user/group.
+- May 15, 2026 follow-up: after the ownership fix, a refresh can still fail on transient DNS for `mediafilez.forgecdn.net` via the LAN resolver (`192.168.8.1:53`), so the one-shot CurseForge refresh is retried before the playbook gives up.
 
 ## Lag Notes
 

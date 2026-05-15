@@ -4,6 +4,8 @@ minecraft_vm_packages:
 minecraft_vm_dir_owner: "{{ minecraft_vm_upload_user }}"
 minecraft_vm_dir_group: "{{ minecraft_vm_upload_user }}"
 minecraft_vm_dir_mode: "0775"
+minecraft_vm_curseforge_refresh_retries: 5
+minecraft_vm_curseforge_refresh_delay_seconds: 20
 
 minecraft_vm_etc_dir: /etc/minecraft
 minecraft_vm_servers_config_dir: "{{ minecraft_vm_etc_dir }}/servers"
