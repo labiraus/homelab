@@ -644,10 +644,11 @@ Deliverables:
 - keep non-text ingestion idempotent, versioned, and auditable through the existing processing-version model
 - document any extra extraction dependencies or container runtime requirements before adding them to `processor`
 
-Next status target:
+Current status:
 
 - current `text/*` behavior remains the stable baseline
-- future PDF, HTML, Office, or other file-type work has explicit extraction, failure, and citation policies before implementation
+- `docs/FileTypeExpansion.md` defines the policy gate for HTML, PDF, Office, and other non-text ingestion work before implementation
+- future PDF, HTML, Office, or other file-type work has explicit extraction, failure, unsupported-state, citation, and runtime dependency policies before implementation
 - unsupported objects continue to be visible in inventory rather than disappearing from reconciliation results
 
 ### Phase 33 — Operations Hardening And Retention Policy

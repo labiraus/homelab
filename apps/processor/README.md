@@ -22,4 +22,4 @@ Embeddings are stored in `rag.embeddings.vector` as `vector(384)` so the pgvecto
 
 When `EMBEDDING_MODEL=local-embeddings` and `EMBEDDING_ENDPOINT` is empty, the worker uses the built-in deterministic 384-dimensional local embedding function. Set `EMBEDDING_ENDPOINT` only when routing to an actual OpenAI-compatible embeddings service.
 
-The current ingestion baseline is `text/*`. Future file-type expansion should document extraction rules, failure handling, citation policy, and any new runtime dependencies before changing the worker container.
+The current ingestion baseline is `text/*`. Future file-type expansion must follow `docs/FileTypeExpansion.md`: document extraction rules, failure handling, citation policy, tests, and runtime dependencies before changing the worker container.

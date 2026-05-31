@@ -50,6 +50,8 @@ The current ingestion slice is reference-based:
 - retrieval responses search the document's current processed chunk version and include citation objects that identify the source URI and chunk identity for each match
 - `local-embeddings` uses a built-in deterministic 384-dimensional embedding function when no external embedding endpoint is configured
 
+File-type expansion beyond `text/*` is intentionally gated by `docs/FileTypeExpansion.md`. The next extractor should preserve MinIO as raw truth, keep unsupported objects visible in inventory, record explicit failure modes in lifecycle history, and add source-location citation metadata without breaking existing text citations.
+
 ## Next Phases
 
 The active follow-up work is no longer to add separate RAG applications. The next phases are:
@@ -57,7 +59,7 @@ The active follow-up work is no longer to add separate RAG applications. The nex
 - keep the local vLLM plus Envoy AI Gateway smoke test green before promoting larger or quantized models
 - keep improving assistant answer quality while preserving explicit memory, proposal-before-write approvals, scoped audit views, and read-only model tool use
 - grow retrieval quality through `evals/ragas` gold cases before changing chunking, embedding dimensions, ranking, or metadata filter behavior
-- plan file-type expansion beyond the current `text/*` ingestion path, including extraction failures and citation policy
+- follow `docs/FileTypeExpansion.md` before expanding beyond the current `text/*` ingestion path
 - harden operations with runbooks, metrics, retention decisions, and recovery drills for Postgres, MinIO, NATS/KEDA, vLLM, and assistant workflows
 
 ## Chunking Evaluation

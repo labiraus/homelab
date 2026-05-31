@@ -34,6 +34,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - `MCPPrompts.md`: current MCP prompt catalog
   - `GoogleOIDCSetup.md`: Google-side OIDC setup and redirect URI guidance
   - `OAuth2ProxyGoogle.md`: current chosen `oauth2-proxy + Google` browser-auth path
+  - `FileTypeExpansion.md`: policy for expanding ingestion beyond `text/*`, including unsupported-state, extraction, citation, and dependency rules
 - `evals/`
   - `ragas/`: RAGAS chunking/retrieval quality harness and example JSONL case file
 - `bin/`
@@ -149,6 +150,7 @@ Current behavior note:
 - Chunking quality checks: `evals/ragas/`
 - Async ingestion design note: `docs/async-ingestion.md`
 - High-level RAG and retrieval direction: `docs/RAG.md`
+- File-type expansion policy: `docs/FileTypeExpansion.md`
 - Local LLM routing: `docs/EnvoyAIGateway.md`
 
 Current behavior note:

@@ -35,7 +35,7 @@ The initial inventory record should capture:
 
 At this stage, the important outcome is durable document state in Postgres, not immediate extraction.
 
-The current live scan endpoint is `POST /documents/scan-bucket`, exposed through MCP as the `documents.scanBucket` tool and through `external` as `POST /api/documents/scan-bucket`. It accepts optional `bucket`, `prefix`, `maxKeys`, and `processingVersion` fields. Non-text objects are inventoried with status `unsupported`; unchanged known objects keep their current lifecycle status while refreshing reconciliation metadata.
+The current live scan endpoint is `POST /documents/scan-bucket`, exposed through MCP as the `documents.scanBucket` tool and through `external` as `POST /api/documents/scan-bucket`. It accepts optional `bucket`, `prefix`, `maxKeys`, and `processingVersion` fields. Non-text objects are inventoried with status `unsupported`; unchanged known objects keep their current lifecycle status while refreshing reconciliation metadata. File-type expansion rules live in `docs/FileTypeExpansion.md`; unsupported objects should stay visible in inventory until a documented extractor policy exists.
 
 ### Phase 2
 
@@ -142,7 +142,7 @@ Later phases can add:
 
 - richer retrieval APIs beyond the current inventory, search, and context tools
 - richer citation UX beyond the current search-result citation labels and source links
-- file-type expansion beyond `text/*` once extraction, failure handling, and citation policy are explicit
+- file-type expansion beyond `text/*` following `docs/FileTypeExpansion.md`
 - RAGAS-backed quality gates for chunking, embedding, ranking, and metadata filter changes
 - operations hardening for stuck lifecycle states, worker lag, and notification fan-out failures
 - graph-style capabilities on top of the same document foundation
