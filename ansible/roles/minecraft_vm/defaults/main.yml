@@ -19,4 +19,5 @@ minecraft_vm_legacy_data_dir: "{{ minecraft_vm_root }}/data"
 minecraft_vm_legacy_backup_dir: "{{ minecraft_vm_root }}/backups"
 
 minecraft_vm_server_properties:
+  pause-when-empty-seconds: "-1"
   sync-chunk-writes: "false"

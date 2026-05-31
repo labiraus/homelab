@@ -31,8 +31,41 @@ minecraft_vm_servers:
     backup_dir: "{{ minecraft_vm_servers_root }}/atm11/backups"
     image: "itzg/minecraft-server:java25"
     start_mode: preinstalled_run_script
+    extra_mods:
+      - filename: connectivity-26.1-7.6.jar
+        url: "https://mediafilez.forgecdn.net/files/7866/655/connectivity-26.1-7.6.jar"
+        checksum: "sha256:5fe2eba7e56ed273907f2eba5050b5b819e3288ab8036158a5661371e43e1725"
+    extra_config_files:
+      - path: config/connectivity.json
+        content:
+          disableLoginLimits:
+            "desc:": "Should login packet size limits be disabled? Error:(IOException(\"Payload may not be larger than 1048576 bytes\")) default:true"
+            disableLoginLimits: true
+          disablePacketLimits:
+            "desc:": "Should play packet size limits be disabled? Error:(Badly compressed packet) default:true"
+            disablePacketLimits: true
+          disableChatVerificationDisconnect:
+            "desc:": "(Clientside) Disables players disconnecting on chat message verification problems,(enable debugPrintMessages to see the message causing issues). default:true"
+            disableChatVerificationDisconnect: true
+          debugPrintMessages:
+            "desc:": "Enable addition debug logging for networking errors. default:false"
+            debugPrintMessages: true
+          logintimeout:
+            "desc:": "Set the max login timeout in seconds. default = 120"
+            logintimeout: 240
+          disconnectTimeout:
+            "desc:": "Set the ingame disconnect timeout for disconnecting players. Default = 60sec"
+            disconnectTimeout: 180
+          packetHistoryMinutes:
+            "desc:": "Set the amount of minutes for which network packet history data is saved. Default = 5 minutes"
+            packetHistoryMinutes: 5
+          malformedtraffic:
+            "desc:": "Detection and blocking of malformed and/or malicious traffic"
+            enabled: true
+            "proxies:": "Add your proxy IP to the whitelist below, if you're using one(e.g. velocity) to avoid blocking the proxy's ip. Format: [\"127.0.0.1\", \"128.0.01\"] without the \\ "
+            proxywhitelist: []
     runtime_env:
       <<: *minecraft_vm_common_runtime_env
       CF_SLUG: all-the-mods-11
-      CF_FILENAME_MATCHER: "0.0.21"
-      NEOFORGE_VERSION: "26.1.2.64-beta"
+      CF_FILENAME_MATCHER: "0.0.22"
+      NEOFORGE_VERSION: "26.1.2.68-beta"

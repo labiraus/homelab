@@ -309,6 +309,36 @@
     - item.rc != 0
   notify: Restart minecraft
 
+- name: Ensure per-server extra mods are installed
+  ansible.builtin.get_url:
+    url: "{{ item.1.url }}"
+    dest: "{{ item.0.value.data_dir }}/mods/{{ item.1.filename }}"
+    checksum: "{{ item.1.checksum | default(omit) }}"
+    owner: "{{ minecraft_vm_dir_owner }}"
+    group: "{{ minecraft_vm_dir_group }}"
+    mode: "0644"
+  loop: "{{ minecraft_vm_servers | dict2items | subelements('value.extra_mods', skip_missing=True) }}"
+  notify: Restart minecraft
+
+- name: Ensure per-server extra config parent directories exist
+  ansible.builtin.file:
+    path: "{{ item.0.value.data_dir }}/{{ item.1.path | dirname }}"
+    state: directory
+    owner: "{{ minecraft_vm_dir_owner }}"
+    group: "{{ minecraft_vm_dir_group }}"
+    mode: "0775"
+  loop: "{{ minecraft_vm_servers | dict2items | subelements('value.extra_config_files', skip_missing=True) }}"
+
+- name: Ensure per-server extra config files are installed
+  ansible.builtin.copy:
+    dest: "{{ item.0.value.data_dir }}/{{ item.1.path }}"
+    content: "{{ item.1.content | to_nice_json }}\n"
+    owner: "{{ minecraft_vm_dir_owner }}"
+    group: "{{ minecraft_vm_dir_group }}"
+    mode: "0644"
+  loop: "{{ minecraft_vm_servers | dict2items | subelements('value.extra_config_files', skip_missing=True) }}"
+  notify: Restart minecraft
+
 - name: Render Minecraft switch helper
   ansible.builtin.template:
     src: minecraft-switch.j2

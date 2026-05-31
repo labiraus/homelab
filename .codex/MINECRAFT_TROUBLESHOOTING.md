@@ -54,8 +54,8 @@ The Ansible playbook installs Docker, renders per-profile files under `/etc/mine
 - `atm11`:
   - `image=itzg/minecraft-server:java25`
   - `CF_SLUG=all-the-mods-11`
-  - `CF_FILENAME_MATCHER=0.0.21`
-  - `NEOFORGE_VERSION=26.1.2.64-beta`
+  - `CF_FILENAME_MATCHER=0.0.22`
+  - `NEOFORGE_VERSION=26.1.2.68-beta`
   - `start_mode=preinstalled_run_script`
 - `atm10_tts`:
   - `CF_SLUG=all-the-mods-10-sky`
@@ -101,6 +101,24 @@ Apply on the VM:
 ```bash
 ssh nidavellir 'sudo systemctl stop minecraft'
 ssh nidavellir 'sudo sed -i "s/^sync-chunk-writes=.*/sync-chunk-writes=false/" /srv/minecraft/data/server.properties'
+ssh nidavellir 'sudo systemctl start minecraft'
+```
+
+## Login Timeout Notes
+
+- Symptom: players authenticate successfully, then the server logs `lost connection: Timed out` during `ServerConfigurationPacketListenerImpl` or `Took too long to log in`.
+- May 28, 2026 finding: ATM11 had `pause-when-empty-seconds=60`, and the server logged `Server empty for 60 seconds, pausing` immediately before repeated login timeouts. A paused modded server may not complete the login/configuration phase for the first connecting player.
+- Repo fix: manage `pause-when-empty-seconds=-1` alongside `sync-chunk-writes=false` in the Ansible-rendered `server.properties` overrides, then restart `minecraft.service`.
+- May 28, 2026 follow-up: disabling empty-server pause was not enough. The remaining failure showed the player authenticating, NeoForge injecting `GenericPacketSplitter`, then `ServerConfigurationPacketListenerImpl` timing out after roughly 30 seconds with no server resource pressure.
+- Repo mitigation: install `connectivity-26.1-7.6.jar` as an `atm11.extra_mods` entry. Connectivity explicitly targets login timeouts, packet-size errors, and payload issues, and its project page says the mod is not required on both sides.
+- May 30, 2026 follow-up: players could sometimes join, then disconnect around the in-game 60-second timeout window. Manage `config/connectivity.json` with `logintimeout=240`, `disconnectTimeout=180`, and `debugPrintMessages=true` so slow modded handshakes have more room and future failures produce better packet diagnostics.
+
+Apply on the VM:
+
+```bash
+ssh nidavellir 'sudo systemctl stop minecraft'
+ssh nidavellir 'sudo sed -i "s/^pause-when-empty-seconds=.*/pause-when-empty-seconds=-1/" /srv/minecraft/data/server.properties'
+ssh nidavellir 'curl -fL -o /tmp/connectivity-26.1-7.6.jar https://mediafilez.forgecdn.net/files/7866/655/connectivity-26.1-7.6.jar && sudo install -o ubuntu -g ubuntu -m 0644 /tmp/connectivity-26.1-7.6.jar /srv/minecraft/data/mods/connectivity-26.1-7.6.jar'
 ssh nidavellir 'sudo systemctl start minecraft'
 ```
 
