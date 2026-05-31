@@ -68,7 +68,10 @@ class RetrievedChunk:
     document_id: str
     source_uri: str
     object_key: str
+    content_type: str
     chunk_index: int
+    processing_version: int
+    metadata: dict[str, Any]
     chunk_text: str
     distance: float
     similarity: float
@@ -336,7 +339,10 @@ SELECT
     d.document_id,
     d.source_uri,
     COALESCE(d.object_key, ''),
+    COALESCE(d.content_type, ''),
     c.chunk_index,
+    c.processing_version,
+    d.metadata::text,
     c.chunk_text,
     e.vector <=> %s::vector AS distance
 FROM rag.embeddings e
@@ -367,15 +373,32 @@ WHERE d.status = 'processed'
     with connection.cursor() as cursor:
         cursor.execute("".join(query), args)
         for row in cursor.fetchall():
-            document_id, source_uri, object_key, chunk_index, chunk_text, distance = row
+            (
+                document_id,
+                source_uri,
+                object_key,
+                content_type,
+                chunk_index,
+                processing_version,
+                metadata_raw,
+                chunk_text,
+                distance,
+            ) = row
             distance = float(distance)
+            try:
+                metadata = json.loads(metadata_raw or "{}")
+            except json.JSONDecodeError:
+                metadata = {}
             chunks.append(
                 RetrievedChunk(
                     context_id=f"{source_uri or document_id}#chunk-{chunk_index}",
                     document_id=document_id,
                     source_uri=source_uri,
                     object_key=object_key,
+                    content_type=content_type,
                     chunk_index=int(chunk_index),
+                    processing_version=int(processing_version),
+                    metadata=metadata,
                     chunk_text=chunk_text,
                     distance=distance,
                     similarity=max(0.0, min(1.0, 1.0 - distance)),
@@ -426,10 +449,22 @@ def format_case_result(
         row: dict[str, Any] = {
             "context_id": chunk.context_id,
             "document_id": chunk.document_id,
+            "source_uri": chunk.source_uri,
             "object_key": chunk.object_key,
+            "content_type": chunk.content_type,
             "chunk_index": chunk.chunk_index,
+            "processing_version": chunk.processing_version,
+            "metadata": chunk.metadata,
             "distance": chunk.distance,
             "similarity": chunk.similarity,
+            "citation": {
+                "id": chunk.context_id,
+                "sourceUri": chunk.source_uri,
+                "objectKey": chunk.object_key,
+                "chunkIndex": chunk.chunk_index,
+                "processingVersion": chunk.processing_version,
+                "label": f"{chunk.object_key or chunk.document_id} chunk {chunk.chunk_index}",
+            },
         }
         if include_contexts:
             row["chunk_text"] = chunk.chunk_text

@@ -627,10 +627,12 @@ Deliverables:
 - improve citation confidence in UI, MCP, and assistant contexts by keeping source URI, chunk identity, processing version, and metadata visible
 - document acceptable baseline thresholds once the first real gold set is stable
 
-Next status target:
+Current status:
 
 - `make ragas-chunking-eval` is the preferred quality gate for retrieval changes that affect chunking, embeddings, ranking, or metadata filtering
-- docs explain how local deterministic embeddings relate to stored `vector(384)` rows
+- RAGAS reports include citation-confidence fields for every retrieved chunk: source URI, object key, content type, chunk index, processing version, metadata, and rendered citation label data
+- docs explain how local deterministic embeddings relate to stored `vector(384)` rows and when to baseline separately for non-local embedding models
+- docs define a private gold-case starter shape and recommend permissive first thresholds before raising the gate toward `--min-id-recall 0.8 --min-context-recall 0.8`
 - citation regressions are treated as retrieval-quality bugs, not only UI presentation issues
 
 ### Phase 32 — Corpus And File-Type Expansion

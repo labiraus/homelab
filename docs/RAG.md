@@ -64,6 +64,7 @@ The active follow-up work is no longer to add separate RAG applications. The nex
 
 Use `evals/ragas` to score whether the current processed chunks retrieve the right gold context for representative queries.
 The harness reads the live `rag.documents`, `rag.chunks`, and `rag.embeddings` rows through Postgres, embeds each query with the same local embedding function used by the processor when `EMBEDDING_MODEL=local-embeddings`, and evaluates the retrieved contexts with RAGAS retrieval metrics.
+Reports include citation-confidence fields for every retrieved chunk: source URI, object key, content type, chunk index, processing version, metadata, and the rendered citation label fields used by the UI and MCP surfaces.
 
 Setup:
 
@@ -83,7 +84,7 @@ Run it through the repo target, which reads the cluster Postgres credentials and
 make ragas-chunking-eval RAGAS_ARGS="--min-id-recall 0.8 --min-context-recall 0.8"
 ```
 
-The script prints per-case RAGAS scores and returns a non-zero exit code when a configured threshold is missed. Use low or zero thresholds while building the first gold set, then raise them once the baseline is understood.
+The script prints per-case RAGAS scores and returns a non-zero exit code when a configured threshold is missed. Use low thresholds such as `0.6` while building the first 5-10 private gold cases, then raise the regular gate toward `--min-id-recall 0.8 --min-context-recall 0.8` once the baseline is understood. Treat missing expected citation IDs, source URIs, or processing versions as retrieval-quality regressions.
 
 ```mermaid
 flowchart LR
