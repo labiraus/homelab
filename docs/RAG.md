@@ -52,9 +52,9 @@ The current ingestion slice is reference-based:
 
 File-type expansion beyond `text/*` is intentionally gated by `docs/FileTypeExpansion.md`. The next extractor should preserve MinIO as raw truth, keep unsupported objects visible in inventory, record explicit failure modes in lifecycle history, and add source-location citation metadata without breaking existing text citations.
 
-## Next Phases
+## Maintenance Focus
 
-The active follow-up work is no longer to add separate RAG applications. The next phases are:
+The active follow-up work is no longer to add separate RAG applications. The current maintenance focus is:
 
 - keep the local vLLM plus Envoy AI Gateway smoke test green before promoting larger or quantized models
 - keep improving assistant answer quality while preserving explicit memory, proposal-before-write approvals, scoped audit views, and read-only model tool use

@@ -661,9 +661,11 @@ Deliverables:
 - rehearse backup and recovery for Postgres RAG state, external MinIO documents, and generated Kubernetes secrets
 - keep the MCP and browser notification paths best-effort while preserving Postgres as the durable audit trail
 
-Next status target:
+Current status:
 
-- common day-two failures have documented diagnosis and recovery steps
+- `runbooks/troubleshooting.md` documents diagnosis and recovery steps for document processing failures, stuck lifecycle states, NATS/KEDA lag, vLLM startup or Gateway failures, assistant proposal recovery, retention, and backup/recovery checks
+- `docs/RetentionAndRecovery.md` records the preserve-by-default retention policy, cleanup gate, recovery order, and post-recovery verification checks
+- minimum dashboard/check expectations are documented around lifecycle throughput, processor failures, worker lag, retrieval latency, assistant proposal outcomes, and vLLM health
 - retention and rollback expectations are explicit before enabling destructive cleanup or lifecycle expiration
 - observability work reinforces the existing service boundaries instead of adding a separate workflow engine
 
@@ -693,10 +695,10 @@ CAG and semantic graph ambitions remain later phases, not the initial implementa
 - keep MCP client compatibility broad across Codex, Claude, VS Code/Copilot, Cursor, Windsurf, and legacy SSE clients without weakening Origin validation or edge auth assumptions
 - keep the `rag` Postgres schema aligned with document inventory, chunk, embedding, and retrieval behavior
 - keep the `assistant` Postgres schema, browser API contract, and UI trail/proposal/audit UX aligned as the LLM surface evolves
-- validate the vLLM/Envoy AI Gateway runtime path on `helheim` before promoting larger models or wider tool-use behavior
-- grow retrieval quality through RAGAS gold cases before changing chunking, embedding dimensions, or ranking behavior
-- plan file-type expansion beyond `text/*` before adding extraction dependencies to `processor`
-- harden operations with runbooks, metrics, retention decisions, and recovery drills
+- keep the vLLM/Envoy AI Gateway runtime smoke path green on `helheim` before promoting larger models or wider tool-use behavior
+- keep growing retrieval quality through RAGAS gold cases before changing chunking, embedding dimensions, or ranking behavior
+- follow `docs/FileTypeExpansion.md` before adding extraction dependencies to `processor`
+- keep runbooks, retention decisions, and recovery drills current as operations mature
 - shape orchestrator and processor around clean control-plane versus data-plane boundaries
 - keep public access flowing through `external` and `mcp`
 - build the Labiraus prompt and notification surfaces in step with the repo plan rather than as disconnected demos

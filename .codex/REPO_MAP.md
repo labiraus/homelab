@@ -35,8 +35,11 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - `GoogleOIDCSetup.md`: Google-side OIDC setup and redirect URI guidance
   - `OAuth2ProxyGoogle.md`: current chosen `oauth2-proxy + Google` browser-auth path
   - `FileTypeExpansion.md`: policy for expanding ingestion beyond `text/*`, including unsupported-state, extraction, citation, and dependency rules
+  - `RetentionAndRecovery.md`: preserve-by-default retention policy and recovery priority checks
 - `evals/`
   - `ragas/`: RAGAS chunking/retrieval quality harness and example JSONL case file
+- `runbooks/`
+  - `troubleshooting.md`: day-two document processing, NATS/KEDA, vLLM, assistant proposal, retention, and recovery checks
 - `bin/`
   - `tf`: Terraform wrapper used by the Makefile
 - `components/`
@@ -151,6 +154,8 @@ Current behavior note:
 - Async ingestion design note: `docs/async-ingestion.md`
 - High-level RAG and retrieval direction: `docs/RAG.md`
 - File-type expansion policy: `docs/FileTypeExpansion.md`
+- Operations runbook: `runbooks/troubleshooting.md`
+- Retention and recovery policy: `docs/RetentionAndRecovery.md`
 - Local LLM routing: `docs/EnvoyAIGateway.md`
 
 Current behavior note:
@@ -164,6 +169,7 @@ Current behavior note:
 - `assistant` stores conversations, per-user memories, tool calls, file proposals, and audit views in Postgres.
 - `rag.document_change_audits` links create/edit/revert operations to actor email, conversation ID, proposal ID, MinIO version markers, and processing versions.
 - `evals/ragas` can score live processed chunks against gold retrieval cases with RAGAS context precision/recall metrics.
+- `runbooks/troubleshooting.md` captures the current day-two checks for stuck document lifecycle states, NATS/KEDA lag, vLLM startup, assistant proposals, retention, and backup/recovery rehearsal.
 - `mcp` publishes prompt guidance for live document inventory, retrieval, curation, editing, reprocessing, history, notification, and MinIO browsing workflows.
 - `mcp` advertises strict top-level tool input schemas and validates prompt arguments plus advertised tool argument names, required fields, and primitive/object types before execution while leaving unknown nested payload fields to the owning service contract.
 - `ui` renders durable lifecycle history for retrieved documents by calling `/api/documents/history`.

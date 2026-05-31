@@ -62,6 +62,7 @@ Use the nearest relevant `AGENTS.md` for local conventions, and update it when a
 │   └── workloads/          # Misc workloads outside the core platform
 ├── modules/
 │   └── proxmox-ubuntu-vm/  # Reusable Terraform module
+├── runbooks/               # Day-two troubleshooting and recovery notes
 ├── scripts/                # Helper scripts
 ├── sql/                    # SQL bootstrap snippets for auth, RAG, and assistant state
 └── values/                 # Values files for upstream charts
@@ -121,6 +122,7 @@ Current document-platform direction:
 - approved assistant file changes are routed through `orchestrator`, written to MinIO, audited in Postgres, and reingested through the existing processor path
 - local vLLM is the first LLM runtime target for the assistant, scheduled onto the GPU worker path and accompanied by Envoy AI Gateway resources
 - RAGAS chunking evaluation can score current processed chunks against gold retrieval cases under `evals/ragas/`
+- day-two document, assistant, vLLM, retention, and recovery checks live under `runbooks/` and `docs/RetentionAndRecovery.md`
 - NATS JetStream plus KEDA handle asynchronous execution and worker scaling
 - Redis is available but not yet a core design dependency
 - Mongo is intentionally not part of the active application architecture
