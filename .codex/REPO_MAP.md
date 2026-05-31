@@ -46,7 +46,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - installable charts and chart libraries
   - `workloads/`: misc Flux-managed workloads outside the core platform
 - `scripts/`
-  - operational helper scripts such as kubeconfig refresh
+  - operational helper scripts such as kubeconfig refresh and the vLLM Envoy AI Gateway smoke test
 - `sql/`
   - SQL snippets and bootstrap scripts, including the `rag` schema foundation
 - `values/`
@@ -112,6 +112,7 @@ Current behavior note:
 - `orchestrator` is the intended control-plane service for reconciliation and task dispatch.
 - `processor` is the intended stateless data-plane worker.
 - operator access to the CNPG Postgres cluster is through `make postgres`, which opens a temporary local `kubectl port-forward` rather than relying on a standing TCP ingress path
+- deployed local LLM routing can be checked with `make vllm-gateway-smoke`, which runs an in-cluster OpenAI-compatible chat request through the Envoy AI Gateway service used by `assistant`
 
 ### Frontend Work
 

@@ -593,10 +593,11 @@ Deliverables:
 - document the minimum operator checks for pod scheduling, GPU visibility, model cache state, startup probe behavior, and gateway routing
 - keep larger or quantized model promotion gated on measured startup behavior, memory pressure, response quality, and tool-call compatibility
 
-Next status target:
+Current status:
 
-- a repeatable smoke-test path exists for `LLM_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`
-- runtime docs identify what to inspect when `helheim` scheduling, model loading, or Envoy AI Gateway routing fails
+- `make vllm-gateway-smoke` runs a repeatable in-cluster OpenAI-compatible chat smoke test against `LLM_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`
+- the smoke test checks GPU-labeled node availability, waits for `homelab-vllm`, reports vLLM pod placement, checks the generated Envoy Gateway service, and sends the request from a temporary pod labeled like the assistant network-policy path
+- runtime docs identify what to inspect when `helheim` scheduling, GPU visibility, model cache/startup behavior, startup probes, Envoy AI Gateway routing, or assistant-to-gateway network policy fails
 - the default model remains conservative until the local GPU path is proven stable
 
 ### Phase 30 — Assistant Quality, Safety, Memory, And Audit UX

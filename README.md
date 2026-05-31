@@ -268,6 +268,8 @@ GitHub Actions currently handle:
 - `helm/apps/vllm` chart packaging for the pinned upstream vLLM runtime image
 - Helm chart discovery, templating tests, and GHCR packaging
 
+After the vLLM and Envoy AI Gateway releases deploy, use `make vllm-gateway-smoke` to validate the live OpenAI-compatible route used by the assistant.
+
 Important note: some workflow files may lag behind the runtime choices in the repo. For example, the React app is Vite-based and the devcontainer uses Node 24, so treat workflow definitions as something to verify rather than assume are fully current.
 
 ## Ansible Workflow

@@ -18,6 +18,14 @@ The near-term direction is quality and safety rather than new write surfaces: im
 
 Local generation currently targets the OpenAI-compatible vLLM route fronted by Envoy AI Gateway. Keep the small default model until the `helheim` GPU path is validated for startup, memory pressure, answer quality, and tool-call behavior.
 
+Validate the deployed model route with:
+
+```bash
+make vllm-gateway-smoke
+```
+
+That target sends an OpenAI-compatible chat request through the same internal Gateway URL configured as `LLM_BASE_URL`.
+
 Important environment variables:
 
 - `POSTGRES_*`: assistant state storage
