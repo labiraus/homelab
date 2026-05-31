@@ -43,6 +43,13 @@ Local vLLM integration:
 - the startup probe allows roughly one hour for first-load model download, CUDA setup, and compilation on the lab GPU path before Kubernetes restarts the container
 - the assistant service uses `LLM_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`; Envoy AI Gateway routes that OpenAI-compatible traffic to the in-cluster vLLM backend
 
+Near-term validation focus:
+
+- confirm the vLLM pod schedules onto `helheim` with the expected `node-llm=gpu` label and one `nvidia.com/gpu`
+- confirm the model cache and startup probe settings are sufficient for first-load startup without repeated restarts
+- confirm the Envoy AI Gateway service accepts OpenAI-compatible chat requests from `assistant`
+- keep the default model conservative until startup time, memory pressure, answer quality, and tool-call compatibility are measured
+
 Upstream references used for this integration:
 
 - Envoy AI Gateway install guide: `https://aigateway.envoyproxy.io/docs/getting-started/installation/`

@@ -21,3 +21,5 @@ The worker publishes `documents.events.processor.started`, `documents.events.pro
 Embeddings are stored in `rag.embeddings.vector` as `vector(384)` so the pgvector HNSW cosine index can be built. If `EMBEDDING_MODEL` changes to a model with a different vector size, update the processor bootstrap schema and `sql/rag/schema.pgsql` together.
 
 When `EMBEDDING_MODEL=local-embeddings` and `EMBEDDING_ENDPOINT` is empty, the worker uses the built-in deterministic 384-dimensional local embedding function. Set `EMBEDDING_ENDPOINT` only when routing to an actual OpenAI-compatible embeddings service.
+
+The current ingestion baseline is `text/*`. Future file-type expansion should document extraction rules, failure handling, citation policy, and any new runtime dependencies before changing the worker container.

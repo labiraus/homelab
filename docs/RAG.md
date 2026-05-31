@@ -12,7 +12,7 @@ This repo is taking an async-first path to document ingestion and retrieval.
 - `assistant` is the browser-first LLM surface for RAG-backed chat, explicit per-user memories, file proposals, and audit views
 - `mcp` forwards document lifecycle notifications sourced from NATS JetStream to MCP subscribers
 
-Near-term scope is now the document, chunk, embedding, and browser assistant foundation.
+The current scope is the document, chunk, embedding, retrieval, browser assistant, and MCP foundation.
 CAG starts as explicit user-approved memory records assembled into the assistant prompt for the authenticated email; graph-style knowledge layers remain future phases built on top of the same base rather than separate immediate datastores.
 
 The current ingestion slice is reference-based:
@@ -49,6 +49,16 @@ The current ingestion slice is reference-based:
 - `ui` automatically loads version-specific durable lifecycle history after browser actions that queue processing
 - retrieval responses search the document's current processed chunk version and include citation objects that identify the source URI and chunk identity for each match
 - `local-embeddings` uses a built-in deterministic 384-dimensional embedding function when no external embedding endpoint is configured
+
+## Next Phases
+
+The active follow-up work is no longer to add separate RAG applications. The next phases are:
+
+- validate the local vLLM plus Envoy AI Gateway path on `helheim` before promoting larger or quantized models
+- improve assistant quality, memory behavior, proposal safety, and audit/revert UX while preserving the proposal-before-write boundary
+- grow retrieval quality through `evals/ragas` gold cases before changing chunking, embedding dimensions, ranking, or metadata filter behavior
+- plan file-type expansion beyond the current `text/*` ingestion path, including extraction failures and citation policy
+- harden operations with runbooks, metrics, retention decisions, and recovery drills for Postgres, MinIO, NATS/KEDA, vLLM, and assistant workflows
 
 ## Chunking Evaluation
 

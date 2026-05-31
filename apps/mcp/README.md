@@ -3,6 +3,7 @@
 `mcp` is the AI-native public front door for agents and MCP-compatible clients.
 
 Externally, this service should be treated as the Labiraus MCP server even though the repo and Kubernetes objects still use the `mcp` app name internally.
+It is a primary product surface of this repo, alongside the browser UI and assistant, and should stay aligned with the same Postgres-backed document state and orchestrator-owned control flows.
 
 It exposes one MCP entrypoint that fronts:
 

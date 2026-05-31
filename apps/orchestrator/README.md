@@ -6,6 +6,8 @@ It owns reconciliation and workflow decisions, including when documents should b
 
 The current implementation accepts MinIO-backed document references, reconciles MinIO bucket inventory into Postgres, writes processable control-plane rows as `pending`, and publishes JetStream jobs for the `processor`.
 
+`orchestrator` should remain the control-plane owner as retrieval quality, assistant proposals, file-type support, and recovery workflows grow. It should not become an extraction worker, LLM service, or public query surface.
+
 When work is queued, the orchestrator emits the `documents.events.processor.queued` lifecycle notification and appends the same event to `rag.document_lifecycle_events` on a best-effort basis. The durable queueing decision remains the `rag.documents` row and the JetStream job publish; lifecycle history must not block successful queueing after that transaction commits.
 
 ## Endpoints

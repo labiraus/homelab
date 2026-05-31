@@ -14,6 +14,8 @@ This keeps:
 - `orchestrator` as control plane
 - `processor` as stateless worker
 
+The current architecture keeps ingestion inside `orchestrator` plus `processor`; it does not add a separate ingestion application.
+
 ## Initial Flow
 
 ### Phase 1
@@ -140,4 +142,7 @@ Later phases can add:
 
 - richer retrieval APIs beyond the current inventory, search, and context tools
 - richer citation UX beyond the current search-result citation labels and source links
+- file-type expansion beyond `text/*` once extraction, failure handling, and citation policy are explicit
+- RAGAS-backed quality gates for chunking, embedding, ranking, and metadata filter changes
+- operations hardening for stuck lifecycle states, worker lag, and notification fan-out failures
 - graph-style capabilities on top of the same document foundation

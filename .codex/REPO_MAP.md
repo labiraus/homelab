@@ -69,6 +69,11 @@ Current behavior note:
 ### Kubernetes App Deployment
 
 - App charts: `helm/apps/`
+  - `helm/apps/external/`: browser-facing public API deployment
+  - `helm/apps/mcp/`: Labiraus MCP deployment
+  - `helm/apps/orchestrator/`: internal document control-plane deployment
+  - `helm/apps/processor/`: NATS JetStream worker deployment and KEDA scaler
+  - `helm/apps/ui/`: Vite frontend deployment
   - `helm/apps/assistant/`: assistant service deployment
   - `helm/apps/vllm/`: local GPU vLLM deployment and Envoy AI Gateway resources
 - Infra charts: `helm/infra/`
@@ -143,6 +148,7 @@ Current behavior note:
 - Chunking quality checks: `evals/ragas/`
 - Async ingestion design note: `docs/async-ingestion.md`
 - High-level RAG and retrieval direction: `docs/RAG.md`
+- Local LLM routing: `docs/EnvoyAIGateway.md`
 
 Current behavior note:
 
@@ -161,6 +167,7 @@ Current behavior note:
 - `ui` renders cited context blocks by calling `/api/documents/context` from the Search tab.
 - `ui` exposes metadata curation, guarded text editing, reprocess, and scan actions by calling `/api/documents/curation`, `/api/documents/edit-text`, `/api/documents/reprocess`, and `/api/documents/scan-bucket`; `external` proxies those requests to `orchestrator`.
 - approved assistant proposals use `orchestrator` create/edit endpoints so file changes are written to MinIO and reingested through the existing processor path.
+- the current design does not use a separate RAG API app; retrieval and context flow through `external`, `mcp`, and the assistant's allowlisted MCP calls.
 
 ### MinIO and Ansible
 

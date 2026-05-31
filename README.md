@@ -1,6 +1,6 @@
 # Homelab
 
-This repository combines five related areas:
+This repository combines five related areas for the Labiraus homelab platform:
 
 - Terraform for provisioning Kubernetes worker VMs and dedicated service VMs on Proxmox
 - Helm charts for cluster bootstrap and in-cluster workloads
@@ -63,7 +63,7 @@ Use the nearest relevant `AGENTS.md` for local conventions, and update it when a
 ├── modules/
 │   └── proxmox-ubuntu-vm/  # Reusable Terraform module
 ├── scripts/                # Helper scripts
-├── sql/                    # SQL bootstrap/auth snippets
+├── sql/                    # SQL bootstrap snippets for auth, RAG, and assistant state
 └── values/                 # Values files for upstream charts
 ```
 
@@ -124,6 +124,8 @@ Current document-platform direction:
 - NATS JetStream plus KEDA handle asynchronous execution and worker scaling
 - Redis is available but not yet a core design dependency
 - Mongo is intentionally not part of the active application architecture
+
+There is no separate query API or ingestion application in the current direction. Retrieval, cited context, browser assistant workflows, and agent-facing document tools flow through `external`, `assistant`, `mcp`, `orchestrator`, and `processor`.
 
 ### Ansible
 
@@ -257,11 +259,13 @@ Cluster join is handled afterward through Ansible, not through Terraform state o
 
 GitHub Actions currently handle:
 
+- `apps/assistant` tests and image build
 - `apps/external` tests and image build
 - `apps/mcp` tests and image build
 - `apps/orchestrator` tests and image build
 - `apps/processor` tests and image build
 - `apps/ui` tests and image build
+- `helm/apps/vllm` chart packaging for the pinned upstream vLLM runtime image
 - Helm chart discovery, templating tests, and GHCR packaging
 
 Important note: some workflow files may lag behind the runtime choices in the repo. For example, the React app is Vite-based and the devcontainer uses Node 24, so treat workflow definitions as something to verify rather than assume are fully current.

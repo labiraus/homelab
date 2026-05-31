@@ -4,6 +4,8 @@
 
 It is the browser-facing API for `ui` and should remain a stable surface even as the internal async pipeline evolves behind `orchestrator` and `processor`.
 
+Keep document and assistant workflows on the existing `/api/documents/*` and `/api/assistant/*` shapes. Retrieval, cited context, and assistant calls should not introduce a parallel public RAG API unless the repo plan explicitly changes.
+
 ## Endpoints
 
 - `/api/auth/status`

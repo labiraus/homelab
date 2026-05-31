@@ -7,7 +7,7 @@ This file explains the architecture the repo is converging on, what is active no
 
 ## Executive Summary
 
-This repo is no longer planning around separate `rag_ingest` and `ragapi` applications.
+This repo is no longer planning around separate ingestion and query applications for RAG.
 The chosen application boundary is:
 
 - `ui`: React frontend
@@ -584,6 +584,83 @@ Current status:
 - the default vLLM model is a small unquantized Qwen instruct model so the `helheim` runtime path can be smoke-tested before larger quantized models are promoted
 - Ansible now marks the `documents` bucket as versioned and enforces that versioning through the MinIO bucket role
 
+### Phase 29 — vLLM And Envoy AI Gateway Runtime Validation
+
+Deliverables:
+
+- validate the local vLLM runtime path on `helheim` through the Envoy AI Gateway route used by `assistant`
+- prove the current small Qwen instruct model can start reliably, answer OpenAI-compatible chat requests, and tolerate first-load model download and CUDA setup time
+- document the minimum operator checks for pod scheduling, GPU visibility, model cache state, startup probe behavior, and gateway routing
+- keep larger or quantized model promotion gated on measured startup behavior, memory pressure, response quality, and tool-call compatibility
+
+Next status target:
+
+- a repeatable smoke-test path exists for `LLM_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`
+- runtime docs identify what to inspect when `helheim` scheduling, model loading, or Envoy AI Gateway routing fails
+- the default model remains conservative until the local GPU path is proven stable
+
+### Phase 30 — Assistant Quality, Safety, Memory, And Audit UX
+
+Deliverables:
+
+- improve assistant answer quality while keeping RAG grounding through the allowlisted read-only MCP context call
+- keep memory explicit, user-approved, and scoped to the authenticated email
+- make proposal approval and rejection flows easier to audit from the browser
+- improve revert staging around `rag.document_change_audits` and MinIO version markers without giving the model direct write tools
+- document assistant safety expectations so future LLM tool-use changes preserve the current proposal-before-write boundary
+
+Next status target:
+
+- assistant docs describe the supported chat, memory, proposal, approval, audit, and revert paths as current product surfaces
+- tests cover the high-risk proposal and identity-scoping behavior when assistant workflows change
+- any expanded tool-use behavior remains explicitly allowlisted and read-only unless a browser approval path exists
+
+### Phase 31 — Retrieval Quality And Citation Confidence
+
+Deliverables:
+
+- expand the RAGAS gold-case set under `evals/ragas` with representative private queries and expected context IDs
+- use RAGAS runs to compare chunking, metadata filters, and citation recall before changing retrieval behavior
+- improve citation confidence in UI, MCP, and assistant contexts by keeping source URI, chunk identity, processing version, and metadata visible
+- document acceptable baseline thresholds once the first real gold set is stable
+
+Next status target:
+
+- `make ragas-chunking-eval` is the preferred quality gate for retrieval changes that affect chunking, embeddings, ranking, or metadata filtering
+- docs explain how local deterministic embeddings relate to stored `vector(384)` rows
+- citation regressions are treated as retrieval-quality bugs, not only UI presentation issues
+
+### Phase 32 — Corpus And File-Type Expansion
+
+Deliverables:
+
+- plan expansion beyond the current `text/*` ingestion path without weakening the MinIO, Postgres, and orchestrator ownership model
+- choose extraction rules for the next file types, including how unsupported or partially extracted objects should be represented in inventory and lifecycle history
+- keep non-text ingestion idempotent, versioned, and auditable through the existing processing-version model
+- document any extra extraction dependencies or container runtime requirements before adding them to `processor`
+
+Next status target:
+
+- current `text/*` behavior remains the stable baseline
+- future PDF, HTML, Office, or other file-type work has explicit extraction, failure, and citation policies before implementation
+- unsupported objects continue to be visible in inventory rather than disappearing from reconciliation results
+
+### Phase 33 — Operations Hardening And Retention Policy
+
+Deliverables:
+
+- add operator-facing runbooks for document processing failures, stuck lifecycle states, NATS/KEDA worker lag, vLLM startup failures, and assistant proposal recovery
+- add dashboards or checks for ingestion throughput, processor failures, retrieval latency, assistant proposal outcomes, and vLLM health
+- decide retention policy for MinIO object versions, lifecycle history, assistant conversations, memories, and audit rows
+- rehearse backup and recovery for Postgres RAG state, external MinIO documents, and generated Kubernetes secrets
+- keep the MCP and browser notification paths best-effort while preserving Postgres as the durable audit trail
+
+Next status target:
+
+- common day-two failures have documented diagnosis and recovery steps
+- retention and rollback expectations are explicit before enabling destructive cleanup or lifecycle expiration
+- observability work reinforces the existing service boundaries instead of adding a separate workflow engine
+
 ## Near-Term Non-Goals
 
 For now, do not introduce:
@@ -611,6 +688,9 @@ CAG and semantic graph ambitions remain later phases, not the initial implementa
 - keep the `rag` Postgres schema aligned with document inventory, chunk, embedding, and retrieval behavior
 - keep the `assistant` Postgres schema, browser API contract, and UI trail/proposal/audit UX aligned as the LLM surface evolves
 - validate the vLLM/Envoy AI Gateway runtime path on `helheim` before promoting larger models or wider tool-use behavior
+- grow retrieval quality through RAGAS gold cases before changing chunking, embedding dimensions, or ranking behavior
+- plan file-type expansion beyond `text/*` before adding extraction dependencies to `processor`
+- harden operations with runbooks, metrics, retention decisions, and recovery drills
 - shape orchestrator and processor around clean control-plane versus data-plane boundaries
 - keep public access flowing through `external` and `mcp`
 - build the Labiraus prompt and notification surfaces in step with the repo plan rather than as disconnected demos

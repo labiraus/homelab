@@ -14,6 +14,10 @@ The service exposes `/assistant/...` internally. The public browser path is `/ap
 
 Approved file proposals call `orchestrator` create/edit endpoints. The model does not receive write tools directly; write-like outcomes are persisted as proposals until the user approves them.
 
+The near-term direction is quality and safety rather than new write surfaces: improve grounded answers, memory review, proposal approval/rejection, audit inspection, and revert staging while keeping tool calls allowlisted and writes browser-approved.
+
+Local generation currently targets the OpenAI-compatible vLLM route fronted by Envoy AI Gateway. Keep the small default model until the `helheim` GPU path is validated for startup, memory pressure, answer quality, and tool-call behavior.
+
 Important environment variables:
 
 - `POSTGRES_*`: assistant state storage
