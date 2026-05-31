@@ -361,6 +361,7 @@ describe("App", () => {
 						{
 							...pendingProposal,
 							status: "approved",
+							orchestratorResponse: { status: "queued", processingVersion: 4 },
 						},
 					],
 				}),
@@ -382,6 +383,113 @@ describe("App", () => {
 			);
 		});
 		expect(await screen.findByText(/^approved$/i)).toBeInTheDocument();
+		expect(await screen.findByText(/orchestrator queued .* processing v4/i)).toBeInTheDocument();
+	});
+
+	test("rejects an assistant file proposal with an audit reason", async () => {
+		const user = userEvent.setup();
+		const pendingProposal = {
+			proposalId: "prop-1",
+			conversationId: "conv-1",
+			action: "edit",
+			documentId: "doc-1",
+			objectKey: "runbooks/process.md",
+			contentType: "text/markdown",
+			proposedText: "edited",
+			rationale: "Tighten wording",
+			status: "pending",
+			createdAt: "2026-05-13T12:00:00Z",
+		};
+		global.fetch = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ mode: "oidc", email: "oliver@labiraus.com", valid: true }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ providers: [] }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					conversations: [
+						{
+							conversationId: "conv-1",
+							title: "Runbook",
+							updatedAt: "2026-05-13T12:00:00Z",
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ memories: [] }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ audits: [] }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					conversation: {
+						conversationId: "conv-1",
+						title: "Runbook",
+						updatedAt: "2026-05-13T12:00:00Z",
+					},
+					messages: [],
+					proposals: [pendingProposal],
+					audits: [],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					proposal: {
+						...pendingProposal,
+						status: "rejected",
+						orchestratorResponse: { reason: "needs source context" },
+					},
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					proposals: [
+						{
+							...pendingProposal,
+							status: "rejected",
+							orchestratorResponse: { reason: "needs source context" },
+						},
+					],
+				}),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ audits: [] }),
+			});
+
+		render(<App />);
+		await user.click(await screen.findByRole("button", { name: /^assistant$/i }));
+		await screen.findByText("Tighten wording");
+		await user.type(
+			screen.getByRole("textbox", { name: /rejection reason for runbooks\/process\.md/i }),
+			"needs source context",
+		);
+		await user.click(screen.getByRole("button", { name: /^reject$/i }));
+
+		await waitFor(() => {
+			expect(global.fetch).toHaveBeenCalledWith(
+				"/api/assistant/proposals/prop-1/reject",
+				expect.objectContaining({
+					method: "POST",
+					body: JSON.stringify({ reason: "needs source context" }),
+				}),
+			);
+		});
+		expect(await screen.findByText(/^rejected$/i)).toBeInTheDocument();
+		expect(await screen.findByText(/reason: needs source context/i)).toBeInTheDocument();
 	});
 
 	test("uses the configured federated provider URL for sign in", async () => {

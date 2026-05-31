@@ -54,8 +54,8 @@ The current ingestion slice is reference-based:
 
 The active follow-up work is no longer to add separate RAG applications. The next phases are:
 
-- validate the local vLLM plus Envoy AI Gateway path on `helheim` before promoting larger or quantized models
-- improve assistant quality, memory behavior, proposal safety, and audit/revert UX while preserving the proposal-before-write boundary
+- keep the local vLLM plus Envoy AI Gateway smoke test green before promoting larger or quantized models
+- keep improving assistant answer quality while preserving explicit memory, proposal-before-write approvals, scoped audit views, and read-only model tool use
 - grow retrieval quality through `evals/ragas` gold cases before changing chunking, embedding dimensions, ranking, or metadata filter behavior
 - plan file-type expansion beyond the current `text/*` ingestion path, including extraction failures and citation policy
 - harden operations with runbooks, metrics, retention decisions, and recovery drills for Postgres, MinIO, NATS/KEDA, vLLM, and assistant workflows

@@ -610,11 +610,13 @@ Deliverables:
 - improve revert staging around `rag.document_change_audits` and MinIO version markers without giving the model direct write tools
 - document assistant safety expectations so future LLM tool-use changes preserve the current proposal-before-write boundary
 
-Next status target:
+Current status:
 
-- assistant docs describe the supported chat, memory, proposal, approval, audit, and revert paths as current product surfaces
-- tests cover the high-risk proposal and identity-scoping behavior when assistant workflows change
-- any expanded tool-use behavior remains explicitly allowlisted and read-only unless a browser approval path exists
+- assistant docs describe the supported chat, memory, proposal, approval, rejection, audit, and revert paths as current product surfaces
+- assistant docs record the safety contract: model-readable tool use remains allowlisted and read-only, memories are explicit/user-approved, and create/edit/revert operations require browser action before `orchestrator` writes raw documents
+- proposal rejection in the browser accepts an explicit audit reason and displays stored decision details alongside proposal status
+- approved proposal rows surface orchestrator response details such as queued processing version when available
+- tests cover high-risk proposal paths, including rejection without orchestrator writes, already-decided proposal conflict handling, proposal response display, and authenticated-email scoping behavior
 
 ### Phase 31 — Retrieval Quality And Citation Confidence
 

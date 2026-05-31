@@ -566,6 +566,26 @@ function contextCitationMeta(entry) {
 	return details.join(" • ");
 }
 
+function proposalDecisionDetails(proposal) {
+	const response = proposal?.orchestratorResponse ?? {};
+	const details = [];
+
+	if (response.reason) {
+		details.push(`reason: ${response.reason}`);
+	}
+	if (response.status) {
+		details.push(`orchestrator ${response.status}`);
+	}
+	if (typeof response.processingVersion === "number") {
+		details.push(`processing v${response.processingVersion}`);
+	}
+	if (typeof response.statusCode === "number") {
+		details.push(`HTTP ${response.statusCode}`);
+	}
+
+	return details.join(" • ");
+}
+
 function initialDocumentOperationsState() {
 	return {
 		documentId: "",
@@ -852,6 +872,7 @@ function App() {
 	const [assistantMessages, setAssistantMessages] = useState([]);
 	const [assistantMemories, setAssistantMemories] = useState([]);
 	const [assistantProposals, setAssistantProposals] = useState([]);
+	const [assistantProposalDecisionReasons, setAssistantProposalDecisionReasons] = useState({});
 	const [assistantAudits, setAssistantAudits] = useState([]);
 	const [assistantInput, setAssistantInput] = useState("");
 	const [assistantMemoryText, setAssistantMemoryText] = useState("");
@@ -1247,12 +1268,21 @@ function App() {
 	const handleAssistantProposalDecision = async (proposalId, action) => {
 		setAssistantError("");
 		try {
-			const response = await decideAssistantProposal(proposalId, action);
+			const body =
+				action === "reject"
+					? { reason: (assistantProposalDecisionReasons[proposalId] ?? "").trim() }
+					: {};
+			const response = await decideAssistantProposal(proposalId, action, body);
 			setAssistantProposals((current) =>
 				current.map((proposal) =>
 					proposal.proposalId === proposalId ? response.proposal : proposal,
 				),
 			);
+			setAssistantProposalDecisionReasons((current) => {
+				const next = { ...current };
+				delete next[proposalId];
+				return next;
+			});
 			await refreshAssistantConversationSidebars();
 		} catch (requestError) {
 			setAssistantError(
@@ -2784,33 +2814,54 @@ function App() {
 													</span>
 												</div>
 												<p className="search-result-text">{proposal.rationale}</p>
+												{proposalDecisionDetails(proposal) ? (
+													<p className="search-result-meta">
+														{proposalDecisionDetails(proposal)}
+													</p>
+												) : null}
 												{proposal.status === "pending" ? (
-													<div className="document-actions-row">
-														<button
-															type="button"
-															className="menu-action primary"
-															onClick={() =>
-																void handleAssistantProposalDecision(
-																	proposal.proposalId,
-																	"approve",
-																)
-															}
-														>
-															Approve
-														</button>
-														<button
-															type="button"
-															className="menu-action danger"
-															onClick={() =>
-																void handleAssistantProposalDecision(
-																	proposal.proposalId,
-																	"reject",
-																)
-															}
-														>
-															Reject
-														</button>
-													</div>
+													<>
+														<label className="field-group compact-field">
+															<span>Rejection reason</span>
+															<input
+																aria-label={`Rejection reason for ${proposal.objectKey}`}
+																value={assistantProposalDecisionReasons[proposal.proposalId] ?? ""}
+																onChange={(event) =>
+																	setAssistantProposalDecisionReasons((current) => ({
+																		...current,
+																		[proposal.proposalId]: event.target.value,
+																	}))
+																}
+																placeholder="Optional audit note"
+															/>
+														</label>
+														<div className="document-actions-row">
+															<button
+																type="button"
+																className="menu-action primary"
+																onClick={() =>
+																	void handleAssistantProposalDecision(
+																		proposal.proposalId,
+																		"approve",
+																	)
+																}
+															>
+																Approve
+															</button>
+															<button
+																type="button"
+																className="menu-action danger"
+																onClick={() =>
+																	void handleAssistantProposalDecision(
+																		proposal.proposalId,
+																		"reject",
+																	)
+																}
+															>
+																Reject
+															</button>
+														</div>
+													</>
 												) : null}
 											</article>
 										))}

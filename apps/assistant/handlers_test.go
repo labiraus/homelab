@@ -200,6 +200,109 @@ func TestProposalApprovalTransitionsPendingProposal(t *testing.T) {
 	}
 }
 
+func TestProposalRejectRecordsReasonWithoutCallingOrchestrator(t *testing.T) {
+	originalRequire := requirePostgresFn
+	originalGet := getProposalFn
+	originalApprove := approveProposalFn
+	originalUpdate := updateProposalDecisionFn
+	t.Cleanup(func() {
+		requirePostgresFn = originalRequire
+		getProposalFn = originalGet
+		approveProposalFn = originalApprove
+		updateProposalDecisionFn = originalUpdate
+	})
+
+	proposal := fileProposalRecord{
+		ProposalID:     "prop-1",
+		ConversationID: "conv-1",
+		UserEmail:      "user@example.com",
+		Action:         "edit",
+		DocumentID:     "doc-1",
+		ObjectKey:      "notes/doc-1.md",
+		ContentType:    "text/markdown",
+		ProposedText:   "edited",
+		Status:         "pending",
+	}
+	requirePostgresFn = func() error { return nil }
+	getProposalFn = func(ctx context.Context, userEmail string, proposalID string) (fileProposalRecord, bool, error) {
+		if userEmail != "user@example.com" || proposalID != "prop-1" {
+			t.Fatalf("unexpected proposal lookup: %s/%s", userEmail, proposalID)
+		}
+		return proposal, true, nil
+	}
+	approveProposalFn = func(ctx context.Context, received fileProposalRecord) (map[string]any, error) {
+		t.Fatalf("reject must not call orchestrator approval path: %+v", received)
+		return nil, nil
+	}
+	updateProposalDecisionFn = func(ctx context.Context, userEmail string, proposalID string, status string, response map[string]any) (fileProposalRecord, error) {
+		if userEmail != "user@example.com" || proposalID != "prop-1" || status != "rejected" {
+			t.Fatalf("unexpected proposal decision: %s/%s/%s", userEmail, proposalID, status)
+		}
+		if response["reason"] != "needs a clearer diff" {
+			t.Fatalf("expected rejection reason, got %+v", response)
+		}
+		proposal.Status = status
+		proposal.OrchestratorResponse = response
+		return proposal, nil
+	}
+
+	request := authenticatedRequest(http.MethodPost, "/assistant/proposals/prop-1/reject", `{"reason":" needs a clearer diff "}`)
+	recorder := httptest.NewRecorder()
+	proposalActionHandler(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	var response struct {
+		Proposal fileProposalRecord `json:"proposal"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected proposal response: %v", err)
+	}
+	if response.Proposal.Status != "rejected" || response.Proposal.OrchestratorResponse["reason"] != "needs a clearer diff" {
+		t.Fatalf("expected rejected proposal with reason, got %+v", response.Proposal)
+	}
+}
+
+func TestProposalApprovalRejectsAlreadyDecidedProposalWithoutOrchestratorCall(t *testing.T) {
+	originalRequire := requirePostgresFn
+	originalGet := getProposalFn
+	originalApprove := approveProposalFn
+	originalUpdate := updateProposalDecisionFn
+	t.Cleanup(func() {
+		requirePostgresFn = originalRequire
+		getProposalFn = originalGet
+		approveProposalFn = originalApprove
+		updateProposalDecisionFn = originalUpdate
+	})
+
+	requirePostgresFn = func() error { return nil }
+	getProposalFn = func(ctx context.Context, userEmail string, proposalID string) (fileProposalRecord, bool, error) {
+		return fileProposalRecord{
+			ProposalID: "prop-1",
+			UserEmail:  userEmail,
+			Action:     "edit",
+			Status:     "approved",
+		}, true, nil
+	}
+	approveProposalFn = func(ctx context.Context, proposal fileProposalRecord) (map[string]any, error) {
+		t.Fatalf("already-decided proposal must not call orchestrator: %+v", proposal)
+		return nil, nil
+	}
+	updateProposalDecisionFn = func(ctx context.Context, userEmail string, proposalID string, status string, response map[string]any) (fileProposalRecord, error) {
+		t.Fatalf("already-decided proposal must not update decision")
+		return fileProposalRecord{}, nil
+	}
+
+	request := authenticatedRequest(http.MethodPost, "/assistant/proposals/prop-1/approve", `{}`)
+	recorder := httptest.NewRecorder()
+	proposalActionHandler(recorder, request)
+
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("expected status 409, got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestAssistantToolDefinitionsExposeOnlyReadOnlyRAGTool(t *testing.T) {
 	tools := assistantToolDefinitions()
 	if len(tools) != 1 {
