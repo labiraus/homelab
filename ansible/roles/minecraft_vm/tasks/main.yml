@@ -234,6 +234,7 @@
     data_dir={{ item.value.data_dir | quote }}
     expected_pack={{ item.value.runtime_env.CF_FILENAME_MATCHER | quote }}
     expected_loader={{ item.value.runtime_env.NEOFORGE_VERSION | quote }}
+    loader_setup_version={{ item.value.loader_setup_version | default('') | quote }}
     run_sh="${data_dir}/run.sh"
     manifest="${data_dir}/.curseforge-manifest.json"
 
@@ -252,7 +253,7 @@
 
     test "${actual_run}" = "${expected_loader}" \
       && test "${actual_pack}" = "${expected_pack}" \
-      && test "${actual_loader}" = "${expected_loader}"
+      && { test -n "${loader_setup_version}" || test "${actual_loader}" = "${expected_loader}"; }
   args:
     executable: /bin/bash
   register: minecraft_vm_preinstalled_profile_state
@@ -307,6 +308,56 @@
   when:
     - item.rc is defined
     - item.rc != 0
+  notify: Restart minecraft
+
+- name: Refresh pinned NeoForge loader after AUTO_CURSEFORGE refresh
+  ansible.builtin.command:
+    argv:
+      - docker
+      - run
+      - --rm
+      - --name
+      - "minecraft-{{ item.item.key }}-neoforge-setup"
+      - -e
+      - EULA=TRUE
+      - -e
+      - TYPE=NEOFORGE
+      - -e
+      - "VERSION={{ item.item.value.loader_setup_version }}"
+      - -e
+      - "NEOFORGE_VERSION={{ item.item.value.runtime_env.NEOFORGE_VERSION }}"
+      - -e
+      - SETUP_ONLY=true
+      - -v
+      - "{{ item.item.value.data_dir }}:/data"
+      - -v
+      - "{{ item.item.value.backup_dir }}:/backups"
+      - "{{ item.item.value.image | default(minecraft_vm_image_default) }}"
+  register: minecraft_vm_neoforge_loader_refresh
+  until: minecraft_vm_neoforge_loader_refresh.rc == 0
+  retries: "{{ minecraft_vm_curseforge_refresh_retries | int }}"
+  delay: "{{ minecraft_vm_curseforge_refresh_delay_seconds | int }}"
+  loop: "{{ minecraft_vm_preinstalled_profile_state.results | default([]) }}"
+  when:
+    - item.rc is defined
+    - item.rc != 0
+    - item.item.value.loader_setup_version is defined
+    - item.item.value.runtime_env.NEOFORGE_VERSION is defined
+  notify: Restart minecraft
+
+- name: Find per-server removed mod jars
+  ansible.builtin.find:
+    paths: "{{ item.0.value.data_dir }}/mods"
+    patterns: "{{ item.1 }}"
+    file_type: file
+  register: minecraft_vm_removed_mod_jars
+  loop: "{{ minecraft_vm_servers | dict2items | subelements('value.remove_mod_globs', skip_missing=True) }}"
+
+- name: Remove per-server replaced mod jars
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ minecraft_vm_removed_mod_jars.results | default([]) | map(attribute='files') | flatten }}"
   notify: Restart minecraft
 
 - name: Ensure per-server extra mods are installed
