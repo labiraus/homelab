@@ -345,6 +345,21 @@
     - item.item.value.runtime_env.NEOFORGE_VERSION is defined
   notify: Restart minecraft
 
+- name: Manage preinstalled Minecraft JVM heap arguments
+  ansible.builtin.copy:
+    dest: "{{ item.value.data_dir }}/user_jvm_args.txt"
+    content: |
+      -Xms{{ item.value.runtime_env.INIT_MEMORY | default(item.value.runtime_env.MEMORY) }}
+      -Xmx{{ item.value.runtime_env.MEMORY }}
+    owner: "{{ minecraft_vm_dir_owner }}"
+    group: "{{ minecraft_vm_dir_group }}"
+    mode: "0644"
+  loop: "{{ minecraft_vm_servers | dict2items }}"
+  when:
+    - item.value.start_mode | default('bootstrap') == 'preinstalled_run_script'
+    - item.value.runtime_env.MEMORY is defined
+  notify: Restart minecraft
+
 - name: Find per-server removed mod jars
   ansible.builtin.find:
     paths: "{{ item.0.value.data_dir }}/mods"

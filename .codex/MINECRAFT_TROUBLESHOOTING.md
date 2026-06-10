@@ -54,9 +54,9 @@ The Ansible playbook installs Docker, renders per-profile files under `/etc/mine
 - `atm11`:
   - `image=itzg/minecraft-server:java25`
   - `CF_SLUG=all-the-mods-11`
-  - `CF_FILENAME_MATCHER=0.0.23`
+  - `CF_FILENAME_MATCHER=0.1.0`
   - `CF_EXCLUDE_MODS=evilcraft`
-  - `NEOFORGE_VERSION=26.1.2.73`
+  - `NEOFORGE_VERSION=26.1.2.75`
   - `loader_setup_version=26.1.2`
   - `start_mode=preinstalled_run_script`
   - temporary extra mod replacement: `evilcraft-26.1.2-neoforge-1.2.97.jar`
@@ -92,9 +92,13 @@ The next `make ansible-minecraft-vm` reapplies the repo-selected active profile.
 - Repo fix: before rerunning the one-shot CurseForge refresh for a drifted preinstalled profile, recursively restore the profile data tree to the configured Minecraft upload user/group.
 - May 15, 2026 follow-up: after the ownership fix, a refresh can still fail on transient DNS for `mediafilez.forgecdn.net` via the LAN resolver (`192.168.8.1:53`), so the one-shot CurseForge refresh is retried before the playbook gives up.
 - June 6, 2026 finding: ATM11 `0.0.23` can crash the server when a player kills an entity with `java.lang.NoSuchMethodError: LivingDamageEvent$Post.getNewDamage()` from `evilcraft-26.1.2-neoforge-1.2.96-949.jar`.
-- Meaning: the bundled EvilCraft build calls a NeoForge `LivingDamageEvent.Post` method that is not present in the runtime API. EvilCraft `26.1.2-1.2.97` changed the heal-from-damage enchantment effect to use `getHealthDamage()` and updated to NeoForge `26.1.2.73`.
-- Repo fix: pin `atm11` to `NEOFORGE_VERSION=26.1.2.73`, set `CF_EXCLUDE_MODS=evilcraft`, run a loader-only NeoForge setup with `loader_setup_version=26.1.2`, remove `evilcraft-*.jar` before extra mod installation, and install `evilcraft-26.1.2-neoforge-1.2.97.jar` from Modrinth with a checksum. Remove this local replacement once a newer ATM11 release bundles the fixed EvilCraft version.
-- June 6, 2026 follow-up: the AUTO_CURSEFORGE refresh logged that it was overriding the mod loader from `26.1.2.71` to `26.1.2.73`, but still ran the pack's `26.1.2.71` NeoForge installer. A separate loader-only `TYPE=NEOFORGE VERSION=26.1.2 NEOFORGE_VERSION=26.1.2.73 SETUP_ONLY=true` run updated `/data/run.sh` and installed the `26.1.2.73` libraries.
+- Meaning: the bundled EvilCraft build calls a NeoForge `LivingDamageEvent.Post` method that is not present in the runtime API. EvilCraft `26.1.2-1.2.97` changed the heal-from-damage enchantment effect to use `getHealthDamage()` and updated to NeoForge `26.1.2.75`.
+- Repo fix: pin `atm11` to `NEOFORGE_VERSION=26.1.2.75`, set `CF_EXCLUDE_MODS=evilcraft`, run a loader-only NeoForge setup with `loader_setup_version=26.1.2`, remove the bad bundled `evilcraft-26.1.2-neoforge-1.2.96-*` jar before extra mod installation, and install `evilcraft-26.1.2-neoforge-1.2.97.jar` from Modrinth with a checksum. Remove this local replacement once a newer ATM11 release bundles the fixed EvilCraft version.
+- June 6, 2026 follow-up: the AUTO_CURSEFORGE refresh logged that it was overriding the mod loader from `26.1.2.71` to `26.1.2.75`, but still ran the pack's `26.1.2.71` NeoForge installer. A separate loader-only `TYPE=NEOFORGE VERSION=26.1.2 NEOFORGE_VERSION=26.1.2.75 SETUP_ONLY=true` run updated `/data/run.sh` and installed the `26.1.2.75` libraries.
+- June 10, 2026 follow-up: keep the removal glob narrow, such as `evilcraft-26.1.2-neoforge-1.2.96-*.jar`, so Ansible does not delete the replacement `evilcraft-26.1.2-neoforge-1.2.97.jar` and restart Minecraft on every playbook run.
+- June 10, 2026 finding: ATM11 `0.1.0` crashed while loading `kaisyn:village/birch_forest_romanian/streets/crossroad_04` with `java.lang.OutOfMemoryError: Java heap space`.
+- Meaning: in `start_mode=preinstalled_run_script`, `minecraft.service` launches `/data/run.sh` directly. That script reads `/data/user_jvm_args.txt`, and the live file still contained NeoForge's default `-Xmx1G -Xms1G`, so the repo `MEMORY=10G` value was not reaching Java at runtime.
+- Repo fix: manage `/data/user_jvm_args.txt` for preinstalled profiles from `runtime_env.MEMORY` and `runtime_env.INIT_MEMORY`, then restart `minecraft.service`.
 
 ## Lag Notes
 

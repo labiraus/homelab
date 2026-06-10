@@ -33,7 +33,7 @@ minecraft_vm_servers:
     start_mode: preinstalled_run_script
     loader_setup_version: "26.1.2"
     remove_mod_globs:
-      - "evilcraft-*.jar"
+      - "evilcraft-26.1.2-neoforge-1.2.96-*.jar"
     extra_mods:
       - filename: connectivity-26.1-7.6.jar
         url: "https://mediafilez.forgecdn.net/files/7866/655/connectivity-26.1-7.6.jar"
@@ -73,6 +73,6 @@ minecraft_vm_servers:
     runtime_env:
       <<: *minecraft_vm_common_runtime_env
       CF_SLUG: all-the-mods-11
-      CF_FILENAME_MATCHER: "0.0.23"
+      CF_FILENAME_MATCHER: "0.1.0"
       CF_EXCLUDE_MODS: evilcraft
-      NEOFORGE_VERSION: "26.1.2.73"
+      NEOFORGE_VERSION: "26.1.2.75"
