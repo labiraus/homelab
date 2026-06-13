@@ -29,14 +29,14 @@ Minecraft runs outside Kubernetes on a dedicated Ubuntu VM on `proxmox-node1`.
 - before that refresh, Ansible restores the drifted profile data tree to the configured Minecraft upload user so existing override directories remain writable to the setup container
 - the drift refresh retries transient CurseForge CDN download and DNS failures before failing the playbook
 - `atm11` installs the server-side `connectivity-26.1-7.6.jar` extra mod after any CurseForge refresh to mitigate NeoForge login/configuration timeout and packet-size issues; Ansible also manages `config/connectivity.json` with longer login and in-game disconnect windows
-- `atm11` temporarily excludes the ATM11-bundled EvilCraft jar and installs `evilcraft-26.1.2-neoforge-1.2.97.jar` as an extra mod because the 0.0.23 pack's `1.2.96-949` build can crash the server when a player kills an entity
+- `atm11` no longer carries the temporary EvilCraft replacement used for ATM11 `0.0.23`; the managed `0.1.0` profile should use the EvilCraft jar bundled by the CurseForge server pack
 - Minecraft heap is managed as `MEMORY=10G` and `INIT_MEMORY=2G`
 
 ## Service management
 
 - provision the VM with `make plan COMPONENT=minecraft-vm LAYER=minecraft-node1`
 - apply the VM with `make apply COMPONENT=minecraft-vm LAYER=minecraft-node1`
-- configure Minecraft in-guest with `make ansible-minecraft-vm`
+- configure Minecraft in-guest with `make ansible-minecraft-vm`; this requires `MINECRAFT_CURSEFORGE_API_KEY` and `MINECRAFT_RCON_PASSWORD` in `ansible/.env` or the shell environment
 - the game runs as `minecraft.service` and exposes `25565/tcp` directly from the guest
 - switch the active profile on-box with `sudo minecraft-switch <server>`
 
@@ -105,6 +105,14 @@ make ansible-minecraft-vm
 ssh nidavellir 'systemctl status --no-pager minecraft'
 ssh nidavellir 'docker logs -f --tail 100 minecraft'
 ```
+
+7. Run Minecraft server commands through RCON.
+
+```bash
+ssh -t nidavellir 'docker exec -it minecraft rcon-cli'
+```
+
+Use Minecraft server commands without a leading slash. The Ansible role enables RCON in `server.properties` and stores the RCON password in the root-only container env file at `/etc/minecraft/minecraft.env`.
 
 Notes:
 

@@ -192,7 +192,10 @@ If you omit `LIMIT`, the target runs against the full `kubernetes_terraform_node
 make ansible-kubernetes-worker
 ```
 
-The Minecraft VM playbook expects `MINECRAFT_CURSEFORGE_API_KEY` to be available from `ansible/.env` or your shell environment so `itzg/minecraft-server` can bootstrap the managed modpack profiles.
+The Minecraft VM playbook expects these values to be available from `ansible/.env` or your shell environment:
+
+- `MINECRAFT_CURSEFORGE_API_KEY` so `itzg/minecraft-server` can bootstrap the managed modpack profiles
+- `MINECRAFT_RCON_PASSWORD` so Ansible can enable authenticated server-command execution through RCON
 
 Managed Minecraft VM state:
 
@@ -203,7 +206,7 @@ Managed Minecraft VM state:
 - makes `/srv/minecraft` writable by the `ubuntu` login user for direct SFTP uploads
 - renders per-profile container env and runtime metadata under `/etc/minecraft/servers`
 - keeps `/etc/minecraft/minecraft.env`, `/etc/minecraft/runtime.env`, `/srv/minecraft/data`, and `/srv/minecraft/backups` pointed at the active profile
-- enforces selected `server.properties` values such as `sync-chunk-writes=false`
+- enforces selected `server.properties` values such as `enable-rcon=true` and `sync-chunk-writes=false`
 - manages a `minecraft.service` systemd unit that runs the active profile's image
 - keeps the shared image default at `itzg/minecraft-server:java21`, while `atm11` overrides to `itzg/minecraft-server:java25` because current NeoForge server builds require Java 25 there
 - pins `atm11` to `NEOFORGE_VERSION=26.1.2.75`, mirrors that into `CF_MOD_LOADER_VERSION` for AUTO_CURSEFORGE installs, and starts it via the already-installed `/data/run.sh` script so the VM keeps using the repo-selected NeoForge build
@@ -212,7 +215,7 @@ Managed Minecraft VM state:
 - manages `/data/user_jvm_args.txt` for preinstalled profiles from the repo `MEMORY` and `INIT_MEMORY` values, because the direct `/data/run.sh` path does not consume the container image's normal memory environment handling
 - restores ownership of drifted preinstalled profile data before the one-shot refresh so the setup container can rewrite existing CurseForge override paths
 - retries the one-shot CurseForge refresh to ride through transient ForgeCDN DNS or download failures
-- supports per-profile `remove_mod_globs` before installing `extra_mods`, which is used by `atm11` to replace the ATM11 `0.0.23` EvilCraft jar that crashes on post-attack damage handling
+- supports per-profile `remove_mod_globs` before installing `extra_mods`; `atm11` currently uses `extra_mods` only for the server-side Connectivity login-timeout mitigation
 - installs `minecraft-switch` on the VM so operators can swap profiles locally without editing repo vars
 - exposes the game directly on TCP `25565`
 
@@ -272,7 +275,11 @@ ssh nidavellir '\
   scp "$latest" svartalfheim:/srv/minio/backups/minecraft/'
 make ansible-minecraft-vm
 ssh nidavellir 'systemctl status --no-pager minecraft'
+ssh nidavellir 'docker exec minecraft rcon-cli list'
+ssh nidavellir 'docker exec minecraft rcon-cli "say maintenance complete"'
 ```
+
+Use `docker exec minecraft rcon-cli ...` for Minecraft server commands such as `list`, `say maintenance complete`, or `stop`. Commands do not need a leading slash.
 
 The make targets call `scripts/ansible-run-playbook.sh`, which sources:
 

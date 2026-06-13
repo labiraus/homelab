@@ -15,7 +15,7 @@ ExecStartPre=-/usr/bin/docker rm -f ${CONTAINER_NAME}
 ExecStartPre=/usr/bin/docker pull ${IMAGE}
 {% set active_server = minecraft_vm_servers[minecraft_vm_active_server] %}
 {% if active_server.start_mode | default('bootstrap') == 'preinstalled_run_script' %}
-ExecStart=/usr/bin/docker run --name ${CONTAINER_NAME} --rm -p ${PORT}:25565 -v ${DATA_DIR}:/data -v ${BACKUP_DIR}:/backups --entrypoint /bin/bash ${IMAGE} -lc 'cd /data && exec ./run.sh nogui'
+ExecStart=/usr/bin/docker run --name ${CONTAINER_NAME} --rm -p ${PORT}:25565 -v ${DATA_DIR}:/data -v ${BACKUP_DIR}:/backups --env-file {{ minecraft_vm_active_env_link }} --entrypoint /bin/bash ${IMAGE} -lc 'cd /data && exec ./run.sh nogui'
 {% else %}
 ExecStart=/usr/bin/docker run --name ${CONTAINER_NAME} --rm -p ${PORT}:25565 -v ${DATA_DIR}:/data -v ${BACKUP_DIR}:/backups --env-file {{ minecraft_vm_active_env_link }} ${IMAGE}
 {% endif %}

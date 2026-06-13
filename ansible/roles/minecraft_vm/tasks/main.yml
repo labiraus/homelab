@@ -20,6 +20,20 @@
     minecraft_vm_curseforge_api_key: "{{ lookup('ansible.builtin.env', minecraft_vm_curseforge_api_key_env) }}"
   no_log: true
 
+- name: Resolve Minecraft RCON password from environment
+  ansible.builtin.set_fact:
+    minecraft_vm_rcon_password: "{{ lookup('ansible.builtin.env', minecraft_vm_rcon_password_env) }}"
+  no_log: true
+
+- name: Require Minecraft RCON password
+  ansible.builtin.assert:
+    that:
+      - minecraft_vm_rcon_password | length > 0
+    fail_msg: >-
+      {{ minecraft_vm_rcon_password_env }} must be set in the environment or ansible/.env so
+      Ansible can enable RCON for Minecraft server commands.
+  no_log: true
+
 - name: Identify AUTO_CURSEFORGE Minecraft profiles
   ansible.builtin.set_fact:
     minecraft_vm_auto_curseforge_servers: >-
@@ -485,7 +499,9 @@
       {{
         minecraft_vm_server_properties
         | combine(minecraft_vm_servers[minecraft_vm_active_server].server_properties | default({}))
+        | combine({'rcon.password': minecraft_vm_rcon_password})
       }}
+  no_log: true
 
 - name: Manage Minecraft server.properties overrides
   ansible.builtin.lineinfile:
@@ -494,6 +510,7 @@
     line: "{{ item.key }}={{ item.value }}"
   loop: "{{ minecraft_vm_active_server_properties | dict2items }}"
   notify: Restart minecraft
+  no_log: true
 
 - name: Apply final Minecraft restart after server.properties changes
   ansible.builtin.meta: flush_handlers

@@ -6,6 +6,7 @@ minecraft_vm_upload_user: ubuntu
 minecraft_vm_port: 25565
 minecraft_vm_image_default: "itzg/minecraft-server:java21"
 minecraft_vm_curseforge_api_key_env: MINECRAFT_CURSEFORGE_API_KEY
+minecraft_vm_rcon_password_env: MINECRAFT_RCON_PASSWORD
 
 minecraft_vm_common_runtime_env: &minecraft_vm_common_runtime_env
   EULA: "TRUE"
@@ -32,15 +33,10 @@ minecraft_vm_servers:
     image: "itzg/minecraft-server:java25"
     start_mode: preinstalled_run_script
     loader_setup_version: "26.1.2"
-    remove_mod_globs:
-      - "evilcraft-26.1.2-neoforge-1.2.96-*.jar"
     extra_mods:
       - filename: connectivity-26.1-7.6.jar
         url: "https://mediafilez.forgecdn.net/files/7866/655/connectivity-26.1-7.6.jar"
         checksum: "sha256:5fe2eba7e56ed273907f2eba5050b5b819e3288ab8036158a5661371e43e1725"
-      - filename: evilcraft-26.1.2-neoforge-1.2.97.jar
-        url: "https://cdn.modrinth.com/data/3ANq2btA/versions/di3DOOqU/evilcraft-26.1.2-neoforge-1.2.97.jar"
-        checksum: "sha512:bd93f9f314c3defd636ff66cc93e3a0e06ad3b77669e250ca5c8ff675bfc036129888793ef2707348e82ce608e46f6dee750145f7f79f807bae6f357dc638044"
     extra_config_files:
       - path: config/connectivity.json
         content:
@@ -74,5 +70,4 @@ minecraft_vm_servers:
       <<: *minecraft_vm_common_runtime_env
       CF_SLUG: all-the-mods-11
       CF_FILENAME_MATCHER: "0.1.0"
-      CF_EXCLUDE_MODS: evilcraft
       NEOFORGE_VERSION: "26.1.2.75"
