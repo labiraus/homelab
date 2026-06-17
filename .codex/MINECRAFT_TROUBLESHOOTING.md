@@ -54,8 +54,8 @@ The Ansible playbook installs Docker, renders per-profile files under `/etc/mine
 - `atm11`:
   - `image=itzg/minecraft-server:java25`
   - `CF_SLUG=all-the-mods-11`
-  - `CF_FILENAME_MATCHER=0.1.0`
-  - `NEOFORGE_VERSION=26.1.2.75`
+  - `CF_FILENAME_MATCHER=0.1.1`
+  - `NEOFORGE_VERSION=26.1.2.76`
   - `loader_setup_version=26.1.2`
   - `start_mode=preinstalled_run_script`
   - extra server-side login mitigation: `connectivity-26.1-7.6.jar`
@@ -95,12 +95,14 @@ The next `make ansible-minecraft-vm` reapplies the repo-selected active profile.
 - Repo fix: pin `atm11` to `NEOFORGE_VERSION=26.1.2.75`, set `CF_EXCLUDE_MODS=evilcraft`, run a loader-only NeoForge setup with `loader_setup_version=26.1.2`, remove the bad bundled `evilcraft-26.1.2-neoforge-1.2.96-*` jar before extra mod installation, and install `evilcraft-26.1.2-neoforge-1.2.97.jar` from Modrinth with a checksum. Remove this local replacement once a newer ATM11 release bundles the fixed EvilCraft version.
 - June 6, 2026 follow-up: the AUTO_CURSEFORGE refresh logged that it was overriding the mod loader from `26.1.2.71` to `26.1.2.75`, but still ran the pack's `26.1.2.71` NeoForge installer. A separate loader-only `TYPE=NEOFORGE VERSION=26.1.2 NEOFORGE_VERSION=26.1.2.75 SETUP_ONLY=true` run updated `/data/run.sh` and installed the `26.1.2.75` libraries.
 - June 10, 2026 follow-up: keep the removal glob narrow, such as `evilcraft-26.1.2-neoforge-1.2.96-*.jar`, so Ansible does not delete the replacement `evilcraft-26.1.2-neoforge-1.2.97.jar` and restart Minecraft on every playbook run.
-- June 13, 2026 update: remove the temporary EvilCraft replacement for ATM11 `0.1.0`. The repo no longer sets `CF_EXCLUDE_MODS=evilcraft`, no longer removes `evilcraft-26.1.2-neoforge-1.2.96-*`, and no longer installs `evilcraft-26.1.2-neoforge-1.2.97.jar`; the server should use the EvilCraft jar bundled by the ATM11 `0.1.0` CurseForge server pack.
+- June 13, 2026 update: remove the temporary EvilCraft replacement for ATM11 `0.1.1`. The repo no longer sets `CF_EXCLUDE_MODS=evilcraft`, no longer removes `evilcraft-26.1.2-neoforge-1.2.96-*`, and no longer installs `evilcraft-26.1.2-neoforge-1.2.97.jar`; the server should use the EvilCraft jar bundled by the ATM11 `0.1.1` CurseForge server pack.
 - June 13, 2026 finding: player login still failed after the EvilCraft override was removed. Server logs showed repeated SecurityCraft manual packet stack traces: `Recipe#assemble unexpectedly returned null for type crafting` from `net.geforcemods.securitycraft.items.SCManualItem.safeAssemble`, followed by client-side connection resets.
 - June 13, 2026 failed attempt: replacing ATM11's `[26.1.2] SecurityCraft v1.10.1-beta3.jar` with Modrinth's stable `[1.21.1] SecurityCraft v1.10.1.jar` did not work. The stable jar declares `minecraft` dependency range `[1.21.1,1.22)`, while this ATM11 NeoForge server presents `minecraft` as `26.1.2`, so the server refuses to start. Do not use that jar as the replacement for this pack.
-- June 10, 2026 finding: ATM11 `0.1.0` crashed while loading `kaisyn:village/birch_forest_romanian/streets/crossroad_04` with `java.lang.OutOfMemoryError: Java heap space`.
+- June 10, 2026 finding: ATM11 `0.1.1` crashed while loading `kaisyn:village/birch_forest_romanian/streets/crossroad_04` with `java.lang.OutOfMemoryError: Java heap space`.
 - Meaning: in `start_mode=preinstalled_run_script`, `minecraft.service` launches `/data/run.sh` directly. That script reads `/data/user_jvm_args.txt`, and the live file still contained NeoForge's default `-Xmx1G -Xms1G`, so the repo `MEMORY=10G` value was not reaching Java at runtime.
 - Repo fix: manage `/data/user_jvm_args.txt` for preinstalled profiles from `runtime_env.MEMORY` and `runtime_env.INIT_MEMORY`, then restart `minecraft.service`.
+- June 17, 2026 finding: ATM11 `0.1.1` failed during FML startup because `fastsuite`, `cristellib`, and `gateways` require NeoForge `26.1.2.76` or newer while the repo still pinned `26.1.2.75`.
+- Repo fix: bump `atm11.runtime_env.NEOFORGE_VERSION` to `26.1.2.76` and rerun `make ansible-minecraft-vm` so the loader-only setup refreshes `/data/run.sh` and installed NeoForge libraries.
 
 ## Lag Notes
 

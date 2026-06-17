@@ -33,6 +33,8 @@ minecraft_vm_servers:
     image: "itzg/minecraft-server:java25"
     start_mode: preinstalled_run_script
     loader_setup_version: "26.1.2"
+    server_properties:
+      spawn-protection: "0"
     extra_mods:
       - filename: connectivity-26.1-7.6.jar
         url: "https://mediafilez.forgecdn.net/files/7866/655/connectivity-26.1-7.6.jar"
@@ -69,5 +71,5 @@ minecraft_vm_servers:
     runtime_env:
       <<: *minecraft_vm_common_runtime_env
       CF_SLUG: all-the-mods-11
-      CF_FILENAME_MATCHER: "0.1.0"
-      NEOFORGE_VERSION: "26.1.2.75"
+      CF_FILENAME_MATCHER: "0.1.1"
+      NEOFORGE_VERSION: "26.1.2.76"

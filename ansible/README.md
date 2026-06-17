@@ -206,10 +206,10 @@ Managed Minecraft VM state:
 - makes `/srv/minecraft` writable by the `ubuntu` login user for direct SFTP uploads
 - renders per-profile container env and runtime metadata under `/etc/minecraft/servers`
 - keeps `/etc/minecraft/minecraft.env`, `/etc/minecraft/runtime.env`, `/srv/minecraft/data`, and `/srv/minecraft/backups` pointed at the active profile
-- enforces selected `server.properties` values such as `enable-rcon=true` and `sync-chunk-writes=false`
+- enforces selected `server.properties` values such as `enable-rcon=true`, `sync-chunk-writes=false`, and `spawn-protection=0` for the active `atm11` profile
 - manages a `minecraft.service` systemd unit that runs the active profile's image
 - keeps the shared image default at `itzg/minecraft-server:java21`, while `atm11` overrides to `itzg/minecraft-server:java25` because current NeoForge server builds require Java 25 there
-- pins `atm11` to `NEOFORGE_VERSION=26.1.2.75`, mirrors that into `CF_MOD_LOADER_VERSION` for AUTO_CURSEFORGE installs, and starts it via the already-installed `/data/run.sh` script so the VM keeps using the repo-selected NeoForge build
+- pins `atm11` to `NEOFORGE_VERSION=26.1.2.76`, mirrors that into `CF_MOD_LOADER_VERSION` for AUTO_CURSEFORGE installs, and starts it via the already-installed `/data/run.sh` script so the VM keeps using the repo-selected NeoForge build
 - refreshes preinstalled AUTO_CURSEFORGE profile files when the generated `run.sh` or `.curseforge-manifest.json` drift away from the repo-pinned modpack or NeoForge version
 - runs a loader-only NeoForge setup for profiles with `loader_setup_version` after the CurseForge refresh, which is needed when a server pack keeps its original loader installer despite `CF_MOD_LOADER_VERSION`
 - manages `/data/user_jvm_args.txt` for preinstalled profiles from the repo `MEMORY` and `INIT_MEMORY` values, because the direct `/data/run.sh` path does not consume the container image's normal memory environment handling
@@ -221,7 +221,7 @@ Managed Minecraft VM state:
 
 Current seeded profiles:
 
-- `atm11` is the repo-authoritative active profile and is pinned with `CF_SLUG=all-the-mods-11`, `CF_FILENAME_MATCHER=0.1.0`, `NEOFORGE_VERSION=26.1.2.75`, and `start_mode=preinstalled_run_script`
+- `atm11` is the repo-authoritative active profile and is pinned with `CF_SLUG=all-the-mods-11`, `CF_FILENAME_MATCHER=0.1.1`, `NEOFORGE_VERSION=26.1.2.76`, and `start_mode=preinstalled_run_script`
 - `atm10_tts` preserves the older ATM10 To The Sky world with `CF_SLUG=all-the-mods-10-sky` and `CF_FILENAME_MATCHER=2.0.2`
 
 The first multi-profile rollout migrates the old single-server `/srv/minecraft/data` and `/srv/minecraft/backups` directories into the `atm10_tts` profile before repointing the active links to `atm11`.

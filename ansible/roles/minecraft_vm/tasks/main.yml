@@ -32,7 +32,6 @@
     fail_msg: >-
       {{ minecraft_vm_rcon_password_env }} must be set in the environment or ansible/.env so
       Ansible can enable RCON for Minecraft server commands.
-  no_log: true
 
 - name: Identify AUTO_CURSEFORGE Minecraft profiles
   ansible.builtin.set_fact:
@@ -53,7 +52,6 @@
     fail_msg: >-
       MINECRAFT_CURSEFORGE_API_KEY must be set in the environment or ansible/.env when
       minecraft_vm_servers uses AUTO_CURSEFORGE.
-  no_log: true
 
 - name: Install Minecraft VM packages
   ansible.builtin.apt:
