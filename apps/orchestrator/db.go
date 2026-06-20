@@ -11,6 +11,7 @@ import (
 	"pkg/documentevents"
 	"pkg/postgresutil"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -416,6 +417,7 @@ func insertDocumentChangeAudit(ctx context.Context, audit documentChangeAudit) e
 	if postgresutil.Exec == nil {
 		return fmt.Errorf("postgres is not initialized")
 	}
+	auditID := uuid.NewString()
 	metadata := audit.Metadata
 	if metadata == nil {
 		metadata = map[string]interface{}{}
@@ -426,6 +428,7 @@ func insertDocumentChangeAudit(ctx context.Context, audit documentChangeAudit) e
 	}
 
 	_, err = postgresutil.Exec(ctx, `INSERT INTO rag.document_change_audits (
+	audit_id,
 	document_pk,
 	document_id,
 	bucket_name,
@@ -440,8 +443,8 @@ func insertDocumentChangeAudit(ctx context.Context, audit documentChangeAudit) e
 	processing_version,
 	metadata
 ) VALUES (
-	(SELECT id FROM rag.documents WHERE document_id = $1),
 	$1,
+	(SELECT id FROM rag.documents WHERE document_id = $2),
 	$2,
 	$3,
 	$4,
@@ -452,8 +455,10 @@ func insertDocumentChangeAudit(ctx context.Context, audit documentChangeAudit) e
 	$9,
 	$10,
 	$11,
-	$12::jsonb
+	$12,
+	$13::jsonb
 )`,
+		auditID,
 		audit.DocumentID,
 		audit.Bucket,
 		audit.ObjectKey,
