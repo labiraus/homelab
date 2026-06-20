@@ -45,6 +45,7 @@ Important environment variables:
 
 - `POSTGRES_*`: assistant state storage
 - `MCP_BASE_URL`: Labiraus MCP endpoint, usually `http://homelab-mcp.homelab.svc.cluster.local/mcp`
+- `MCP_CONTEXT_TIMEOUT_SECONDS`: timeout for the read-only MCP context lookup before the assistant falls back to a degraded reply, default `5`
 - `ORCHESTRATOR_BASE_URL`: internal orchestrator endpoint
 - `LLM_BASE_URL`: OpenAI-compatible base URL, including `/v1`
 - `LLM_MODEL`: served model name, defaulting to `Qwen/Qwen2.5-0.5B-Instruct`

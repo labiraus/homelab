@@ -77,6 +77,8 @@ generatedSecrets:
           key: password
       MCP_BASE_URL:
         value: "http://homelab-mcp.homelab.svc.cluster.local/mcp"
+      MCP_CONTEXT_TIMEOUT_SECONDS:
+        value: "5"
       ORCHESTRATOR_BASE_URL:
         value: "http://homelab-orchestrator.homelab.svc.cluster.local"
       LLM_BASE_URL:

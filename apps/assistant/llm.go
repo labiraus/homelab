@@ -120,6 +120,9 @@ func runAssistantChat(ctx context.Context, userEmail string, conversation conver
 }
 
 func callDocumentsContext(ctx context.Context, userEmail string, query string) documentContextResult {
+	requestCtx, cancel := context.WithTimeout(ctx, mcpContextTimeout())
+	defer cancel()
+
 	body := map[string]any{
 		"jsonrpc": "2.0",
 		"id":      "assistant-context",
@@ -139,7 +142,7 @@ func callDocumentsContext(ctx context.Context, userEmail string, query string) d
 	}
 
 	endpoint := strings.TrimRight(envOrDefault("MCP_BASE_URL", "http://homelab-mcp.homelab.svc.cluster.local/mcp"), "/")
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(bodyBytes))
+	request, err := http.NewRequestWithContext(requestCtx, http.MethodPost, endpoint, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return documentContextResult{IsError: true, Error: err.Error()}
 	}
@@ -349,6 +352,14 @@ func llmMaxTokens() int {
 		return 768
 	}
 	return value
+}
+
+func mcpContextTimeout() time.Duration {
+	value, err := strconv.Atoi(strings.TrimSpace(os.Getenv("MCP_CONTEXT_TIMEOUT_SECONDS")))
+	if err != nil || value <= 0 {
+		return 5 * time.Second
+	}
+	return time.Duration(value) * time.Second
 }
 
 func envOrDefault(key string, fallback string) string {
