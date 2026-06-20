@@ -630,7 +630,8 @@ Deliverables:
 Current status:
 
 - `make ragas-chunking-eval` is the preferred quality gate for retrieval changes that affect chunking, embeddings, ranking, or metadata filtering
-- RAGAS reports include citation-confidence fields for every retrieved chunk: source URI, object key, content type, chunk index, processing version, metadata, and rendered citation label data
+- the tracked example gold-case file now covers exact-identity, relationship, metadata-filter, near-neighbor, and HTML-citation starter patterns for building the private eval set
+- RAGAS reports include citation-confidence fields for every retrieved chunk: source URI, object key, content type, chunk index, processing version, document metadata, chunk metadata, and rendered citation label data
 - docs explain how local deterministic embeddings relate to stored `vector(384)` rows and when to baseline separately for non-local embedding models
 - docs define a private gold-case starter shape and recommend permissive first thresholds before raising the gate toward `--min-id-recall 0.8 --min-context-recall 0.8`
 - citation regressions are treated as retrieval-quality bugs, not only UI presentation issues
@@ -646,9 +647,10 @@ Deliverables:
 
 Current status:
 
-- current `text/*` behavior remains the stable baseline
-- `docs/FileTypeExpansion.md` defines the policy gate for HTML, PDF, Office, and other non-text ingestion work before implementation
-- future PDF, HTML, Office, or other file-type work has explicit extraction, failure, unsupported-state, citation, and runtime dependency policies before implementation
+- the stable ingestion baseline remains UTF-8 `text/*`, and `processor` now performs HTML-aware extraction for `text/html`
+- HTML extraction strips boilerplate markup, preserves visible text, alt text, and heading/title context, and records chunk-level citation metadata in `rag.chunks.chunk_metadata`
+- retrieval surfaces and RAGAS reports surface that chunk metadata so citation labels can include HTML title and heading paths without changing stable citation IDs
+- `docs/FileTypeExpansion.md` now records HTML as implemented policy while PDF, Office, and other non-text types remain gated candidates
 - unsupported objects continue to be visible in inventory rather than disappearing from reconciliation results
 
 ### Phase 33 — Operations Hardening And Retention Policy
@@ -665,6 +667,13 @@ Current status:
 
 - `runbooks/troubleshooting.md` documents diagnosis and recovery steps for document processing failures, stuck lifecycle states, NATS/KEDA lag, vLLM startup or Gateway failures, assistant proposal recovery, retention, and backup/recovery checks
 - `docs/RetentionAndRecovery.md` records the preserve-by-default retention policy, cleanup gate, recovery order, and post-recovery verification checks
+- `make document-platform-checks` provides a repo-native operator check entrypoint for the cluster-side portions of lifecycle, worker, and gateway health
+- `make document-platform-checks` now also surfaces CNPG `ContinuousArchiving` status, current `ScheduledBackup` / `Backup` rows, and recent WAL archive failures so broken Postgres recovery coverage is visible in the default operator pass
+- `make minio-host-checks` provides a repo-native SSH check for the external `svartalfheim` MinIO mount, service environment, and recent host-side storage errors so CNPG archive failures can be tied back to the external object-store host
+- `sql/rag/ops_dashboard_queries.pgsql` provides repo-native Postgres checks for lifecycle throughput, recent processor failures, current document state, and assistant proposal outcomes
+- the `helm/data/postgres` chart now declares a repo-managed `ScheduledBackup` resource for `app-db` alongside the existing WAL archive configuration so base backups are part of the default recovery baseline
+- recovery docs now explicitly require `ContinuousArchiving=True`, at least one `ScheduledBackup`, and no repeated WAL archive `SlowDownWrite` failures before Postgres restore coverage is treated as healthy
+- live recovery rehearsal is still not proven until that chart change is actually reconciled and the external MinIO `SlowDownWrite` archiving failures are cleared
 - minimum dashboard/check expectations are documented around lifecycle throughput, processor failures, worker lag, retrieval latency, assistant proposal outcomes, and vLLM health
 - retention and rollback expectations are explicit before enabling destructive cleanup or lifecycle expiration
 - observability work reinforces the existing service boundaries instead of adding a separate workflow engine

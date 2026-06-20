@@ -43,6 +43,7 @@ type documentSearchRow struct {
 	ChunkID           int64
 	ChunkIndex        int
 	ChunkText         string
+	ChunkMetadataRaw  string
 	ProcessingVersion int
 	Distance          float64
 	LastProcessedAt   *time.Time
@@ -338,6 +339,7 @@ func queryDocumentSearch(
 			&row.ChunkID,
 			&row.ChunkIndex,
 			&row.ChunkText,
+			&row.ChunkMetadataRaw,
 			&row.ProcessingVersion,
 			&row.Distance,
 			&row.LastProcessedAt,
@@ -346,6 +348,10 @@ func queryDocumentSearch(
 		}
 
 		metadata, err := decodeDocumentMetadata(row.MetadataRaw)
+		if err != nil {
+			return nil, err
+		}
+		chunkMetadata, err := decodeDocumentMetadata(row.ChunkMetadataRaw)
 		if err != nil {
 			return nil, err
 		}
@@ -362,7 +368,8 @@ func queryDocumentSearch(
 			ProcessingVersion: row.ProcessingVersion,
 			Distance:          row.Distance,
 			Similarity:        maxSimilarity(row.Distance),
-			Citation:          buildDocumentCitation(row),
+			ChunkMetadata:     chunkMetadata,
+			Citation:          buildDocumentCitation(row, chunkMetadata),
 		}
 		if row.LastProcessedAt != nil && !row.LastProcessedAt.IsZero() {
 			hit.LastProcessedAt = row.LastProcessedAt.UTC().Format(time.RFC3339)
@@ -384,6 +391,7 @@ SELECT
 	c.id,
 	c.chunk_index,
 	c.chunk_text,
+	COALESCE(to_jsonb(c)->>'chunk_metadata', '{}'),
 	c.processing_version,
 	e.vector <=> $1::vector AS distance,
 	d.last_processed_at
@@ -488,18 +496,74 @@ func assembleDocumentContext(query string, hits []DocumentSearchHit, maxChars in
 	}
 }
 
-func buildDocumentCitation(row documentSearchRow) *DocumentCitation {
+func buildDocumentCitation(row documentSearchRow, chunkMetadata map[string]any) *DocumentCitation {
 	source := defaultString(row.SourceURI, row.DocumentID)
 	labelSource := defaultString(row.ObjectKey, row.DocumentID)
 	return &DocumentCitation{
 		ID:                fmt.Sprintf("%s#chunk-%d", source, row.ChunkIndex),
-		Label:             fmt.Sprintf("%s chunk %d", labelSource, row.ChunkIndex),
+		Label:             formatDocumentCitationLabel(labelSource, row.ChunkIndex, chunkMetadata),
 		SourceURI:         row.SourceURI,
 		ObjectKey:         row.ObjectKey,
 		ChunkID:           row.ChunkID,
 		ChunkIndex:        row.ChunkIndex,
 		ProcessingVersion: row.ProcessingVersion,
+		ChunkMetadata:     chunkMetadata,
 	}
+}
+
+func formatDocumentCitationLabel(labelSource string, chunkIndex int, chunkMetadata map[string]any) string {
+	location := citationLocation(chunkMetadata)
+	if location == "" {
+		return fmt.Sprintf("%s chunk %d", labelSource, chunkIndex)
+	}
+	return fmt.Sprintf("%s %s chunk %d", labelSource, location, chunkIndex)
+}
+
+func citationLocation(chunkMetadata map[string]any) string {
+	if len(chunkMetadata) == 0 {
+		return ""
+	}
+
+	title := strings.TrimSpace(defaultString(documentMetadataString(chunkMetadata["title"]), ""))
+	headingPath := documentMetadataStringSlice(chunkMetadata["headingPath"])
+	switch {
+	case title != "" && len(headingPath) > 0:
+		if strings.EqualFold(title, headingPath[0]) {
+			return strings.Join(headingPath, " > ")
+		}
+		return title + " > " + strings.Join(headingPath, " > ")
+	case len(headingPath) > 0:
+		return strings.Join(headingPath, " > ")
+	default:
+		return title
+	}
+}
+
+func documentMetadataString(value any) string {
+	typed, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return typed
+}
+
+func documentMetadataStringSlice(value any) []string {
+	rawValues, ok := value.([]any)
+	if !ok {
+		if typed, ok := value.([]string); ok {
+			return typed
+		}
+		return nil
+	}
+
+	values := []string{}
+	for _, entry := range rawValues {
+		text := strings.TrimSpace(documentMetadataString(entry))
+		if text != "" {
+			values = append(values, text)
+		}
+	}
+	return values
 }
 
 func embeddingsConfigured() bool {

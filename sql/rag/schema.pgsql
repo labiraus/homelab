@@ -103,10 +103,14 @@ CREATE TABLE IF NOT EXISTS rag.chunks (
     chunk_index INTEGER NOT NULL,
     chunk_text TEXT NOT NULL,
     token_count INTEGER NOT NULL,
+    chunk_metadata JSONB,
     content_hash TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (document_pk, processing_version, chunk_index)
 );
+
+ALTER TABLE IF EXISTS rag.chunks
+    ADD COLUMN IF NOT EXISTS chunk_metadata JSONB;
 
 CREATE INDEX IF NOT EXISTS rag_chunks_document_pk_idx
     ON rag.chunks (document_pk);

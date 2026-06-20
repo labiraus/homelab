@@ -4,7 +4,7 @@ LAYER ?=
 OVERLAYS ?=
 TF_ARGS ?=
 
-.PHONY: plan apply destroy plan-destroy refresh-kubeconfig refresh-postgres-env refresh-ansible-secrets bootstrap-svartalfheim-storage postgres-refresh postgres ragas-chunking-eval vllm-gateway-smoke ansible-minio-host ansible-minio-state ansible-minecraft-vm ansible-kubernetes-worker
+.PHONY: plan apply destroy plan-destroy refresh-kubeconfig refresh-postgres-env refresh-ansible-secrets bootstrap-svartalfheim-storage postgres-refresh postgres ragas-chunking-eval document-platform-checks minio-host-checks vllm-gateway-smoke ansible-minio-host ansible-minio-state ansible-minecraft-vm ansible-kubernetes-worker
 
 RAGAS_CASES ?= evals/ragas/chunking_cases.jsonl
 RAGAS_ARGS ?=
@@ -153,6 +153,12 @@ ragas-chunking-eval:
 		exit 1; \
 	fi; \
 	python3 evals/ragas/chunking_eval.py --cases "$(RAGAS_CASES)" $(RAGAS_ARGS)
+
+document-platform-checks:
+	@bash ./scripts/document-platform-checks.sh
+
+minio-host-checks:
+	@bash ./scripts/minio-host-checks.sh
 
 vllm-gateway-smoke:
 	@bash ./scripts/vllm-gateway-smoke.sh

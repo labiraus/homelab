@@ -3,7 +3,7 @@ import { Client } from "minio";
 import type { ProcessorConfig } from "./config.js";
 
 export interface DocumentStorage {
-	readTextDocument(bucket: string, objectKey: string): Promise<string>;
+	readDocument(bucket: string, objectKey: string): Promise<Buffer>;
 }
 
 export function createDocumentStorage(config: ProcessorConfig): DocumentStorage {
@@ -18,7 +18,7 @@ export function createDocumentStorage(config: ProcessorConfig): DocumentStorage 
 	});
 
 	return {
-		async readTextDocument(bucket: string, objectKey: string): Promise<string> {
+		async readDocument(bucket: string, objectKey: string): Promise<Buffer> {
 			const resolvedBucket = bucket || config.minioBucket;
 			const stream = await client.getObject(resolvedBucket, objectKey);
 			const chunks: Buffer[] = [];
@@ -27,7 +27,7 @@ export function createDocumentStorage(config: ProcessorConfig): DocumentStorage 
 				chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
 			}
 
-			return decodeUtf8Text(Buffer.concat(chunks));
+			return Buffer.concat(chunks);
 		},
 	};
 }

@@ -47,7 +47,7 @@ If queued exists but started does not:
 
 ```bash
 kubectl -n homelab get deploy,pod -l app.kubernetes.io/name=processor -o wide
-kubectl -n keda get scaledobject
+kubectl -n homelab get scaledobject
 kubectl -n nats get pod,svc
 kubectl -n nats logs statefulset/nats --since=30m --tail=200
 ```
@@ -68,8 +68,8 @@ The processor chart scales from JetStream consumer lag through KEDA.
 Checks:
 
 ```bash
-kubectl -n keda get scaledobject
-kubectl -n keda describe scaledobject homelab-processor
+kubectl -n homelab get scaledobject
+kubectl -n homelab describe scaledobject homelab-processor
 kubectl -n homelab get hpa,deploy,pod -l app.kubernetes.io/name=processor
 kubectl -n nats get svc
 ```
@@ -162,6 +162,52 @@ kubectl -n data get backup,scheduledbackup
 kubectl -n data get secret cnpg-backup-s3
 ```
 
+Expected baseline:
+
+- `app-db` reports `type=ContinuousArchiving`, `status=True` in `status.conditions`.
+- at least one `ScheduledBackup` resource exists for `app-db`; on-demand `Backup` rows may be absent between rehearsals.
+
+If `ContinuousArchiving=False`, inspect the current WAL archive failure before trusting recovery coverage:
+
+```bash
+kubectl -n data logs app-db-1 --tail=200 | rg "barman-cloud-wal-archive|SlowDownWrite|PutObject|archive command failed"
+```
+
+Current known bad reading:
+
+- `SlowDownWrite` from `barman-cloud-wal-archive` means the external MinIO target is refusing WAL writes.
+- while that condition is false, WAL-only recovery coverage is broken even if the cluster itself stays Ready.
+- if `ScheduledBackup` is also absent, the cluster does not currently have the base-backup coverage needed for a real restore rehearsal.
+
+When the archive error points at external MinIO, inspect the host path directly:
+
+```bash
+make minio-host-checks
+```
+
+Current known host-side failure:
+
+- if `/srv/minio` is not mounted, MinIO falls back to the Pi root filesystem directory instead of the external data disk
+- MinIO then starts logging `Storage resources are insufficient for the write operation` and `no online disks found`, which lines up with CNPG `SlowDownWrite` failures from `barman-cloud-wal-archive`
+
+Safe recovery order after confirming the disk device is still present:
+
+```bash
+ssh svartalfheim 'lsblk -f'
+ssh svartalfheim 'sudo mount /srv/minio'
+ssh svartalfheim 'mount | grep "/srv/minio" && df -h /srv/minio && ls -ld /srv/minio /srv/minio/minio-data'
+ssh svartalfheim 'sudo systemctl restart minio && systemctl status --no-pager minio | sed -n "1,20p"'
+make minio-host-checks
+make document-platform-checks
+```
+
+Post-recovery readout should change in this order:
+
+- `/srv/minio` shows as mounted instead of `not-mounted`
+- MinIO host errors stop reporting `Storage resources are insufficient` / `no online disks found`
+- CNPG `ContinuousArchiving` returns to `True`
+- `ScheduledBackup` and later `Backup` rows become meaningful again once the chart change is live
+
 MinIO:
 
 ```bash
@@ -172,7 +218,7 @@ Secrets:
 
 ```bash
 kubectl -n flux-system get secret ghcr-creds
-kubectl -n homelab get secret minio-app-credentials assistant-config external-config mcp-config orchestrator-config processor-config
+kubectl -n homelab get secret documents-minio-credentials assistant-config external-data-connections mcp-data-connections orchestrator-config processor-config
 kubectl -n data get secret app-db-bootstrap cnpg-backup-s3
 ```
 
@@ -185,7 +231,13 @@ Recovery rehearsal should prove:
 
 ## Minimum Operator Dashboard Checks
 
-Until dedicated dashboards exist, use these checks:
+Until dedicated dashboards exist, start with:
+
+```bash
+make document-platform-checks
+```
+
+Then use these checks:
 
 - ingestion throughput: recent `documents.events.processor.completed` lifecycle events
 - processor failures: recent `documents.events.processor.failed` events and processor logs
@@ -193,5 +245,9 @@ Until dedicated dashboards exist, use these checks:
 - retrieval latency: `external` and `mcp` request logs plus `/metrics` when scraped
 - assistant proposal outcomes: counts by `assistant.file_proposals.status`
 - vLLM health: `make vllm-gateway-smoke`, vLLM pod restarts, and Gateway proxy readiness
+
+`make document-platform-checks` now also prints the CNPG `ContinuousArchiving` condition, current `ScheduledBackup` / `Backup` rows, and recent WAL archive failures so the default operator pass catches broken Postgres recovery coverage earlier.
+
+The repo also includes `sql/rag/ops_dashboard_queries.pgsql` for the Postgres-backed portions of these checks. Run it through the local `psql` workflow after opening the usual app-db port-forward.
 
 These checks reinforce the current service boundaries. Do not add a separate workflow engine for observability alone.

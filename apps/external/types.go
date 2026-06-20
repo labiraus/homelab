@@ -99,13 +99,14 @@ type DocumentContextRequest struct {
 }
 
 type DocumentCitation struct {
-	ID                string `json:"id"`
-	Label             string `json:"label"`
-	SourceURI         string `json:"sourceUri,omitempty"`
-	ObjectKey         string `json:"objectKey,omitempty"`
-	ChunkID           int64  `json:"chunkId"`
-	ChunkIndex        int    `json:"chunkIndex"`
-	ProcessingVersion int    `json:"processingVersion"`
+	ID                string         `json:"id"`
+	Label             string         `json:"label"`
+	SourceURI         string         `json:"sourceUri,omitempty"`
+	ObjectKey         string         `json:"objectKey,omitempty"`
+	ChunkID           int64          `json:"chunkId"`
+	ChunkIndex        int            `json:"chunkIndex"`
+	ProcessingVersion int            `json:"processingVersion"`
+	ChunkMetadata     map[string]any `json:"chunkMetadata,omitempty"`
 }
 
 type DocumentSearchHit struct {
@@ -121,6 +122,7 @@ type DocumentSearchHit struct {
 	Distance          float64           `json:"distance"`
 	Similarity        float64           `json:"similarity"`
 	LastProcessedAt   string            `json:"lastProcessedAt,omitempty"`
+	ChunkMetadata     map[string]any    `json:"chunkMetadata,omitempty"`
 	Citation          *DocumentCitation `json:"citation,omitempty"`
 }
 

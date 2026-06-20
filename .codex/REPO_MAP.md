@@ -50,7 +50,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - installable charts and chart libraries
   - `workloads/`: misc Flux-managed workloads outside the core platform
 - `scripts/`
-  - operational helper scripts such as kubeconfig refresh and the vLLM Envoy AI Gateway smoke test
+  - operational helper scripts such as kubeconfig refresh, document-platform checks, MinIO host checks, and the vLLM Envoy AI Gateway smoke test
 - `sql/`
   - SQL snippets and bootstrap scripts, including the `rag` schema foundation
 - `values/`
@@ -149,6 +149,7 @@ Current behavior note:
 
 - Working architecture and phase plan: `.codex/REPO_PLAN.md`
 - Initial document/control-plane schema: `sql/rag/schema.pgsql`
+- Operator dashboard queries: `sql/rag/ops_dashboard_queries.pgsql`
 - Assistant state schema: `sql/assistant/schema.pgsql`
 - Chunking quality checks: `evals/ragas/`
 - Async ingestion design note: `docs/async-ingestion.md`

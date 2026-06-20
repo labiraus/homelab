@@ -22,12 +22,26 @@ export interface DocumentLifecycleEvent {
 	processingVersion?: number;
 	occurredAt: string;
 	error?: string;
+	warnings?: string[];
+}
+
+export interface ChunkMetadata {
+	sourceType?: string;
+	title?: string;
+	headingPath?: string[];
+	warnings?: string[];
+}
+
+export interface ExtractedSegment {
+	text: string;
+	metadata?: ChunkMetadata;
 }
 
 export interface Chunk {
 	index: number;
 	text: string;
 	tokenCount: number;
+	metadata?: ChunkMetadata;
 }
 
 export interface EmbeddingResult {

@@ -9,8 +9,8 @@ It consumes NATS JetStream events, claims pending document work from Postgres, f
 The current lifecycle for a claimed job is:
 
 1. claim `pending -> processing`
-2. load the referenced `text/*` object from MinIO
-3. chunk and embed the document text
+2. load the referenced supported object from MinIO
+3. extract chunkable text from the raw object, including HTML-specific visible-text extraction for `text/html`
 4. write `rag.chunks` and `rag.embeddings`
 5. finalize the owning `rag.documents` row as `processed`
 
@@ -22,4 +22,6 @@ Embeddings are stored in `rag.embeddings.vector` as `vector(384)` so the pgvecto
 
 When `EMBEDDING_MODEL=local-embeddings` and `EMBEDDING_ENDPOINT` is empty, the worker uses the built-in deterministic 384-dimensional local embedding function. Set `EMBEDDING_ENDPOINT` only when routing to an actual OpenAI-compatible embeddings service.
 
-The current ingestion baseline is `text/*`. Future file-type expansion must follow `docs/FileTypeExpansion.md`: document extraction rules, failure handling, citation policy, tests, and runtime dependencies before changing the worker container.
+The current ingestion baseline is UTF-8 `text/*`, with HTML-aware extraction for `text/html`. `rag.chunks.chunk_metadata` now carries chunk-level citation hints such as HTML titles, heading paths, and extraction warnings so retrieval surfaces can render richer labels without breaking older plain-text chunks.
+
+Future file-type expansion must still follow `docs/FileTypeExpansion.md`: document extraction rules, failure handling, citation policy, tests, and runtime dependencies before changing the worker container.

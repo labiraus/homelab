@@ -1,6 +1,6 @@
 # File-Type Expansion Policy
 
-The current stable ingestion baseline is `text/*`.
+The current stable ingestion baseline is UTF-8 `text/*`, with HTML-aware extraction enabled for `text/html`.
 
 Non-text objects discovered during bucket reconciliation must remain visible in `rag.documents` with status `unsupported` until an extraction policy exists for that type. Do not hide unsupported files from inventory, and do not queue them into `processor` just because a parser package exists.
 
@@ -23,15 +23,17 @@ Use these meanings consistently:
 
 Unsupported objects should keep bucket, object key, source URI, content type, size, last modified time, ETag/version marker, reconciliation metadata, and latest lifecycle summary fields.
 
-## Candidate Type Policies
+## Supported HTML Policy
 
 ### HTML
 
-- Treat `text/html` and `.html`/`.htm` as the first likely expansion after text.
+- `text/html` and `.html`/`.htm` are now the first implemented expansion after plain text.
 - Extract visible text, title, headings, link text, and meaningful alt text.
 - Remove scripts, styles, navigation boilerplate, and repeated layout chrome where practical.
-- Preserve source URI, object key, processing version, and section-ish anchors in chunk metadata once chunk metadata exists.
-- Failed parsing should mark the processing version `failed`; malformed but partially readable HTML can be `processed` only if the extracted text is non-empty and the lifecycle payload records a warning.
+- Preserve source URI, object key, processing version, and section-ish anchors in `rag.chunks.chunk_metadata` so retrieval surfaces can render richer citation labels.
+- Failed parsing should mark the processing version `failed`; malformed but partially readable HTML can be `processed` only when the extracted text is non-empty and the lifecycle payload records the extraction warning.
+
+## Candidate Type Policies
 
 ### PDF
 

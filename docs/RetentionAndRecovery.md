@@ -34,6 +34,33 @@ Recover in this order:
 
 Derived state can be rebuilt from raw MinIO objects, but audit history and user-approved assistant state live in Postgres and should be treated as primary data.
 
+## Backup Baseline
+
+Postgres recovery rehearsal assumes the repo-managed CNPG chart keeps both of these paths alive:
+
+- WAL archiving to the external MinIO bucket through the `cnpg-backup-s3` secret
+- a `ScheduledBackup` resource for the `app-db` cluster so base backups exist alongside WAL files
+
+Check that baseline before treating Postgres recovery as covered:
+
+```bash
+kubectl -n data get cluster app-db -o yaml
+kubectl -n data get scheduledbackup
+kubectl -n data get backup
+```
+
+The repo-native shortcut for this baseline is:
+
+```bash
+make document-platform-checks
+```
+
+Do not count this baseline as healthy unless:
+
+- `status.conditions` on `app-db` shows `type=ContinuousArchiving`, `status=True`
+- at least one `ScheduledBackup` exists for `app-db`
+- the current WAL archive logs do not show repeated `SlowDownWrite` / `PutObject` failures against `svartalfheim`
+
 ## Verification
 
 After recovery:
@@ -42,5 +69,6 @@ After recovery:
 - run `documents.history.list` for a known document
 - run `documents.search` for a known gold query
 - run `make ragas-chunking-eval` against the private gold cases
+- run `make document-platform-checks`
 - run `make vllm-gateway-smoke`
 - open the Assistant tab and verify conversations, memories, proposals, and audit rows load for the authenticated user

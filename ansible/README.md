@@ -125,6 +125,14 @@ make ansible-minio-state
 
 The `documents` bucket is versioned so assistant-approved edits and reverts have raw-object rollback points. Its current-object lifecycle remains disabled until a noncurrent-version retention policy is chosen.
 
+Inspect the live `svartalfheim` mount and MinIO service state without changing host config:
+
+```bash
+make minio-host-checks
+```
+
+Use this first when CNPG WAL archiving starts returning `SlowDownWrite`. A known failure mode is the `/srv/minio` NTFS mount going inactive, which leaves MinIO serving from the root-filesystem directory instead of the external disk and produces host-side errors such as `Storage resources are insufficient for the write operation` or `no online disks found`.
+
 Configure the dedicated Minecraft VM:
 
 ```bash

@@ -104,6 +104,7 @@ The current processor lifecycle is:
 - claim `pending -> processing`
 - fetch the referenced MinIO object
 - decode UTF-8 text for supported `text/*` documents
+- extract visible text, title, headings, alt text, and chunk-level citation metadata from `text/html` documents before chunking
 - create chunks and embeddings
 - mark the row `processed`
 

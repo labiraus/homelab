@@ -15,6 +15,12 @@ cp evals/ragas/chunking_cases.example.jsonl evals/ragas/chunking_cases.jsonl
 - `reference_contexts`: source passage text for non-LLM RAGAS context precision/recall
 - `prefix`, `documentId`, `metadata`, `limit`: optional retrieval filters matching `documents.search`
 
+Context text is compared after light normalization so repo-local markup does not dominate the score:
+
+- markdown links such as `[label](url)` are scored as `label`
+- wiki links such as `[[../Places/Monastery at Tristram]]` are scored as `Monastery at Tristram`
+- repeated whitespace is collapsed before scoring
+
 Install and run:
 
 ```bash
@@ -36,6 +42,9 @@ Prefer 5-10 private gold cases before changing chunking, embedding dimensions, r
 - one negative or near-neighbor query where the expected source should outrank a similarly named document
 
 Use `documents.search` or the UI Search tab to capture the stable citation ID for each expected chunk. The ID format used by this harness is `sourceUri#chunk-N`, matching the citation IDs returned by the browser and MCP retrieval surfaces.
+Set `limit` intentionally per case. For exact-answer or citation-top-hit checks, `limit: 1` is often the clearest signal. Use wider limits when you explicitly want to measure tail precision or multi-chunk recall.
+For chunk-level context precision and recall, prefer the current processed `chunk_text` over a shorter paraphrase or operator summary. The non-LLM RAGAS context metrics are much more stable when the gold text matches the chunk granularity that retrieval actually returns.
+When a case looks suspicious, rerun with `--include-contexts --output /tmp/ragas.report.json` so the saved report contains the retrieved raw chunk text for inspection.
 
 The JSON report intentionally includes citation-confidence fields for every retrieved chunk:
 
@@ -45,6 +54,7 @@ The JSON report intentionally includes citation-confidence fields for every retr
 - `chunk_index`
 - `processing_version`
 - `metadata`
+- `chunk_metadata`
 - `citation.id`, `citation.label`, and the source/chunk/version fields used to render it
 
 Keep the first private baseline permissive while the gold set is still small, for example:

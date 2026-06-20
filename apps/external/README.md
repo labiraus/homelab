@@ -52,8 +52,8 @@ The browser-facing path is published through `oauth2-proxy` at `/api/...`, and t
 - `/api/documents/upload` accepts multipart uploads for the current folder view
 - `/api/documents/inventory` returns Postgres-backed document inventory rows, processing versions, latest lifecycle summary fields, and curated metadata
 - `/api/documents/history` returns the durable Postgres-backed lifecycle history for a document, optionally narrowed to one processing version
-- `/api/documents/search` embeds a natural-language query, runs pgvector similarity search against the current processed chunk version, and returns ranked matches with document metadata and citation objects for the source URI plus chunk identity
-- `/api/documents/context` uses the same retrieval path and assembles a compact context block with `[1]`, `[2]` style references plus citation objects
+- `/api/documents/search` embeds a natural-language query, runs pgvector similarity search against the current processed chunk version, and returns ranked matches with document metadata, chunk metadata, and citation objects for the source URI plus chunk identity
+- `/api/documents/context` uses the same retrieval path and assembles a compact context block with `[1]`, `[2]` style references plus citation objects and any available chunk-level citation hints
 - `/api/documents/create-text` proxies text-object creation to `orchestrator` `POST /documents/create-text`
 - `/api/documents/curation` proxies metadata-only updates to `orchestrator` `POST /documents/curation`
 - `/api/documents/edit-text` proxies guarded text-object replacement requests to `orchestrator` `POST /documents/edit-text`
@@ -64,6 +64,8 @@ The browser-facing path is published through `oauth2-proxy` at `/api/...`, and t
 Inventory, search, and context requests accept optional `documentId`, folder-like `prefix`, and `metadata` filters. Inventory also accepts `status`. The `metadata` filter is an exact-match JSON object applied to `rag.documents.metadata`, for example `{"metadata":{"tag":"runbook"}}`.
 
 History requests require `documentId` and accept optional `processingVersion` and `limit` fields. Results are read from `rag.document_lifecycle_events`, while `rag.documents.last_event_*` remains the quick inventory summary.
+
+When `processor` extracts HTML, retrieval hits can also include chunk metadata such as the source page title and heading path. Citation labels use that metadata when available, but older text chunks still fall back to the existing `path chunk N` label shape.
 
 Control action requests require `ORCHESTRATOR_BASE_URL` and preserve the orchestrator response status and JSON body. `external` validates method, configuration, and JSON shape, but the orchestrator remains responsible for document existence checks, raw text writes, version decisions, metadata persistence, bucket reconciliation, and queueing.
 

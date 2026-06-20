@@ -20,7 +20,7 @@ The current ingestion slice is reference-based:
 - `orchestrator` accepts MinIO document references, not inline text payloads
 - accepted documents are currently limited to `text/*`
 - `rag.documents.status` moves through `pending`, `processing`, and `processed`
-- `processor` reads the raw object from MinIO and writes chunks plus embeddings back to Postgres
+- `processor` reads the raw object from MinIO, extracts chunkable text, and writes chunks plus embeddings back to Postgres
 - `external` exposes document inventory for browser operators to inspect reconciliation and processing state
 - `external` exposes semantic search for the UI
 - `mcp` exposes document inventory and semantic search for agents
@@ -48,9 +48,10 @@ The current ingestion slice is reference-based:
 - `ui` can update curated metadata, perform guarded raw text edits, and queue reprocessing for selected search results through `external` proxy routes
 - `ui` automatically loads version-specific durable lifecycle history after browser actions that queue processing
 - retrieval responses search the document's current processed chunk version and include citation objects that identify the source URI and chunk identity for each match
+- HTML chunks now persist chunk-level citation metadata such as source title and heading path in `rag.chunks.chunk_metadata`, and retrieval surfaces reuse that metadata when rendering citation labels
 - `local-embeddings` uses a built-in deterministic 384-dimensional embedding function when no external embedding endpoint is configured
 
-File-type expansion beyond `text/*` is intentionally gated by `docs/FileTypeExpansion.md`. The next extractor should preserve MinIO as raw truth, keep unsupported objects visible in inventory, record explicit failure modes in lifecycle history, and add source-location citation metadata without breaking existing text citations.
+File-type expansion beyond the current UTF-8 `text/*` baseline is intentionally gated by `docs/FileTypeExpansion.md`. HTML is now the first implemented extractor beyond plain text: it strips boilerplate markup, preserves visible text, records extraction warnings in lifecycle history, and attaches title/heading citation metadata without breaking existing text citations.
 
 ## Maintenance Focus
 
@@ -66,7 +67,7 @@ The active follow-up work is no longer to add separate RAG applications. The cur
 
 Use `evals/ragas` to score whether the current processed chunks retrieve the right gold context for representative queries.
 The harness reads the live `rag.documents`, `rag.chunks`, and `rag.embeddings` rows through Postgres, embeds each query with the same local embedding function used by the processor when `EMBEDDING_MODEL=local-embeddings`, and evaluates the retrieved contexts with RAGAS retrieval metrics.
-Reports include citation-confidence fields for every retrieved chunk: source URI, object key, content type, chunk index, processing version, metadata, and the rendered citation label fields used by the UI and MCP surfaces.
+Reports include citation-confidence fields for every retrieved chunk: source URI, object key, content type, chunk index, processing version, document metadata, chunk metadata, and the rendered citation label fields used by the UI and MCP surfaces.
 
 Setup:
 
@@ -86,7 +87,7 @@ Run it through the repo target, which reads the cluster Postgres credentials and
 make ragas-chunking-eval RAGAS_ARGS="--min-id-recall 0.8 --min-context-recall 0.8"
 ```
 
-The script prints per-case RAGAS scores and returns a non-zero exit code when a configured threshold is missed. Use low thresholds such as `0.6` while building the first 5-10 private gold cases, then raise the regular gate toward `--min-id-recall 0.8 --min-context-recall 0.8` once the baseline is understood. Treat missing expected citation IDs, source URIs, or processing versions as retrieval-quality regressions.
+The script prints per-case RAGAS scores and returns a non-zero exit code when a configured threshold is missed. Use low thresholds such as `0.6` while building the first 5-10 private gold cases, then raise the regular gate toward `--min-id-recall 0.8 --min-context-recall 0.8` once the baseline is understood. Treat missing expected citation IDs, source URIs, processing versions, or chunk-level citation metadata needed for rendered labels as retrieval-quality regressions.
 
 ```mermaid
 flowchart LR

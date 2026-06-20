@@ -5,6 +5,7 @@ import { Pool } from "pg";
 
 import { chunkText } from "./chunking.js";
 import { loadConfig } from "./config.js";
+import { extractDocumentContent } from "./extractor.js";
 import {
 	buildLifecycleEvent,
 	DOCUMENT_EVENT_SUBJECTS,
@@ -78,8 +79,9 @@ async function main(): Promise<void> {
 						buildLifecycleEvent(DOCUMENT_EVENT_SUBJECTS.processorStarted, event),
 					);
 
-					const text = await storage.readTextDocument(event.bucket, event.objectKey);
-					const chunks = chunkText(text, {
+					const raw = await storage.readDocument(event.bucket, event.objectKey);
+					const extracted = extractDocumentContent(raw, event.contentType);
+					const chunks = chunkText(extracted.segments, {
 						chunkSize: config.chunkSize,
 						chunkOverlap: config.chunkOverlap,
 					});
@@ -93,7 +95,9 @@ async function main(): Promise<void> {
 					await emitLifecycleEventBestEffort(
 						pool,
 						nc,
-						buildLifecycleEvent(DOCUMENT_EVENT_SUBJECTS.processorCompleted, event),
+						buildLifecycleEvent(DOCUMENT_EVENT_SUBJECTS.processorCompleted, event, {
+							warnings: extracted.warnings,
+						}),
 					);
 					message.ack();
 				} catch (error) {

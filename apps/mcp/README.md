@@ -56,8 +56,8 @@ The live MinIO shape now supports:
 - `documents.reprocess` for orchestrator-backed requeueing of an existing inventory document at a newer processing version
 - `documents.inventory.list` for Postgres-backed document inventory, curated metadata, and processing-state reads
 - `documents.history.list` for durable Postgres-backed lifecycle history, optionally narrowed to one processing version
-- `documents.search` for pgvector semantic search over the current processed chunk version, including document metadata and citation objects with source URI and chunk identity
-- `documents.context` for pgvector-backed context assembly with stable citation references and citation objects
+- `documents.search` for pgvector semantic search over the current processed chunk version, including document metadata, chunk metadata, and citation objects with source URI and chunk identity
+- `documents.context` for pgvector-backed context assembly with stable citation references, citation objects, and richer chunk-aware labels when available
 - `minio.documents.listFolder` for folder-and-file views of a prefix
 - `minio.documents.listObjects` for flat object inventory
 - `homelab://mcp/minio/documents/objects/{objectKey}` for object reads, including binary-safe blob responses
@@ -69,6 +69,8 @@ The live MinIO shape now supports:
 The live Postgres shape also supports `homelab://mcp/postgres/auth/users/{email}` for auth-user lookups.
 
 `documents.inventory.list`, `documents.search`, and `documents.context` accept optional `documentId`, folder-like `prefix`, and exact-match `metadata` filters. Metadata filters are applied to `rag.documents.metadata`, so curated fields from `documents.curation.update` can narrow inventory and retrieval without introducing a separate graph or index service.
+
+When the processor has chunk-level citation hints, such as HTML titles or heading paths, the search and context payloads surface them under `chunkMetadata` and use them to render richer citation labels without changing the stable citation ID format.
 
 `tools/call` validates argument names, required fields, and primitive/object types against the selected tool's advertised input schema before execution. Tool schemas advertise strict top-level arguments with `additionalProperties: false`; unknown top-level arguments and malformed advertised fields return invalid-params errors so misspelled filters, malformed limits, missing request bodies, missing document IDs, or missing object keys do not silently fall back to broader defaults. Unknown nested body or metadata fields remain upstream-owned so service-specific payload evolution is not blocked by the MCP transport.
 

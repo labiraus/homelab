@@ -48,6 +48,8 @@ except ImportError as error:  # pragma: no cover - exercised by operator setup.
 LOCAL_EMBEDDING_MODEL = "local-embeddings"
 LOCAL_EMBEDDING_DIMENSIONS = 384
 DEFAULT_LIMIT = 8
+WIKI_LINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
+MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]+\)")
 
 
 @dataclass(frozen=True)
@@ -72,6 +74,7 @@ class RetrievedChunk:
     chunk_index: int
     processing_version: int
     metadata: dict[str, Any]
+    chunk_metadata: dict[str, Any]
     chunk_text: str
     distance: float
     similarity: float
@@ -343,6 +346,7 @@ SELECT
     c.chunk_index,
     c.processing_version,
     d.metadata::text,
+    COALESCE(to_jsonb(c)->>'chunk_metadata', '{}'),
     c.chunk_text,
     e.vector <=> %s::vector AS distance
 FROM rag.embeddings e
@@ -381,6 +385,7 @@ WHERE d.status = 'processed'
                 chunk_index,
                 processing_version,
                 metadata_raw,
+                chunk_metadata_raw,
                 chunk_text,
                 distance,
             ) = row
@@ -389,6 +394,10 @@ WHERE d.status = 'processed'
                 metadata = json.loads(metadata_raw or "{}")
             except json.JSONDecodeError:
                 metadata = {}
+            try:
+                chunk_metadata = json.loads(chunk_metadata_raw or "{}")
+            except json.JSONDecodeError:
+                chunk_metadata = {}
             chunks.append(
                 RetrievedChunk(
                     context_id=f"{source_uri or document_id}#chunk-{chunk_index}",
@@ -399,6 +408,7 @@ WHERE d.status = 'processed'
                     chunk_index=int(chunk_index),
                     processing_version=int(processing_version),
                     metadata=metadata,
+                    chunk_metadata=chunk_metadata,
                     chunk_text=chunk_text,
                     distance=distance,
                     similarity=max(0.0, min(1.0, 1.0 - distance)),
@@ -411,11 +421,33 @@ def vector_literal(values: list[float]) -> str:
     return "[" + ",".join(format(value, ".12g") for value in values) + "]"
 
 
+def normalize_context_text(value: str) -> str:
+    normalized = MARKDOWN_LINK_RE.sub(lambda match: match.group(1), value)
+    normalized = WIKI_LINK_RE.sub(replace_wiki_link, normalized)
+    normalized = normalized.replace("\\n", " ")
+    normalized = re.sub(r"\s+", " ", normalized)
+    return normalized.strip()
+
+
+def replace_wiki_link(match: re.Match[str]) -> str:
+    target = match.group(1).strip()
+    if "|" in target:
+        _, label = target.split("|", 1)
+        return label.strip()
+
+    target = target.split("#", 1)[0].rstrip("/")
+    if "/" in target:
+        target = target.rsplit("/", 1)[-1]
+    return target.strip()
+
+
 async def score_case(case: EvalCase, chunks: list[RetrievedChunk]) -> dict[str, float | None]:
+    normalized_retrieved_contexts = [normalize_context_text(chunk.chunk_text) for chunk in chunks]
+    normalized_reference_contexts = [normalize_context_text(text) for text in case.reference_contexts]
     sample = SingleTurnSample(
         user_input=case.query,
-        retrieved_contexts=[chunk.chunk_text for chunk in chunks],
-        reference_contexts=case.reference_contexts or None,
+        retrieved_contexts=normalized_retrieved_contexts,
+        reference_contexts=normalized_reference_contexts or None,
         retrieved_context_ids=[chunk.context_id for chunk in chunks],
         reference_context_ids=case.reference_context_ids or None,
     )
@@ -455,6 +487,7 @@ def format_case_result(
             "chunk_index": chunk.chunk_index,
             "processing_version": chunk.processing_version,
             "metadata": chunk.metadata,
+            "chunk_metadata": chunk.chunk_metadata,
             "distance": chunk.distance,
             "similarity": chunk.similarity,
             "citation": {
@@ -463,7 +496,8 @@ def format_case_result(
                 "objectKey": chunk.object_key,
                 "chunkIndex": chunk.chunk_index,
                 "processingVersion": chunk.processing_version,
-                "label": f"{chunk.object_key or chunk.document_id} chunk {chunk.chunk_index}",
+                "chunkMetadata": chunk.chunk_metadata,
+                "label": citation_label(chunk),
             },
         }
         if include_contexts:
@@ -516,6 +550,29 @@ def summarize(results: list[dict[str, Any]], args: argparse.Namespace) -> dict[s
         "failures": failures,
         "passed": not failures,
     }
+
+
+def citation_label(chunk: RetrievedChunk) -> str:
+    label_source = chunk.object_key or chunk.document_id
+    location = citation_location(chunk.chunk_metadata)
+    if not location:
+        return f"{label_source} chunk {chunk.chunk_index}"
+    return f"{label_source} {location} chunk {chunk.chunk_index}"
+
+
+def citation_location(chunk_metadata: dict[str, Any]) -> str:
+    if not chunk_metadata:
+        return ""
+
+    title = str(chunk_metadata.get("title") or "").strip()
+    heading_path = [str(value).strip() for value in chunk_metadata.get("headingPath") or [] if str(value).strip()]
+    if title and heading_path:
+        if title.lower() == heading_path[0].lower():
+            return " > ".join(heading_path)
+        return title + " > " + " > ".join(heading_path)
+    if heading_path:
+        return " > ".join(heading_path)
+    return title
 
 
 def print_text_report(payload: dict[str, Any]) -> None:

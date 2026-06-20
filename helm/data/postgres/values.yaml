@@ -12,6 +12,15 @@ backup:
   destinationPath: s3://cnpg-backups/app-db
   endpointURL: http://svartalfheim:9000
   credentialsSecret: cnpg-backup-s3
+scheduledBackup:
+  enabled: true
+  name: app-db-daily
+  # CloudNativePG uses a six-field cron with seconds.
+  schedule: "0 0 3 * * *"
+  backupOwnerReference: self
+  method: barmanObjectStore
+  immediate: false
+  suspend: false
 networkPolicy:
   enabled: true
   allowedClients:

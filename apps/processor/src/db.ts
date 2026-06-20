@@ -71,10 +71,12 @@ const statements = [
 		chunk_index INTEGER NOT NULL,
 		chunk_text TEXT NOT NULL,
 		token_count INTEGER NOT NULL,
+		chunk_metadata JSONB,
 		content_hash TEXT,
 		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 		UNIQUE (document_pk, processing_version, chunk_index)
 	)`,
+	"ALTER TABLE IF EXISTS rag.chunks ADD COLUMN IF NOT EXISTS chunk_metadata JSONB",
 	`CREATE INDEX IF NOT EXISTS rag_chunks_document_pk_idx
 		ON rag.chunks (document_pk)`,
 	`CREATE TABLE IF NOT EXISTS rag.embeddings (
@@ -207,10 +209,26 @@ export async function persistProcessedDocument(
 		for (const chunk of chunks) {
 			const embedding = embeddings[chunk.index];
 			const chunkResult = await client.query(
-				`INSERT INTO rag.chunks (document_pk, processing_version, chunk_index, chunk_text, token_count, content_hash)
-				 VALUES ($1, $2, $3, $4, $5, $6)
+				`INSERT INTO rag.chunks (
+					document_pk,
+					processing_version,
+					chunk_index,
+					chunk_text,
+					token_count,
+					chunk_metadata,
+					content_hash
+				)
+				 VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
 				 RETURNING id`,
-				[documentPk, processingVersion, chunk.index, chunk.text, chunk.tokenCount, null],
+				[
+					documentPk,
+					processingVersion,
+					chunk.index,
+					chunk.text,
+					chunk.tokenCount,
+					chunk.metadata ? JSON.stringify(chunk.metadata) : null,
+					null,
+				],
 			);
 
 			const chunkId = chunkResult.rows[0]?.id as number;

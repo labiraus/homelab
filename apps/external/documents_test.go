@@ -503,6 +503,27 @@ func TestDocumentSearchBaseQueryUsesCurrentProcessingVersion(t *testing.T) {
 	if !strings.Contains(documentSearchBaseQuery(), "COALESCE(d.metadata::text, '{}')") {
 		t.Fatalf("expected search query to return document metadata")
 	}
+	if !strings.Contains(documentSearchBaseQuery(), "COALESCE(to_jsonb(c)->>'chunk_metadata', '{}')") {
+		t.Fatalf("expected search query to return chunk metadata")
+	}
+}
+
+func TestBuildDocumentCitationUsesChunkMetadata(t *testing.T) {
+	citation := buildDocumentCitation(documentSearchRow{
+		DocumentID:        "doc-1",
+		SourceURI:         "s3://documents/campaign/tower.html",
+		ObjectKey:         "campaign/tower.html",
+		ChunkID:           9,
+		ChunkIndex:        2,
+		ProcessingVersion: 4,
+	}, map[string]any{
+		"title":       "Ancient Tower",
+		"headingPath": []any{"Basement", "Brazen Ward"},
+	})
+
+	if citation.Label != "campaign/tower.html Ancient Tower > Basement > Brazen Ward chunk 2" {
+		t.Fatalf("expected citation label to include chunk metadata, got %#v", citation)
+	}
 }
 
 func TestNormalizeMetadataFilterDropsEmptyEntries(t *testing.T) {

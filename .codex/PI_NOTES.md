@@ -18,3 +18,4 @@ Use this file for durable setup notes about Raspberry Pi hosts when the repo doe
 - Bootstrap note: repo now includes an Ansible external-host playbook that installs MinIO on `svartalfheim`, stores object data under `/srv/minio/minio-data`, and exports `/srv/minio` as a Samba share named `storage`
 - Bootstrap note: this machine was recently set up and initially needed password-based SSH for first access
 - Reality check note: as of 2026-03-28, `svartalfheim` did not yet have `minio.service` or `smbd.service` installed before repo-driven bootstrap
+- Failure note: as of 2026-06-20, the NTFS-backed `/srv/minio` mount can silently become inactive while the disk device `/dev/sda2` is still present; MinIO then serves from the root-filesystem directory instead of the external disk and starts logging `Storage resources are insufficient for the write operation` / `no online disks found`, which lines up with CNPG WAL archive `SlowDownWrite` failures

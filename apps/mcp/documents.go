@@ -61,6 +61,7 @@ type documentSearchRow struct {
 	ChunkID           int64
 	ChunkIndex        int
 	ChunkText         string
+	ChunkMetadataRaw  string
 	ProcessingVersion int
 	Distance          float64
 	LastProcessedAt   *time.Time
@@ -670,6 +671,7 @@ func queryDocumentChunks(ctx context.Context, embedding []float64, model string,
 			&row.ChunkID,
 			&row.ChunkIndex,
 			&row.ChunkText,
+			&row.ChunkMetadataRaw,
 			&row.ProcessingVersion,
 			&row.Distance,
 			&row.LastProcessedAt,
@@ -685,6 +687,10 @@ func queryDocumentChunks(ctx context.Context, embedding []float64, model string,
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
+		chunkMetadata, rpcErr := decodeDocumentMetadata(row.ChunkMetadataRaw)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
 
 		hits = append(hits, map[string]any{
 			"documentId":        row.DocumentID,
@@ -695,11 +701,12 @@ func queryDocumentChunks(ctx context.Context, embedding []float64, model string,
 			"chunkId":           row.ChunkID,
 			"chunkIndex":        row.ChunkIndex,
 			"chunkText":         row.ChunkText,
+			"chunkMetadata":     chunkMetadata,
 			"processingVersion": row.ProcessingVersion,
 			"distance":          row.Distance,
 			"similarity":        maxSimilarity(row.Distance),
 			"lastProcessedAt":   formatOptionalTime(row.LastProcessedAt),
-			"citation":          buildDocumentCitation(row),
+			"citation":          buildDocumentCitation(row, chunkMetadata),
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -724,6 +731,7 @@ SELECT
 	c.id,
 	c.chunk_index,
 	c.chunk_text,
+	COALESCE(to_jsonb(c)->>'chunk_metadata', '{}'),
 	c.processing_version,
 	e.vector <=> $1::vector AS distance,
 	d.last_processed_at
@@ -736,18 +744,74 @@ WHERE d.status = 'processed'
 	AND e.vector IS NOT NULL`
 }
 
-func buildDocumentCitation(row documentSearchRow) map[string]any {
+func buildDocumentCitation(row documentSearchRow, chunkMetadata map[string]any) map[string]any {
 	source := defaultSearchString(row.SourceURI, row.DocumentID)
 	labelSource := defaultSearchString(row.ObjectKey, row.DocumentID)
 	return map[string]any{
 		"id":                fmt.Sprintf("%s#chunk-%d", source, row.ChunkIndex),
-		"label":             fmt.Sprintf("%s chunk %d", labelSource, row.ChunkIndex),
+		"label":             formatSearchCitationLabel(labelSource, row.ChunkIndex, chunkMetadata),
 		"sourceUri":         row.SourceURI,
 		"objectKey":         row.ObjectKey,
 		"chunkId":           row.ChunkID,
 		"chunkIndex":        row.ChunkIndex,
 		"processingVersion": row.ProcessingVersion,
+		"chunkMetadata":     chunkMetadata,
 	}
+}
+
+func formatSearchCitationLabel(labelSource string, chunkIndex int, chunkMetadata map[string]any) string {
+	location := citationLocation(chunkMetadata)
+	if location == "" {
+		return fmt.Sprintf("%s chunk %d", labelSource, chunkIndex)
+	}
+	return fmt.Sprintf("%s %s chunk %d", labelSource, location, chunkIndex)
+}
+
+func citationLocation(chunkMetadata map[string]any) string {
+	if len(chunkMetadata) == 0 {
+		return ""
+	}
+
+	title := strings.TrimSpace(documentMetadataString(chunkMetadata["title"]))
+	headingPath := documentMetadataStringSlice(chunkMetadata["headingPath"])
+	switch {
+	case title != "" && len(headingPath) > 0:
+		if strings.EqualFold(title, headingPath[0]) {
+			return strings.Join(headingPath, " > ")
+		}
+		return title + " > " + strings.Join(headingPath, " > ")
+	case len(headingPath) > 0:
+		return strings.Join(headingPath, " > ")
+	default:
+		return title
+	}
+}
+
+func documentMetadataString(value any) string {
+	typed, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return typed
+}
+
+func documentMetadataStringSlice(value any) []string {
+	rawValues, ok := value.([]any)
+	if !ok {
+		if typed, ok := value.([]string); ok {
+			return typed
+		}
+		return nil
+	}
+
+	values := []string{}
+	for _, entry := range rawValues {
+		text := strings.TrimSpace(documentMetadataString(entry))
+		if text != "" {
+			values = append(values, text)
+		}
+	}
+	return values
 }
 
 func getSearchEmbedding(ctx context.Context, input string) ([]float64, string, error) {
