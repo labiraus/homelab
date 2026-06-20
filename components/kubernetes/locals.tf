@@ -1,5 +1,5 @@
 locals {
-  effective_kubelet_node_labels  = merge(var.kubelet_node_labels, { "node.mesh" = "enabled" })
+  effective_kubelet_node_labels = merge(var.kubelet_node_labels, { "node.mesh" = "enabled" })
 
   kubelet_extra_args_parts = concat(
     length(local.effective_kubelet_node_labels) > 0 ? [
@@ -13,14 +13,15 @@ locals {
   kubelet_extra_args = join(" ", local.kubelet_extra_args_parts)
 
   cloud_init_user_data = templatefile("${path.module}/templates/user-data.yaml.tftpl", {
-    cluster_name         = var.cluster_name
-    vm_name              = var.proxmox.vm_name
-    ssh_username         = try(var.vm.ssh_username, "ubuntu")
-    ssh_authorized_keys  = var.ssh_authorized_keys
-    dns_servers          = var.dns_servers
-    ntp_servers          = var.ntp_servers
-    kube_minor_channel   = var.kube_minor_channel
-    kube_version         = var.kube_version
-    kubelet_extra_args   = local.kubelet_extra_args
+    cluster_name        = var.cluster_name
+    vm_name             = var.proxmox.vm_name
+    ssh_username        = try(var.vm.ssh_username, "ubuntu")
+    ssh_authorized_keys = var.ssh_authorized_keys
+    dns_servers         = var.dns_servers
+    ntp_servers         = var.ntp_servers
+    kube_minor_channel  = var.kube_minor_channel
+    kube_version        = var.kube_version
+    kubelet_extra_args  = local.kubelet_extra_args
+    cloud_init_packages = var.cloud_init_packages
   })
 }

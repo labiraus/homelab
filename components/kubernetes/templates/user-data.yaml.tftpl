@@ -26,6 +26,13 @@ ntp:
   servers: [${join(", ", formatlist("\"%s\"", ntp_servers))}]
 %{ endif ~}
 
+%{ if length(cloud_init_packages) > 0 ~}
+packages:
+%{ for package in cloud_init_packages ~}
+  - ${package}
+%{ endfor ~}
+%{ endif ~}
+
 write_files:
   - path: /etc/modules-load.d/k8s.conf
     owner: root:root

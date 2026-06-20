@@ -151,6 +151,17 @@ ssh nidavellir 'docker logs --tail=100 minecraft'
 
 Then check the router port-forward and DNS/client path separately from the guest.
 
+- June 17, 2026 finding: a connect timeout with no new Minecraft logs can be caused by stale public DNS even when the VM and router forward are healthy.
+- Observed example on June 17, 2026: `mc.labiraus.com` still resolved to `86.130.183.215`, while the live WAN IPv4 reported by both the devcontainer and `nidavellir` was `81.146.38.8`. Direct TCP connect to `81.146.38.8:25565` succeeded, but `mc.labiraus.com:25565` timed out.
+- Quick check:
+
+```bash
+dig +short mc.labiraus.com
+curl -4 https://api.ipify.org
+ssh nidavellir 'curl -4 https://api.ipify.org'
+nc -vz -w 5 81.146.38.8 25565
+```
+
 ## Legacy Kubernetes Notes
 
 Minecraft previously ran in Kubernetes under `helm/workloads/minecraft`.

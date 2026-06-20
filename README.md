@@ -254,8 +254,9 @@ Terraform cloud-init on worker VMs installs and configures:
 - swap disable
 - `qemu-guest-agent`
 - node-local `KUBELET_EXTRA_ARGS` such as labels and taints
+- any node-specific distro packages declared in Terraform, such as `helheim`'s initial NVIDIA driver package set for first boot
 
-Cluster join is handled afterward through Ansible, not through Terraform state or cloud-init.
+Cluster join and ongoing NVIDIA runtime enforcement are handled afterward through Ansible, not through Terraform state or cloud-init.
 
 ## CI and Build Workflows
 

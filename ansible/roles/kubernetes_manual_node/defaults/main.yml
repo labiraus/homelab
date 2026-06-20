@@ -17,6 +17,8 @@ kubernetes_manual_node_kubernetes_node_name: "{{ inventory_hostname }}"
 kubernetes_manual_node_enable_nvidia_gpu: false
 kubernetes_manual_node_nvidia_driver_helper_packages:
   - ubuntu-drivers-common
+kubernetes_manual_node_nvidia_driver_packages: []
+kubernetes_manual_node_nvidia_kernel_module_package_prefix: ""
 kubernetes_manual_node_nvidia_driver_autoinstall: true
 kubernetes_manual_node_nvidia_container_toolkit_packages:
   - nvidia-container-toolkit

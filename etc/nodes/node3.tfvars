@@ -75,6 +75,15 @@ ssh_authorized_keys = [
   "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINkxqdUSQl+Nx1NBr1+YDXeXDnzzNQAD7CTrcTJX/PB9 homelab-login",
 ]
 
+# Keep the RTX worker on an explicit NVIDIA driver family from first boot so
+# rebuilt guests come up with matching kernel-module metapackages before the
+# Ansible GPU runtime wiring runs.
+cloud_init_packages = [
+  "ubuntu-drivers-common",
+  "nvidia-driver-580-open",
+  "linux-modules-nvidia-580-open-generic",
+]
+
 kubeadm_join_command = ""
 
 kubelet_node_labels = {

@@ -184,7 +184,8 @@ This worker playbook:
 - joins the node only when `/etc/kubernetes/kubelet.conf` does not already exist
 - reapplies the repo's per-node labels for all Terraform-managed workers through host vars
 - can enable NVIDIA runtime support on selected Terraform-managed GPU workers such as `helheim`
-- installs the guest NVIDIA driver and only keeps `node-llm=gpu` style labels when `nvidia-smi` is actually usable in the guest
+- can pin an explicit NVIDIA driver family and matching kernel-module package prefix through host vars; `helheim` uses that path to install `nvidia-driver-580-open` plus both the running-kernel and `-generic` `linux-modules-nvidia-580-open` packages
+- only keeps `node-llm=gpu` style labels when `nvidia-smi` is actually usable in the guest
 
 If you omit `LIMIT`, the target runs against the full `kubernetes_terraform_node` inventory group so you can roll package or runtime changes across every repo-managed worker:
 

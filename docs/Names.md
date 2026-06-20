@@ -32,7 +32,7 @@ Some names appear in more than one section. For example, the Kubernetes workers 
   - storage: `476.9 GiB` NVMe plus `931.5 GiB` SATA
   - GPUs: Intel `UHD Graphics 630` plus NVIDIA `GeForce RTX 2070 Mobile`
 - `proxmox-node4`
-  - IP: `192.168.8.103 `
+  - IP: `192.168.8.103`
 
 ## Kubernetes Nodes
 

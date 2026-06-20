@@ -165,6 +165,12 @@ variable "kubelet_register_taints" {
   default     = []
 }
 
+variable "cloud_init_packages" {
+  description = "Optional distro packages installed by cloud-init during first boot."
+  type        = list(string)
+  default     = []
+}
+
 variable "proxmox_ve_endpoint" {
   description = "Proxmox API endpoint. Prefer env var PROXMOX_VE_ENDPOINT."
   type        = string

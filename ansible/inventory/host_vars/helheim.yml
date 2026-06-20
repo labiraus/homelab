@@ -1,4 +1,8 @@
 kubernetes_manual_node_enable_nvidia_gpu: true
+kubernetes_manual_node_nvidia_driver_packages:
+  - nvidia-driver-580-open
+kubernetes_manual_node_nvidia_kernel_module_package_prefix: linux-modules-nvidia-580-open
+kubernetes_manual_node_nvidia_driver_autoinstall: false
 kubernetes_manual_node_gpu_labels:
   topology.kubernetes.io/zone: lab-c
   node-performance: standard

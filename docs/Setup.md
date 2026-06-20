@@ -42,6 +42,22 @@ ssh-add .devcontainer/ssh/id_ed25519
 
 You will need to run the second `ssh-keygen` command every 30 days to re-sign the key, or remove the timeout. In this example root is the user for proxmox, oliver is the user I set up for yggdrasil and ubuntu is the default username that will be used on all ubuntu machines.
 
+If a host is reachable but SSH suddenly fails with `Permission denied (publickey,password)`, check whether the login certificate expired before assuming the host-side SSH config changed:
+
+```bash
+ssh-keygen -L -f .devcontainer/ssh/id_ed25519-cert.pub
+```
+
+If the `Valid` window is in the past, re-sign the existing login key with the same command used during setup:
+
+```bash
+ssh-keygen -s ~/.ssh/ssh_user_ca \
+  -I "oliver@homelab" \
+  -n oliver,ubuntu,root \
+  -V +30d \
+  .devcontainer/ssh/id_ed25519.pub
+```
+
 ## Chromebook
 
 Before reimaging a chromebook with ubuntu from a usb drive you need to remove hardwork write protections, and then update the firmware:
@@ -258,6 +274,8 @@ If `midgard` is intentionally offline afterward, leave it that way. A missing or
 ### Terraform-Managed Worker Join
 
 Terraform now builds the worker VM and installs the base Kubernetes packages, but the actual `kubeadm join` step is handled afterward through Ansible rather than through Terraform cloud-init.
+
+GPU-oriented Terraform workers can also declare node-specific cloud-init distro packages in their tfvars. `helheim` now uses that path to install its initial NVIDIA driver package set during first boot, while the follow-up Ansible worker playbook remains the authoritative place that enforces the chosen driver family plus the running-kernel and `-generic` NVIDIA module packages.
 
 After `ENV=lab bin/tf apply kubernetes <node-layer>`, run the worker bootstrap playbook for that node:
 
