@@ -85,10 +85,22 @@ generatedSecrets:
           namespace: data
           name: app-db-bootstrap
           key: password
-      EMBEDDING_ENDPOINT:
-        value: ""
-      EMBEDDING_MODEL:
-        value: local-embeddings
+      OPENSEARCH_BASE_URL:
+        value: "http://labiraus-rag-data.data.svc.cluster.local:9200"
+      OPENSEARCH_RAG_INDEX:
+        value: "rag-documents"
+      OPENSEARCH_RAG_SEARCH_PIPELINE:
+        value: "rag-neural-search"
+      OPENSEARCH_USERNAME:
+        fromSecretRef:
+          namespace: data
+          name: opensearch-admin
+          key: username
+      OPENSEARCH_PASSWORD:
+        fromSecretRef:
+          namespace: data
+          name: opensearch-admin
+          key: password
       OIDC_LOGIN_URL:
         value: "https://mcp.labiraus.com/oauth2/start?rd=https%3A%2F%2Fmcp.labiraus.com%2F"
       OIDC_ISSUER_URL:
@@ -191,6 +203,20 @@ security:
         ports:
           - protocol: TCP
             port: 6379
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: data
+            podSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                    - opensearchData
+                    - opensearchMl
+        ports:
+          - protocol: TCP
+            port: 9200
       - to:
           - namespaceSelector:
               matchLabels:

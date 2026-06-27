@@ -8,10 +8,10 @@ require (
 	pkg/api v0.0.0
 	pkg/base v0.0.0
 	pkg/documentevents v0.0.0
-	pkg/embeddingutil v0.0.0
 	pkg/kubernetesutil v0.0.0
 	pkg/minioutil v0.0.0
 	pkg/natsutil v0.0.0
+	pkg/opensearchrag v0.0.0
 	pkg/postgresutil v0.0.0
 	pkg/prometheusutil v0.0.0
 )
@@ -97,8 +97,6 @@ replace pkg/base => ../pkg/base
 
 replace pkg/documentevents => ../pkg/documentevents
 
-replace pkg/embeddingutil => ../pkg/embeddingutil
-
 replace pkg/prometheusutil => ../pkg/prometheusutil
 
 replace pkg/kubernetesutil => ../pkg/kubernetesutil
@@ -106,5 +104,7 @@ replace pkg/kubernetesutil => ../pkg/kubernetesutil
 replace pkg/minioutil => ../pkg/minioutil
 
 replace pkg/natsutil => ../pkg/natsutil
+
+replace pkg/opensearchrag => ../pkg/opensearchrag
 
 replace pkg/postgresutil => ../pkg/postgresutil

@@ -71,5 +71,5 @@ minecraft_vm_servers:
     runtime_env:
       <<: *minecraft_vm_common_runtime_env
       CF_SLUG: all-the-mods-11
-      CF_FILENAME_MATCHER: "0.1.1"
+      CF_FILENAME_MATCHER: "0.1.2"
       NEOFORGE_VERSION: "26.1.2.76"

@@ -1,18 +1,15 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
-	"pkg/embeddingutil"
-	"pkg/postgresutil"
+	"pkg/opensearchrag"
 	"pkg/prometheusutil"
 )
 
@@ -24,15 +21,7 @@ const (
 	defaultContextLimit         = 6
 	defaultContextMaxCharacters = 6000
 	maxContextMaxCharacters     = 20000
-	defaultEmbeddingModel       = embeddingutil.DefaultModel
 )
-
-type queryEmbeddingResponse struct {
-	Data []struct {
-		Embedding []float64 `json:"embedding"`
-	} `json:"data"`
-	Model string `json:"model"`
-}
 
 type documentSearchRow struct {
 	DocumentID        string
@@ -50,10 +39,8 @@ type documentSearchRow struct {
 }
 
 var (
-	fetchQueryEmbedding = getQueryEmbedding
-	searchDocuments     = queryDocumentSearch
-	assembleContext     = assembleDocumentContext
-	httpClient          = &http.Client{Timeout: 30 * time.Second}
+	searchDocuments = queryOpenSearchDocuments
+	assembleContext = assembleDocumentContext
 )
 
 func documentSearchHandler(w http.ResponseWriter, r *http.Request) {
@@ -78,7 +65,7 @@ func documentSearchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !postgresConfigured() || !embeddingsConfigured() {
+	if !opensearchConfigured() {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "document search is unavailable"})
 		return
@@ -114,14 +101,7 @@ func documentSearchHandler(w http.ResponseWriter, r *http.Request) {
 		limit = maxSearchLimit
 	}
 
-	embedding, model, err := fetchQueryEmbedding(r.Context(), request.Query)
-	if err != nil {
-		w.WriteHeader(http.StatusBadGateway)
-		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "could not embed search query"})
-		return
-	}
-
-	hits, err := searchDocuments(r.Context(), embedding, model, request, limit)
+	hits, err := searchDocuments(r.Context(), request, limit)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "could not search documents"})
@@ -161,7 +141,7 @@ func documentContextHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !postgresConfigured() || !embeddingsConfigured() {
+	if !opensearchConfigured() {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "document context is unavailable"})
 		return
@@ -181,14 +161,7 @@ func documentContextHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	embedding, model, err := fetchQueryEmbedding(r.Context(), searchRequest.Query)
-	if err != nil {
-		w.WriteHeader(http.StatusBadGateway)
-		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "could not embed context query"})
-		return
-	}
-
-	hits, err := searchDocuments(r.Context(), embedding, model, searchRequest, limit)
+	hits, err := searchDocuments(r.Context(), searchRequest, limit)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "could not assemble document context"})
@@ -240,168 +213,49 @@ func normalizeDocumentContextRequest(request DocumentContextRequest) (DocumentSe
 	return searchRequest, limit, maxChars, ""
 }
 
-func getQueryEmbedding(ctx context.Context, input string) ([]float64, string, error) {
-	if useLocalEmbeddings() {
-		return embeddingutil.EmbedText(input), embeddingModel(), nil
-	}
-
-	payload, err := json.Marshal(map[string]any{
-		"model": embeddingModel(),
-		"input": input,
+func queryOpenSearchDocuments(ctx context.Context, request DocumentSearchRequest, limit int) ([]DocumentSearchHit, error) {
+	hits, err := opensearchrag.Search(ctx, opensearchrag.ConfigFromEnv(), opensearchrag.SearchRequest{
+		Query:      request.Query,
+		DocumentID: request.DocumentID,
+		Prefix:     request.Prefix,
+		Metadata:   request.Metadata,
+		Limit:      limit,
 	})
-	if err != nil {
-		return nil, "", err
-	}
-
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, embeddingEndpoint(), bytes.NewReader(payload))
-	if err != nil {
-		return nil, "", err
-	}
-	request.Header.Set("Content-Type", "application/json")
-
-	response, err := httpClient.Do(request)
-	if err != nil {
-		return nil, "", err
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, "", fmt.Errorf("embedding request failed: %s", response.Status)
-	}
-
-	var body queryEmbeddingResponse
-	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
-		return nil, "", err
-	}
-	if len(body.Data) == 0 || len(body.Data[0].Embedding) == 0 {
-		return nil, "", fmt.Errorf("embedding response did not include a vector")
-	}
-
-	return body.Data[0].Embedding, defaultString(strings.TrimSpace(body.Model), embeddingModel()), nil
-}
-
-func queryDocumentSearch(
-	ctx context.Context,
-	embedding []float64,
-	model string,
-	request DocumentSearchRequest,
-	limit int,
-) ([]DocumentSearchHit, error) {
-	if postgresutil.Query == nil {
-		return nil, fmt.Errorf("postgres is not initialized")
-	}
-
-	query := documentSearchBaseQuery()
-
-	args := []any{toVectorLiteral(embedding), model}
-	nextArg := 3
-
-	if request.DocumentID != "" {
-		query += fmt.Sprintf("\n\tAND d.document_id = $%d", nextArg)
-		args = append(args, request.DocumentID)
-		nextArg++
-	}
-
-	if request.Prefix != "" {
-		query += fmt.Sprintf("\n\tAND d.object_key LIKE $%d", nextArg)
-		args = append(args, request.Prefix+"%")
-		nextArg++
-	}
-
-	if len(request.Metadata) > 0 {
-		metadataFilter, err := json.Marshal(request.Metadata)
-		if err != nil {
-			return nil, err
-		}
-		query += fmt.Sprintf("\n\tAND d.metadata @> $%d::jsonb", nextArg)
-		args = append(args, string(metadataFilter))
-		nextArg++
-	}
-
-	query += fmt.Sprintf("\nORDER BY e.vector <=> $1::vector\nLIMIT $%d", nextArg)
-	args = append(args, limit)
-
-	rows, err := postgresutil.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	hits := []DocumentSearchHit{}
-	for rows.Next() {
-		var row documentSearchRow
-		if err := rows.Scan(
-			&row.DocumentID,
-			&row.SourceURI,
-			&row.ObjectKey,
-			&row.ContentType,
-			&row.MetadataRaw,
-			&row.ChunkID,
-			&row.ChunkIndex,
-			&row.ChunkText,
-			&row.ChunkMetadataRaw,
-			&row.ProcessingVersion,
-			&row.Distance,
-			&row.LastProcessedAt,
-		); err != nil {
-			return nil, err
+	results := make([]DocumentSearchHit, 0, len(hits))
+	for _, hit := range hits {
+		row := documentSearchRow{
+			DocumentID:        hit.DocumentID,
+			SourceURI:         hit.SourceURI,
+			ObjectKey:         hit.ObjectKey,
+			ContentType:       hit.ContentType,
+			ChunkID:           hit.ChunkID,
+			ChunkIndex:        hit.ChunkIndex,
+			ChunkText:         hit.ChunkText,
+			ProcessingVersion: hit.ProcessingVersion,
+			Distance:          hit.Distance,
 		}
-
-		metadata, err := decodeDocumentMetadata(row.MetadataRaw)
-		if err != nil {
-			return nil, err
-		}
-		chunkMetadata, err := decodeDocumentMetadata(row.ChunkMetadataRaw)
-		if err != nil {
-			return nil, err
-		}
-
-		hit := DocumentSearchHit{
-			DocumentID:        row.DocumentID,
-			SourceURI:         row.SourceURI,
-			ObjectKey:         row.ObjectKey,
-			ContentType:       row.ContentType,
-			Metadata:          metadata,
-			ChunkID:           row.ChunkID,
-			ChunkIndex:        row.ChunkIndex,
-			ChunkText:         row.ChunkText,
-			ProcessingVersion: row.ProcessingVersion,
-			Distance:          row.Distance,
-			Similarity:        maxSimilarity(row.Distance),
-			ChunkMetadata:     chunkMetadata,
-			Citation:          buildDocumentCitation(row, chunkMetadata),
-		}
-		if row.LastProcessedAt != nil && !row.LastProcessedAt.IsZero() {
-			hit.LastProcessedAt = row.LastProcessedAt.UTC().Format(time.RFC3339)
-		}
-		hits = append(hits, hit)
+		results = append(results, DocumentSearchHit{
+			DocumentID:        hit.DocumentID,
+			SourceURI:         hit.SourceURI,
+			ObjectKey:         hit.ObjectKey,
+			ContentType:       hit.ContentType,
+			Metadata:          hit.Metadata,
+			ChunkID:           hit.ChunkID,
+			ChunkIndex:        hit.ChunkIndex,
+			ChunkText:         hit.ChunkText,
+			ProcessingVersion: hit.ProcessingVersion,
+			Distance:          hit.Distance,
+			Similarity:        hit.Similarity,
+			ChunkMetadata:     hit.ChunkMetadata,
+			LastProcessedAt:   hit.LastProcessedAt,
+			Citation:          buildDocumentCitation(row, hit.ChunkMetadata),
+		})
 	}
-
-	return hits, rows.Err()
-}
-
-func documentSearchBaseQuery() string {
-	return `
-SELECT
-	d.document_id,
-	d.source_uri,
-	COALESCE(d.object_key, ''),
-	COALESCE(d.content_type, ''),
-	COALESCE(d.metadata::text, '{}'),
-	c.id,
-	c.chunk_index,
-	c.chunk_text,
-	COALESCE(to_jsonb(c)->>'chunk_metadata', '{}'),
-	c.processing_version,
-	e.vector <=> $1::vector AS distance,
-	d.last_processed_at
-FROM rag.embeddings e
-JOIN rag.chunks c ON c.id = e.chunk_id
-JOIN rag.documents d ON d.id = c.document_pk
-WHERE d.status = 'processed'
-	AND e.model = $2
-	AND c.processing_version = d.current_processing_version
-	AND e.vector IS NOT NULL`
+	return results, nil
 }
 
 func normalizeMetadataFilter(metadata map[string]any) map[string]any {
@@ -566,41 +420,6 @@ func documentMetadataStringSlice(value any) []string {
 	return values
 }
 
-func embeddingsConfigured() bool {
-	return useLocalEmbeddings() || strings.TrimSpace(os.Getenv("EMBEDDING_ENDPOINT")) != ""
-}
-
-func embeddingEndpoint() string {
-	return strings.TrimSpace(os.Getenv("EMBEDDING_ENDPOINT"))
-}
-
-func embeddingModel() string {
-	model := strings.TrimSpace(os.Getenv("EMBEDDING_MODEL"))
-	if model == "" {
-		return defaultEmbeddingModel
-	}
-	return model
-}
-
-func useLocalEmbeddings() bool {
-	return strings.TrimSpace(os.Getenv("EMBEDDING_ENDPOINT")) == "" && embeddingModel() == embeddingutil.DefaultModel
-}
-
-func maxSimilarity(distance float64) float64 {
-	similarity := 1 - distance
-	if similarity < 0 {
-		return 0
-	}
-	if similarity > 1 {
-		return 1
-	}
-	return similarity
-}
-
-func toVectorLiteral(values []float64) string {
-	parts := make([]string, 0, len(values))
-	for _, value := range values {
-		parts = append(parts, fmt.Sprintf("%g", value))
-	}
-	return "[" + strings.Join(parts, ",") + "]"
+func opensearchConfigured() bool {
+	return opensearchrag.ConfigFromEnv().Configured()
 }

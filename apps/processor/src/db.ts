@@ -262,6 +262,23 @@ export async function persistProcessedDocument(
 	}
 }
 
+export async function markDocumentIndexed(pool: Pool, documentPk: number, event: DocumentEvent): Promise<void> {
+	const processingVersion = event.processingVersion ?? 1;
+	await pool.query(
+		`UPDATE rag.documents
+		SET current_processing_version = GREATEST(current_processing_version, $2),
+			status = CASE
+				WHEN desired_processing_version > $2 THEN 'pending'
+				ELSE 'processed'
+			END,
+			last_processed_at = NOW(),
+			updated_at = NOW(),
+			last_error = NULL
+		WHERE id = $1`,
+		[documentPk, processingVersion],
+	);
+}
+
 export async function markDocumentPendingWithError(
 	pool: Pool,
 	event: DocumentEvent,

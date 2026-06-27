@@ -38,7 +38,7 @@ Live direct-backend capabilities currently expect:
 - `OIDC_ISSUER_URL` for federated identity discovery. Defaults to `https://accounts.google.com`, so bearer-capable MCP clients can use standard Google/OIDC authorization discovery instead of a service-local login path.
 - `API_BASE_URL` for orchestrator-backed HTTP proxy operations. Defaults to `http://homelab-orchestrator.homelab.svc.cluster.local`, and the Helm chart sets that in-cluster service URL explicitly.
 - `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DATABASE`, `POSTGRES_SSLMODE` for Postgres-backed capabilities
-- `EMBEDDING_MODEL` and optional `EMBEDDING_ENDPOINT` for semantic retrieval over processed document chunks. With `EMBEDDING_MODEL=local-embeddings` and no endpoint, `mcp` uses the built-in deterministic 384-dimensional local embedding function.
+- `OPENSEARCH_BASE_URL`, `OPENSEARCH_RAG_INDEX`, `OPENSEARCH_RAG_SEARCH_PIPELINE`, and optional `OPENSEARCH_USERNAME` / `OPENSEARCH_PASSWORD` for semantic retrieval over OpenSearch-native processed chunks.
 - `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_USE_SSL`, `MINIO_REGION`, `MINIO_BUCKET` for MinIO-backed capabilities
 - `NATS_URLS`, `NATS_EVENTS_STREAM`, and `NATS_EVENTS_SUBJECT` for document lifecycle subscriptions and resource notifications
 
@@ -56,8 +56,8 @@ The live MinIO shape now supports:
 - `documents.reprocess` for orchestrator-backed requeueing of an existing inventory document at a newer processing version
 - `documents.inventory.list` for Postgres-backed document inventory, curated metadata, and processing-state reads
 - `documents.history.list` for durable Postgres-backed lifecycle history, optionally narrowed to one processing version
-- `documents.search` for pgvector semantic search over the current processed chunk version, including document metadata, chunk metadata, and citation objects with source URI and chunk identity
-- `documents.context` for pgvector-backed context assembly with stable citation references, citation objects, and richer chunk-aware labels when available
+- `documents.search` for OpenSearch neural search over the current processed chunk version, including document metadata, chunk metadata, and citation objects with source URI and chunk identity
+- `documents.context` for OpenSearch-backed context assembly with stable citation references, citation objects, and richer chunk-aware labels when available
 - `minio.documents.listFolder` for folder-and-file views of a prefix
 - `minio.documents.listObjects` for flat object inventory
 - `homelab://mcp/minio/documents/objects/{objectKey}` for object reads, including binary-safe blob responses

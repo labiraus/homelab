@@ -108,14 +108,15 @@ The app stack under `apps/` is intentionally small:
 - `apps/assistant`: browser-first LLM chat service for RAG-backed conversations, explicit user memories, file-change proposals, and audit views
 - `apps/mcp`: public Go MCP service for AI-native access
 - `apps/orchestrator`: internal Go control-plane service for reconciliation and task dispatch
-- `apps/processor`: internal TypeScript NATS JetStream worker for extraction, chunking, embedding, and persistence
+- `apps/processor`: internal TypeScript NATS JetStream worker for extraction and OpenSearch-native indexing
 - `apps/pkg/*`: shared Go packages for HTTP server startup, logging, metrics, and integrations
 - `evals/ragas`: RAGAS-based retrieval/chunking quality checks against live processed chunks
 
 Current document-platform direction:
 
 - MinIO on `svartalfheim` is the canonical raw object store
-- Postgres via CNPG plus pgvector is the source of truth for metadata, state, chunks, and embeddings
+- Postgres via CNPG is the source of truth for metadata, workflow state, lifecycle history, audits, and assistant state
+- OpenSearch is the source of truth for derived RAG chunks, vectors, indexing, and retrieval
 - document lifecycle history is also persisted in Postgres for processing and reprocessing audits
 - browser and MCP surfaces expose retrieval, cited context, lifecycle history, metadata curation, guarded text edits, and reprocess requests while `orchestrator` keeps workflow ownership
 - the Assistant tab lets authenticated users ask RAG-backed questions, save approved per-user memories, approve or reject proposed text create/edit operations, and inspect file-change audit rows

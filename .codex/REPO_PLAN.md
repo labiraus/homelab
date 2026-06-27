@@ -20,10 +20,11 @@ The chosen application boundary is:
 The intended platform shape is:
 
 - MinIO on `svartalfheim` remains the canonical raw object store
-- Postgres via CNPG plus pgvector is the system of record for metadata, workflow state, chunks, and embeddings
+- Postgres via CNPG is the system of record for metadata, workflow state, lifecycle history, audits, and assistant state
+- OpenSearch is the core derived indexing and retrieval layer for RAG chunks, vectors, and neural search
 - NATS JetStream plus KEDA provide asynchronous execution and worker scaling
 - Redis is available but is not yet a core architectural dependency
-- local vLLM is the first LLM runtime target, scheduled onto the GPU worker path and fronted by Envoy AI Gateway resources
+- Envoy AI Gateway is the single app-facing inference governance and routing layer; local vLLM is the first chat runtime, and OpenSearch ML Commons model connectors should call Envoy for RAG embedding inference
 - Mongo is not part of the active plan
 - browser authentication currently standardizes on `oauth2-proxy + Google` on the shared public host
 - certificate authentication is already part of the Labiraus MCP access story and currently sits alongside the shared Google-backed path as the all-or-nothing access choice for deployed MCP clients
@@ -42,7 +43,7 @@ The repo already includes:
 - external MinIO management through Ansible on `svartalfheim`
 - orchestrator-backed `documents.scanBucket` reconciliation that inventories MinIO objects into Postgres and queues new or changed text objects for processing
 - browser uploads emit `documents.events.minio.stored` after raw objects are written to MinIO
-- a built-in deterministic `local-embeddings` fallback used by processor, `external`, and `mcp` when no external embedding endpoint is configured
+- OpenSearch-native text chunking, ML inference, and neural search pipelines for new RAG indexing and retrieval
 - durable document lifecycle history in `rag.document_lifecycle_events`, exposed through `external` and `mcp`
 - the MCP prompt catalog includes prompt-first guidance for ingestion, scan planning, inventory reads, metadata curation, guarded text editing, reprocessing, retrieval, context assembly, lifecycle history, auth health, MinIO browsing, and document notification subscriptions, with prompt arguments aligned to the live tool schemas for common filters and control fields, omitted optional arguments rendered without leaking template placeholders, and unknown prompt argument names rejected
 - `mcp` advertises strict top-level tool input schemas and rejects unknown top-level, missing required, and wrong-typed advertised `tools/call` arguments before execution so misspelled filters, malformed limits, or incomplete calls do not silently fall back to broader default reads
@@ -63,7 +64,7 @@ The repo already includes:
 - approved assistant create/edit proposals call `orchestrator`, write text objects to MinIO, queue reingestion, and append `rag.document_change_audits`
 - `orchestrator` exposes text create and MinIO-version-backed revert endpoints in addition to guarded text editing
 - Ansible bucket management enables versioning on the external `documents` bucket while leaving current-object lifecycle expiration disabled
-- RAGAS-based chunking evaluation lives under `evals/ragas` and can score live processed chunks against gold retrieval cases through Postgres
+- RAGAS-based chunking evaluation under `evals/ragas` remains a migration gap until it queries OpenSearch instead of legacy Postgres chunks
 
 Documentation must stay aligned with implementation as these pieces evolve.
 
@@ -77,13 +78,14 @@ Documentation must stay aligned with implementation as these pieces evolve.
 - `mcp` is the stable AI-native front door for agents and MCP-compatible clients.
 - the Labiraus MCP server is a primary product surface of this repo, not a sidecar utility, and should be evaluated alongside the rest of the deployed stack
 - `orchestrator` is the internal control plane. It owns workflow state transitions, reconciliation, and task dispatch decisions.
-- `processor` is the stateless data-plane worker. It performs extraction, chunking, embedding, and persistence work when triggered asynchronously.
+- `processor` is the stateless data-plane worker. It performs extraction and indexes text into OpenSearch-native chunking/vector pipelines when triggered asynchronously.
 - `vllm` is the local OpenAI-compatible model runtime, initially scheduled onto `helheim` through `node-llm=gpu` and one `nvidia.com/gpu`.
 
 ## Data And Control Model
 
 - MinIO is the canonical source for raw objects and source documents.
-- Postgres is the source of truth for document inventory, workflow state, metadata, chunks, and embeddings.
+- Postgres is the source of truth for document inventory, workflow state, metadata, lifecycle history, and audits.
+- OpenSearch is the source of truth for derived chunks, embeddings, and neural retrieval.
 - NATS JetStream is transport and execution infrastructure, not the source of truth.
 - KEDA scales workers from JetStream consumer lag and should remain an execution concern rather than a state-management concern.
 
@@ -92,7 +94,7 @@ Documentation must stay aligned with implementation as these pieces evolve.
 - Prefer async-first workflows.
 - Prefer controller/reconciliation plus state-machine thinking over request-coupled pipelines.
 - Keep public and AI-facing APIs stable while hiding ingestion and processing internals behind them.
-- Keep raw storage in MinIO and derived state in Postgres.
+- Keep raw storage in MinIO, control state in Postgres, and derived retrieval state in OpenSearch.
 - Treat reprocessing and versioning as first-class future concerns even when early implementations stay small.
 - keep browser login at the edge and avoid embedding provider-specific browser OAuth logic directly into app services
 - keep write-like LLM outcomes as durable proposals until the authenticated user approves them in the browser
@@ -125,8 +127,9 @@ It should:
 
 - consume NATS JetStream jobs
 - fetch or receive document content for processing
-- perform extraction, chunking, and embedding
-- write results back to Postgres
+- perform extraction
+- index extracted text into OpenSearch through the configured ingest pipeline
+- update Postgres lifecycle and processing state
 
 It should not:
 
@@ -161,8 +164,8 @@ Deliverables:
 
 - define NATS JetStream job contracts owned by the orchestrator/processor boundary
 - orchestrator emits processing work based on Postgres-backed state
-- processor consumes jobs and performs extraction, chunking, embedding, and persistence
-- processing results are written back to Postgres, not treated as JetStream-owned state
+- processor consumes jobs, extracts text, and indexes derived retrieval state into OpenSearch
+- lifecycle and processing state are written back to Postgres, not treated as JetStream-owned state
 - define and emit document lifecycle notification subjects so MCP and the browser-facing API can forward NATS-backed updates to subscribers
 
 ### Phase 4 — Retrieval Through `external` And `mcp`
@@ -595,7 +598,7 @@ Deliverables:
 
 Current status:
 
-- `make vllm-gateway-smoke` runs a repeatable in-cluster OpenAI-compatible chat smoke test against `LLM_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`
+- `make vllm-gateway-smoke` runs a repeatable in-cluster OpenAI-compatible chat smoke test against `AI_GATEWAY_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`
 - the smoke test checks GPU-labeled node availability, waits for `homelab-vllm`, reports vLLM pod placement, checks the generated Envoy Gateway service, and sends the request from a temporary pod labeled like the assistant network-policy path
 - runtime docs identify what to inspect when `helheim` scheduling, GPU visibility, model cache/startup behavior, startup probes, Envoy AI Gateway routing, or assistant-to-gateway network policy fails
 - the default model remains conservative until the local GPU path is proven stable
@@ -629,10 +632,10 @@ Deliverables:
 
 Current status:
 
-- `make ragas-chunking-eval` is the preferred quality gate for retrieval changes that affect chunking, embeddings, ranking, or metadata filtering
+- `make ragas-chunking-eval` remains a legacy pgvector quality gate until it is updated to query OpenSearch neural search
 - the tracked example gold-case file now covers exact-identity, relationship, metadata-filter, near-neighbor, and HTML-citation starter patterns for building the private eval set
 - RAGAS reports include citation-confidence fields for every retrieved chunk: source URI, object key, content type, chunk index, processing version, document metadata, chunk metadata, and rendered citation label data
-- docs explain how local deterministic embeddings relate to stored `vector(384)` rows and when to baseline separately for non-local embedding models
+- docs now treat OpenSearch vector dimensions and model-provider changes as separately baselined retrieval-quality changes
 - docs define a private gold-case starter shape and recommend permissive first thresholds before raising the gate toward `--min-id-recall 0.8 --min-context-recall 0.8`
 - citation regressions are treated as retrieval-quality bugs, not only UI presentation issues
 
@@ -648,8 +651,8 @@ Deliverables:
 Current status:
 
 - the stable ingestion baseline remains UTF-8 `text/*`, and `processor` now performs HTML-aware extraction for `text/html`
-- HTML extraction strips boilerplate markup, preserves visible text, alt text, and heading/title context, and records chunk-level citation metadata in `rag.chunks.chunk_metadata`
-- retrieval surfaces and RAGAS reports surface that chunk metadata so citation labels can include HTML title and heading paths without changing stable citation IDs
+- HTML extraction strips boilerplate markup and preserves visible text, alt text, and heading/title context; OpenSearch chunk metadata mapping remains a follow-up gap for rich HTML citation labels
+- retrieval surfaces keep stable citation IDs while the OpenSearch metadata path is hardened
 - `docs/FileTypeExpansion.md` now records HTML as implemented policy while PDF, Office, and other non-text types remain gated candidates
 - unsupported objects continue to be visible in inventory rather than disappearing from reconciliation results
 
@@ -705,7 +708,7 @@ CAG and semantic graph ambitions remain later phases, not the initial implementa
 - keep the `rag` Postgres schema aligned with document inventory, chunk, embedding, and retrieval behavior
 - keep the `assistant` Postgres schema, browser API contract, and UI trail/proposal/audit UX aligned as the LLM surface evolves
 - keep the vLLM/Envoy AI Gateway runtime smoke path green on `helheim` before promoting larger models or wider tool-use behavior
-- keep growing retrieval quality through RAGAS gold cases before changing chunking, embedding dimensions, or ranking behavior
+- keep growing retrieval quality through OpenSearch-backed RAGAS gold cases before changing chunking, embedding dimensions, or ranking behavior
 - follow `docs/FileTypeExpansion.md` before adding extraction dependencies to `processor`
 - keep runbooks, retention decisions, and recovery drills current as operations mature
 - shape orchestrator and processor around clean control-plane versus data-plane boundaries

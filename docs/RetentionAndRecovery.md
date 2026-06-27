@@ -5,7 +5,9 @@ The current platform policy is preserve-by-default while the document and assist
 ## Retention Defaults
 
 - MinIO `documents` bucket: versioning enabled, current-object expiration disabled.
-- Postgres `rag.documents`, `rag.chunks`, and `rag.embeddings`: retained until an explicit reprocessing or cleanup policy exists.
+- Postgres `rag.documents`: retained as the workflow source of truth.
+- Legacy Postgres `rag.chunks` and `rag.embeddings`: retained until an explicit migration cleanup policy exists.
+- OpenSearch RAG indexes: retained until an explicit reindexing or cleanup policy exists.
 - `rag.document_lifecycle_events`: retained indefinitely as processing audit history.
 - `rag.document_change_audits`: retained indefinitely as create/edit/revert audit history.
 - assistant conversations, messages, memories, tool calls, file proposals, and proposal decisions: retained indefinitely and scoped by authenticated email at query time.

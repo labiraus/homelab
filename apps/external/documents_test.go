@@ -329,27 +329,18 @@ func TestDocumentInventoryHandlerValidatesLimit(t *testing.T) {
 }
 
 func TestDocumentSearchHandlerReturnsRankedHits(t *testing.T) {
-	setEmbeddingEnv(t)
-	setPostgresEnv(t)
+	setOpenSearchEnv(t)
 	base.ServiceName = "external_test_" + t.Name()
 	prometheusutil.Start(http.NewServeMux())
 
-	previousEmbedding := fetchQueryEmbedding
 	previousSearch := searchDocuments
 	t.Cleanup(func() {
-		fetchQueryEmbedding = previousEmbedding
 		searchDocuments = previousSearch
 	})
 
-	fetchQueryEmbedding = func(ctx context.Context, input string) ([]float64, string, error) {
-		if input != "refresh kubeconfig" {
-			t.Fatalf("expected search query to be forwarded, got %q", input)
-		}
-		return []float64{0.1, 0.2, 0.3}, "local-embeddings", nil
-	}
-	searchDocuments = func(ctx context.Context, embedding []float64, model string, request DocumentSearchRequest, limit int) ([]DocumentSearchHit, error) {
-		if model != "local-embeddings" {
-			t.Fatalf("expected embedding model, got %q", model)
+	searchDocuments = func(ctx context.Context, request DocumentSearchRequest, limit int) ([]DocumentSearchHit, error) {
+		if request.Query != "refresh kubeconfig" {
+			t.Fatalf("expected search query to be forwarded, got %q", request.Query)
 		}
 		if request.Prefix != "scripts/" {
 			t.Fatalf("expected normalized prefix, got %q", request.Prefix)
@@ -413,25 +404,19 @@ func TestDocumentSearchHandlerReturnsRankedHits(t *testing.T) {
 }
 
 func TestDocumentContextHandlerAssemblesCitedContext(t *testing.T) {
-	setEmbeddingEnv(t)
-	setPostgresEnv(t)
+	setOpenSearchEnv(t)
 	base.ServiceName = "external_test_" + t.Name()
 	prometheusutil.Start(http.NewServeMux())
 
-	previousEmbedding := fetchQueryEmbedding
 	previousSearch := searchDocuments
 	t.Cleanup(func() {
-		fetchQueryEmbedding = previousEmbedding
 		searchDocuments = previousSearch
 	})
 
-	fetchQueryEmbedding = func(ctx context.Context, input string) ([]float64, string, error) {
-		if input != "ancient tower" {
-			t.Fatalf("expected context query to be forwarded, got %q", input)
+	searchDocuments = func(ctx context.Context, request DocumentSearchRequest, limit int) ([]DocumentSearchHit, error) {
+		if request.Query != "ancient tower" {
+			t.Fatalf("expected context query to be forwarded, got %q", request.Query)
 		}
-		return []float64{0.3, 0.2, 0.1}, "local-embeddings", nil
-	}
-	searchDocuments = func(ctx context.Context, embedding []float64, model string, request DocumentSearchRequest, limit int) ([]DocumentSearchHit, error) {
 		if request.Prefix != "campaign/" {
 			t.Fatalf("expected normalized prefix, got %q", request.Prefix)
 		}
@@ -496,18 +481,6 @@ func TestAssembleDocumentContextTruncatesToBudget(t *testing.T) {
 	}
 }
 
-func TestDocumentSearchBaseQueryUsesCurrentProcessingVersion(t *testing.T) {
-	if !strings.Contains(documentSearchBaseQuery(), "c.processing_version = d.current_processing_version") {
-		t.Fatalf("expected search query to filter chunks to the document current processing version")
-	}
-	if !strings.Contains(documentSearchBaseQuery(), "COALESCE(d.metadata::text, '{}')") {
-		t.Fatalf("expected search query to return document metadata")
-	}
-	if !strings.Contains(documentSearchBaseQuery(), "COALESCE(to_jsonb(c)->>'chunk_metadata', '{}')") {
-		t.Fatalf("expected search query to return chunk metadata")
-	}
-}
-
 func TestBuildDocumentCitationUsesChunkMetadata(t *testing.T) {
 	citation := buildDocumentCitation(documentSearchRow{
 		DocumentID:        "doc-1",
@@ -540,8 +513,7 @@ func TestNormalizeMetadataFilterDropsEmptyEntries(t *testing.T) {
 }
 
 func TestDocumentSearchHandlerValidatesRequest(t *testing.T) {
-	setEmbeddingEnv(t)
-	setPostgresEnv(t)
+	setOpenSearchEnv(t)
 	base.ServiceName = "external_test_" + t.Name()
 	prometheusutil.Start(http.NewServeMux())
 
@@ -865,25 +837,6 @@ func TestDocumentControlHandlerValidatesJSON(t *testing.T) {
 	}
 }
 
-func TestLocalQueryEmbeddingFallback(t *testing.T) {
-	t.Setenv("EMBEDDING_ENDPOINT", "")
-	t.Setenv("EMBEDDING_MODEL", "local-embeddings")
-
-	embedding, model, err := getQueryEmbedding(context.Background(), "Astra keeps field notes")
-	if err != nil {
-		t.Fatalf("expected local embedding to succeed: %v", err)
-	}
-	if model != "local-embeddings" {
-		t.Fatalf("expected local model, got %q", model)
-	}
-	if len(embedding) != 384 {
-		t.Fatalf("expected 384-dimensional embedding, got %d", len(embedding))
-	}
-	if !embeddingsConfigured() {
-		t.Fatal("expected local embeddings to count as configured")
-	}
-}
-
 func setMinIOEnv(t *testing.T) {
 	t.Helper()
 	t.Setenv("MINIO_ENDPOINT", "svartalfheim:9000")
@@ -892,10 +845,11 @@ func setMinIOEnv(t *testing.T) {
 	t.Setenv("MINIO_BUCKET", "documents")
 }
 
-func setEmbeddingEnv(t *testing.T) {
+func setOpenSearchEnv(t *testing.T) {
 	t.Helper()
-	t.Setenv("EMBEDDING_ENDPOINT", "http://embeddings.homelab.svc.cluster.local/v1/embeddings")
-	t.Setenv("EMBEDDING_MODEL", "local-embeddings")
+	t.Setenv("OPENSEARCH_BASE_URL", "http://opensearch-cluster-master.data.svc.cluster.local:9200")
+	t.Setenv("OPENSEARCH_RAG_INDEX", "rag-documents")
+	t.Setenv("OPENSEARCH_RAG_SEARCH_PIPELINE", "rag-neural-search")
 }
 
 func setPostgresEnv(t *testing.T) {

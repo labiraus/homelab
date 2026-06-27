@@ -57,7 +57,7 @@ aiGatewayCrds:
   repository:
     url: oci://docker.io/envoyproxy/ai-gateway-crds-helm
   chart:
-    version: v0.5.0
+    version: v1.0.0
   interval: 1h
   timeout: 10m
   targetNamespace: envoy-ai-gateway-system
@@ -68,7 +68,7 @@ aiGateway:
   repository:
     url: oci://docker.io/envoyproxy/ai-gateway-helm
   chart:
-    version: v0.5.0
+    version: v1.0.0
   interval: 1h
   timeout: 10m
   targetNamespace: envoy-ai-gateway-system

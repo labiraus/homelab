@@ -14,8 +14,8 @@ namespace="${VLLM_NAMESPACE:-homelab}"
 deployment="${VLLM_DEPLOYMENT:-homelab-vllm}"
 gateway_namespace="${VLLM_GATEWAY_NAMESPACE:-envoy-gateway-system}"
 gateway_service="${VLLM_GATEWAY_SERVICE:-homelab-vllm-ai-gateway}"
-gateway_url="${LLM_BASE_URL:-http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1}"
-model="${LLM_MODEL:-Qwen/Qwen2.5-0.5B-Instruct}"
+gateway_url="${AI_GATEWAY_BASE_URL:-${LLM_BASE_URL:-http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1}}"
+model="${AI_CHAT_MODEL:-${LLM_MODEL:-Qwen/Qwen2.5-0.5B-Instruct}}"
 image="${VLLM_SMOKE_IMAGE:-curlimages/curl:8.11.1}"
 rollout_timeout="${VLLM_ROLLOUT_TIMEOUT:-70m}"
 job_timeout="${VLLM_SMOKE_TIMEOUT:-5m}"
@@ -69,9 +69,9 @@ spec:
           image: ${image}
           imagePullPolicy: IfNotPresent
           env:
-            - name: LLM_BASE_URL
+            - name: AI_GATEWAY_BASE_URL
               value: "${gateway_url}"
-            - name: LLM_MODEL
+            - name: AI_CHAT_MODEL
               value: "${model}"
             - name: REQUEST_TIMEOUT
               value: "${request_timeout}"
@@ -82,13 +82,13 @@ spec:
             - |
               set -eu
               cat >/tmp/request.json <<JSON
-              {"model":"\${LLM_MODEL}","messages":[{"role":"system","content":"You are a terse runtime smoke test."},{"role":"user","content":"Reply with exactly: vllm smoke ok"}],"temperature":0,"max_tokens":16}
+              {"model":"\${AI_CHAT_MODEL}","messages":[{"role":"system","content":"You are a terse runtime smoke test."},{"role":"user","content":"Reply with exactly: vllm smoke ok"}],"temperature":0,"max_tokens":16}
               JSON
               curl -fsS --max-time "\${REQUEST_TIMEOUT}" \
                 -H 'Accept: application/json' \
                 -H 'Content-Type: application/json' \
                 --data @/tmp/request.json \
-                "\${LLM_BASE_URL%/}/chat/completions" \
+                "\${AI_GATEWAY_BASE_URL%/}/chat/completions" \
                 -o /tmp/response.json
               grep -q '"choices"' /tmp/response.json
               sed -n '1,80p' /tmp/response.json

@@ -131,7 +131,7 @@ Use this when:
 - an agent needs ready-to-use context rather than raw search hits
 - cited context should stay tied to the current processed chunk version
 
-The live `documents.context` tool uses the same pgvector retrieval path as `documents.search`, then emits a compact context string with `[1]`, `[2]` style references. Each reference has a corresponding citation object that identifies the source URI, object key, chunk ID, chunk index, and processing version. Optional prefix, document ID, metadata, limit, and max-character arguments are rendered by the prompt and map to the live context tool schema.
+The live `documents.context` tool uses the same OpenSearch neural retrieval path as `documents.search`, then emits a compact context string with `[1]`, `[2]` style references. Each reference has a corresponding citation object that identifies the source URI, object key, chunk ID, chunk index, and processing version. Optional prefix, document ID, metadata, limit, and max-character arguments are rendered by the prompt and map to the live context tool schema.
 
 ### `documents.search.prompt`
 
@@ -149,7 +149,7 @@ Use this when:
 - an agent needs semantic retrieval over processed documents
 - narrowing search to a folder-like object-key prefix would improve the answer
 
-The live `documents.search` tool embeds the query with the configured embedding path and searches the current processed chunk version across `rag.embeddings`, `rag.chunks`, and `rag.documents` in Postgres. Results include document metadata plus citation objects with source URI and chunk identity. Optional prefix, document ID, metadata, and limit arguments are rendered by the prompt and map to the live search tool schema. With `EMBEDDING_MODEL=local-embeddings` and no `EMBEDDING_ENDPOINT`, that embedding path is the built-in deterministic 384-dimensional local embedding function.
+The live `documents.search` tool sends the query to the configured OpenSearch neural search pipeline. Results include document metadata plus citation objects with source URI and chunk identity. Optional prefix, document ID, metadata, and limit arguments are rendered by the prompt and map to the live search tool schema.
 
 ### `documents.inventory.prompt`
 

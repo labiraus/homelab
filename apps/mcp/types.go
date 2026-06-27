@@ -72,6 +72,7 @@ const (
 	manifestBackendAuth         manifestBackend = "auth"
 	manifestBackendMinIO        manifestBackend = "minio"
 	manifestBackendNATS         manifestBackend = "nats"
+	manifestBackendOpenSearch   manifestBackend = "opensearch"
 	manifestBackendOrchestrator manifestBackend = "orchestrator"
 	manifestBackendPostgres     manifestBackend = "postgres"
 )

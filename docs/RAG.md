@@ -3,11 +3,12 @@
 This repo is taking an async-first path to document ingestion and retrieval.
 
 - MinIO remains the canonical raw object store
-- Postgres is the source of truth for metadata, state, chunks, and embeddings
-- Postgres also keeps durable document lifecycle history for processing attempts
+- Postgres is the source of truth for inventory, lifecycle, audit, assistant state, and workflow status
+- OpenSearch is the source of truth for derived RAG chunks, vectors, indexing, and retrieval
+- Envoy AI Gateway is the single app-facing inference governance and routing layer
 - NATS JetStream plus KEDA are the execution layer for asynchronous workers
 - `orchestrator` owns control-plane reconciliation and task dispatch
-- `processor` is the stateless worker for extraction, chunking, embedding, and persistence
+- `processor` is the stateless worker for extraction and OpenSearch-native indexing
 - `external` and `mcp` are the stable public and AI-facing surfaces
 - `assistant` is the browser-first LLM surface for RAG-backed chat, explicit per-user memories, file proposals, and audit views
 - `mcp` forwards document lifecycle notifications sourced from NATS JetStream to MCP subscribers
@@ -20,7 +21,7 @@ The current ingestion slice is reference-based:
 - `orchestrator` accepts MinIO document references, not inline text payloads
 - accepted documents are currently limited to `text/*`
 - `rag.documents.status` moves through `pending`, `processing`, and `processed`
-- `processor` reads the raw object from MinIO, extracts chunkable text, and writes chunks plus embeddings back to Postgres
+- `processor` reads the raw object from MinIO, extracts text, and indexes it into OpenSearch through an ingest pipeline that performs native text chunking and model inference
 - `external` exposes document inventory for browser operators to inspect reconciliation and processing state
 - `external` exposes semantic search for the UI
 - `mcp` exposes document inventory and semantic search for agents
@@ -47,9 +48,9 @@ The current ingestion slice is reference-based:
 - `ui` can queue reprocessing for text Inventory tab rows through `external`'s `/api/documents/reprocess` and then load version-specific lifecycle history
 - `ui` can update curated metadata, perform guarded raw text edits, and queue reprocessing for selected search results through `external` proxy routes
 - `ui` automatically loads version-specific durable lifecycle history after browser actions that queue processing
-- retrieval responses search the document's current processed chunk version and include citation objects that identify the source URI and chunk identity for each match
-- HTML chunks now persist chunk-level citation metadata such as source title and heading path in `rag.chunks.chunk_metadata`, and retrieval surfaces reuse that metadata when rendering citation labels
-- `local-embeddings` uses a built-in deterministic 384-dimensional embedding function when no external embedding endpoint is configured
+- retrieval responses search OpenSearch nested chunk hits for the document's current indexed processing version and include citation objects that identify the source URI and chunk identity for each match
+- OpenSearch owns chunk vectors through `text_chunking`, `ml_inference`, and neural search pipelines; the configured OpenSearch ML model is expected to call Envoy AI Gateway so backend providers can move from local/OpenSearch ML to Bedrock without app code changes
+- known migration gap: OpenSearch-native chunking may initially have less precise HTML heading metadata than the old processor chunker until extracted section metadata is mapped cleanly into the OpenSearch ingest pipeline
 
 File-type expansion beyond the current UTF-8 `text/*` baseline is intentionally gated by `docs/FileTypeExpansion.md`. HTML is now the first implemented extractor beyond plain text: it strips boilerplate markup, preserves visible text, records extraction warnings in lifecycle history, and attaches title/heading citation metadata without breaking existing text citations.
 
@@ -59,14 +60,14 @@ The active follow-up work is no longer to add separate RAG applications. The cur
 
 - keep the local vLLM plus Envoy AI Gateway smoke test green before promoting larger or quantized models
 - keep improving assistant answer quality while preserving explicit memory, proposal-before-write approvals, scoped audit views, and read-only model tool use
-- grow retrieval quality through `evals/ragas` gold cases before changing chunking, embedding dimensions, ranking, or metadata filter behavior
+- grow retrieval quality through `evals/ragas` gold cases before changing OpenSearch chunking, embedding dimensions, ranking, or metadata filter behavior
 - follow `docs/FileTypeExpansion.md` before expanding beyond the current `text/*` ingestion path
 - harden operations with runbooks, metrics, retention decisions, and recovery drills for Postgres, MinIO, NATS/KEDA, vLLM, and assistant workflows
 
 ## Chunking Evaluation
 
 Use `evals/ragas` to score whether the current processed chunks retrieve the right gold context for representative queries.
-The harness reads the live `rag.documents`, `rag.chunks`, and `rag.embeddings` rows through Postgres, embeds each query with the same local embedding function used by the processor when `EMBEDDING_MODEL=local-embeddings`, and evaluates the retrieved contexts with RAGAS retrieval metrics.
+The harness is currently a migration gap: it still reads the legacy Postgres `rag.chunks` and `rag.embeddings` rows. Before using it as a gate for the OpenSearch-native path, update it to query OpenSearch with the same neural search pipeline used by `external` and `mcp`.
 Reports include citation-confidence fields for every retrieved chunk: source URI, object key, content type, chunk index, processing version, document metadata, chunk metadata, and the rendered citation label fields used by the UI and MCP surfaces.
 
 Setup:
@@ -105,7 +106,9 @@ flowchart LR
 
   subgraph Storage
     MINIO[MinIO on svartalfheim]
-    PG[Postgres CNPG + pgvector]
+    PG[Postgres CNPG]
+    OS[OpenSearch]
+    AIGW[Envoy AI Gateway]
   end
 
   subgraph Async execution
@@ -125,9 +128,13 @@ flowchart LR
   NATS -->|document lifecycle notifications| MCP
   KEDA -. scales .-> PROC
   PROC -->|read referenced text object| MINIO
-  PROC -->|write chunks + embeddings| PG
+  PROC -->|index extracted text| OS
+  OS -->|model inference via configured connector| AIGW
   PROC -->|append processing lifecycle history| PG
 
-  EXT -->|query metadata and retrieval state| PG
-  MCP -->|query metadata and retrieval state| PG
+  EXT -->|query inventory, history, audit state| PG
+  MCP -->|query inventory and history state| PG
+  EXT -->|neural retrieval| OS
+  MCP -->|neural retrieval| OS
+  ASSIST -->|chat completions| AIGW
 ```

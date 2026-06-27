@@ -52,7 +52,7 @@ The browser-facing path is published through `oauth2-proxy` at `/api/...`, and t
 - `/api/documents/upload` accepts multipart uploads for the current folder view
 - `/api/documents/inventory` returns Postgres-backed document inventory rows, processing versions, latest lifecycle summary fields, and curated metadata
 - `/api/documents/history` returns the durable Postgres-backed lifecycle history for a document, optionally narrowed to one processing version
-- `/api/documents/search` embeds a natural-language query, runs pgvector similarity search against the current processed chunk version, and returns ranked matches with document metadata, chunk metadata, and citation objects for the source URI plus chunk identity
+- `/api/documents/search` runs OpenSearch neural search against the current processed chunk version and returns ranked matches with document metadata, chunk metadata, and citation objects for the source URI plus chunk identity
 - `/api/documents/context` uses the same retrieval path and assembles a compact context block with `[1]`, `[2]` style references plus citation objects and any available chunk-level citation hints
 - `/api/documents/create-text` proxies text-object creation to `orchestrator` `POST /documents/create-text`
 - `/api/documents/curation` proxies metadata-only updates to `orchestrator` `POST /documents/curation`
@@ -80,12 +80,12 @@ The MinIO-backed browser routes expect the standard MinIO runtime configuration:
 
 The UI treats these document routes as authenticated functionality for recognized users, and the API is expected to stay behind the same trusted auth middleware as the rest of the browser-facing surface.
 
-Semantic search also uses:
+Semantic search and cited context assembly use OpenSearch neural search:
 
-- `EMBEDDING_MODEL`, defaulting to `local-embeddings`
-- `EMBEDDING_ENDPOINT`, only when routing to an external OpenAI-compatible embeddings service
-
-When `EMBEDDING_MODEL=local-embeddings` and `EMBEDDING_ENDPOINT` is empty, `external` uses the same built-in deterministic 384-dimensional local embedding function as the processor so query vectors and stored chunk vectors remain comparable.
+- `OPENSEARCH_BASE_URL`
+- `OPENSEARCH_RAG_INDEX`, defaulting to `rag-documents`
+- `OPENSEARCH_RAG_SEARCH_PIPELINE`, defaulting to `rag-neural-search`
+- optional `OPENSEARCH_USERNAME` and `OPENSEARCH_PASSWORD`
 
 Document control proxying also uses:
 

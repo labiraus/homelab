@@ -12,10 +12,16 @@ export interface ProcessorConfig {
 	minioBucket: string;
 	minioAccessKey: string;
 	minioSecretKey: string;
-	embeddingEndpoint: string;
-	embeddingModel: string;
-	chunkSize: number;
-	chunkOverlap: number;
+	openSearchBaseUrl: string;
+	openSearchUsername: string;
+	openSearchPassword: string;
+	openSearchIndex: string;
+	openSearchIngestPipeline: string;
+	openSearchSearchPipeline: string;
+	openSearchModelId: string;
+	openSearchVectorDimensions: number;
+	openSearchChunkTokenLimit: number;
+	openSearchChunkOverlapRate: number;
 	postgresConnectionString: string;
 }
 
@@ -28,6 +34,11 @@ function requireEnv(name: string): string {
 }
 
 export function loadConfig(): ProcessorConfig {
+	const openSearchModelId =
+		process.env.OPENSEARCH_RAG_MODEL_ID?.trim() ||
+		process.env.AI_EMBEDDING_MODEL?.trim() ||
+		process.env.EMBEDDING_MODEL?.trim() ||
+		"";
 	return {
 		port: Number(process.env.PORT ?? "8080"),
 		natsServers: requireEnv("NATS_URLS").split(",").map((value) => value.trim()).filter(Boolean),
@@ -42,10 +53,16 @@ export function loadConfig(): ProcessorConfig {
 		minioBucket: process.env.MINIO_BUCKET?.trim() || "documents",
 		minioAccessKey: requireEnv("MINIO_ACCESS_KEY"),
 		minioSecretKey: requireEnv("MINIO_SECRET_KEY"),
-		embeddingEndpoint: process.env.EMBEDDING_ENDPOINT?.trim() || "",
-		embeddingModel: process.env.EMBEDDING_MODEL?.trim() || "local-embeddings",
-		chunkSize: Number(process.env.CHUNK_SIZE ?? "1200"),
-		chunkOverlap: Number(process.env.CHUNK_OVERLAP ?? "200"),
+		openSearchBaseUrl: requireEnv("OPENSEARCH_BASE_URL"),
+		openSearchUsername: process.env.OPENSEARCH_USERNAME?.trim() || "",
+		openSearchPassword: process.env.OPENSEARCH_PASSWORD?.trim() || "",
+		openSearchIndex: process.env.OPENSEARCH_RAG_INDEX?.trim() || "rag-documents",
+		openSearchIngestPipeline: process.env.OPENSEARCH_RAG_INGEST_PIPELINE?.trim() || "rag-native-ingest",
+		openSearchSearchPipeline: process.env.OPENSEARCH_RAG_SEARCH_PIPELINE?.trim() || "rag-neural-search",
+		openSearchModelId: openSearchModelId || requireEnv("OPENSEARCH_RAG_MODEL_ID"),
+		openSearchVectorDimensions: Number(process.env.OPENSEARCH_VECTOR_DIMENSIONS ?? "1024"),
+		openSearchChunkTokenLimit: Number(process.env.OPENSEARCH_CHUNK_TOKEN_LIMIT ?? "384"),
+		openSearchChunkOverlapRate: Number(process.env.OPENSEARCH_CHUNK_OVERLAP_RATE ?? "0.15"),
 		postgresConnectionString: buildPostgresConnectionString(),
 	};
 }

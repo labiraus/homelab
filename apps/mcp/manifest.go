@@ -232,7 +232,7 @@ var capabilityCatalog = []manifestCapabilitySource{
 						Role: "user",
 						Content: manifestPromptMessagePart{
 							Type: "text",
-							Text: "Use the live `documents.search` tool on Labiraus with query `{{query}}`. Optional filters can set `prefix`, `documentId`, `metadata`, and `limit`. Supplied values: `prefix` `{{prefix}}`, `documentId` `{{documentId}}`, `metadata` `{{metadata}}`, and `limit` `{{limit}}`. Results come from pgvector similarity search over processed chunks and include document metadata, document IDs, object keys, chunk text, scores, processing versions, and citation objects that identify the source URI plus chunk.",
+							Text: "Use the live `documents.search` tool on Labiraus with query `{{query}}`. Optional filters can set `prefix`, `documentId`, `metadata`, and `limit`. Supplied values: `prefix` `{{prefix}}`, `documentId` `{{documentId}}`, `metadata` `{{metadata}}`, and `limit` `{{limit}}`. Results come from OpenSearch neural search over processed chunks and include document metadata, document IDs, object keys, chunk text, scores, processing versions, and citation objects that identify the source URI plus chunk.",
 						},
 					},
 				},
@@ -304,7 +304,7 @@ var capabilityCatalog = []manifestCapabilitySource{
 				"Assemble a citation-backed context block from processed document chunks.",
 				false,
 				&manifestOperationBinding{
-					Backend:       manifestBackendPostgres,
+					Backend:       manifestBackendOpenSearch,
 					ExecutionMode: manifestExecutionModeDocumentContext,
 				},
 				documentContextSchema(),
@@ -314,10 +314,10 @@ var capabilityCatalog = []manifestCapabilitySource{
 				"searchDocuments",
 				http.MethodPost,
 				"/documents/search",
-				"Search processed document chunks by embedding a query and ranking pgvector matches.",
+				"Search processed document chunks through OpenSearch neural search.",
 				false,
 				&manifestOperationBinding{
-					Backend:       manifestBackendPostgres,
+					Backend:       manifestBackendOpenSearch,
 					ExecutionMode: manifestExecutionModeDocumentSearch,
 				},
 				documentSearchSchema(),

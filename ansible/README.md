@@ -230,7 +230,7 @@ Managed Minecraft VM state:
 
 Current seeded profiles:
 
-- `atm11` is the repo-authoritative active profile and is pinned with `CF_SLUG=all-the-mods-11`, `CF_FILENAME_MATCHER=0.1.1`, `NEOFORGE_VERSION=26.1.2.76`, and `start_mode=preinstalled_run_script`
+- `atm11` is the repo-authoritative active profile and is pinned with `CF_SLUG=all-the-mods-11`, `CF_FILENAME_MATCHER=0.1.2`, `NEOFORGE_VERSION=26.1.2.76`, and `start_mode=preinstalled_run_script`
 - `atm10_tts` preserves the older ATM10 To The Sky world with `CF_SLUG=all-the-mods-10-sky` and `CF_FILENAME_MATCHER=2.0.2`
 
 The first multi-profile rollout migrates the old single-server `/srv/minecraft/data` and `/srv/minecraft/backups` directories into the `atm10_tts` profile before repointing the active links to `atm11`.

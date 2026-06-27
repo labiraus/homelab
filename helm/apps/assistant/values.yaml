@@ -81,6 +81,14 @@ generatedSecrets:
         value: "5"
       ORCHESTRATOR_BASE_URL:
         value: "http://homelab-orchestrator.homelab.svc.cluster.local"
+      AI_GATEWAY_BASE_URL:
+        value: "http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1"
+      AI_CHAT_MODEL:
+        value: "Qwen/Qwen2.5-0.5B-Instruct"
+      AI_CHAT_MAX_TOKENS:
+        value: "768"
+      AI_EMBEDDING_MODEL:
+        value: "rag-embedding-model"
       LLM_BASE_URL:
         value: "http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1"
       LLM_MODEL:

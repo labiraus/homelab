@@ -3,7 +3,6 @@ import http from "node:http";
 import { AckPolicy, RetentionPolicy, StorageType, connect } from "nats";
 import { Pool } from "pg";
 
-import { chunkText } from "./chunking.js";
 import { loadConfig } from "./config.js";
 import { extractDocumentContent } from "./extractor.js";
 import {
@@ -14,13 +13,13 @@ import {
 import {
 	claimDocumentForProcessing,
 	ensureSchema,
+	markDocumentIndexed,
 	markDocumentPendingWithError,
-	persistProcessedDocument,
 	recordLifecycleEvent,
 } from "./db.js";
-import { fetchEmbedding } from "./embedding.js";
+import { ensureOpenSearchResources, indexDocumentInOpenSearch } from "./opensearch.js";
 import { createDocumentStorage } from "./storage.js";
-import type { DocumentEvent, DocumentLifecycleEvent, EmbeddingResult } from "./types.js";
+import type { DocumentEvent, DocumentLifecycleEvent } from "./types.js";
 
 async function main(): Promise<void> {
 	const config = loadConfig();
@@ -45,6 +44,7 @@ async function main(): Promise<void> {
 		let nc: Awaited<ReturnType<typeof connect>> | undefined;
 		try {
 			await ensureSchema(pool);
+			await ensureOpenSearchResources(config);
 
 			nc = await connect({
 				servers: config.natsServers,
@@ -81,17 +81,8 @@ async function main(): Promise<void> {
 
 					const raw = await storage.readDocument(event.bucket, event.objectKey);
 					const extracted = extractDocumentContent(raw, event.contentType);
-					const chunks = chunkText(extracted.segments, {
-						chunkSize: config.chunkSize,
-						chunkOverlap: config.chunkOverlap,
-					});
-					const embeddings: EmbeddingResult[] = [];
-					for (const chunk of chunks) {
-						const embedding = await fetchEmbedding(config.embeddingEndpoint, config.embeddingModel, chunk.text);
-						embeddings.push(embedding);
-					}
-
-					await persistProcessedDocument(pool, claim.documentPk, event, chunks, embeddings);
+					await indexDocumentInOpenSearch(config, event, extracted.segments);
+					await markDocumentIndexed(pool, claim.documentPk, event);
 					await emitLifecycleEventBestEffort(
 						pool,
 						nc,

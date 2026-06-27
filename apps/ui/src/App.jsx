@@ -2962,7 +2962,7 @@ function App() {
 									{searchSubtitle(searchResults.length, searchLoading)}
 								</p>
 								<p className="header-badge-copy">
-									Results come from pgvector similarity search over processed
+									Results come from OpenSearch neural search over processed
 									document chunks.
 								</p>
 							</div>

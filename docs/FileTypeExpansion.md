@@ -8,8 +8,8 @@ Non-text objects discovered during bucket reconciliation must remain visible in 
 
 - MinIO remains the canonical raw object store for every file type.
 - `orchestrator` owns reconciliation, support decisions, processing-version selection, queueing, and lifecycle history.
-- `processor` owns extraction, chunking, embedding, and derived-state writes after `orchestrator` queues supported work.
-- Postgres remains the source of truth for inventory rows, lifecycle events, chunks, embeddings, and citation metadata.
+- `processor` owns extraction and OpenSearch indexing after `orchestrator` queues supported work.
+- Postgres remains the source of truth for inventory rows and lifecycle events; OpenSearch owns derived chunks, embeddings, and retrieval metadata.
 
 ## Support States
 
@@ -18,7 +18,7 @@ Use these meanings consistently:
 - `unsupported`: the object was reconciled, but its content type or extension is outside the current extraction policy.
 - `pending`: the object is supported and queued or waiting to be claimed for a specific processing version.
 - `processing`: a worker has claimed the queued processing version.
-- `processed`: extraction, chunking, embedding, and document state updates completed for the current processing version.
+- `processed`: extraction, OpenSearch indexing, and document state updates completed for the current processing version.
 - `failed`: extraction or processing was attempted and failed in a way that should be visible to operators.
 
 Unsupported objects should keep bucket, object key, source URI, content type, size, last modified time, ETag/version marker, reconciliation metadata, and latest lifecycle summary fields.
@@ -30,7 +30,7 @@ Unsupported objects should keep bucket, object key, source URI, content type, si
 - `text/html` and `.html`/`.htm` are now the first implemented expansion after plain text.
 - Extract visible text, title, headings, link text, and meaningful alt text.
 - Remove scripts, styles, navigation boilerplate, and repeated layout chrome where practical.
-- Preserve source URI, object key, processing version, and section-ish anchors in `rag.chunks.chunk_metadata` so retrieval surfaces can render richer citation labels.
+- Preserve source URI, object key, processing version, and section-ish anchors in OpenSearch chunk metadata so retrieval surfaces can render richer citation labels.
 - Failed parsing should mark the processing version `failed`; malformed but partially readable HTML can be `processed` only when the extracted text is non-empty and the lifecycle payload records the extraction warning.
 
 ## Candidate Type Policies

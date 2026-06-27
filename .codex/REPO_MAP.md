@@ -18,7 +18,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - `external/`: public Go service
   - `mcp/`: public Go MCP service; see `apps/mcp/AGENTS.md` for transport/client-compatibility rules
   - `orchestrator/`: internal Go document service
-  - `processor/`: internal TypeScript NATS JetStream worker
+  - `processor/`: internal TypeScript NATS JetStream worker that extracts text and indexes derived retrieval state into OpenSearch
   - `ui/`: Vite frontend
   - `pkg/`: shared Go modules
 - `ansible/`
@@ -149,6 +149,7 @@ Current behavior note:
 
 - Working architecture and phase plan: `.codex/REPO_PLAN.md`
 - Initial document/control-plane schema: `sql/rag/schema.pgsql`
+- OpenSearch data chart: `helm/data/opensearch/`
 - Operator dashboard queries: `sql/rag/ops_dashboard_queries.pgsql`
 - Assistant state schema: `sql/assistant/schema.pgsql`
 - Chunking quality checks: `evals/ragas/`
@@ -162,14 +163,15 @@ Current behavior note:
 Current behavior note:
 
 - MinIO is the canonical raw object store.
-- Postgres is the source of truth for metadata, state, chunks, and embeddings.
+- Postgres is the source of truth for metadata, workflow state, lifecycle history, and audits.
+- OpenSearch is the active derived chunk/vector retrieval store.
 - NATS JetStream plus KEDA are the async execution layer, not the durable state store.
-- `external` exposes semantic document search for the UI.
-- `mcp` exposes document inventory and semantic search for agents.
+- `external` exposes OpenSearch-backed semantic document search for the UI.
+- `mcp` exposes document inventory and OpenSearch-backed semantic search for agents.
 - `external` and `mcp` expose durable document lifecycle history from `rag.document_lifecycle_events`.
 - `assistant` stores conversations, per-user memories, tool calls, file proposals, and audit views in Postgres.
 - `rag.document_change_audits` links create/edit/revert operations to actor email, conversation ID, proposal ID, MinIO version markers, and processing versions.
-- `evals/ragas` can score live processed chunks against gold retrieval cases with RAGAS context precision/recall metrics.
+- `evals/ragas` is a migration gap until updated from legacy Postgres chunk reads to OpenSearch neural search.
 - `runbooks/troubleshooting.md` captures the current day-two checks for stuck document lifecycle states, NATS/KEDA lag, vLLM startup, assistant proposals, retention, and backup/recovery rehearsal.
 - `mcp` publishes prompt guidance for live document inventory, retrieval, curation, editing, reprocessing, history, notification, and MinIO browsing workflows.
 - `mcp` advertises strict top-level tool input schemas and validates prompt arguments plus advertised tool argument names, required fields, and primitive/object types before execution while leaving unknown nested payload fields to the owning service contract.

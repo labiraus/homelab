@@ -1825,18 +1825,6 @@ func TestBuildDocumentContextPayloadAddsReferencesAndTruncates(t *testing.T) {
 	}
 }
 
-func TestDocumentChunkSearchBaseQueryUsesCurrentProcessingVersion(t *testing.T) {
-	if !strings.Contains(documentChunkSearchBaseQuery(), "c.processing_version = d.current_processing_version") {
-		t.Fatalf("expected search query to filter chunks to the document current processing version")
-	}
-	if !strings.Contains(documentChunkSearchBaseQuery(), "COALESCE(d.metadata::text, '{}')") {
-		t.Fatalf("expected search query to return document metadata")
-	}
-	if !strings.Contains(documentChunkSearchBaseQuery(), "COALESCE(to_jsonb(c)->>'chunk_metadata', '{}')") {
-		t.Fatalf("expected search query to return chunk metadata")
-	}
-}
-
 func TestBuildDocumentCitationUsesChunkMetadata(t *testing.T) {
 	citation := buildDocumentCitation(documentSearchRow{
 		DocumentID:        "doc-1",
@@ -1866,25 +1854,6 @@ func TestOptionalJSONMapArgumentNormalizesMetadataFilter(t *testing.T) {
 
 	if len(filter) != 2 || filter["tag"] != "runbook" {
 		t.Fatalf("expected normalized metadata filter, got %#v", filter)
-	}
-}
-
-func TestLocalSearchEmbeddingFallback(t *testing.T) {
-	t.Setenv("EMBEDDING_ENDPOINT", "")
-	t.Setenv("EMBEDDING_MODEL", "local-embeddings")
-
-	embedding, model, err := getSearchEmbedding(context.Background(), "ancient tower")
-	if err != nil {
-		t.Fatalf("expected local embedding to succeed: %v", err)
-	}
-	if model != "local-embeddings" {
-		t.Fatalf("expected local model, got %q", model)
-	}
-	if len(embedding) != 384 {
-		t.Fatalf("expected 384-dimensional embedding, got %d", len(embedding))
-	}
-	if !embeddingsConfigured() {
-		t.Fatal("expected local embeddings to count as configured")
 	}
 }
 

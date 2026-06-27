@@ -83,14 +83,32 @@ generatedSecrets:
           namespace: homelab
           name: documents-minio-credentials
           key: secretKey
-      EMBEDDING_ENDPOINT:
-        value: ""
-      EMBEDDING_MODEL:
-        value: local-embeddings
-      CHUNK_SIZE:
-        value: "1200"
-      CHUNK_OVERLAP:
-        value: "200"
+      OPENSEARCH_BASE_URL:
+        value: "http://labiraus-rag-data.data.svc.cluster.local:9200"
+      OPENSEARCH_RAG_INDEX:
+        value: "rag-documents"
+      OPENSEARCH_RAG_INGEST_PIPELINE:
+        value: "rag-native-ingest"
+      OPENSEARCH_RAG_SEARCH_PIPELINE:
+        value: "rag-neural-search"
+      OPENSEARCH_RAG_MODEL_ID:
+        value: "rag-embedding-model"
+      OPENSEARCH_VECTOR_DIMENSIONS:
+        value: "1024"
+      OPENSEARCH_CHUNK_TOKEN_LIMIT:
+        value: "384"
+      OPENSEARCH_CHUNK_OVERLAP_RATE:
+        value: "0.15"
+      OPENSEARCH_USERNAME:
+        fromSecretRef:
+          namespace: data
+          name: opensearch-admin
+          key: username
+      OPENSEARCH_PASSWORD:
+        fromSecretRef:
+          namespace: data
+          name: opensearch-admin
+          key: password
       POSTGRES_HOST:
         value: app-db-rw.data.svc.cluster.local
       POSTGRES_PORT:
@@ -162,6 +180,20 @@ security:
         ports:
           - protocol: TCP
             port: 5432
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: data
+            podSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                    - opensearchData
+                    - opensearchMl
+        ports:
+          - protocol: TCP
+            port: 9200
       - to:
           - ipBlock:
               cidr: 0.0.0.0/0

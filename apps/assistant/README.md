@@ -39,7 +39,7 @@ Validate the deployed model route with:
 make vllm-gateway-smoke
 ```
 
-That target sends an OpenAI-compatible chat request through the same internal Gateway URL configured as `LLM_BASE_URL`.
+That target sends an OpenAI-compatible chat request through the same internal Gateway URL configured as `AI_GATEWAY_BASE_URL`.
 
 Important environment variables:
 
@@ -47,8 +47,9 @@ Important environment variables:
 - `MCP_BASE_URL`: Labiraus MCP endpoint, usually `http://homelab-mcp.homelab.svc.cluster.local/mcp`
 - `MCP_CONTEXT_TIMEOUT_SECONDS`: timeout for the read-only MCP context lookup before the assistant falls back to a degraded reply, default `5`
 - `ORCHESTRATOR_BASE_URL`: internal orchestrator endpoint
-- `LLM_BASE_URL`: OpenAI-compatible base URL, including `/v1`
-- `LLM_MODEL`: served model name, defaulting to `Qwen/Qwen2.5-0.5B-Instruct`
+- `AI_GATEWAY_BASE_URL`: OpenAI-compatible Envoy AI Gateway base URL, including `/v1`; `LLM_BASE_URL` remains a migration fallback
+- `AI_CHAT_MODEL`: served chat model name, defaulting to `Qwen/Qwen2.5-0.5B-Instruct`; `LLM_MODEL` remains a migration fallback
+- `AI_CHAT_MAX_TOKENS`: chat token budget; `LLM_MAX_TOKENS` remains a migration fallback
 
 Run tests:
 

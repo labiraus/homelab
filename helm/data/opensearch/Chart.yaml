@@ -1,0 +1,17 @@
+apiVersion: v2
+name: opensearch
+description: Internal OpenSearch cluster for Labiraus RAG retrieval and indexing
+type: application
+version: 0.1.0
+appVersion: "2.x"
+dependencies:
+  - name: opensearch
+    alias: opensearchData
+    version: ">=2.0.0 <4.0.0"
+    repository: https://opensearch-project.github.io/helm-charts/
+    condition: opensearchData.enabled
+  - name: opensearch
+    alias: opensearchMl
+    version: ">=2.0.0 <4.0.0"
+    repository: https://opensearch-project.github.io/helm-charts/
+    condition: opensearchMl.enabled

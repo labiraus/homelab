@@ -75,10 +75,22 @@ generatedSecrets:
           namespace: data
           name: app-db-bootstrap
           key: password
-      EMBEDDING_ENDPOINT:
-        value: ""
-      EMBEDDING_MODEL:
-        value: local-embeddings
+      OPENSEARCH_BASE_URL:
+        value: "http://labiraus-rag-data.data.svc.cluster.local:9200"
+      OPENSEARCH_RAG_INDEX:
+        value: "rag-documents"
+      OPENSEARCH_RAG_SEARCH_PIPELINE:
+        value: "rag-neural-search"
+      OPENSEARCH_USERNAME:
+        fromSecretRef:
+          namespace: data
+          name: opensearch-admin
+          key: username
+      OPENSEARCH_PASSWORD:
+        fromSecretRef:
+          namespace: data
+          name: opensearch-admin
+          key: password
       MINIO_ENDPOINT:
         value: "svartalfheim:9000"
       MINIO_USE_SSL:
@@ -170,6 +182,20 @@ security:
         ports:
           - protocol: TCP
             port: 5432
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: data
+            podSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                    - opensearchData
+                    - opensearchMl
+        ports:
+          - protocol: TCP
+            port: 9200
       - to:
           - namespaceSelector:
               matchLabels:

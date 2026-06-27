@@ -12,10 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
-)
 
-const (
-	defaultLLMModel = "Qwen/Qwen2.5-0.5B-Instruct"
+	"pkg/inference"
 )
 
 type assistantRunResult struct {
@@ -31,40 +29,6 @@ type documentContextResult struct {
 	Raw       map[string]any
 	IsError   bool
 	Error     string
-}
-
-type chatCompletionRequest struct {
-	Model       string            `json:"model"`
-	Messages    []llmMessage      `json:"messages"`
-	Temperature float64           `json:"temperature"`
-	MaxTokens   int               `json:"max_tokens"`
-	Tools       []llmTool         `json:"tools,omitempty"`
-	ToolChoice  any               `json:"tool_choice,omitempty"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
-}
-
-type llmMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-type llmTool struct {
-	Type     string      `json:"type"`
-	Function llmFunction `json:"function"`
-}
-
-type llmFunction struct {
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Parameters  map[string]any `json:"parameters"`
-}
-
-type chatCompletionResponse struct {
-	Choices []struct {
-		Message struct {
-			Content string `json:"content"`
-		} `json:"message"`
-	} `json:"choices"`
 }
 
 type jsonRPCResponseEnvelope struct {
@@ -194,15 +158,12 @@ func callDocumentsContext(ctx context.Context, userEmail string, query string) d
 }
 
 func callLLM(ctx context.Context, userEmail string, conversation conversationRecord, message string, memories []memoryRecord, contextResult documentContextResult) (string, error) {
-	baseURL := strings.TrimRight(strings.TrimSpace(os.Getenv("LLM_BASE_URL")), "/")
-	if baseURL == "" {
-		return "", fmt.Errorf("LLM_BASE_URL is not configured")
-	}
-	requestBody := chatCompletionRequest{
+	client := inference.NewClientFromEnv()
+	requestBody := inference.ChatRequest{
 		Model:       llmModel(),
 		Temperature: 0.2,
 		MaxTokens:   llmMaxTokens(),
-		Messages: []llmMessage{
+		Messages: []inference.Message{
 			{Role: "system", Content: assistantSystemPrompt(memories, contextResult)},
 			{Role: "user", Content: message},
 		},
@@ -212,38 +173,8 @@ func callLLM(ctx context.Context, userEmail string, conversation conversationRec
 			"conversation_id": conversation.ConversationID,
 		},
 	}
-	bodyBytes, err := json.Marshal(requestBody)
-	if err != nil {
-		return "", err
-	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/chat/completions", bytes.NewReader(bodyBytes))
-	if err != nil {
-		return "", err
-	}
-	request.Header.Set("Accept", "application/json")
-	request.Header.Set("Content-Type", "application/json")
-
-	response, err := assistantHTTPClient.Do(request)
-	if err != nil {
-		return "", err
-	}
-	defer response.Body.Close()
-
-	body, err := io.ReadAll(io.LimitReader(response.Body, 2<<20))
-	if err != nil {
-		return "", err
-	}
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return "", fmt.Errorf("llm returned status %d: %s", response.StatusCode, strings.TrimSpace(string(body)))
-	}
-	var completion chatCompletionResponse
-	if err := json.Unmarshal(body, &completion); err != nil {
-		return "", err
-	}
-	if len(completion.Choices) == 0 {
-		return "", fmt.Errorf("llm returned no choices")
-	}
-	return strings.TrimSpace(completion.Choices[0].Message.Content), nil
+	client.HTTPClient = assistantHTTPClient
+	return client.ChatCompletion(ctx, requestBody)
 }
 
 func assistantSystemPrompt(memories []memoryRecord, contextResult documentContextResult) string {
@@ -273,11 +204,11 @@ func assistantSystemPrompt(memories []memoryRecord, contextResult documentContex
 	return builder.String()
 }
 
-func assistantToolDefinitions() []llmTool {
-	return []llmTool{
+func assistantToolDefinitions() []inference.Tool {
+	return []inference.Tool{
 		{
 			Type: "function",
-			Function: llmFunction{
+			Function: inference.Function{
 				Name:        "documents_context",
 				Description: "Read-only Labiraus RAG context lookup. File-writing tools are not exposed to the model.",
 				Parameters: map[string]any{
@@ -343,11 +274,11 @@ func fallbackReply(contextResult documentContextResult) string {
 }
 
 func llmModel() string {
-	return envOrDefault("LLM_MODEL", defaultLLMModel)
+	return inference.ChatModelFromEnv()
 }
 
 func llmMaxTokens() int {
-	value, err := strconv.Atoi(strings.TrimSpace(os.Getenv("LLM_MAX_TOKENS")))
+	value, err := strconv.Atoi(strings.TrimSpace(envOrDefault("AI_CHAT_MAX_TOKENS", envOrDefault("LLM_MAX_TOKENS", ""))))
 	if err != nil || value <= 0 {
 		return 768
 	}

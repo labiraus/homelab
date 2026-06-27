@@ -22,8 +22,8 @@ Pinned upstream versions in this repo:
 
 - Envoy Gateway `v1.7.0`
 - Envoy Gateway CRDs `v1.7.0`
-- Envoy AI Gateway CRDs `v0.5.0`
-- Envoy AI Gateway controller `v0.5.0`
+- Envoy AI Gateway CRDs `v1.0.0`
+- Envoy AI Gateway controller `v1.0.0`
 - Gateway API standard CRDs `v1.4.1` via `helm/bootstrap/flux-bootstrap/`
 
 Current repo note:
@@ -41,7 +41,9 @@ Local vLLM integration:
 - default node path: `helheim` with `node-llm=gpu` and `nvidia.com/gpu: 1`
 - runtime flags enable OpenAI-compatible serving, tool-call parsing, automatic tool choice, prefix caching, and eager-mode execution for faster startup on the current consumer GPU path; quantization can be enabled by setting `model.quantization`
 - the startup probe allows roughly one hour for first-load model download, CUDA setup, and compilation on the lab GPU path before Kubernetes restarts the container
-- the assistant service uses `LLM_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`; Envoy AI Gateway routes that OpenAI-compatible traffic to the in-cluster vLLM backend
+- the assistant service uses `AI_GATEWAY_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`; Envoy AI Gateway routes that OpenAI-compatible traffic to the in-cluster vLLM backend
+- OpenSearch ML Commons models used by RAG indexing/search should be configured with connectors that call Envoy AI Gateway, so embedding providers can move from local/OpenSearch-backed inference to Bedrock without app code changes
+- current gap: the repo creates the OpenSearch ingest/search pipelines but does not yet automate ML Commons model and connector registration; operators must register `OPENSEARCH_RAG_MODEL_ID` against Envoy AI Gateway before processor indexing succeeds
 
 Near-term validation focus:
 
@@ -65,20 +67,20 @@ The target runs `scripts/vllm-gateway-smoke.sh`. It:
 - prints current vLLM pod placement so `helheim` scheduling is visible
 - checks the internal Envoy AI Gateway service `envoy-gateway-system/homelab-vllm-ai-gateway`
 - creates a temporary in-cluster curl `Job` in namespace `homelab` with the same app labels used by the assistant network-policy path
-- sends an OpenAI-compatible `POST /v1/chat/completions` request to `LLM_BASE_URL`
+- sends an OpenAI-compatible `POST /v1/chat/completions` request to `AI_GATEWAY_BASE_URL` or the legacy `LLM_BASE_URL`
 - requires a response containing `choices`
 
 Default smoke-test inputs:
 
-- `LLM_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`
-- `LLM_MODEL=Qwen/Qwen2.5-0.5B-Instruct`
+- `AI_GATEWAY_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`
+- `AI_CHAT_MODEL=Qwen/Qwen2.5-0.5B-Instruct`
 - `VLLM_ROLLOUT_TIMEOUT=70m`
 - `VLLM_SMOKE_TIMEOUT=5m`
 
 Useful overrides:
 
 ```bash
-LLM_MODEL=Qwen/Qwen2.5-0.5B-Instruct make vllm-gateway-smoke
+AI_CHAT_MODEL=Qwen/Qwen2.5-0.5B-Instruct make vllm-gateway-smoke
 VLLM_SMOKE_KEEP_JOB=1 make vllm-gateway-smoke
 VLLM_ROLLOUT_TIMEOUT=10m VLLM_SMOKE_TIMEOUT=2m make vllm-gateway-smoke
 ```
@@ -122,4 +124,4 @@ Keep the default model small and unquantized until this smoke test is reliable a
 Upstream references used for this integration:
 
 - Envoy AI Gateway install guide: `https://aigateway.envoyproxy.io/docs/getting-started/installation/`
-- Envoy AI Gateway base Envoy Gateway values: `https://raw.githubusercontent.com/envoyproxy/ai-gateway/v0.5.0/manifests/envoy-gateway-values.yaml`
+- Envoy AI Gateway base Envoy Gateway values: `https://raw.githubusercontent.com/envoyproxy/ai-gateway/v1.0.0/manifests/envoy-gateway-values.yaml`

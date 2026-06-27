@@ -7,6 +7,7 @@ require (
 	github.com/jackc/pgx/v5 v5.7.4
 	pkg/api v0.0.0
 	pkg/base v0.0.0
+	pkg/inference v0.0.0
 	pkg/postgresutil v0.0.0
 	pkg/prometheusutil v0.0.0
 )
@@ -34,6 +35,8 @@ require (
 replace pkg/api => ../pkg/api
 
 replace pkg/base => ../pkg/base
+
+replace pkg/inference => ../pkg/inference
 
 replace pkg/postgresutil => ../pkg/postgresutil
 

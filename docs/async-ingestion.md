@@ -4,12 +4,13 @@ This document describes the first coherent ingestion slice for the current archi
 
 ## Goal
 
-Start with reconciliation of MinIO objects into Postgres, then layer asynchronous processing on top.
+Start with reconciliation of MinIO objects into Postgres, then layer asynchronous OpenSearch indexing on top.
 
 This keeps:
 
 - MinIO as canonical raw storage
-- Postgres as the source of truth
+- Postgres as the control-plane source of truth
+- OpenSearch as the derived retrieval and vector index
 - NATS JetStream as execution transport
 - `orchestrator` as control plane
 - `processor` as stateless worker
@@ -82,7 +83,7 @@ Text inventory rows with source object keys can also load raw text through `GET 
 
 Text inventory rows with source object keys can queue reprocessing through the existing `POST /api/documents/reprocess` route. `external` still proxies the request to `orchestrator`, `orchestrator` still chooses and queues the next processing version, and the UI uses the accepted processing version to load the matching durable lifecycle history.
 
-The current retrieval context slice is read-only. `documents.context` in MCP and `POST /api/documents/context` in `external` use the same current-version pgvector search path as semantic search, then assemble the selected chunks into a cited context block with stable `[1]`, `[2]` references. The UI Search tab exposes that browser-facing context route with the same query, prefix, and metadata filters used for semantic search.
+The current retrieval context slice is read-only. `documents.context` in MCP and `POST /api/documents/context` in `external` use the same OpenSearch neural search path as semantic search, then assemble the selected chunks into a cited context block with stable `[1]`, `[2]` references. The UI Search tab exposes that browser-facing context route with the same query, prefix, and metadata filters used for semantic search.
 
 The current browser document-control slice is intentionally narrow. The UI Search tab can select a retrieval result, update one curated metadata key/value pair through `/api/documents/curation`, load and save guarded text edits through `/api/documents/edit-text`, or queue reprocessing through `/api/documents/reprocess`. `external` only validates the public request shape and proxies to `orchestrator`; `orchestrator` still owns document validation, raw text writes, metadata persistence, version selection, lifecycle history, and queueing.
 
@@ -90,25 +91,20 @@ When a browser reprocess or text-edit action returns a processing version, the U
 
 ### Phase 3
 
-`processor` consumes the job, performs extraction, chunking, and embedding, and writes derived results back to Postgres.
+`processor` consumes the job, extracts text, indexes the document into OpenSearch, and marks the owning Postgres inventory row processed.
 
-This includes:
-
-- chunk rows
-- embedding rows
-- processing timestamps
-- updated processing state on the owning document row
+OpenSearch owns derived chunks and vectors through the configured `text_chunking`, `ml_inference`, and neural-search pipelines. Postgres keeps processing timestamps and updated processing state on the owning document row.
 
 The current processor lifecycle is:
 
 - claim `pending -> processing`
 - fetch the referenced MinIO object
 - decode UTF-8 text for supported `text/*` documents
-- extract visible text, title, headings, alt text, and chunk-level citation metadata from `text/html` documents before chunking
-- create chunks and embeddings
+- extract visible text, title, headings, and alt text from `text/html` documents before indexing
+- index extracted text through the OpenSearch-native ingest pipeline
 - mark the row `processed`
 
-When `EMBEDDING_MODEL=local-embeddings` and no embedding endpoint is configured, the processor uses the built-in deterministic 384-dimensional embedding function. External embedding services should only be configured when a real OpenAI-compatible endpoint exists.
+The OpenSearch ML model configured by `OPENSEARCH_RAG_MODEL_ID` should point at Envoy AI Gateway, which keeps embedding providers governed centrally and allows later Bedrock routing without application code changes.
 
 If the processor sees a message before the orchestrator commit is visible, or if the job has been superseded by a newer processing version, it retries or no-ops instead of duplicating derived data.
 
@@ -144,6 +140,7 @@ Later phases can add:
 - richer retrieval APIs beyond the current inventory, search, and context tools
 - richer citation UX beyond the current search-result citation labels and source links
 - file-type expansion beyond `text/*` following `docs/FileTypeExpansion.md`
-- RAGAS-backed quality gates for chunking, embedding, ranking, and metadata filter changes
+- update the RAGAS harness to query OpenSearch rather than legacy Postgres chunks
+- RAGAS-backed quality gates for OpenSearch chunking, embedding, ranking, and metadata filter changes
 - operations hardening for stuck lifecycle states, worker lag, and notification fan-out failures
 - graph-style capabilities on top of the same document foundation

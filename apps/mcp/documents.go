@@ -1,17 +1,14 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"os"
 	"strings"
 	"time"
 
-	"pkg/embeddingutil"
 	"pkg/minioutil"
+	"pkg/opensearchrag"
 	"pkg/postgresutil"
 
 	"github.com/jackc/pgx/v5"
@@ -25,15 +22,7 @@ const (
 	maxDocumentContextCharacters = 20000
 	defaultDocumentHistoryLimit  = 50
 	maxDocumentHistoryLimit      = 200
-	defaultEmbeddingModel        = embeddingutil.DefaultModel
 )
-
-type queryEmbeddingResponse struct {
-	Data []struct {
-		Embedding []float64 `json:"embedding"`
-	} `json:"data"`
-	Model string `json:"model"`
-}
 
 type documentInventoryRow struct {
 	DocumentID               string
@@ -77,7 +66,7 @@ type documentHistoryRow struct {
 	CreatedAt         time.Time
 }
 
-var fetchSearchEmbedding = getSearchEmbedding
+var queryDocumentSearchHits = queryOpenSearchDocumentChunks
 
 func postgresUserByEmail(ctx context.Context, email string) (operationResponse, *jsonRPCError) {
 	if postgresutil.QueryRow == nil {
@@ -430,11 +419,8 @@ func decodeDocumentPayload(raw string) (map[string]any, *jsonRPCError) {
 }
 
 func postgresDocumentSearch(ctx context.Context, arguments map[string]any) (operationResponse, *jsonRPCError) {
-	if postgresutil.Query == nil {
-		return backendUnavailable("Postgres backend is unavailable")
-	}
-	if !embeddingsConfigured() {
-		return backendUnavailable("Embedding backend is unavailable")
+	if !opensearchrag.ConfigFromEnv().Configured() {
+		return backendUnavailable("OpenSearch backend is unavailable")
 	}
 
 	queryText := strings.TrimSpace(optionalStringArgument(arguments, "query", ""))
@@ -453,18 +439,7 @@ func postgresDocumentSearch(ctx context.Context, arguments map[string]any) (oper
 		limit = maxDocumentSearchLimit
 	}
 
-	embedding, model, err := fetchSearchEmbedding(ctx, queryText)
-	if err != nil {
-		return operationResponse{
-				ContentType: "application/json",
-				Body:        fmt.Sprintf(`{"error":%q}`, err.Error()),
-			}, &jsonRPCError{
-				Code:    -32000,
-				Message: "Could not embed search query",
-			}
-	}
-
-	hits, rpcErr := queryDocumentChunks(ctx, embedding, model, arguments, limit)
+	hits, rpcErr := queryDocumentSearchHits(ctx, queryText, arguments, limit)
 	if rpcErr != nil {
 		return operationResponse{}, rpcErr
 	}
@@ -484,11 +459,8 @@ func postgresDocumentSearch(ctx context.Context, arguments map[string]any) (oper
 }
 
 func postgresDocumentContext(ctx context.Context, arguments map[string]any) (operationResponse, *jsonRPCError) {
-	if postgresutil.Query == nil {
-		return backendUnavailable("Postgres backend is unavailable")
-	}
-	if !embeddingsConfigured() {
-		return backendUnavailable("Embedding backend is unavailable")
+	if !opensearchrag.ConfigFromEnv().Configured() {
+		return backendUnavailable("OpenSearch backend is unavailable")
 	}
 
 	queryText := strings.TrimSpace(optionalStringArgument(arguments, "query", ""))
@@ -515,18 +487,7 @@ func postgresDocumentContext(ctx context.Context, arguments map[string]any) (ope
 		maxChars = maxDocumentContextCharacters
 	}
 
-	embedding, model, err := fetchSearchEmbedding(ctx, queryText)
-	if err != nil {
-		return operationResponse{
-				ContentType: "application/json",
-				Body:        fmt.Sprintf(`{"error":%q}`, err.Error()),
-			}, &jsonRPCError{
-				Code:    -32000,
-				Message: "Could not embed context query",
-			}
-	}
-
-	hits, rpcErr := queryDocumentChunks(ctx, embedding, model, arguments, limit)
+	hits, rpcErr := queryDocumentSearchHits(ctx, queryText, arguments, limit)
 	if rpcErr != nil {
 		return operationResponse{}, rpcErr
 	}
@@ -612,44 +573,17 @@ func documentContextString(value any) string {
 	return fmt.Sprint(value)
 }
 
-func queryDocumentChunks(ctx context.Context, embedding []float64, model string, arguments map[string]any, limit int) ([]map[string]any, *jsonRPCError) {
-	query := documentChunkSearchBaseQuery()
-	args := []any{toVectorLiteral(embedding), model}
-	nextArg := 3
-
+func queryOpenSearchDocumentChunks(ctx context.Context, queryText string, arguments map[string]any, limit int) ([]map[string]any, *jsonRPCError) {
 	documentID := strings.TrimSpace(optionalStringArgument(arguments, "documentId", ""))
-	if documentID != "" {
-		query += fmt.Sprintf("\n\tAND d.document_id = $%d", nextArg)
-		args = append(args, documentID)
-		nextArg++
-	}
-
 	prefix := normalizeDocumentPrefix(optionalStringArgument(arguments, "prefix", ""))
-	if prefix != "" {
-		query += fmt.Sprintf("\n\tAND d.object_key LIKE $%d", nextArg)
-		args = append(args, prefix+"%")
-		nextArg++
-	}
-
 	metadata := optionalJSONMapArgument(arguments, "metadata")
-	if len(metadata) > 0 {
-		metadataFilter, err := json.Marshal(metadata)
-		if err != nil {
-			return nil, &jsonRPCError{
-				Code:    -32602,
-				Message: "Invalid metadata filter",
-				Data:    err.Error(),
-			}
-		}
-		query += fmt.Sprintf("\n\tAND d.metadata @> $%d::jsonb", nextArg)
-		args = append(args, string(metadataFilter))
-		nextArg++
-	}
-
-	query += fmt.Sprintf("\nORDER BY e.vector <=> $1::vector\nLIMIT $%d", nextArg)
-	args = append(args, limit)
-
-	rows, err := postgresutil.Query(ctx, query, args...)
+	openSearchHits, err := opensearchrag.Search(ctx, opensearchrag.ConfigFromEnv(), opensearchrag.SearchRequest{
+		Query:      queryText,
+		DocumentID: documentID,
+		Prefix:     prefix,
+		Metadata:   metadata,
+		Limit:      limit,
+	})
 	if err != nil {
 		return nil, &jsonRPCError{
 			Code:    -32000,
@@ -657,91 +591,39 @@ func queryDocumentChunks(ctx context.Context, embedding []float64, model string,
 			Data:    err.Error(),
 		}
 	}
-	defer rows.Close()
 
 	hits := []map[string]any{}
-	for rows.Next() {
-		var row documentSearchRow
-		if err := rows.Scan(
-			&row.DocumentID,
-			&row.SourceURI,
-			&row.ObjectKey,
-			&row.ContentType,
-			&row.MetadataRaw,
-			&row.ChunkID,
-			&row.ChunkIndex,
-			&row.ChunkText,
-			&row.ChunkMetadataRaw,
-			&row.ProcessingVersion,
-			&row.Distance,
-			&row.LastProcessedAt,
-		); err != nil {
-			return nil, &jsonRPCError{
-				Code:    -32000,
-				Message: "Document search row scan failed",
-				Data:    err.Error(),
-			}
+	for _, hit := range openSearchHits {
+		row := documentSearchRow{
+			DocumentID:        hit.DocumentID,
+			SourceURI:         hit.SourceURI,
+			ObjectKey:         hit.ObjectKey,
+			ContentType:       hit.ContentType,
+			ChunkID:           hit.ChunkID,
+			ChunkIndex:        hit.ChunkIndex,
+			ChunkText:         hit.ChunkText,
+			ProcessingVersion: hit.ProcessingVersion,
+			Distance:          hit.Distance,
 		}
-
-		metadata, rpcErr := decodeDocumentMetadata(row.MetadataRaw)
-		if rpcErr != nil {
-			return nil, rpcErr
-		}
-		chunkMetadata, rpcErr := decodeDocumentMetadata(row.ChunkMetadataRaw)
-		if rpcErr != nil {
-			return nil, rpcErr
-		}
-
 		hits = append(hits, map[string]any{
-			"documentId":        row.DocumentID,
-			"sourceUri":         row.SourceURI,
-			"objectKey":         row.ObjectKey,
-			"contentType":       row.ContentType,
-			"metadata":          metadata,
-			"chunkId":           row.ChunkID,
-			"chunkIndex":        row.ChunkIndex,
-			"chunkText":         row.ChunkText,
-			"chunkMetadata":     chunkMetadata,
-			"processingVersion": row.ProcessingVersion,
-			"distance":          row.Distance,
-			"similarity":        maxSimilarity(row.Distance),
-			"lastProcessedAt":   formatOptionalTime(row.LastProcessedAt),
-			"citation":          buildDocumentCitation(row, chunkMetadata),
+			"documentId":        hit.DocumentID,
+			"sourceUri":         hit.SourceURI,
+			"objectKey":         hit.ObjectKey,
+			"contentType":       hit.ContentType,
+			"metadata":          hit.Metadata,
+			"chunkId":           hit.ChunkID,
+			"chunkIndex":        hit.ChunkIndex,
+			"chunkText":         hit.ChunkText,
+			"chunkMetadata":     hit.ChunkMetadata,
+			"processingVersion": hit.ProcessingVersion,
+			"distance":          hit.Distance,
+			"similarity":        hit.Similarity,
+			"lastProcessedAt":   hit.LastProcessedAt,
+			"citation":          buildDocumentCitation(row, hit.ChunkMetadata),
 		})
-	}
-	if err := rows.Err(); err != nil {
-		return nil, &jsonRPCError{
-			Code:    -32000,
-			Message: "Document search query failed",
-			Data:    err.Error(),
-		}
 	}
 
 	return hits, nil
-}
-
-func documentChunkSearchBaseQuery() string {
-	return `
-SELECT
-	d.document_id,
-	d.source_uri,
-	COALESCE(d.object_key, ''),
-	COALESCE(d.content_type, ''),
-	COALESCE(d.metadata::text, '{}'),
-	c.id,
-	c.chunk_index,
-	c.chunk_text,
-	COALESCE(to_jsonb(c)->>'chunk_metadata', '{}'),
-	c.processing_version,
-	e.vector <=> $1::vector AS distance,
-	d.last_processed_at
-FROM rag.embeddings e
-JOIN rag.chunks c ON c.id = e.chunk_id
-JOIN rag.documents d ON d.id = c.document_pk
-WHERE d.status = 'processed'
-	AND e.model = $2
-	AND c.processing_version = d.current_processing_version
-	AND e.vector IS NOT NULL`
 }
 
 func buildDocumentCitation(row documentSearchRow, chunkMetadata map[string]any) map[string]any {
@@ -814,46 +696,6 @@ func documentMetadataStringSlice(value any) []string {
 	return values
 }
 
-func getSearchEmbedding(ctx context.Context, input string) ([]float64, string, error) {
-	if useLocalEmbeddings() {
-		return embeddingutil.EmbedText(input), embeddingModel(), nil
-	}
-
-	payload, err := json.Marshal(map[string]any{
-		"model": embeddingModel(),
-		"input": input,
-	})
-	if err != nil {
-		return nil, "", err
-	}
-
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, embeddingEndpoint(), bytes.NewReader(payload))
-	if err != nil {
-		return nil, "", err
-	}
-	request.Header.Set("Content-Type", "application/json")
-
-	response, err := mcpHTTPClient.Do(request)
-	if err != nil {
-		return nil, "", err
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, "", fmt.Errorf("embedding request failed: %s", response.Status)
-	}
-
-	var body queryEmbeddingResponse
-	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
-		return nil, "", err
-	}
-	if len(body.Data) == 0 || len(body.Data[0].Embedding) == 0 {
-		return nil, "", fmt.Errorf("embedding response did not include a vector")
-	}
-
-	return body.Data[0].Embedding, defaultSearchString(strings.TrimSpace(body.Model), embeddingModel()), nil
-}
-
 func minioMoveBucketObject(ctx context.Context, bucket string, sourceObjectKey string, destinationObjectKey string) (operationResponse, *jsonRPCError) {
 	object, err := minioutil.MoveObjectInBucket(ctx, bucket, sourceObjectKey, destinationObjectKey)
 	if err != nil {
@@ -890,22 +732,6 @@ func minioMoveBucketObject(ctx context.Context, bucket string, sourceObjectKey s
 	}
 
 	return operationResponse{ContentType: "application/json", Body: string(body)}, nil
-}
-
-func embeddingsConfigured() bool {
-	return useLocalEmbeddings() || strings.TrimSpace(os.Getenv("EMBEDDING_ENDPOINT")) != ""
-}
-
-func embeddingEndpoint() string {
-	return strings.TrimSpace(os.Getenv("EMBEDDING_ENDPOINT"))
-}
-
-func embeddingModel() string {
-	return defaultSearchString(strings.TrimSpace(os.Getenv("EMBEDDING_MODEL")), defaultEmbeddingModel)
-}
-
-func useLocalEmbeddings() bool {
-	return strings.TrimSpace(os.Getenv("EMBEDDING_ENDPOINT")) == "" && embeddingModel() == embeddingutil.DefaultModel
 }
 
 func defaultSearchString(value string, fallback string) string {
