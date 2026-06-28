@@ -203,7 +203,11 @@ async function putOpenSearchJSON(config: ProcessorConfig, path: string, payload:
 		body: JSON.stringify(payload),
 	});
 	if (!response.ok) {
-		throw new Error(`OpenSearch request failed: ${response.status} ${response.statusText}: ${await response.text()}`);
+		const body = await response.text();
+		if (response.status === 400 && body.includes("resource_already_exists_exception")) {
+			return;
+		}
+		throw new Error(`OpenSearch request failed: ${response.status} ${response.statusText}: ${body}`);
 	}
 }
 

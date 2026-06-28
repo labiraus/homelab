@@ -7,6 +7,7 @@ import {
 	buildIngestPipelinePayload,
 	buildOpenSearchDocument,
 	buildSearchPipelinePayload,
+	ensureOpenSearchResources,
 } from "../src/opensearch.js";
 
 test("builds an OpenSearch index with nested vector chunks", () => {
@@ -52,6 +53,33 @@ test("builds an OpenSearch document from extracted segments", () => {
 	assert.equal(document.processingVersion, 3);
 	assert.equal(document.body, "First section\n\nSecond section");
 	assert.deepEqual(document.metadata, { tag: "runbook" });
+});
+
+test("ensureOpenSearchResources tolerates an existing index", async () => {
+	const originalFetch = globalThis.fetch;
+	const calls: string[] = [];
+	globalThis.fetch = (async (input: string | URL | Request) => {
+		calls.push(String(input));
+		if (calls.length === 1) {
+			return new Response(
+				JSON.stringify({
+					error: {
+						type: "resource_already_exists_exception",
+					},
+				}),
+				{ status: 400, statusText: "Bad Request" },
+			);
+		}
+		return new Response("{}", { status: 200 });
+	}) as typeof fetch;
+	try {
+		await ensureOpenSearchResources(testConfig());
+	} finally {
+		globalThis.fetch = originalFetch;
+	}
+
+	assert.equal(calls.length, 3);
+	assert.match(calls[0], /rag-documents$/);
 });
 
 function testConfig(): ProcessorConfig {
