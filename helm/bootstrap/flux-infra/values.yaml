@@ -29,3 +29,11 @@ secrets:
   targetNamespace: flux-system
   installDisableWait: true
   upgradeDisableWait: true
+
+vllm:
+  type: oci
+  namespace: homelab
+  installDisableWait: true
+  upgradeDisableWait: true
+  dependsOn:
+    - envoy-ai-gateway

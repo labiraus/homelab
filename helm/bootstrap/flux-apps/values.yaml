@@ -16,14 +16,6 @@ imagePullSecret:
     namespace: flux-system
     name: ghcr-creds
 min_version: 0.0.0-0
-vllm:
-  type: oci
-  namespace: homelab
-  installDisableWait: true
-  upgradeDisableWait: true
-  dependsOn:
-    - envoy-ai-gateway
-
 assistant:
   type: oci
   namespace: homelab

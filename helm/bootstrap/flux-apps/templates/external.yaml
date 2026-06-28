@@ -24,7 +24,7 @@ metadata:
 spec:
   interval: {{ $component.interval | default "1m" }}
   timeout: {{ $component.timeout | default "10m" }}
-  targetNamespace: {{ $component.targetNamespace | default $component.namespace | default "external" }}
+  targetNamespace: {{ $component.targetNamespace | default $component.namespace | default "homelab" }}
   install:
     createNamespace: true
     replace: true

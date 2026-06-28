@@ -8,7 +8,7 @@
     {{- $namespaces = append $namespaces $ns -}}
   {{- end -}}
 {{- end -}}
-{{- range $componentName := tuple "vllm" "assistant" "external" "ui" "mcp" "orchestrator" "processor" -}}
+{{- range $componentName := tuple "assistant" "external" "ui" "mcp" "orchestrator" "processor" -}}
   {{- $component := index $.Values $componentName -}}
   {{- $ns := $component.targetNamespace | default $component.namespace | default $componentName -}}
   {{- if not (hasKey $seen $ns) -}}
