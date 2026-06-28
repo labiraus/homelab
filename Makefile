@@ -3,8 +3,13 @@ COMPONENT ?=
 LAYER ?=
 OVERLAYS ?=
 TF_ARGS ?=
+SSH_CA_KEY ?= $(HOME)/.ssh/ssh_user_ca
+SSH_KEY_PUB ?= .devcontainer/ssh/id_ed25519.pub
+SSH_CERT_ID ?= oliver@homelab
+SSH_CERT_PRINCIPALS ?= oliver,ubuntu,root
+SSH_CERT_VALIDITY ?= +30d
 
-.PHONY: plan apply destroy plan-destroy refresh-kubeconfig refresh-postgres-env refresh-ansible-secrets bootstrap-svartalfheim-storage postgres-refresh postgres ragas-chunking-eval document-platform-checks minio-host-checks vllm-gateway-smoke ansible-minio-host ansible-minio-state ansible-minecraft-vm ansible-kubernetes-worker
+.PHONY: plan apply destroy plan-destroy refresh-kubeconfig refresh-ssh refresh-postgres-env refresh-ansible-secrets bootstrap-svartalfheim-storage postgres-refresh postgres ragas-chunking-eval document-platform-checks minio-host-checks vllm-gateway-smoke ansible-minio-host ansible-minio-state ansible-minecraft-vm ansible-kubernetes-worker
 
 RAGAS_CASES ?= evals/ragas/chunking_cases.jsonl
 RAGAS_ARGS ?=
@@ -29,6 +34,27 @@ plan-destroy: check-vars
 
 refresh-kubeconfig:
 	@./scripts/refresh-kubeconfig.sh
+
+refresh-ssh:
+	@set -e; \
+	if ! command -v ssh-keygen >/dev/null 2>&1; then \
+		echo "Error: ssh-keygen is required to refresh the SSH certificate." >&2; \
+		exit 1; \
+	fi; \
+	if [ ! -f "$(SSH_CA_KEY)" ]; then \
+		echo "Error: SSH CA key not found at $(SSH_CA_KEY)." >&2; \
+		exit 1; \
+	fi; \
+	if [ ! -f "$(SSH_KEY_PUB)" ]; then \
+		echo "Error: SSH public key not found at $(SSH_KEY_PUB)." >&2; \
+		exit 1; \
+	fi; \
+	ssh-keygen -s "$(SSH_CA_KEY)" \
+		-I "$(SSH_CERT_ID)" \
+		-n "$(SSH_CERT_PRINCIPALS)" \
+		-V "$(SSH_CERT_VALIDITY)" \
+		"$(SSH_KEY_PUB)"; \
+	echo "Refreshed SSH certificate for $(SSH_KEY_PUB) with validity $(SSH_CERT_VALIDITY)."
 
 refresh-postgres-env:
 	@set -e; \

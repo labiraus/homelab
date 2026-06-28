@@ -23,6 +23,7 @@ When a secret or credential is already exposed by the cluster or control plane, 
 Current repo-native flows:
 
 - `make refresh-kubeconfig`: rebuilds `.devcontainer/kubeconfig` from the control plane over SSH
+- `make refresh-ssh`: re-signs the local SSH login key in `.devcontainer/ssh/` with the workstation SSH CA
 - `make refresh-postgres-env`: updates `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASS` in `.devcontainer/.env` for the local Postgres port-forward workflow
 
 Operator access to Postgres is intentionally local-only now. Use `make postgres` to start a temporary `kubectl port-forward` to the CNPG read-write service and open `psql` through `127.0.0.1:15432` instead of relying on a permanently exposed in-cluster TCP listener.

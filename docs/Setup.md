@@ -40,7 +40,21 @@ ssh-add .devcontainer/ssh/id_ed25519
 
 `ssh-add` only needs the private key. OpenSSH will use the matching certificate (`.devcontainer/ssh/id_ed25519-cert.pub`) automatically.
 
-You will need to run the second `ssh-keygen` command every 30 days to re-sign the key, or remove the timeout. In this example root is the user for proxmox, oliver is the user I set up for yggdrasil and ubuntu is the default username that will be used on all ubuntu machines.
+You will need to re-sign the key every 30 days, or remove the timeout. In this example `root` is the user for Proxmox, `oliver` is the user set up for `yggdrasil`, and `ubuntu` is the default username used on the Ubuntu machines.
+
+The repo Makefile now includes a helper for that refresh step:
+
+```bash
+make refresh-ssh
+```
+
+Optional overrides:
+
+- `SSH_CERT_ID`: certificate identity, default `oliver@homelab`
+- `SSH_CERT_PRINCIPALS`: SSH principals, default `oliver,ubuntu,root`
+- `SSH_CA_KEY`: SSH CA private key path, default `~/.ssh/ssh_user_ca`
+- `SSH_KEY_PUB`: login public key to sign, default `.devcontainer/ssh/id_ed25519.pub`
+- `SSH_CERT_VALIDITY`: certificate lifetime window, default `+30d`
 
 If a host is reachable but SSH suddenly fails with `Permission denied (publickey,password)`, check whether the login certificate expired before assuming the host-side SSH config changed:
 
@@ -48,14 +62,10 @@ If a host is reachable but SSH suddenly fails with `Permission denied (publickey
 ssh-keygen -L -f .devcontainer/ssh/id_ed25519-cert.pub
 ```
 
-If the `Valid` window is in the past, re-sign the existing login key with the same command used during setup:
+If the `Valid` window is in the past, re-sign the existing login key with the same command used during setup, or use the Makefile helper:
 
 ```bash
-ssh-keygen -s ~/.ssh/ssh_user_ca \
-  -I "oliver@homelab" \
-  -n oliver,ubuntu,root \
-  -V +30d \
-  .devcontainer/ssh/id_ed25519.pub
+make refresh-ssh
 ```
 
 ## Chromebook

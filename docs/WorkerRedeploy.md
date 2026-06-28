@@ -174,6 +174,8 @@ Likewise, `jotunheim` on `proxmox-node1` was too large at `memory_mb = 30064` on
 
 Current reality on `proxmox-node1` is tighter because it also runs the dedicated Minecraft VM `nidavellir` at `14336` MB. With both guests sharing the same 32 GiB laptop host, `jotunheim = 24576` MB plus `nidavellir = 14336` MB is too large and can again trigger host OOM kills during autostart. The current safer split is to keep `nidavellir` at `14336` MB for Minecraft and size `jotunheim` to `12288` MB so the host still has several GiB left for Proxmox and passthrough overhead.
 
+`proxmox-node4` is much tighter at about `7.5 GiB` total RAM. `niflheim = 5368` MB left too little headroom for Proxmox, corosync, and QEMU overhead and was OOM-killed by the host on June 28, 2026. Keep `niflheim` at `4096` MB unless the host memory budget changes materially.
+
 ## Finish The Maintenance
 
 After the node is back and `Ready`:
