@@ -189,8 +189,8 @@ security:
                 - key: app.kubernetes.io/name
                   operator: In
                   values:
-                    - opensearchData
-                    - opensearchMl
+                    - opensearch-data
+                    - opensearch-ml
         ports:
           - protocol: TCP
             port: 9200

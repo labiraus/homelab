@@ -5,7 +5,7 @@ auth:
   username: admin
   password: ""
 
-opensearchData:
+opensearch-data:
   enabled: true
   clusterName: labiraus-rag
   nodeGroup: data
@@ -38,7 +38,7 @@ opensearchData:
           name: opensearch-admin
           key: password
 
-opensearchMl:
+opensearch-ml:
   enabled: true
   clusterName: labiraus-rag
   nodeGroup: ml

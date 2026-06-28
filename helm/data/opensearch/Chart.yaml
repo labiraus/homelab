@@ -6,12 +6,12 @@ version: 0.1.0
 appVersion: "2.x"
 dependencies:
   - name: opensearch
-    alias: opensearchData
+    alias: opensearch-data
     version: ">=2.0.0 <4.0.0"
     repository: https://opensearch-project.github.io/helm-charts/
-    condition: opensearchData.enabled
+    condition: opensearch-data.enabled
   - name: opensearch
-    alias: opensearchMl
+    alias: opensearch-ml
     version: ">=2.0.0 <4.0.0"
     repository: https://opensearch-project.github.io/helm-charts/
-    condition: opensearchMl.enabled
+    condition: opensearch-ml.enabled
