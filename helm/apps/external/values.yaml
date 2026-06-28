@@ -91,16 +91,6 @@ generatedSecrets:
         value: "rag-documents"
       OPENSEARCH_RAG_SEARCH_PIPELINE:
         value: "rag-neural-search"
-      OPENSEARCH_USERNAME:
-        fromSecretRef:
-          namespace: data
-          name: opensearch-admin
-          key: username
-      OPENSEARCH_PASSWORD:
-        fromSecretRef:
-          namespace: data
-          name: opensearch-admin
-          key: password
       OIDC_LOGIN_URL:
         value: "https://mcp.labiraus.com/oauth2/start?rd=https%3A%2F%2Fmcp.labiraus.com%2F"
       OIDC_ISSUER_URL:

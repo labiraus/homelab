@@ -99,16 +99,6 @@ generatedSecrets:
         value: "384"
       OPENSEARCH_CHUNK_OVERLAP_RATE:
         value: "0.15"
-      OPENSEARCH_USERNAME:
-        fromSecretRef:
-          namespace: data
-          name: opensearch-admin
-          key: username
-      OPENSEARCH_PASSWORD:
-        fromSecretRef:
-          namespace: data
-          name: opensearch-admin
-          key: password
       POSTGRES_HOST:
         value: app-db-rw.data.svc.cluster.local
       POSTGRES_PORT:
