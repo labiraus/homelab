@@ -29,7 +29,7 @@ type assistantProxyResponse struct {
 
 var (
 	assistantHTTPClient = &http.Client{Timeout: 120 * time.Second}
-	proxyAssistantAPI   = callAssistantAPI
+	proxyAssistantAPI   = callProcessorAssistantAPI
 )
 
 func assistantProxyHandler(w http.ResponseWriter, r *http.Request) {
@@ -48,9 +48,9 @@ func assistantProxyHandler(w http.ResponseWriter, r *http.Request) {
 		prometheusutil.OpDuration(assistantProxyLabel, time.Since(startTime))
 	}()
 
-	if !assistantConfigured() {
+	if !processorConfigured() {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "assistant service is unavailable"})
+		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "processor assistant API is unavailable"})
 		return
 	}
 
@@ -90,8 +90,8 @@ func assistantProxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func callAssistantAPI(ctx context.Context, path string, method string, body []byte) (assistantProxyResponse, error) {
-	endpoint := strings.TrimRight(assistantBaseURL(), "/") + path
+func callProcessorAssistantAPI(ctx context.Context, path string, method string, body []byte) (assistantProxyResponse, error) {
+	endpoint := strings.TrimRight(processorBaseURL(), "/") + path
 	request, err := http.NewRequestWithContext(ctx, method, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return assistantProxyResponse{}, err
@@ -140,10 +140,10 @@ func proxiedEmail(ctx context.Context) (string, bool) {
 	return "", false
 }
 
-func assistantConfigured() bool {
-	return assistantBaseURL() != ""
+func processorConfigured() bool {
+	return processorBaseURL() != ""
 }
 
-func assistantBaseURL() string {
-	return strings.TrimSpace(os.Getenv("ASSISTANT_BASE_URL"))
+func processorBaseURL() string {
+	return strings.TrimSpace(os.Getenv("PROCESSOR_BASE_URL"))
 }

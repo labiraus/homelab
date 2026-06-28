@@ -67,8 +67,8 @@ generatedSecrets:
         value: documents.events.>
       ORCHESTRATOR_BASE_URL:
         value: "http://homelab-orchestrator.homelab.svc.cluster.local"
-      ASSISTANT_BASE_URL:
-        value: "http://homelab-assistant.homelab.svc.cluster.local"
+      PROCESSOR_BASE_URL:
+        value: "http://homelab-processor.homelab.svc.cluster.local"
       POSTGRES_HOST:
         value: app-db-rw.data.svc.cluster.local
       POSTGRES_PORT:
@@ -223,8 +223,8 @@ security:
                 kubernetes.io/metadata.name: homelab
             podSelector:
               matchLabels:
-                app.kubernetes.io/instance: homelab-assistant
-                app.kubernetes.io/name: assistant
+                app.kubernetes.io/instance: homelab-processor
+                app.kubernetes.io/name: processor
         ports:
           - protocol: TCP
             port: 8080

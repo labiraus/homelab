@@ -14,11 +14,10 @@ Use this file as the first fast pass when you need to locate the relevant code i
 - `.devcontainer/`
   - Devcontainer config, mounted kubeconfig, SSH config, env file
 - `apps/`
-  - `assistant/`: browser-first LLM assistant, memory, proposal, and audit service
   - `external/`: public Go service
   - `mcp/`: public Go MCP service; see `apps/mcp/AGENTS.md` for transport/client-compatibility rules
   - `orchestrator/`: internal Go document service
-  - `processor/`: internal TypeScript NATS JetStream worker that extracts text and indexes derived retrieval state into OpenSearch
+  - `processor/`: internal TypeScript service for assistant orchestration plus the NATS JetStream worker that extracts text and indexes derived retrieval state into OpenSearch
   - `ui/`: Vite frontend
   - `pkg/`: shared Go modules
 - `ansible/`
@@ -78,7 +77,6 @@ Current behavior note:
   - `helm/apps/orchestrator/`: internal document control-plane deployment
   - `helm/apps/processor/`: NATS JetStream worker deployment and KEDA scaler
   - `helm/apps/ui/`: Vite frontend deployment
-  - `helm/apps/assistant/`: assistant service deployment
   - `helm/apps/vllm/`: local GPU vLLM deployment and Envoy AI Gateway resources
 - Infra charts: `helm/infra/`
 - Bootstrap child infra chart: `helm/bootstrap/flux-infra/`
@@ -94,9 +92,7 @@ Current behavior note:
 ### Go Service Work
 
 - Public API entry point: `apps/external/main.go`
-- Assistant entry point: `apps/assistant/main.go`
-- Assistant persistence and browser API: `apps/assistant/db.go`, `apps/assistant/handlers.go`
-- Assistant RAG/LLM and approval clients: `apps/assistant/llm.go`, `apps/assistant/orchestrator.go`
+- Assistant API and orchestration entry points: `apps/processor/src/assistant_api.ts`, `apps/processor/src/assistant_llm.ts`, and `apps/processor/src/assistant_db.ts`
 - MCP entry point: `apps/mcp/main.go`
 - Orchestrator entry point: `apps/orchestrator/main.go`
 - Orchestrator request, scan, and async contract shapes: `apps/orchestrator/documents.go` and `apps/orchestrator/scan.go`
@@ -116,7 +112,7 @@ Current behavior note:
 - `orchestrator` is the intended control-plane service for reconciliation and task dispatch.
 - `processor` is the intended stateless data-plane worker.
 - operator access to the CNPG Postgres cluster is through `make postgres`, which opens a temporary local `kubectl port-forward` rather than relying on a standing TCP ingress path
-- deployed local LLM routing can be checked with `make vllm-gateway-smoke`, which runs an in-cluster OpenAI-compatible chat request through the Envoy AI Gateway service used by `assistant`
+- deployed local LLM routing can be checked with `make vllm-gateway-smoke`, which runs an in-cluster OpenAI-compatible chat request through the Envoy AI Gateway service used by processor-owned assistant workflows
 
 ### Frontend Work
 
@@ -169,7 +165,7 @@ Current behavior note:
 - `external` exposes OpenSearch-backed semantic document search for the UI.
 - `mcp` exposes document inventory and OpenSearch-backed semantic search for agents.
 - `external` and `mcp` expose durable document lifecycle history from `rag.document_lifecycle_events`.
-- `assistant` stores conversations, per-user memories, tool calls, file proposals, and audit views in Postgres.
+- `processor` stores conversations, per-user memories, tool calls, file proposals, and audit views in Postgres.
 - `rag.document_change_audits` links create/edit/revert operations to actor email, conversation ID, proposal ID, MinIO version markers, and processing versions.
 - `evals/ragas` is a migration gap until updated from legacy Postgres chunk reads to OpenSearch neural search.
 - `runbooks/troubleshooting.md` captures the current day-two checks for stuck document lifecycle states, NATS/KEDA lag, vLLM startup, assistant proposals, retention, and backup/recovery rehearsal.
@@ -179,7 +175,7 @@ Current behavior note:
 - `ui` renders cited context blocks by calling `/api/documents/context` from the Search tab.
 - `ui` exposes metadata curation, guarded text editing, reprocess, and scan actions by calling `/api/documents/curation`, `/api/documents/edit-text`, `/api/documents/reprocess`, and `/api/documents/scan-bucket`; `external` proxies those requests to `orchestrator`.
 - approved assistant proposals use `orchestrator` create/edit endpoints so file changes are written to MinIO and reingested through the existing processor path.
-- the current design does not use a separate RAG API app; retrieval and context flow through `external`, `mcp`, and the assistant's allowlisted MCP calls.
+- the current design does not use a separate RAG API app or standalone assistant service; retrieval and context flow through `external`, `mcp`, and processor-owned assistant workflows.
 
 ### MinIO and Ansible
 

@@ -22,7 +22,7 @@ import (
 )
 
 const defaultTimeout = 30 * time.Second
-const defaultAPIBaseURL = "http://homelab-orchestrator.homelab.svc.cluster.local"
+const defaultAPIBaseURL = "http://homelab-external.homelab.svc.cluster.local"
 
 var supportedProtocolVersions = []string{
 	"2025-11-25",
@@ -37,19 +37,19 @@ var (
 	}
 
 	proxyOperationRequest   = proxyAPIRequest
-	readPostgresUserCount   = postgresUserCount
-	readPostgresUserByEmail = postgresUserByEmail
-	listFolderEntries       = minioListFolderEntries
-	listBucketObjects       = minioListBucketObjects
-	readBucketObject        = minioReadBucketObject
-	writeBucketObject       = minioPutBucketObject
-	writeBucketTextObject   = minioWriteBucketTextObject
-	deleteBucketObject      = minioDeleteBucketObject
-	moveBucketObject        = minioMoveBucketObject
-	listDocumentInventory   = postgresDocumentInventory
-	listDocumentHistory     = postgresDocumentHistory
-	assembleDocumentContext = postgresDocumentContext
-	searchDocumentChunks    = postgresDocumentSearch
+	readPostgresUserCount   = proxyUserCount
+	readPostgresUserByEmail = proxyUserByEmail
+	listFolderEntries       = proxyListFolderEntries
+	listBucketObjects       = proxyListBucketObjects
+	readBucketObject        = proxyReadBucketObject
+	writeBucketObject       = proxyPutBucketObject
+	writeBucketTextObject   = proxyWriteBucketTextObject
+	deleteBucketObject      = proxyDeleteBucketObject
+	moveBucketObject        = proxyMoveBucketObject
+	listDocumentInventory   = proxyDocumentInventory
+	listDocumentHistory     = proxyDocumentHistory
+	assembleDocumentContext = proxyDocumentContext
+	searchDocumentChunks    = proxyDocumentSearch
 )
 
 type resourceResolution struct {
@@ -150,7 +150,7 @@ func handleInitialize(req jsonRPCRequest) (int, *jsonRPCResponse) {
 				"name":    "labiraus",
 				"version": base.BuildVersion,
 			},
-			"instructions": "Use the Labiraus MCP server as the single entrypoint for orchestrator actions plus direct Postgres and MinIO-backed read and write capabilities. Access currently requires either Google-backed bearer authentication or trusted client-certificate authentication at the edge.",
+			"instructions": "Use the Labiraus MCP server as the AI-native entrypoint. Tool and resource calls are authorized at the edge and proxied through the external API so browser and MCP access share the same policy surface.",
 		},
 	}
 }
@@ -657,6 +657,7 @@ func proxyAPIRequest(ctx context.Context, r *http.Request, method string, path s
 		apiBaseURL = defaultAPIBaseURL
 	}
 
+	path = externalAPIPath(path)
 	url := strings.TrimRight(apiBaseURL, "/") + path
 
 	var requestBody io.Reader
@@ -737,6 +738,16 @@ func proxyAPIRequest(ctx context.Context, r *http.Request, method string, path s
 	}
 
 	return contentType, responseBody, nil
+}
+
+func externalAPIPath(path string) string {
+	if strings.HasPrefix(path, "/api/") {
+		return path
+	}
+	if path == "/documents" || strings.HasPrefix(path, "/documents/") {
+		return "/api" + path
+	}
+	return path
 }
 
 func postgresUserCount(ctx context.Context, query string) (operationResponse, *jsonRPCError) {

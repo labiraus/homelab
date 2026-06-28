@@ -125,6 +125,16 @@ generatedSecrets:
           namespace: data
           name: app-db-bootstrap
           key: password
+      EXTERNAL_BASE_URL:
+        value: "http://homelab-external.homelab.svc.cluster.local"
+      ORCHESTRATOR_BASE_URL:
+        value: "http://homelab-orchestrator.homelab.svc.cluster.local"
+      AI_GATEWAY_BASE_URL:
+        value: "http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1"
+      AI_CHAT_MODEL:
+        value: "Qwen/Qwen2.5-0.5B-Instruct"
+      AI_CHAT_MAX_TOKENS:
+        value: "768"
 
 security:
   istio:
@@ -200,6 +210,43 @@ security:
         ports:
           - protocol: TCP
             port: 9000
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: homelab
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: homelab-external
+                app.kubernetes.io/name: external
+        ports:
+          - protocol: TCP
+            port: 8080
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: homelab
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: homelab-orchestrator
+                app.kubernetes.io/name: orchestrator
+        ports:
+          - protocol: TCP
+            port: 8080
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: envoy-gateway-system
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/component: proxy
+                app.kubernetes.io/name: envoy
+                gateway.envoyproxy.io/owning-gateway-name: vllm-ai-gateway
+                gateway.envoyproxy.io/owning-gateway-namespace: homelab
+        ports:
+          - protocol: TCP
+            port: 80
+          - protocol: TCP
+            port: 10080
 
 podAnnotations: {}
 podLabels:

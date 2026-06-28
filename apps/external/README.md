@@ -10,10 +10,12 @@ Keep document and assistant workflows on the existing `/api/documents/*` and `/a
 
 - `/api/auth/status`
 - `/api/auth/providers`
+- `/api/auth/users/{email}`
 - `/api/assistant/...`
 - `/api/users/count`
 - `/api/documents/tree`
 - `/api/documents/object`
+- `/api/documents/move`
 - `/api/documents/upload`
 - `/api/documents/events`
 - `/api/documents/inventory`
@@ -91,14 +93,14 @@ Document control proxying also uses:
 
 - `ORCHESTRATOR_BASE_URL`
 
-## Assistant Proxy Surface
+## Assistant Edge Surface
 
-`/api/assistant/...` proxies the authenticated browser assistant API to the internal `assistant` service.
-The proxy forwards the resolved authenticated email through `X-Forwarded-Email` and `UserID` so assistant state remains scoped by user.
+`/api/assistant/...` proxies the authenticated browser assistant API to `processor`, which owns assistant state, prompt/tool orchestration, model calls, and tool-call logging.
+The proxy forwards the resolved authenticated email through `X-Forwarded-Email` and `UserID` so processor state remains scoped by user.
 
-The assistant proxy expects:
+The assistant edge proxy expects:
 
-- `ASSISTANT_BASE_URL`
+- `PROCESSOR_BASE_URL`
 
 ## Document Event Stream
 

@@ -12,10 +12,9 @@ The chosen application boundary is:
 
 - `ui`: React frontend
 - `external`: public Go API for browser clients
-- `assistant`: browser-first LLM chat, user memory, proposal, and audit service
 - `mcp`: Go MCP server for AI-native access
 - `orchestrator`: internal Go control-plane API
-- `processor`: TypeScript NATS JetStream worker for document operations
+- `processor`: TypeScript assistant orchestration service and NATS JetStream worker for document operations
 
 The intended platform shape is:
 
@@ -38,7 +37,7 @@ The repo already includes:
 - Envoy AI Gateway infra chart under `helm/infra/envoy-ai-gateway/` for future AI traffic routing
 - app charts under `helm/apps/`
 - data/platform charts under `helm/data/` and `helm/bootstrap/`
-- the `ui`, `external`, `assistant`, `mcp`, `orchestrator`, and `processor` apps under `apps/`
+- the `ui`, `external`, `mcp`, `orchestrator`, and `processor` apps under `apps/`
 - SQL bootstrap under `sql/`
 - external MinIO management through Ansible on `svartalfheim`
 - orchestrator-backed `documents.scanBucket` reconciliation that inventories MinIO objects into Postgres and queues new or changed text objects for processing
@@ -59,7 +58,7 @@ The repo already includes:
 - the UI Search tab can update curated metadata and queue reprocessing for a retrieved document through `external` proxy routes backed by `orchestrator`
 - the UI Search tab can perform guarded raw text edits for selected text documents through `external` proxying to `orchestrator`
 - browser document actions that queue processing automatically load durable lifecycle history for the returned processing version
-- the `assistant` app stores conversations, messages, per-user approved memories, tool calls, file proposals, and proposal decisions in Postgres
+- `processor` stores assistant conversations, messages, per-user approved memories, tool calls, file proposals, and proposal decisions in Postgres
 - the Assistant browser tab can ask RAG-backed questions, save approved user memories, stage create/edit proposals, approve or reject proposals, and inspect audit rows
 - approved assistant create/edit proposals call `orchestrator`, write text objects to MinIO, queue reingestion, and append `rag.document_change_audits`
 - `orchestrator` exposes text create and MinIO-version-backed revert endpoints in addition to guarded text editing
@@ -74,11 +73,11 @@ Documentation must stay aligned with implementation as these pieces evolve.
 
 - `ui` is the browser-facing React application.
 - `external` is the stable public API for the UI. It serves Postgres-backed data and triggers orchestrator actions without exposing internal pipeline details.
-- `assistant` is the browser-first LLM and memory service. It owns conversation state, explicit per-user memories, read-only MCP tool-call allowlisting, file-change proposals, approval state, and assistant audit views.
+- `processor` owns browser assistant prompt construction, tool selection and execution, model calls, conversation state, explicit per-user memories, file-change proposals, approval state, and assistant audit views.
 - `mcp` is the stable AI-native front door for agents and MCP-compatible clients.
 - the Labiraus MCP server is a primary product surface of this repo, not a sidecar utility, and should be evaluated alongside the rest of the deployed stack
 - `orchestrator` is the internal control plane. It owns workflow state transitions, reconciliation, and task dispatch decisions.
-- `processor` is the stateless data-plane worker. It performs extraction and indexes text into OpenSearch-native chunking/vector pipelines when triggered asynchronously.
+- `processor` owns AI orchestration for synchronous assistant requests and the stateless data-plane worker. It performs extraction and indexes text into OpenSearch-native chunking/vector pipelines when triggered asynchronously.
 - `vllm` is the local OpenAI-compatible model runtime, initially scheduled onto `helheim` through `node-llm=gpu` and one `nvidia.com/gpu`.
 
 ## Data And Control Model
@@ -569,21 +568,21 @@ Current status:
 
 Deliverables:
 
-- add a browser-first `assistant` app for RAG-backed chat, per-user memories, conversation trails, file proposals, and audit views
+- add browser-first assistant workflows for RAG-backed chat, per-user memories, conversation trails, file proposals, and audit views
 - deploy local vLLM on the GPU node path with Envoy AI Gateway resources for OpenAI-compatible routing
-- keep model-readable tool use limited to allowlisted read-only MCP/RAG context calls
+- keep model-readable tool use limited to allowlisted read-only RAG context calls
 - require authenticated user approval before create/edit writes reach `orchestrator`
 - append `rag.document_change_audits` rows for create, edit, and revert operations
 - enable MinIO object versioning on the external `documents` bucket so revert operations can restore prior raw content
 
 Current status:
 
-- `assistant` exposes conversation, chat, memory, proposal, approval, and audit endpoints under `/assistant/...`
-- `external` proxies `/api/assistant/...` to the assistant service and forwards the authenticated email identity
+- `processor` exposes internal conversation, chat, memory, proposal, approval, and audit endpoints under `/assistant/...`
+- `external` proxies `/api/assistant/...` to processor and forwards the authenticated email identity
 - the UI has an Assistant tab for conversation trails, RAG-backed chat, explicit memory saves, proposal approval/rejection, and audit-driven revert staging
 - `orchestrator` supports `/documents/create-text`, `/documents/edit-text`, and `/documents/revert`, all of which queue reingestion and write audit metadata when used by approved assistant proposals or browser actions
-- `sql/assistant/schema.pgsql` defines assistant-owned state, while `sql/rag/schema.pgsql` includes `rag.document_change_audits`
-- `helm/apps/assistant` and `helm/apps/vllm` are wired into the Flux app release plan, with vLLM pinned to the `helheim` GPU path by default
+- `sql/assistant/schema.pgsql` defines processor-owned assistant state, while `sql/rag/schema.pgsql` includes `rag.document_change_audits`
+- `helm/apps/processor` and `helm/apps/vllm` are wired into the Flux app release plan, with vLLM pinned to the `helheim` GPU path by default
 - the default vLLM model is a small unquantized Qwen instruct model so the `helheim` runtime path can be smoke-tested before larger quantized models are promoted
 - Ansible now marks the `documents` bucket as versioned and enforces that versioning through the MinIO bucket role
 
@@ -591,7 +590,7 @@ Current status:
 
 Deliverables:
 
-- validate the local vLLM runtime path on `helheim` through the Envoy AI Gateway route used by `assistant`
+- validate the local vLLM runtime path on `helheim` through the Envoy AI Gateway route used by processor-owned assistant workflows
 - prove the current small Qwen instruct model can start reliably, answer OpenAI-compatible chat requests, and tolerate first-load model download and CUDA setup time
 - document the minimum operator checks for pod scheduling, GPU visibility, model cache state, startup probe behavior, and gateway routing
 - keep larger or quantized model promotion gated on measured startup behavior, memory pressure, response quality, and tool-call compatibility
@@ -599,15 +598,15 @@ Deliverables:
 Current status:
 
 - `make vllm-gateway-smoke` runs a repeatable in-cluster OpenAI-compatible chat smoke test against `AI_GATEWAY_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`
-- the smoke test checks GPU-labeled node availability, waits for `homelab-vllm`, reports vLLM pod placement, checks the generated Envoy Gateway service, and sends the request from a temporary pod labeled like the assistant network-policy path
-- runtime docs identify what to inspect when `helheim` scheduling, GPU visibility, model cache/startup behavior, startup probes, Envoy AI Gateway routing, or assistant-to-gateway network policy fails
+- the smoke test checks GPU-labeled node availability, waits for `homelab-vllm`, reports vLLM pod placement, checks the generated Envoy Gateway service, and sends the request from a temporary pod labeled like the processor network-policy path
+- runtime docs identify what to inspect when `helheim` scheduling, GPU visibility, model cache/startup behavior, startup probes, Envoy AI Gateway routing, or processor-to-gateway network policy fails
 - the default model remains conservative until the local GPU path is proven stable
 
 ### Phase 30 — Assistant Quality, Safety, Memory, And Audit UX
 
 Deliverables:
 
-- improve assistant answer quality while keeping RAG grounding through the allowlisted read-only MCP context call
+- improve assistant answer quality while keeping RAG grounding through the allowlisted read-only external context call
 - keep memory explicit, user-approved, and scoped to the authenticated email
 - make proposal approval and rejection flows easier to audit from the browser
 - improve revert staging around `rag.document_change_audits` and MinIO version markers without giving the model direct write tools
@@ -615,8 +614,8 @@ Deliverables:
 
 Current status:
 
-- assistant docs describe the supported chat, memory, proposal, approval, rejection, audit, and revert paths as current product surfaces
-- assistant docs record the safety contract: model-readable tool use remains allowlisted and read-only, memories are explicit/user-approved, and create/edit/revert operations require browser action before `orchestrator` writes raw documents
+- processor and external docs describe the supported chat, memory, proposal, approval, rejection, audit, and revert paths as current product surfaces
+- processor and external docs record the safety contract: model-readable tool use remains allowlisted and read-only, memories are explicit/user-approved, and create/edit/revert operations require browser action before `orchestrator` writes raw documents
 - proposal rejection in the browser accepts an explicit audit reason and displays stored decision details alongside proposal status
 - approved proposal rows surface orchestrator response details such as queued processing version when available
 - tests cover high-risk proposal paths, including rejection without orchestrator writes, already-decided proposal conflict handling, proposal response display, and authenticated-email scoping behavior
@@ -706,7 +705,7 @@ CAG and semantic graph ambitions remain later phases, not the initial implementa
 - keep the client-certificate MCP access story aligned with the manifest metadata and auth docs
 - keep MCP client compatibility broad across Codex, Claude, VS Code/Copilot, Cursor, Windsurf, and legacy SSE clients without weakening Origin validation or edge auth assumptions
 - keep the `rag` Postgres schema aligned with document inventory, chunk, embedding, and retrieval behavior
-- keep the `assistant` Postgres schema, browser API contract, and UI trail/proposal/audit UX aligned as the LLM surface evolves
+- keep the processor-owned `assistant` Postgres schema, browser API contract, and UI trail/proposal/audit UX aligned as the LLM surface evolves
 - keep the vLLM/Envoy AI Gateway runtime smoke path green on `helheim` before promoting larger models or wider tool-use behavior
 - keep growing retrieval quality through OpenSearch-backed RAGAS gold cases before changing chunking, embedding dimensions, or ranking behavior
 - follow `docs/FileTypeExpansion.md` before adding extraction dependencies to `processor`

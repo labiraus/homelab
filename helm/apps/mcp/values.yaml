@@ -59,54 +59,8 @@ generatedSecrets:
         value: document-events
       NATS_EVENTS_SUBJECT:
         value: documents.events.>
-      POSTGRES_HOST:
-        value: app-db-rw.data.svc.cluster.local
-      POSTGRES_PORT:
-        value: "5432"
-      POSTGRES_DATABASE:
-        value: app
-      POSTGRES_USER:
-        fromSecretRef:
-          namespace: data
-          name: app-db-bootstrap
-          key: username
-      POSTGRES_PASSWORD:
-        fromSecretRef:
-          namespace: data
-          name: app-db-bootstrap
-          key: password
-      OPENSEARCH_BASE_URL:
-        value: "http://labiraus-rag-data.data.svc.cluster.local:9200"
-      OPENSEARCH_RAG_INDEX:
-        value: "rag-documents"
-      OPENSEARCH_RAG_SEARCH_PIPELINE:
-        value: "rag-neural-search"
-      OPENSEARCH_USERNAME:
-        fromSecretRef:
-          namespace: data
-          name: opensearch-admin
-          key: username
-      OPENSEARCH_PASSWORD:
-        fromSecretRef:
-          namespace: data
-          name: opensearch-admin
-          key: password
-      MINIO_ENDPOINT:
-        value: "svartalfheim:9000"
-      MINIO_USE_SSL:
-        value: "false"
-      MINIO_BUCKET:
-        value: "documents"
-      MINIO_ACCESS_KEY:
-        fromSecretRef:
-          namespace: homelab
-          name: documents-minio-credentials
-          key: accessKey
-      MINIO_SECRET_KEY:
-        fromSecretRef:
-          namespace: homelab
-          name: documents-minio-credentials
-          key: secretKey
+      API_BASE_URL:
+        value: "http://homelab-external.homelab.svc.cluster.local"
 
 serviceAccount:
   create: true
@@ -175,51 +129,14 @@ security:
       - to:
           - namespaceSelector:
               matchLabels:
-                kubernetes.io/metadata.name: data
-            podSelector:
-              matchLabels:
-                cnpg.io/cluster: app-db
-        ports:
-          - protocol: TCP
-            port: 5432
-      - to:
-          - namespaceSelector:
-              matchLabels:
-                kubernetes.io/metadata.name: data
-            podSelector:
-              matchExpressions:
-                - key: app.kubernetes.io/name
-                  operator: In
-                  values:
-                    - opensearchData
-                    - opensearchMl
-        ports:
-          - protocol: TCP
-            port: 9200
-      - to:
-          - namespaceSelector:
-              matchLabels:
                 kubernetes.io/metadata.name: homelab
             podSelector:
               matchLabels:
-                app.kubernetes.io/instance: homelab-orchestrator
-                app.kubernetes.io/name: orchestrator
+                app.kubernetes.io/instance: homelab-external
+                app.kubernetes.io/name: external
         ports:
           - protocol: TCP
             port: 8080
-      - to:
-          - namespaceSelector:
-              matchLabels:
-                kubernetes.io/metadata.name: homelab
-        ports:
-          - protocol: TCP
-            port: 80
-      - to:
-          - ipBlock:
-              cidr: 0.0.0.0/0
-        ports:
-          - protocol: TCP
-            port: 9000
 
 podAnnotations: {}
 podLabels:
@@ -271,7 +188,5 @@ affinity: {}
 
 env:
   configValue: "default"
-  API_BASE_URL: "http://homelab-orchestrator.homelab.svc.cluster.local"
+  API_BASE_URL: "http://homelab-external.homelab.svc.cluster.local"
   OIDC_ISSUER_URL: "https://accounts.google.com"
-  # POSTGRES_SSLMODE: "disable"
-  # MINIO_REGION: ""

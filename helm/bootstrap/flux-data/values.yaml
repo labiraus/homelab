@@ -102,10 +102,6 @@ postgres:
           podSelector:
             matchLabels:
               app.kubernetes.io/instance: homelab-mcp
-        - namespace: homelab
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/instance: homelab-assistant
 
 redis:
   type: oci

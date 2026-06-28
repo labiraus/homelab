@@ -1,10 +1,12 @@
 # processor
 
-`processor` is the internal stateless TypeScript worker for document-processing jobs.
+`processor` is the internal TypeScript service for processor-owned assistant workflows and document-processing jobs.
 
-It consumes NATS JetStream events, claims pending document work from Postgres, fetches MinIO-backed text documents, extracts text, and indexes derived retrieval state into OpenSearch.
+For synchronous browser assistant requests, it exposes internal `/assistant/...` routes called by `external`. It owns conversation state, explicit memories, proposal state, prompt construction, RAG context lookup through `external`, LangGraph-based chat orchestration, model calls through Envoy AI Gateway, and tool-call logging in Postgres.
 
-`processor` is part of the data plane. It should not own global document lifecycle state; that remains the job of `orchestrator` and Postgres-backed control-plane records.
+For asynchronous document jobs, it consumes NATS JetStream events, claims pending document work from Postgres, fetches MinIO-backed text documents, extracts text, and indexes derived retrieval state into OpenSearch.
+
+`processor` is part of the AI/data plane. It should not own global document lifecycle state; that remains the job of `orchestrator` and Postgres-backed control-plane records.
 
 The current lifecycle for a claimed job is:
 

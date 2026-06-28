@@ -1456,7 +1456,7 @@ func TestHandleToolsCallRejectsWrongNestedBodyArgumentType(t *testing.T) {
 	}
 }
 
-func TestProxyAPIRequestDefaultsToOrchestratorService(t *testing.T) {
+func TestProxyAPIRequestDefaultsToExternalService(t *testing.T) {
 	previous := mcpHTTPClient
 	t.Cleanup(func() {
 		mcpHTTPClient = previous
@@ -1464,8 +1464,8 @@ func TestProxyAPIRequestDefaultsToOrchestratorService(t *testing.T) {
 
 	mcpHTTPClient = &http.Client{
 		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-			if req.URL.String() != "http://homelab-orchestrator.homelab.svc.cluster.local/documents" {
-				t.Fatalf("expected orchestrator default upstream, got %q", req.URL.String())
+			if req.URL.String() != "http://homelab-external.homelab.svc.cluster.local/api/documents" {
+				t.Fatalf("expected external default upstream, got %q", req.URL.String())
 			}
 
 			return &http.Response{

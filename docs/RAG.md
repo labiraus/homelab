@@ -8,9 +8,8 @@ This repo is taking an async-first path to document ingestion and retrieval.
 - Envoy AI Gateway is the single app-facing inference governance and routing layer
 - NATS JetStream plus KEDA are the execution layer for asynchronous workers
 - `orchestrator` owns control-plane reconciliation and task dispatch
-- `processor` is the stateless worker for extraction and OpenSearch-native indexing
+- `processor` owns assistant prompt/tool/model orchestration plus the stateless worker path for extraction and OpenSearch-native indexing
 - `external` and `mcp` are the stable public and AI-facing surfaces
-- `assistant` is the browser-first LLM surface for RAG-backed chat, explicit per-user memories, file proposals, and audit views
 - `mcp` forwards document lifecycle notifications sourced from NATS JetStream to MCP subscribers
 
 The current scope is the document, chunk, embedding, retrieval, browser assistant, and MCP foundation.
@@ -31,10 +30,10 @@ The current ingestion slice is reference-based:
 - `orchestrator` exposes text-object editing for existing inventory rows and queues a newer processing version after the raw object write
 - `orchestrator` exposes explicit reprocessing for existing inventory documents through the same queue path
 - `external` exposes browser-facing curation, guarded text edit, and reprocess proxy routes while leaving workflow ownership in `orchestrator`
-- `external` proxies `/api/assistant/...` to the assistant service and forwards the authenticated browser identity
+- `external` proxies `/api/assistant/...` to processor and forwards the authenticated browser identity
 - `external` and `mcp` expose durable lifecycle history backed by `rag.document_lifecycle_events`
-- `assistant` stores conversations, messages, tool calls, approved memories, and file-change proposals under the `assistant` Postgres schema
-- `assistant` calls the read-only MCP `documents.context` tool to ground chat responses in current RAG data
+- `processor` stores conversations, messages, tool calls, approved memories, and file-change proposals under the `assistant` Postgres schema
+- `processor` calls `external` document context routes to ground chat responses in current RAG data
 - write-like assistant outcomes are persisted as proposals; approvals call `orchestrator` create/edit endpoints instead of letting the model write files directly
 - `rag.document_change_audits` stores create/edit/revert audit rows linked to actor email, conversation ID, proposal ID, object key, MinIO version markers, and processing version
 - MinIO versioning is enabled for the external `documents` bucket so approved revert operations can restore prior raw content and queue reingestion

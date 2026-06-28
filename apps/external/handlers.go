@@ -74,6 +74,36 @@ func authProvidersHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func authUserHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	email := strings.TrimPrefix(r.URL.Path, "/api/auth/users/")
+	email = strings.TrimSpace(strings.ToLower(email))
+	if email == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "email is required"})
+		return
+	}
+
+	user, found, err := fetchIdentityByEmail(r.Context(), email)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "could not fetch auth user"})
+		return
+	}
+	if !found {
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(ErrorResponse{Error: "auth user not found"})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(user)
+}
+
 func buildGoogleAuthProvider() AuthProvider {
 	loginURL := strings.TrimSpace(os.Getenv("OIDC_LOGIN_URL"))
 	issuerURL := strings.TrimSpace(os.Getenv("OIDC_ISSUER_URL"))

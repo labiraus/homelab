@@ -42,7 +42,7 @@ Local vLLM integration:
 - default node path: `helheim` with `node-llm=gpu` and `nvidia.com/gpu: 1`
 - runtime flags enable OpenAI-compatible serving, tool-call parsing, automatic tool choice, prefix caching, and eager-mode execution for faster startup on the current consumer GPU path; quantization can be enabled by setting `model.quantization`
 - the startup probe allows roughly one hour for first-load model download, CUDA setup, and compilation on the lab GPU path before Kubernetes restarts the container
-- the assistant service uses `AI_GATEWAY_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`; Envoy AI Gateway routes that OpenAI-compatible traffic to the in-cluster vLLM backend
+- the processor service uses `AI_GATEWAY_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`; Envoy AI Gateway routes that OpenAI-compatible traffic to the in-cluster vLLM backend
 - OpenSearch ML Commons models used by RAG indexing/search should be configured with connectors that call Envoy AI Gateway, so embedding providers can move from local/OpenSearch-backed inference to Bedrock without app code changes
 - current gap: the repo creates the OpenSearch ingest/search pipelines but does not yet automate ML Commons model and connector registration; operators must register `OPENSEARCH_RAG_MODEL_ID` against Envoy AI Gateway before processor indexing succeeds
 
@@ -117,7 +117,7 @@ If `make vllm-gateway-smoke` fails:
 
 - a pending vLLM pod usually means `helheim` is missing the `node-llm=gpu` label, the GPU device plugin is not advertising `nvidia.com/gpu`, or the node cannot satisfy CPU/memory requests
 - repeated startup probe failures usually mean first-load model download or CUDA setup exceeded the current probe window, the model cache is too small, or the image cannot initialize the local GPU runtime
-- `curl` timeouts from the smoke job usually point to the Gateway service, Envoy proxy readiness, or network-policy labels on the assistant-to-gateway path
+- `curl` timeouts from the smoke job usually point to the Gateway service, Envoy proxy readiness, or network-policy labels on the processor-to-gateway path
 - HTTP 4xx/5xx responses with vLLM logs usually mean the served model name, OpenAI-compatible path, or Envoy AI Gateway route no longer matches the assistant configuration
 
 Keep the default model small and unquantized until this smoke test is reliable and the startup time, memory pressure, response quality, and tool-call behavior are measured on the live `helheim` GPU path.

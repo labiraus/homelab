@@ -1,17 +1,12 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"strings"
-	"time"
 
 	"pkg/api"
 	"pkg/base"
-	"pkg/minioutil"
-	"pkg/postgresutil"
 	"pkg/prometheusutil"
 )
 
@@ -24,30 +19,7 @@ type response struct {
 
 func main() {
 	ctx := base.Start("mcp")
-
-	if postgresConfigured() {
-		go startPostgresWithRetry(ctx, 5*time.Second)
-	} else {
-		slog.InfoContext(ctx, "postgres config not provided; direct postgres MCP capabilities will return unavailable errors")
-	}
-
-	if minioConfigured() {
-		if err := minioutil.Init(ctx, map[string]minioutil.Config{
-			"default": {
-				Endpoint:  base.GetEnv("MINIO_ENDPOINT", ""),
-				AccessKey: base.GetEnv("MINIO_ACCESS_KEY", ""),
-				SecretKey: base.GetEnv("MINIO_SECRET_KEY", ""),
-				UseSSL:    strings.EqualFold(base.GetEnv("MINIO_USE_SSL", "false"), "true"),
-				Region:    base.GetEnv("MINIO_REGION", ""),
-				Bucket:    base.GetEnv("MINIO_BUCKET", "documents"),
-			},
-		}); err != nil {
-			slog.ErrorContext(ctx, err.Error())
-			return
-		}
-	} else {
-		slog.InfoContext(ctx, "minio config not provided; direct MinIO MCP capabilities will return unavailable errors")
-	}
+	slog.InfoContext(ctx, "MCP data and control operations proxy through external API")
 
 	mux := http.NewServeMux()
 	prometheusutil.Start(mux)
@@ -84,65 +56,4 @@ func mcpHandler(w http.ResponseWriter, r *http.Request) {
 		Capabilities: []string{"documents", "health"},
 		Method:       r.Method,
 	})
-}
-
-func postgresConfigured() bool {
-	requiredVars := []string{
-		"POSTGRES_HOST",
-		"POSTGRES_USER",
-		"POSTGRES_PASSWORD",
-		"POSTGRES_DATABASE",
-	}
-
-	for _, key := range requiredVars {
-		if strings.TrimSpace(base.GetEnv(key, "")) == "" {
-			return false
-		}
-	}
-
-	return true
-}
-
-func startPostgresWithRetry(ctx context.Context, retryDelay time.Duration) {
-	config := map[string]postgresutil.PostgresConfig{
-		"default": {
-			Host:     base.GetEnv("POSTGRES_HOST", ""),
-			Port:     base.GetEnv("POSTGRES_PORT", "5432"),
-			User:     base.GetEnv("POSTGRES_USER", ""),
-			Password: base.GetEnv("POSTGRES_PASSWORD", ""),
-			Database: base.GetEnv("POSTGRES_DATABASE", ""),
-			SSLMode:  base.GetEnv("POSTGRES_SSLMODE", "disable"),
-		},
-	}
-
-	for {
-		if err := postgresutil.Init(ctx, config); err != nil {
-			slog.ErrorContext(ctx, "postgres bootstrap failed; direct postgres MCP capabilities will return unavailable errors", "error", err, "retryDelay", retryDelay.String())
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(retryDelay):
-				continue
-			}
-		}
-
-		slog.InfoContext(ctx, "postgres backend initialized for direct MCP capabilities")
-		return
-	}
-}
-
-func minioConfigured() bool {
-	requiredVars := []string{
-		"MINIO_ENDPOINT",
-		"MINIO_ACCESS_KEY",
-		"MINIO_SECRET_KEY",
-	}
-
-	for _, key := range requiredVars {
-		if strings.TrimSpace(base.GetEnv(key, "")) == "" {
-			return false
-		}
-	}
-
-	return true
 }

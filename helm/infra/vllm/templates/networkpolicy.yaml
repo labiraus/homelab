@@ -20,8 +20,8 @@ spec:
               kubernetes.io/metadata.name: homelab
           podSelector:
             matchLabels:
-              app.kubernetes.io/instance: homelab-assistant
-              app.kubernetes.io/name: assistant
+              app.kubernetes.io/instance: homelab-processor
+              app.kubernetes.io/name: processor
       ports:
         - protocol: TCP
           port: 8000

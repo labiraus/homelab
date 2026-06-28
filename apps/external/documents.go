@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -52,6 +53,20 @@ var (
 			ContentType: defaultString(strings.TrimSpace(info.ContentType), contentType),
 		}, nil
 	}
+	deleteDocumentObject = func(ctx context.Context, objectKey string) error {
+		return minioutil.DeleteObjectFromBucket(ctx, documentsBucket(), objectKey)
+	}
+	moveDocumentObject = func(ctx context.Context, sourceObjectKey string, destinationObjectKey string) (uploadedDocument, error) {
+		info, err := minioutil.MoveObjectInBucket(ctx, documentsBucket(), sourceObjectKey, destinationObjectKey)
+		if err != nil {
+			return uploadedDocument{}, err
+		}
+		return uploadedDocument{
+			ObjectKey:   destinationObjectKey,
+			SizeBytes:   info.Size,
+			ContentType: strings.TrimSpace(info.ContentType),
+		}, nil
+	}
 )
 
 func documentsTreeHandler(w http.ResponseWriter, r *http.Request) {
@@ -92,36 +107,155 @@ func documentsTreeHandler(w http.ResponseWriter, r *http.Request) {
 
 func documentObjectHandler(w http.ResponseWriter, r *http.Request) {
 	handleDocumentAPI(documentObjectLabel, w, r, func() error {
-		if r.Method != http.MethodGet {
+		switch r.Method {
+		case http.MethodGet:
+			return handleDocumentObjectRead(w, r)
+		case http.MethodPut:
+			return handleDocumentObjectWrite(w, r)
+		case http.MethodDelete:
+			return handleDocumentObjectDelete(w, r)
+		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return nil
 		}
+	})
+}
 
-		objectKey := normalizeObjectKey(r.URL.Query().Get("objectKey"))
-		if objectKey == "" {
-			w.WriteHeader(http.StatusBadRequest)
-			return json.NewEncoder(w).Encode(ErrorResponse{Error: "objectKey is required"})
+func documentMoveHandler(w http.ResponseWriter, r *http.Request) {
+	handleDocumentAPI("documentMoveHandler", w, r, func() error {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return nil
 		}
-
-		object, err := readDocumentObject(r.Context(), objectKey)
+		var request struct {
+			SourceObjectKey      string `json:"sourceObjectKey"`
+			DestinationObjectKey string `json:"destinationObjectKey"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return json.NewEncoder(w).Encode(ErrorResponse{Error: "invalid request body"})
+		}
+		sourceObjectKey := normalizeObjectKey(request.SourceObjectKey)
+		destinationObjectKey := normalizeObjectKey(request.DestinationObjectKey)
+		if sourceObjectKey == "" || destinationObjectKey == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			return json.NewEncoder(w).Encode(ErrorResponse{Error: "sourceObjectKey and destinationObjectKey are required"})
+		}
+		moved, err := moveDocumentObject(r.Context(), sourceObjectKey, destinationObjectKey)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			return json.NewEncoder(w).Encode(ErrorResponse{Error: "could not read document"})
+			return json.NewEncoder(w).Encode(ErrorResponse{Error: "could not move document"})
 		}
+		w.Header().Set("Content-Type", "application/json")
+		return json.NewEncoder(w).Encode(map[string]any{
+			"bucket":               documentsBucket(),
+			"sourceObjectKey":      sourceObjectKey,
+			"destinationObjectKey": destinationObjectKey,
+			"objectKey":            moved.ObjectKey,
+			"sizeBytes":            moved.SizeBytes,
+			"contentType":          moved.ContentType,
+			"moved":                true,
+		})
+	})
+}
 
-		contentType := defaultString(strings.TrimSpace(object.Info.ContentType), http.DetectContentType(object.Body))
-		filename := path.Base(objectKey)
-		disposition := "inline"
-		if r.URL.Query().Get("download") == "1" {
-			disposition = "attachment"
+func handleDocumentObjectRead(w http.ResponseWriter, r *http.Request) error {
+	objectKey := normalizeObjectKey(r.URL.Query().Get("objectKey"))
+	if objectKey == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return json.NewEncoder(w).Encode(ErrorResponse{Error: "objectKey is required"})
+	}
+
+	object, err := readDocumentObject(r.Context(), objectKey)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return json.NewEncoder(w).Encode(ErrorResponse{Error: "could not read document"})
+	}
+
+	contentType := defaultString(strings.TrimSpace(object.Info.ContentType), http.DetectContentType(object.Body))
+	filename := path.Base(objectKey)
+	disposition := "inline"
+	if r.URL.Query().Get("download") == "1" {
+		disposition = "attachment"
+	}
+
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Length", strconv.FormatInt(int64(len(object.Body)), 10))
+	w.Header().Set("Last-Modified", object.Info.LastModified.UTC().Format(http.TimeFormat))
+	w.Header().Set("Content-Disposition", contentDisposition(disposition, filename))
+	_, writeErr := w.Write(object.Body)
+	return writeErr
+}
+
+func handleDocumentObjectWrite(w http.ResponseWriter, r *http.Request) error {
+	var request struct {
+		ObjectKey   string `json:"objectKey"`
+		Base64      string `json:"base64"`
+		Text        string `json:"text"`
+		ContentType string `json:"contentType"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return json.NewEncoder(w).Encode(ErrorResponse{Error: "invalid request body"})
+	}
+	objectKey := normalizeObjectKey(request.ObjectKey)
+	if objectKey == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return json.NewEncoder(w).Encode(ErrorResponse{Error: "objectKey is required"})
+	}
+	contentType := strings.TrimSpace(request.ContentType)
+	var body []byte
+	if strings.TrimSpace(request.Base64) != "" {
+		decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(request.Base64))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return json.NewEncoder(w).Encode(ErrorResponse{Error: "base64 must be valid"})
 		}
+		body = decoded
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+	} else {
+		body = []byte(request.Text)
+		if contentType == "" {
+			contentType = "text/plain; charset=utf-8"
+		}
+	}
+	uploaded, err := putDocumentObject(r.Context(), objectKey, body, contentType)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return json.NewEncoder(w).Encode(ErrorResponse{Error: "could not write document"})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(DocumentUploadResponse{
+		ObjectKey:   uploaded.ObjectKey,
+		SizeBytes:   uploaded.SizeBytes,
+		ContentType: uploaded.ContentType,
+	})
+}
 
-		w.Header().Set("Content-Type", contentType)
-		w.Header().Set("Content-Length", strconv.FormatInt(int64(len(object.Body)), 10))
-		w.Header().Set("Last-Modified", object.Info.LastModified.UTC().Format(http.TimeFormat))
-		w.Header().Set("Content-Disposition", contentDisposition(disposition, filename))
-		_, writeErr := w.Write(object.Body)
-		return writeErr
+func handleDocumentObjectDelete(w http.ResponseWriter, r *http.Request) error {
+	var request struct {
+		ObjectKey string `json:"objectKey"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return json.NewEncoder(w).Encode(ErrorResponse{Error: "invalid request body"})
+	}
+	objectKey := normalizeObjectKey(request.ObjectKey)
+	if objectKey == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return json.NewEncoder(w).Encode(ErrorResponse{Error: "objectKey is required"})
+	}
+	if err := deleteDocumentObject(r.Context(), objectKey); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return json.NewEncoder(w).Encode(ErrorResponse{Error: "could not delete document"})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(map[string]any{
+		"bucket":    documentsBucket(),
+		"objectKey": objectKey,
+		"deleted":   true,
 	})
 }
 

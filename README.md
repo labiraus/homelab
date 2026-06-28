@@ -36,10 +36,9 @@ Use the nearest relevant `AGENTS.md` for local conventions, and update it when a
 ├── ansible/                # External services and VM-hosted workloads
 ├── apps/
 │   ├── external/           # Public Go HTTP service
-│   ├── assistant/          # Browser LLM assistant, memory, proposal, and audit service
 │   ├── mcp/                # Public Go MCP service
 │   ├── orchestrator/       # Internal Go document service
-│   ├── processor/          # Internal TypeScript NATS JetStream worker
+│   ├── processor/          # Internal TypeScript AI orchestration and NATS JetStream worker
 │   ├── ui/                 # Vite/React frontend
 │   └── pkg/                # Shared Go modules used by the Go services
 ├── bin/
@@ -104,10 +103,9 @@ The app stack under `apps/` is intentionally small:
 
 - `apps/ui`: public React frontend
 - `apps/external`: public Go API for the UI and stable browser-facing integrations
-- `apps/assistant`: browser-first LLM chat service for RAG-backed conversations, explicit user memories, file-change proposals, and audit views
 - `apps/mcp`: public Go MCP service for AI-native access
 - `apps/orchestrator`: internal Go control-plane service for reconciliation and task dispatch
-- `apps/processor`: internal TypeScript NATS JetStream worker for extraction and OpenSearch-native indexing
+- `apps/processor`: internal TypeScript service for assistant chat orchestration, explicit user memories, file-change proposals, audit views, extraction, and OpenSearch-native indexing
 - `apps/pkg/*`: shared Go packages for HTTP server startup, logging, metrics, and integrations
 - `evals/ragas`: RAGAS-based retrieval/chunking quality checks against live processed chunks
 
@@ -120,14 +118,14 @@ Current document-platform direction:
 - browser and MCP surfaces expose retrieval, cited context, lifecycle history, metadata curation, guarded text edits, and reprocess requests while `orchestrator` keeps workflow ownership
 - the Assistant tab lets authenticated users ask RAG-backed questions, save approved per-user memories, approve or reject proposed text create/edit operations, and inspect file-change audit rows
 - approved assistant file changes are routed through `orchestrator`, written to MinIO, audited in Postgres, and reingested through the existing processor path
-- local vLLM is the first LLM runtime target for the assistant, scheduled onto the GPU worker path and accompanied by Envoy AI Gateway resources
+- local vLLM is the first LLM runtime target for processor-owned assistant workflows, scheduled onto the GPU worker path and accompanied by Envoy AI Gateway resources
 - RAGAS chunking evaluation can score current processed chunks against gold retrieval cases under `evals/ragas/`
 - day-two document, assistant, vLLM, retention, and recovery checks live under `runbooks/` and `docs/RetentionAndRecovery.md`
 - NATS JetStream plus KEDA handle asynchronous execution and worker scaling
 - Redis is available but not yet a core design dependency
 - Mongo is intentionally not part of the active application architecture
 
-There is no separate query API or ingestion application in the current direction. Retrieval, cited context, browser assistant workflows, and agent-facing document tools flow through `external`, `assistant`, `mcp`, `orchestrator`, and `processor`.
+There is no separate query API, ingestion application, or standalone assistant service in the current direction. Retrieval, cited context, browser assistant workflows, and agent-facing document tools flow through `external`, `mcp`, `orchestrator`, and `processor`.
 
 ### Ansible
 
@@ -262,7 +260,6 @@ Cluster join and ongoing NVIDIA runtime enforcement are handled afterward throug
 
 GitHub Actions currently handle:
 
-- `apps/assistant` tests and image build
 - `apps/external` tests and image build
 - `apps/mcp` tests and image build
 - `apps/orchestrator` tests and image build
@@ -271,7 +268,7 @@ GitHub Actions currently handle:
 - `helm/apps/vllm` chart packaging for the pinned upstream vLLM runtime image
 - Helm chart discovery, templating tests, and GHCR packaging
 
-After the vLLM and Envoy AI Gateway releases deploy, use `make vllm-gateway-smoke` to validate the live OpenAI-compatible route used by the assistant.
+After the vLLM and Envoy AI Gateway releases deploy, use `make vllm-gateway-smoke` to validate the live OpenAI-compatible route used by processor-owned assistant workflows.
 
 Important note: some workflow files may lag behind the runtime choices in the repo. For example, the React app is Vite-based and the devcontainer uses Node 24, so treat workflow definitions as something to verify rather than assume are fully current.
 

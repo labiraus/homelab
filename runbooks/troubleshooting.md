@@ -104,19 +104,19 @@ Common causes:
 - GPU node label or `nvidia.com/gpu` allocatable missing
 - first-load model download or CUDA setup exceeds startup probe timing
 - Envoy Gateway proxy is not ready
-- assistant-to-gateway NetworkPolicy labels drifted
+- processor-to-gateway NetworkPolicy labels drifted
 - served model name no longer matches `LLM_MODEL`
 
 Keep the default model conservative until this path is stable under repeated restarts.
 
 ## Assistant Proposal Recovery
 
-Proposal rows are assistant-owned state. Raw document writes happen only after browser approval through `orchestrator`.
+Proposal rows are processor-owned assistant state. Raw document writes happen only after browser approval through `orchestrator`.
 
 Checks:
 
 ```bash
-kubectl -n homelab logs deploy/homelab-assistant --since=30m --tail=200
+kubectl -n homelab logs deploy/homelab-processor --since=30m --tail=200
 kubectl -n homelab logs deploy/homelab-orchestrator --since=30m --tail=200
 ```
 

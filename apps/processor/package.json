@@ -10,6 +10,8 @@
     "test": "node --import tsx --test test/**/*.test.ts"
   },
   "dependencies": {
+    "@langchain/core": "^1.2.1",
+    "@langchain/langgraph": "^1.4.7",
     "minio": "^8.0.7",
     "nats": "^2.29.3",
     "pg": "^8.16.3"

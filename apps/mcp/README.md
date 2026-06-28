@@ -3,13 +3,12 @@
 `mcp` is the AI-native public front door for agents and MCP-compatible clients.
 
 Externally, this service should be treated as the Labiraus MCP server even though the repo and Kubernetes objects still use the `mcp` app name internally.
-It is a primary product surface of this repo, alongside the browser UI and assistant, and should stay aligned with the same Postgres-backed document state and orchestrator-owned control flows.
+It is a primary product surface of this repo alongside the browser UI, and should stay aligned with the same Postgres-backed document state and orchestrator-owned control flows.
 
 It exposes one MCP entrypoint that fronts:
 
-- orchestrator actions for document workflows
-- direct Postgres-backed read capabilities
-- direct MinIO-backed document-bucket capabilities, including folder-aware browsing and binary uploads
+- external-proxied document workflow actions
+- external-proxied Postgres/OpenSearch/MinIO-backed capabilities
 - prompt examples for the current Labiraus capability surface
 - a live NATS-backed document notification subscription surface
 
@@ -33,22 +32,19 @@ Prompt discovery and retrieval are exposed through the MCP transport with `promp
 
 ## Runtime Configuration
 
-Live direct-backend capabilities currently expect:
+Live proxy-backed capabilities currently expect:
 
 - `OIDC_ISSUER_URL` for federated identity discovery. Defaults to `https://accounts.google.com`, so bearer-capable MCP clients can use standard Google/OIDC authorization discovery instead of a service-local login path.
-- `API_BASE_URL` for orchestrator-backed HTTP proxy operations. Defaults to `http://homelab-orchestrator.homelab.svc.cluster.local`, and the Helm chart sets that in-cluster service URL explicitly.
-- `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DATABASE`, `POSTGRES_SSLMODE` for Postgres-backed capabilities
-- `OPENSEARCH_BASE_URL`, `OPENSEARCH_RAG_INDEX`, `OPENSEARCH_RAG_SEARCH_PIPELINE`, and optional `OPENSEARCH_USERNAME` / `OPENSEARCH_PASSWORD` for semantic retrieval over OpenSearch-native processed chunks.
-- `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_USE_SSL`, `MINIO_REGION`, `MINIO_BUCKET` for MinIO-backed capabilities
+- `API_BASE_URL` for external-backed HTTP proxy operations. Defaults to `http://homelab-external.homelab.svc.cluster.local`, and the Helm chart sets that in-cluster service URL explicitly.
 - `NATS_URLS`, `NATS_EVENTS_STREAM`, and `NATS_EVENTS_SUBJECT` for document lifecycle subscriptions and resource notifications
 
-The Helm chart populates the live Postgres settings from the CNPG `data/app-db-bootstrap` secret and points `POSTGRES_HOST` at `app-db-rw.data.svc.cluster.local`. Its NetworkPolicy also allows egress to the CNPG `app-db` pods on port `5432` and to the orchestrator pods on port `8080` for HTTP proxy tools.
+The Helm chart no longer injects direct Postgres, OpenSearch, or MinIO credentials into `mcp`; its NetworkPolicy allows egress to NATS for notifications and to `external` for tool/resource execution.
 
 For Streamable HTTP hardening, `mcp` validates the `Origin` header on incoming MCP requests against the request origin by default. Set `MCP_ALLOWED_ORIGINS` to a comma-separated list only if the deployment intentionally needs additional browser origins.
 
-If Postgres or MinIO configuration is omitted, the service still starts and advertises the relevant capabilities, but live calls against those backends return backend-unavailable errors until configuration is provided. Postgres initialization is retried in the background so orchestrator-proxied tools such as `documents.scanBucket` can stay available during a transient database connection failure.
+If `external` is unavailable, the service still starts and advertises the relevant capabilities, but live tool/resource calls return upstream errors until the external API recovers.
 
-The live MinIO shape now supports:
+The live external-proxied document shape now supports:
 
 - `documents.scanBucket` for orchestrator-backed bucket inventory reconciliation and queueing of new or changed text objects
 - `documents.curation.update` for orchestrator-backed curation of document inventory metadata

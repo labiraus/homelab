@@ -3,6 +3,7 @@ import http from "node:http";
 import { AckPolicy, RetentionPolicy, StorageType, connect } from "nats";
 import { Pool } from "pg";
 
+import { canHandleAssistantRequest, handleAssistantRequest } from "./assistant_api.js";
 import { loadConfig } from "./config.js";
 import { extractDocumentContent } from "./extractor.js";
 import {
@@ -24,6 +25,7 @@ import type { DocumentEvent, DocumentLifecycleEvent } from "./types.js";
 async function main(): Promise<void> {
 	const config = loadConfig();
 	const storage = createDocumentStorage(config);
+	let pool: Pool | undefined;
 	let ready = false;
 	const server = http.createServer((request, response) => {
 		if (request.url === "/liveness") {
@@ -34,15 +36,26 @@ async function main(): Promise<void> {
 			response.writeHead(ready ? 200 : 503).end(ready ? "ready" : "starting");
 			return;
 		}
+		const pathname = new URL(request.url ?? "/", "http://processor.local").pathname;
+		if (canHandleAssistantRequest(pathname)) {
+			handleAssistantRequest(pool, request, response).catch((error) => {
+				console.error(error);
+				if (!response.headersSent) {
+					response.writeHead(500, { "Content-Type": "application/json" });
+				}
+				response.end(JSON.stringify({ error: "assistant request failed" }));
+			});
+			return;
+		}
 		response.writeHead(404).end("not found");
 	});
 
 	server.listen(config.port, "0.0.0.0");
 
 	for (;;) {
-		const pool = new Pool({ connectionString: config.postgresConnectionString });
 		let nc: Awaited<ReturnType<typeof connect>> | undefined;
 		try {
+			pool = new Pool({ connectionString: config.postgresConnectionString });
 			await ensureSchema(pool);
 			await ensureOpenSearchResources(config);
 
@@ -120,7 +133,8 @@ async function main(): Promise<void> {
 			} catch {
 				nc?.close();
 			}
-			await pool.end().catch(() => undefined);
+			await pool?.end().catch(() => undefined);
+			pool = undefined;
 		}
 
 		await delay(5000);
