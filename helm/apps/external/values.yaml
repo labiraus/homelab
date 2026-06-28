@@ -90,7 +90,7 @@ generatedSecrets:
       OPENSEARCH_RAG_INDEX:
         value: "rag-documents"
       OPENSEARCH_RAG_SEARCH_PIPELINE:
-        value: "rag-neural-search"
+        value: ""
       OIDC_LOGIN_URL:
         value: "https://mcp.labiraus.com/oauth2/start?rd=https%3A%2F%2Fmcp.labiraus.com%2F"
       OIDC_ISSUER_URL:

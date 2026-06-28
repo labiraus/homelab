@@ -15,7 +15,7 @@ import (
 
 const (
 	DefaultIndex          = "rag-documents"
-	DefaultSearchPipeline = "rag-neural-search"
+	DefaultSearchPipeline = ""
 )
 
 type Config struct {
@@ -179,17 +179,21 @@ func BuildSearchBody(request SearchRequest) map[string]any {
 		filters = append(filters, map[string]any{"term": map[string]any{field: value}})
 	}
 
-	nestedQuery := map[string]any{
-		"nested": map[string]any{
-			"path": "passage_chunk",
-			"query": map[string]any{
-				"knn": map[string]any{
-					"passage_chunk.embedding": map[string]any{
-						"vector": "${ext.ml_inference.params.query_embedding}",
-						"k":      limit,
-					},
+	chunkQuery := map[string]any{"match_all": map[string]any{}}
+	if strings.TrimSpace(request.Query) != "" {
+		chunkQuery = map[string]any{
+			"match": map[string]any{
+				"passage_chunk.text": map[string]any{
+					"query":    request.Query,
+					"operator": "and",
 				},
 			},
+		}
+	}
+	nestedQuery := map[string]any{
+		"nested": map[string]any{
+			"path":  "passage_chunk",
+			"query": chunkQuery,
 			"inner_hits": map[string]any{
 				"name": "_chunk_hits",
 				"size": 1,
@@ -209,13 +213,6 @@ func BuildSearchBody(request SearchRequest) map[string]any {
 			"bool": map[string]any{
 				"filter": filters,
 				"must":   []any{nestedQuery},
-			},
-		},
-		"ext": map[string]any{
-			"ml_inference": map[string]any{
-				"params": map[string]any{
-					"query_text": request.Query,
-				},
 			},
 		},
 	}

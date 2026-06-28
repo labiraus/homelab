@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestBuildSearchBodyIncludesFiltersAndPipelineInput(t *testing.T) {
+func TestBuildSearchBodyIncludesFiltersAndLexicalChunkQuery(t *testing.T) {
 	body := BuildSearchBody(SearchRequest{
 		Query:      "ancient tower",
 		DocumentID: "doc-1",
@@ -20,14 +20,20 @@ func TestBuildSearchBodyIncludesFiltersAndPipelineInput(t *testing.T) {
 	}
 	text := string(raw)
 	for _, expected := range []string{
-		`"query_text":"ancient tower"`,
+		`"query":"ancient tower"`,
+		`"operator":"and"`,
 		`"documentId.keyword":"doc-1"`,
 		`"objectKey.keyword":"campaign/"`,
 		`"metadata.tag.keyword":"runbook"`,
-		`"passage_chunk.embedding"`,
+		`"passage_chunk.text"`,
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("expected search body to contain %s, got %s", expected, text)
+		}
+	}
+	for _, unexpected := range []string{"${ext.ml_inference.params.query_embedding}", "ml_inference", "query_text"} {
+		if strings.Contains(text, unexpected) {
+			t.Fatalf("expected lexical search body not to include %s, got %s", unexpected, text)
 		}
 	}
 }

@@ -86,7 +86,7 @@ Semantic search and cited context assembly use OpenSearch neural search:
 
 - `OPENSEARCH_BASE_URL`
 - `OPENSEARCH_RAG_INDEX`, defaulting to `rag-documents`
-- `OPENSEARCH_RAG_SEARCH_PIPELINE`, defaulting to `rag-neural-search`
+- `OPENSEARCH_RAG_SEARCH_PIPELINE`, optional; leave empty for lexical retrieval
 - optional `OPENSEARCH_USERNAME` and `OPENSEARCH_PASSWORD`
 
 Document control proxying also uses:
