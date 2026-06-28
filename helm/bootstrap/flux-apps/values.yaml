@@ -25,6 +25,39 @@ external:
     - nats
     - orchestrator
     - processor
+  values:
+    ingress:
+      enabled: false
+    security:
+      istio:
+        authorizationPolicies: []
+      networkPolicy:
+        ingress:
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: homelab
+                podSelector:
+                  matchLabels:
+                    app.kubernetes.io/instance: homelab-oauth2-proxy
+                    app.kubernetes.io/name: oauth2-proxy
+            ports:
+              - protocol: TCP
+                port: 8080
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: homelab
+                podSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/instance
+                      operator: In
+                      values:
+                        - homelab-processor
+                        - homelab-mcp
+            ports:
+              - protocol: TCP
+                port: 8080
 
 ui:
   type: oci
