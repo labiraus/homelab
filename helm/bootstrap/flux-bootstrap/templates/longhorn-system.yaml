@@ -1,0 +1,47 @@
+{{- $component := index .Values "longhorn-system" -}}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $component.targetNamespace | default "longhorn-system" }}
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: {{ $component.repository.name }}
+  namespace: flux-system
+spec:
+  interval: {{ $component.interval | default "1h" }}
+  url: {{ $component.repository.url }}
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: longhorn-system
+  namespace: flux-system
+spec:
+  interval: {{ $component.interval | default "1h" }}
+  timeout: {{ $component.timeout | default "30m" }}
+  targetNamespace: {{ $component.targetNamespace | default "longhorn-system" }}
+  install:
+    createNamespace: true
+    replace: true
+    crds: CreateReplace
+    remediation:
+      remediateLastFailure: true
+      retries: 3
+  upgrade:
+    cleanupOnFail: {{ $component.cleanupOnFail | default true }}
+    crds: CreateReplace
+    remediation:
+      remediateLastFailure: true
+      retries: 3
+  chart:
+    spec:
+      chart: {{ $component.chart }}
+      sourceRef:
+        kind: HelmRepository
+        name: {{ $component.repository.name }}
+        namespace: flux-system
+      version: {{ $component.version | quote }}
+  values:
+    {{- toYaml $component.values | nindent 4 }}

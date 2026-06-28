@@ -16,52 +16,51 @@ imagePullSecret:
     namespace: flux-system
     name: ghcr-creds
 min_version: 0.0.0-0
-releases:
-  - name: vllm
-    type: oci
-    namespace: homelab
-    installDisableWait: true
-    upgradeDisableWait: true
-    dependsOn:
-      - envoy-ai-gateway
+vllm:
+  type: oci
+  namespace: homelab
+  installDisableWait: true
+  upgradeDisableWait: true
+  dependsOn:
+    - envoy-ai-gateway
 
-  - name: assistant
-    type: oci
-    namespace: homelab
-    dependsOn:
-      - postgres
-      - mcp
-      - orchestrator
-      - vllm
+assistant:
+  type: oci
+  namespace: homelab
+  dependsOn:
+    - postgres
+    - mcp
+    - orchestrator
+    - vllm
 
-  - name: external
-    type: oci
-    namespace: homelab
-    dependsOn:
-      - postgres
-      - redis
-      - assistant
+external:
+  type: oci
+  namespace: homelab
+  dependsOn:
+    - postgres
+    - redis
+    - assistant
 
-  - name: ui
-    type: oci
-    namespace: homelab
+ui:
+  type: oci
+  namespace: homelab
 
-  - name: mcp
-    type: oci
-    namespace: homelab
+mcp:
+  type: oci
+  namespace: homelab
 
-  - name: orchestrator
-    type: oci
-    namespace: homelab
-    dependsOn:
-      - nats
+orchestrator:
+  type: oci
+  namespace: homelab
+  dependsOn:
+    - nats
 
-  - name: processor
-    type: oci
-    namespace: homelab
-    installDisableWait: true
-    upgradeDisableWait: true
-    dependsOn:
-      - nats
-      - postgres
-      - keda
+processor:
+  type: oci
+  namespace: homelab
+  installDisableWait: true
+  upgradeDisableWait: true
+  dependsOn:
+    - nats
+    - postgres
+    - keda

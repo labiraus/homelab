@@ -1,0 +1,53 @@
+{{- $component := .Values.orchestrator -}}
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: orchestrator
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: oci://{{ .Values.image.repository }}/charts/orchestrator
+  provider: {{ .Values.provider }}
+  {{- if .Values.secret }}
+  secretRef:
+    name: ghcr-creds
+  {{- end }}
+  ref:
+    semver: ">={{ .Values.min_version }}"
+    semverFilter: {{ .Values.tag }}
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: orchestrator
+  namespace: flux-system
+spec:
+  interval: {{ $component.interval | default "1m" }}
+  timeout: {{ $component.timeout | default "10m" }}
+  targetNamespace: {{ $component.targetNamespace | default $component.namespace | default "orchestrator" }}
+  install:
+    createNamespace: true
+    replace: true
+    remediation:
+      remediateLastFailure: true
+      retries: 3
+  upgrade:
+    cleanupOnFail: {{ $component.cleanupOnFail | default true }}
+    remediation:
+      remediateLastFailure: true
+      retries: 3
+  dependsOn:
+    {{- range $dependency := $component.dependsOn }}
+    - name: {{ $dependency }}
+      namespace: flux-system
+    {{- end }}
+  chartRef:
+    kind: OCIRepository
+    name: orchestrator
+    namespace: flux-system
+  values:
+    {{- if $component.values }}
+    {{- toYaml $component.values | nindent 4 }}
+    {{- else }}
+    {}
+    {{- end }}

@@ -59,7 +59,7 @@ Use the nearest relevant `AGENTS.md` for local conventions, and update it when a
 │   ├── infra/              # Infrastructure charts
 │   ├── libraries/          # Shared chart templates
 │   ├── observability/      # Monitoring and tracing charts
-│   └── workloads/          # Misc workloads outside the core platform
+│   └── workloads/          # Reserved for misc workloads outside the core platform
 ├── modules/
 │   └── proxmox-ubuntu-vm/  # Reusable Terraform module
 ├── runbooks/               # Day-two troubleshooting and recovery notes

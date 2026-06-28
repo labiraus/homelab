@@ -1,20 +1,18 @@
-namespace: homelab
 provider: generic
 tag: uat
 secret: true
 image:
   repository:
 min_version: 0.0.0-0
-releases:
-  - name: prometheus
-    type: oci
+prometheus:
+  type: oci
 
-  - name: jaeger
-    type: oci
+jaeger:
+  type: oci
 
-  - name: kiali
-    type: oci
+kiali:
+  type: oci
 
-  - name: kubecost
-    type: oci
-    timeout: 20m
+kubecost:
+  type: oci
+  timeout: 20m

@@ -29,7 +29,6 @@ The current boundary for MinIO is:
   - `helm/bootstrap/flux-infra`
   - `helm/bootstrap/flux-apps`
   - `helm/bootstrap/flux-data`
-  - `helm/bootstrap/flux-workloads`
   - `helm/bootstrap/flux-observability`
 - Source of truth: operator GitHub package credentials or PAT with GHCR access
 
@@ -48,7 +47,10 @@ Repo references:
 - [scripts/kube-init.sh](/workspaces/homelab/scripts/kube-init.sh:8)
 - [helm/bootstrap/flux-apps/values.yaml](/workspaces/homelab/helm/bootstrap/flux-apps/values.yaml:14)
 - [helm/bootstrap/flux-infra/values.yaml](/workspaces/homelab/helm/bootstrap/flux-infra/values.yaml:14)
-- [helm/bootstrap/flux-workloads/values.yaml](/workspaces/homelab/helm/bootstrap/flux-workloads/values.yaml:11)
+
+Bootstrap note:
+
+- the `flux-*` bootstrap charts now declare one top-level values block and one template per component rather than a shared `releases:` list
 
 ### `homelab/oauth2-proxy-google`
 

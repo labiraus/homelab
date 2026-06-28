@@ -1,157 +1,153 @@
-namespace: homelab
 provider: generic
 tag: uat
 secret: true
 image:
   repository:
 min_version: 0.0.0-0
-releases:
-  - name: flux-infra
-    type: oci
-    targetNamespace: flux-system
-    installDisableWait: true
-    upgradeDisableWait: true
+"flux-infra":
+  type: oci
+  targetNamespace: flux-system
+  installDisableWait: true
+  upgradeDisableWait: true
 
-  - name: flux-apps
-    type: oci
-    targetNamespace: flux-system
-    installDisableWait: true
-    upgradeDisableWait: true
+"flux-apps":
+  type: oci
+  targetNamespace: flux-system
+  installDisableWait: true
+  upgradeDisableWait: true
 
-  - name: flux-workloads
-    type: oci
-    targetNamespace: flux-system
-    installDisableWait: true
-    upgradeDisableWait: true
+"flux-observability":
+  type: oci
+  targetNamespace: flux-system
+  installDisableWait: true
+  upgradeDisableWait: true
 
-  - name: flux-observability
-    type: oci
-    targetNamespace: flux-system
-    installDisableWait: true
-    upgradeDisableWait: true
+"flux-data":
+  type: oci
+  targetNamespace: flux-system
+  installDisableWait: true
+  upgradeDisableWait: true
 
-  - name: flux-data
-    type: oci
-    targetNamespace: flux-system
-    installDisableWait: true
-    upgradeDisableWait: true
+"cert-manager":
+  type: helm
+  interval: 1h
+  repository:
+    name: jetstack
+    url: https://charts.jetstack.io
+  chart: cert-manager
+  version: 1.18.x
+  targetNamespace: cert-manager
+  values:
+    crds:
+      enabled: true
+    config:
+      enableGatewayAPI: true
 
-  - name: cert-issuers
-    type: oci
-    timeout: 30m
-    installDisableWait: true
-    upgradeDisableWait: true
-    dependencies:
-      - name: cert-manager
-        type: helm
-        interval: 1h
-        repository:
-          name: jetstack
-          url: https://charts.jetstack.io
-        chart: cert-manager
-        version: 1.18.x
-        targetNamespace: cert-manager
-        values:
-          crds:
-            enabled: true
-          config:
-            enableGatewayAPI: true
+"cert-issuers":
+  type: oci
+  timeout: 30m
+  installDisableWait: true
+  upgradeDisableWait: true
+  dependsOn:
+    - cert-manager
 
-  - name: gateway
-    type: oci
-    dependsOn:
-      - cert-issuers
-      - istio
-    values:
-      ingress:
-        namespace: ingress
-        hostname: mcp.labiraus.com
-      tls: true
-      certificate:
-        secretName: mcp-labiraus-com-tls
-      internalGateway:
-        namespace: ingress
-        name: internal-gateway
-        loadBalancerScheme: internal
-        listeners:
-          - name: http
-            port: 80
-            protocol: HTTP
-            hostname: "*.labiraus.com"
+gateway:
+  type: oci
+  dependsOn:
+    - cert-issuers
+    - istio
+  values:
+    ingress:
+      namespace: ingress
+      hostname: mcp.labiraus.com
+    tls: true
+    certificate:
+      secretName: mcp-labiraus-com-tls
+    internalGateway:
+      namespace: ingress
+      name: internal-gateway
+      loadBalancerScheme: internal
+      listeners:
+        - name: http
+          port: 80
+          protocol: HTTP
+          hostname: "*.labiraus.com"
 
-  - name: istio
-    type: oci
-    values:
-      meshConfig:
-        accessLogFile: /dev/stdout
-        extensionProviders:
-          - name: oauth2-proxy
-            envoyExtAuthzHttp:
-              service: homelab-oauth2-proxy.homelab.svc.cluster.local
-              port: "80"
-              pathPrefix: /oauth2/auth
-              includeRequestHeadersInCheck:
-                - authorization
-                - cookie
-                - x-forwarded-proto
-                - x-forwarded-host
-                - x-forwarded-uri
-              includeAdditionalHeadersInCheck:
-                X-Auth-Request-Redirect: https://%REQ(:authority)%/
-              headersToUpstreamOnAllow:
-                - authorization
-                - path
-                - x-auth-request-user
-                - x-auth-request-email
-                - x-auth-request-access-token
-              headersToDownstreamOnAllow:
-                - set-cookie
-              headersToDownstreamOnDeny:
-                - content-type
-                - set-cookie
-        defaultConfig:
-          gatewayTopology:
-            forwardClientCertDetails: SANITIZE_SET
-      pilot:
-        autoscaleEnabled: true
-        autoscaleMin: 1
-        autoscaleMax: 3
-        env:
-          PILOT_ENABLE_ALPHA_GATEWAY_API: "true"
+istio:
+  type: oci
+  values:
+    meshConfig:
+      accessLogFile: /dev/stdout
+      extensionProviders:
+        - name: oauth2-proxy
+          envoyExtAuthzHttp:
+            service: homelab-oauth2-proxy.homelab.svc.cluster.local
+            port: "80"
+            pathPrefix: /oauth2/auth
+            includeRequestHeadersInCheck:
+              - authorization
+              - cookie
+              - x-forwarded-proto
+              - x-forwarded-host
+              - x-forwarded-uri
+            includeAdditionalHeadersInCheck:
+              X-Auth-Request-Redirect: https://%REQ(:authority)%/
+            headersToUpstreamOnAllow:
+              - authorization
+              - path
+              - x-auth-request-user
+              - x-auth-request-email
+              - x-auth-request-access-token
+            headersToDownstreamOnAllow:
+              - set-cookie
+            headersToDownstreamOnDeny:
+              - content-type
+              - set-cookie
+    defaultConfig:
+      gatewayTopology:
+        forwardClientCertDetails: SANITIZE_SET
+    pilot:
+      autoscaleEnabled: true
+      autoscaleMin: 1
+      autoscaleMax: 3
+      env:
+        PILOT_ENABLE_ALPHA_GATEWAY_API: "true"
 
-  - name: metallb
-    type: oci
-    dependencies:
-      - name: metallb-system
-        type: helm
-        interval: 1h
-        repository:
-          name: metallb
-          url: https://metallb.github.io/metallb
-        chart: metallb
-        version: 0.15.x
-        targetNamespace: metallb-system
-        values:
-          speaker:
-            tolerateMaster: false
+"metallb-system":
+  type: helm
+  interval: 1h
+  repository:
+    name: metallb
+    url: https://metallb.github.io/metallb
+  chart: metallb
+  version: 0.15.x
+  targetNamespace: metallb-system
+  values:
+    speaker:
+      tolerateMaster: false
 
-  - name: longhorn-system
-    type: helm
-    interval: 1h
-    timeout: 30m
-    repository:
-      name: longhorn
-      url: https://charts.longhorn.io
-    chart: longhorn
-    version: 1.11.2
-    targetNamespace: longhorn-system
-    values:
-      defaultSettings:
-        defaultReplicaCount: 2
-        nodeDrainPolicy: block-for-eviction-if-contains-last-replica
-        replicaAutoBalance: least-effort
-        replicaSoftAntiAffinity: false
-      persistence:
-        defaultClass: true
-        defaultClassReplicaCount: 2
-        reclaimPolicy: Delete
+metallb:
+  type: oci
+  dependsOn:
+    - metallb-system
+
+"longhorn-system":
+  type: helm
+  interval: 1h
+  timeout: 30m
+  repository:
+    name: longhorn
+    url: https://charts.longhorn.io
+  chart: longhorn
+  version: 1.11.2
+  targetNamespace: longhorn-system
+  values:
+    defaultSettings:
+      defaultReplicaCount: 2
+      nodeDrainPolicy: block-for-eviction-if-contains-last-replica
+      replicaAutoBalance: least-effort
+      replicaSoftAntiAffinity: false
+    persistence:
+      defaultClass: true
+      defaultClassReplicaCount: 2
+      reclaimPolicy: Delete

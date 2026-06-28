@@ -1,114 +1,113 @@
-namespace: homelab
 provider: generic
 tag: uat
 secret: true
 image:
   repository:
 min_version: 0.0.0-0
-releases:
-  - name: harvester
-    type: oci
+harvester:
+  type: oci
 
-  - name: nats
-    type: helm
-    interval: 1h
-    repository:
-      name: nats
-      url: https://nats-io.github.io/k8s/helm/charts/
-    chart: nats
-    version: 2.12.6
-    targetNamespace: nats
-    values:
-      config:
-        cluster:
+nats:
+  type: helm
+  interval: 1h
+  repository:
+    name: nats
+    url: https://nats-io.github.io/k8s/helm/charts/
+  chart: nats
+  version: 2.12.6
+  targetNamespace: nats
+  values:
+    config:
+      cluster:
+        enabled: true
+        replicas: 3
+      jetstream:
+        enabled: true
+        fileStore:
           enabled: true
-          replicas: 3
-        jetstream:
-          enabled: true
-          fileStore:
+          pvc:
             enabled: true
-            pvc:
-              enabled: true
-              size: 50Gi
-              storageClassName: longhorn
-      natsBox:
-        enabled: false
+            size: 50Gi
+            storageClassName: longhorn
+    natsBox:
+      enabled: false
 
-  - name: keda
-    type: helm
-    interval: 1h
-    repository:
-      name: kedacore
-      url: https://kedacore.github.io/charts
-    chart: keda
-    version: 2.16.x
-    targetNamespace: keda
+keda:
+  type: helm
+  interval: 1h
+  repository:
+    name: kedacore
+    url: https://kedacore.github.io/charts
+  chart: keda
+  version: 2.16.x
+  targetNamespace: keda
 
-  - name: opensearch
-    type: oci
-    timeout: 30m
-    targetNamespace: data
-    dependsOn:
-      - longhorn-system
-    values:
-      networkPolicy:
-        allowedClients:
-          - namespace: homelab
-            podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: homelab-processor
-          - namespace: homelab
-            podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: homelab-external
-          - namespace: homelab
-            podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: homelab-mcp
+opensearch:
+  type: oci
+  timeout: 30m
+  targetNamespace: data
+  dependsOn:
+    - longhorn-system
+  values:
+    networkPolicy:
+      allowedClients:
+        - namespace: homelab
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: homelab-processor
+        - namespace: homelab
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: homelab-external
+        - namespace: homelab
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: homelab-mcp
 
-  - name: plex
-    type: oci
+plex:
+  type: oci
 
-  - name: postgres
-    type: oci
-    timeout: 30m
-    values:
-      networkPolicy:
-        allowedClients:
-          - namespace: homelab
-            podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: homelab-external
-          - namespace: homelab
-            podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: homelab-processor
-          - namespace: homelab
-            podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: homelab-orchestrator
-          - namespace: homelab
-            podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: homelab-mcp
-          - namespace: homelab
-            podSelector:
-              matchLabels:
-                app.kubernetes.io/instance: homelab-assistant
-    dependsOn:
-      - longhorn-system
-    dependencies:
-      - name: cnpg-system
-        type: helm
-        interval: 1h
-        repository:
-          name: cnpg
-          url: https://cloudnative-pg.github.io/charts
-        chart: cloudnative-pg
-        version: 0.23.x
-        targetNamespace: cnpg-system
+"cnpg-system":
+  type: helm
+  interval: 1h
+  repository:
+    name: cnpg
+    url: https://cloudnative-pg.github.io/charts
+  chart: cloudnative-pg
+  version: 0.23.x
+  targetNamespace: cnpg-system
 
-  - name: redis
-    type: oci
-    dependsOn:
-      - longhorn-system
+postgres:
+  type: oci
+  timeout: 30m
+  dependsOn:
+    - longhorn-system
+    - cnpg-system
+  values:
+    networkPolicy:
+      allowedClients:
+        - namespace: homelab
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: homelab-external
+        - namespace: homelab
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: homelab-processor
+        - namespace: homelab
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: homelab-orchestrator
+        - namespace: homelab
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: homelab-mcp
+        - namespace: homelab
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: homelab-assistant
+
+redis:
+  type: oci
+  dependsOn:
+    - longhorn-system

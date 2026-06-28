@@ -16,17 +16,16 @@ imagePullSecret:
     namespace: flux-system
     name: ghcr-creds
 min_version: 0.0.0-0
-releases:
-  - name: secrets
-    type: oci
-    namespace: homelab
+secrets:
+  type: oci
+  namespace: homelab
 
-  - name: oauth2-proxy
-    type: oci
-    namespace: homelab
+"oauth2-proxy":
+  type: oci
+  namespace: homelab
 
-  - name: envoy-ai-gateway
-    type: oci
-    targetNamespace: flux-system
-    installDisableWait: true
-    upgradeDisableWait: true
+"envoy-ai-gateway":
+  type: oci
+  targetNamespace: flux-system
+  installDisableWait: true
+  upgradeDisableWait: true
