@@ -210,6 +210,8 @@ security:
                 app.kubernetes.io/name: external
         ports:
           - protocol: TCP
+            port: 80
+          - protocol: TCP
             port: 8080
       - to:
           - namespaceSelector:
