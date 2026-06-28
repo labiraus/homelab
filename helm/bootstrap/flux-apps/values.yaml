@@ -16,22 +16,15 @@ imagePullSecret:
     namespace: flux-system
     name: ghcr-creds
 min_version: 0.0.0-0
-assistant:
-  type: oci
-  namespace: homelab
-  dependsOn:
-    - postgres
-    - mcp
-    - orchestrator
-    - vllm
-
 external:
   type: oci
   namespace: homelab
   dependsOn:
     - postgres
     - redis
-    - assistant
+    - nats
+    - orchestrator
+    - processor
 
 ui:
   type: oci
@@ -56,3 +49,4 @@ processor:
     - nats
     - postgres
     - keda
+    - vllm
