@@ -77,8 +77,8 @@ Current behavior note:
   - `helm/apps/orchestrator/`: internal document control-plane deployment
   - `helm/apps/processor/`: NATS JetStream worker deployment and KEDA scaler
   - `helm/apps/ui/`: Vite frontend deployment
-  - `helm/apps/vllm/`: local GPU vLLM deployment and Envoy AI Gateway resources
 - Infra charts: `helm/infra/`
+- `helm/infra/vllm/`: local GPU vLLM deployment and Envoy AI Gateway resources
 - Bootstrap child infra chart: `helm/bootstrap/flux-infra/`
 - Browser edge auth chart: `helm/infra/oauth2-proxy/`
 - Bootstrap charts: `helm/bootstrap/`

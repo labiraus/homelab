@@ -265,7 +265,7 @@ GitHub Actions currently handle:
 - `apps/orchestrator` tests and image build
 - `apps/processor` tests and image build
 - `apps/ui` tests and image build
-- `helm/apps/vllm` chart packaging for the pinned upstream vLLM runtime image
+- `helm/infra/vllm` chart packaging for the pinned upstream vLLM runtime image
 - Helm chart discovery, templating tests, and GHCR packaging
 
 After the vLLM and Envoy AI Gateway releases deploy, use `make vllm-gateway-smoke` to validate the live OpenAI-compatible route used by processor-owned assistant workflows.

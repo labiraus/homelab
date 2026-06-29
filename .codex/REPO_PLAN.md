@@ -582,7 +582,7 @@ Current status:
 - the UI has an Assistant tab for conversation trails, RAG-backed chat, explicit memory saves, proposal approval/rejection, and audit-driven revert staging
 - `orchestrator` supports `/documents/create-text`, `/documents/edit-text`, and `/documents/revert`, all of which queue reingestion and write audit metadata when used by approved assistant proposals or browser actions
 - `sql/assistant/schema.pgsql` defines processor-owned assistant state, while `sql/rag/schema.pgsql` includes `rag.document_change_audits`
-- `helm/apps/processor` and `helm/apps/vllm` are wired into the Flux app release plan, with vLLM pinned to the `helheim` GPU path by default
+- `helm/apps/processor` and `helm/infra/vllm` are wired into the Flux release plan, with vLLM pinned to the `helheim` GPU path by default
 - the default vLLM model is a small unquantized Qwen instruct model so the `helheim` runtime path can be smoke-tested before larger quantized models are promoted
 - Ansible now marks the `documents` bucket as versioned and enforces that versioning through the MinIO bucket role
 

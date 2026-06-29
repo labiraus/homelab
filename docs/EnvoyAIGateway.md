@@ -14,8 +14,8 @@ The Envoy Gateway Helm values include the upstream AI Gateway compatibility sett
 Current scope:
 
 - installs the control-plane components only
-- app-specific AI routing resources now live with the app chart that owns the model runtime
-- `helm/apps/vllm` creates a local vLLM service plus Envoy Gateway `Backend`, Envoy AI Gateway `AIServiceBackend`, `AIGatewayRoute`, and an internal `GatewayClass`/`Gateway` for the first OpenAI-compatible local model path
+- app-specific AI routing resources now live with the infra chart that owns the model runtime
+- `helm/infra/vllm` creates a local vLLM service plus Envoy Gateway `Backend`, Envoy AI Gateway `AIServiceBackend`, `AIGatewayRoute`, and an internal `GatewayClass`/`Gateway` for the first OpenAI-compatible local model path
 - provider credentials are still not managed by the infra chart; the local vLLM backend does not require an upstream provider API key
 - the Flux bootstrap ownership for the `vllm` chart now lives in `helm/bootstrap/flux-infra/` alongside `envoy-ai-gateway`, rather than under `flux-apps`
 
@@ -36,7 +36,7 @@ Current repo note:
 
 Local vLLM integration:
 
-- chart: `helm/apps/vllm`
+- chart: `helm/infra/vllm`
 - default image: `vllm/vllm-openai:v0.20.2`
 - default model: `Qwen/Qwen2.5-0.5B-Instruct`
 - default node path: `helheim` with `node-llm=gpu` and `nvidia.com/gpu: 1`
