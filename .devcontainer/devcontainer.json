@@ -4,19 +4,18 @@
     "dockerfile": "Dockerfile"
   },
   "features": {
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1.9.0": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1.10.0": {
       "enableNonRootDocker": "true",
       "moby": "true"
     },
-    "ghcr.io/devcontainers/features/terraform:1": {},
+    "ghcr.io/devcontainers/features/terraform:1.4.3": {},
     "ghcr.io/goldsam/dev-container-features/flux2": {},
     "ghcr.io/audacioustux/devcontainers/k9s:1": {},
     "ghcr.io/audacioustux/devcontainers/cilium:1": {},
-    "ghcr.io/rio/features/skaffold:2": {},
     "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
       "minikube": "none"
     },
-    "ghcr.io/devcontainers/features/node": {
+    "ghcr.io/devcontainers/features/node:2.1.0": {
       "version": "24"
     }
   },
@@ -63,8 +62,6 @@
         "golang.go",
         "hashicorp.terraform",
         "openai.chatgpt",
-        "GitHub.copilot-chat",
-        "ms-vscode.makefile-tools",
         "ms-kubernetes-tools.vscode-kubernetes-tools",
         "tim-koehler.helm-intellisense",
         "redhat.vscode-yaml",

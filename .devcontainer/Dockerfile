@@ -22,6 +22,7 @@ RUN apt-get update \
     python3-pip \
     pipx \
     postgresql-client \
+    make \
     && rm -rf /var/lib/apt/lists/*
 
 COPY zscaler-ca.crt /usr/local/share/ca-certificates/zscaler-ca.crt
