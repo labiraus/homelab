@@ -103,6 +103,8 @@ The next `make ansible-minecraft-vm` reapplies the repo-selected active profile.
 - Repo fix: manage `/data/user_jvm_args.txt` for preinstalled profiles from `runtime_env.MEMORY` and `runtime_env.INIT_MEMORY`, then restart `minecraft.service`.
 - June 17, 2026 finding: ATM11 `0.2.1` failed during FML startup because `fastsuite`, `cristellib`, and `gateways` require NeoForge `26.1.2.76` or newer while the repo still pinned `26.1.2.75`.
 - Repo fix: bump `atm11.runtime_env.NEOFORGE_VERSION` to `26.1.2.76` and rerun `make ansible-minecraft-vm` so the loader-only setup refreshes `/data/run.sh` and installed NeoForge libraries.
+- July 16, 2026 finding: ATM11 `0.2.1` failed during FML startup because `agritechevolved` requires NeoForge `26.1.2.78` or newer while the repo still pinned `26.1.2.76`. Because `minecraft.service` runs Docker with `--rm`, the failed container disappears and a later `docker logs minecraft` reports `No such container`.
+- Repo fix: bump `atm11.runtime_env.NEOFORGE_VERSION` to `26.1.2.78` and rerun `make ansible-minecraft-vm`; use `journalctl -u minecraft` to inspect startup failures when no container remains.
 
 ## Lag Notes
 

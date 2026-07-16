@@ -20,7 +20,7 @@ Minecraft runs outside Kubernetes on a dedicated Ubuntu VM on `proxmox-node1`.
 - available managed server profiles: `atm11`, `atm10_tts`
 - shared default image: `itzg/minecraft-server:java21`
 - `atm11` overrides to `itzg/minecraft-server:java25` because its current NeoForge server bootstrap requires Java 25
-- `atm11` also pins `NEOFORGE_VERSION=26.1.2.76`
+- `atm11` also pins `NEOFORGE_VERSION=26.1.2.78`
 - `atm11` mirrors that pin into `CF_MOD_LOADER_VERSION` so the CurseForge installer refreshes the server with the same NeoForge build instead of resolving a newer one
 - `atm11` starts from the installed `/data/run.sh` script instead of re-running the image's AUTO_CURSEFORGE NeoForge bootstrap on every restart, so the guest keeps using the repo-selected NeoForge build
 - when a preinstalled AUTO_CURSEFORGE profile drifts, Ansible reruns the image once with `SETUP_ONLY=true` to refresh `run.sh`, `.curseforge-manifest.json`, and the installed NeoForge loader before restarting the service
@@ -68,6 +68,8 @@ ssh nidavellir 'readlink -f /srv/minecraft/data'
 ```
 
 If `docker ps` or `docker logs` returns a permission error for `/var/run/docker.sock`, rerun `make ansible-minecraft-vm` so the `ubuntu` SSH user is in the `docker` group, then reconnect your SSH session. `sudo docker ...` works as an immediate fallback.
+
+If `docker logs minecraft` reports `No such container`, inspect `sudo journalctl -u minecraft -n 200 --no-pager`. The systemd unit starts Docker with `--rm`, so a container that fails during startup is removed immediately and its failure remains in the unit journal.
 
 ## Updating a managed server version
 
