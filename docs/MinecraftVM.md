@@ -29,7 +29,7 @@ Minecraft runs outside Kubernetes on a dedicated Ubuntu VM on `proxmox-node1`.
 - before that refresh, Ansible restores the drifted profile data tree to the configured Minecraft upload user so existing override directories remain writable to the setup container
 - the drift refresh retries transient CurseForge CDN download and DNS failures before failing the playbook
 - `atm11` installs the server-side `connectivity-26.1-7.6.jar` extra mod after any CurseForge refresh to mitigate NeoForge login/configuration timeout and packet-size issues; Ansible also manages `config/connectivity.json` with longer login and in-game disconnect windows
-- `atm11` no longer carries the temporary EvilCraft replacement used for ATM11 `0.0.23`; the managed `0.1.2` profile should use the EvilCraft jar bundled by the CurseForge server pack
+- `atm11` no longer carries the temporary EvilCraft replacement used for ATM11 `0.0.23`; the managed `0.2.1` profile should use the EvilCraft jar bundled by the CurseForge server pack
 - `atm11` overrides `spawn-protection=0` so players can build at world spawn after the next service restart
 - Minecraft heap is managed as `MEMORY=10G` and `INIT_MEMORY=2G`
 
