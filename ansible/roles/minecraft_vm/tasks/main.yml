@@ -7,6 +7,18 @@
       minecraft_vm_active_server={{ minecraft_vm_active_server }} is not defined in
       minecraft_vm_servers.
 
+- name: Require supported Minecraft profile start modes
+  ansible.builtin.assert:
+    that:
+      - (item.value.start_mode | default('bootstrap')) in minecraft_vm_supported_start_modes
+    fail_msg: >-
+      start_mode={{ item.value.start_mode | default('bootstrap') }} for Minecraft profile
+      {{ item.key }} is unsupported. Expected one of
+      {{ minecraft_vm_supported_start_modes | join(', ') }}.
+  loop: "{{ minecraft_vm_servers | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
 - name: Require legacy Minecraft migration target to exist
   ansible.builtin.assert:
     that:
@@ -264,7 +276,7 @@
     )"
 
     test "${actual_run}" = "${expected_loader}" \
-      && test "${actual_pack}" = "${expected_pack}" \
+      && [[ "${actual_pack}" == "${expected_pack}"* ]] \
       && { test -n "${loader_setup_version}" || test "${actual_loader}" = "${expected_loader}"; }
   args:
     executable: /bin/bash
@@ -357,6 +369,17 @@
     - item.item.value.runtime_env.NEOFORGE_VERSION is defined
   notify: Restart minecraft
 
+- name: Point preinstalled Minecraft run scripts at the pinned NeoForge loader
+  ansible.builtin.replace:
+    path: "{{ item.value.data_dir }}/run.sh"
+    regexp: '(@libraries/net/neoforged/neoforge/)[^/]+(/unix_args\\.txt)'
+    replace: '\\g<1>{{ item.value.runtime_env.NEOFORGE_VERSION }}\\g<2>'
+  loop: "{{ minecraft_vm_servers | dict2items }}"
+  when:
+    - item.value.start_mode | default('bootstrap') == 'preinstalled_run_script'
+    - item.value.runtime_env.NEOFORGE_VERSION is defined
+  notify: Restart minecraft
+
 - name: Manage preinstalled Minecraft JVM heap arguments
   ansible.builtin.copy:
     dest: "{{ item.value.data_dir }}/user_jvm_args.txt"
@@ -425,6 +448,15 @@
     group: root
     mode: "0755"
 
+- name: Render Minecraft profile-aware launcher
+  ansible.builtin.template:
+    src: minecraft-launch.j2
+    dest: "{{ minecraft_vm_launcher_script_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart minecraft
+
 - name: Record repo-authoritative active Minecraft server
   ansible.builtin.copy:
     content: "{{ minecraft_vm_active_server }}\n"
@@ -489,26 +521,14 @@
   ansible.builtin.wait_for:
     path: "{{ minecraft_vm_servers[minecraft_vm_active_server].data_dir }}/server.properties"
     state: present
-    timeout: 900
+    timeout: "{{ minecraft_vm_server_properties_wait_timeout }}"
 
-- name: Combine shared and active-profile server.properties overrides
-  ansible.builtin.set_fact:
-    minecraft_vm_active_server_properties: >-
-      {{
-        minecraft_vm_server_properties
-        | combine(minecraft_vm_servers[minecraft_vm_active_server].server_properties | default({}))
-        | combine({'rcon.password': minecraft_vm_rcon_password})
-      }}
-  no_log: true
-
-- name: Manage Minecraft server.properties overrides
-  ansible.builtin.lineinfile:
-    path: "{{ minecraft_vm_servers[minecraft_vm_active_server].data_dir }}/server.properties"
-    regexp: "^{{ item.key | regex_escape }}="
-    line: "{{ item.key }}={{ item.value }}"
-  loop: "{{ minecraft_vm_active_server_properties | dict2items }}"
-  notify: Restart minecraft
-  no_log: true
+- name: Manage initialized Minecraft profile server.properties overrides
+  ansible.builtin.include_tasks: server-properties.yml
+  loop: "{{ minecraft_vm_servers | dict2items }}"
+  loop_control:
+    loop_var: minecraft_vm_server_profile
+    label: "{{ minecraft_vm_server_profile.key }}"
 
 - name: Apply final Minecraft restart after server.properties changes
   ansible.builtin.meta: flush_handlers

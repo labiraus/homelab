@@ -16,11 +16,13 @@ Minecraft runs outside Kubernetes on a dedicated Ubuntu VM on `proxmox-node1`.
 - `cpu_cores = 6`
 - `memory_mb = 14336`
 - `disk_size_gb = 120`
-- default active server profile: `atm11`
-- available managed server profiles: `atm11`, `atm10_tts`
+- default active server profile: `ftb_skies_2_aero`
+- available managed server profiles: `ftb_skies_2_aero`, `atm11`, `atm10_tts`
 - shared default image: `itzg/minecraft-server:java21`
+- `ftb_skies_2_aero` pins FTB pack ID `134`, version ID `100448` (Aero `1.6.0`), and uses the image's FTBA bootstrap path on Java 21
+- first-time modpack installation is allowed up to one hour to create `server.properties`, since the FTB installer downloads thousands of individual pack files
 - `atm11` overrides to `itzg/minecraft-server:java25` because its current NeoForge server bootstrap requires Java 25
-- `atm11` also pins `NEOFORGE_VERSION=26.1.2.78`
+- `atm11` also pins `NEOFORGE_VERSION=26.1.2.93`
 - `atm11` mirrors that pin into `CF_MOD_LOADER_VERSION` so the CurseForge installer refreshes the server with the same NeoForge build instead of resolving a newer one
 - `atm11` starts from the installed `/data/run.sh` script instead of re-running the image's AUTO_CURSEFORGE NeoForge bootstrap on every restart, so the guest keeps using the repo-selected NeoForge build
 - when a preinstalled AUTO_CURSEFORGE profile drifts, Ansible reruns the image once with `SETUP_ONLY=true` to refresh `run.sh`, `.curseforge-manifest.json`, and the installed NeoForge loader before restarting the service
@@ -29,7 +31,7 @@ Minecraft runs outside Kubernetes on a dedicated Ubuntu VM on `proxmox-node1`.
 - before that refresh, Ansible restores the drifted profile data tree to the configured Minecraft upload user so existing override directories remain writable to the setup container
 - the drift refresh retries transient CurseForge CDN download and DNS failures before failing the playbook
 - `atm11` installs the server-side `connectivity-26.1-7.6.jar` extra mod after any CurseForge refresh to mitigate NeoForge login/configuration timeout and packet-size issues; Ansible also manages `config/connectivity.json` with longer login and in-game disconnect windows
-- `atm11` no longer carries the temporary EvilCraft replacement used for ATM11 `0.0.23`; the managed `0.2.1` profile should use the EvilCraft jar bundled by the CurseForge server pack
+- `atm11` no longer carries the temporary EvilCraft replacement used for ATM11 `0.0.23`; the managed `0.3.0` profile should use the EvilCraft jar bundled by the CurseForge server pack
 - `atm11` overrides `spawn-protection=0` so players can build at world spawn after the next service restart
 - Minecraft heap is managed as `MEMORY=10G` and `INIT_MEMORY=2G`
 
@@ -39,7 +41,7 @@ Minecraft runs outside Kubernetes on a dedicated Ubuntu VM on `proxmox-node1`.
 - apply the VM with `make apply COMPONENT=minecraft-vm LAYER=minecraft-node1`
 - configure Minecraft in-guest with `make ansible-minecraft-vm`; this requires `MINECRAFT_CURSEFORGE_API_KEY` and `MINECRAFT_RCON_PASSWORD` in `ansible/.env` or the shell environment
 - the game runs as `minecraft.service` and exposes `25565/tcp` directly from the guest
-- switch the active profile on-box with `sudo minecraft-switch <server>`
+- switch the active profile on-box with `sudo minecraft-switch <server>`; the profile-aware launcher selects the normal image bootstrap or the preinstalled `run.sh` path from that profile's runtime metadata
 
 Local `ansible/.env` example:
 
@@ -55,7 +57,7 @@ The Ansible role renders per-profile files under `/etc/minecraft/servers/` and k
 - `/srv/minecraft/data`
 - `/srv/minecraft/backups`
 
-On the first rollout, the old single-server `/srv/minecraft/data` and `/srv/minecraft/backups` directories are migrated into the `atm10_tts` profile before the active links are repointed to `atm11`.
+The original multi-profile rollout migrated the old single-server `/srv/minecraft/data` and `/srv/minecraft/backups` directories into `atm10_tts`. Current rollouts preserve that historical profile and point the active links to the repo-selected profile.
 
 Useful checks:
 
@@ -66,6 +68,33 @@ ssh nidavellir 'docker ps --filter name=minecraft'
 ssh nidavellir 'cat /etc/minecraft/active-server'
 ssh nidavellir 'readlink -f /srv/minecraft/data'
 ```
+
+Switch between Aero and the preserved ATM11 world with:
+
+```bash
+ssh nidavellir 'sudo minecraft-switch atm11'
+ssh nidavellir 'sudo minecraft-switch ftb_skies_2_aero'
+```
+
+The switch helper gracefully restarts the single `minecraft.service`; both profiles remain isolated
+under `/srv/minecraft/servers/<profile>`, and only one container binds TCP `25565` at a time. Rerunning
+the Ansible playbook restores the repo-authoritative `ftb_skies_2_aero` selection.
+
+Before the first Aero deployment, preserve a cold copy of the ATM11 world:
+
+```bash
+ssh nidavellir 'sudo docker exec minecraft rcon-cli "save-all flush"'
+ssh nidavellir 'sudo systemctl stop minecraft'
+ssh nidavellir '\
+  ts=$(date -u +%Y%m%dT%H%M%SZ) && \
+  sudo tar -C /srv/minecraft/servers/atm11/data -czf /srv/minecraft/archives/atm11-world-${ts}.tar.gz world && \
+  sudo tar -tzf /srv/minecraft/archives/atm11-world-${ts}.tar.gz >/dev/null && \
+  df -h /srv/minecraft'
+```
+
+Do not reuse or synchronize the ATM11 data directory for Aero. If Aero initialization fails after
+the role has installed the launcher and switch helper, restore ATM11 with
+`sudo minecraft-switch atm11`.
 
 If `docker ps` or `docker logs` returns a permission error for `/var/run/docker.sock`, rerun `make ansible-minecraft-vm` so the `ubuntu` SSH user is in the `docker` group, then reconnect your SSH session. `sudo docker ...` works as an immediate fallback.
 

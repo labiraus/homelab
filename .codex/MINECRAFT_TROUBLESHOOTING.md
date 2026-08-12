@@ -42,8 +42,8 @@ The Ansible playbook installs Docker, renders per-profile files under `/etc/mine
 
 ## Runtime Defaults
 
-- active profile: `atm11`
-- alternate preserved profile: `atm10_tts`
+- active profile: `ftb_skies_2_aero`
+- alternate preserved profiles: `atm11`, `atm10_tts`
 - shared defaults:
   - `MEMORY=10G`
   - `INIT_MEMORY=2G`
@@ -51,11 +51,17 @@ The Ansible playbook installs Docker, renders per-profile files under `/etc/mine
   - `VERSION=1.21.1`
   - `MOD_PLATFORM=AUTO_CURSEFORGE`
 - shared image default: `itzg/minecraft-server:java21`
+- `ftb_skies_2_aero`:
+  - `image=itzg/minecraft-server:java21`
+  - `MOD_PLATFORM=FTBA`
+  - `FTB_MODPACK_ID=134`
+  - `FTB_MODPACK_VERSION_ID=100448` (Aero `1.6.0`)
+  - `start_mode=bootstrap`
 - `atm11`:
   - `image=itzg/minecraft-server:java25`
   - `CF_SLUG=all-the-mods-11`
-  - `CF_FILENAME_MATCHER=0.2.1`
-  - `NEOFORGE_VERSION=26.1.2.76`
+  - `CF_FILENAME_MATCHER=0.3.0`
+  - `NEOFORGE_VERSION=26.1.2.93`
   - `loader_setup_version=26.1.2`
   - `start_mode=preinstalled_run_script`
   - extra server-side login mitigation: `connectivity-26.1-7.6.jar`
@@ -70,9 +76,28 @@ Switch profiles locally:
 ```bash
 ssh nidavellir 'sudo minecraft-switch atm10_tts'
 ssh nidavellir 'sudo minecraft-switch atm11'
+ssh nidavellir 'sudo minecraft-switch ftb_skies_2_aero'
 ```
 
 The next `make ansible-minecraft-vm` reapplies the repo-selected active profile.
+
+The rendered runtime metadata supplies `START_MODE` to a shared launcher. This is required because
+ATM11 starts its preinstalled `/data/run.sh`, while FTBA profiles use the container image's normal
+bootstrap entrypoint. If a switch selects the right symlinks but the container exits immediately,
+check `START_MODE` in `/etc/minecraft/runtime.env` and inspect
+`journalctl -u minecraft -n 200 --no-pager`.
+
+The role manages shared and profile-specific `server.properties` overrides for every initialized
+profile, including the current RCON password. Limiting those updates to the repo-active profile can
+leave an alternate profile running with stale RCON credentials after a switch.
+
+The ATM11 world remains at `/srv/minecraft/servers/atm11/data/world`. Before the first Aero rollout,
+the stopped-server world archive belongs under `/srv/minecraft/archives/atm11-world-<timestamp>.tar.gz`.
+Do not point Aero at the ATM11 data directory.
+
+The FTB installer downloads thousands of individual files on first boot, so the role allows up to one
+hour for the active profile to create `server.properties`. During that window, check progress with
+`sudo docker logs minecraft 2>&1 | tr '\r' '\n' | tail` before treating the playbook as stuck.
 
 ## Startup Failure Notes
 
@@ -95,16 +120,21 @@ The next `make ansible-minecraft-vm` reapplies the repo-selected active profile.
 - Repo fix: pin `atm11` to `NEOFORGE_VERSION=26.1.2.75`, set `CF_EXCLUDE_MODS=evilcraft`, run a loader-only NeoForge setup with `loader_setup_version=26.1.2`, remove the bad bundled `evilcraft-26.1.2-neoforge-1.2.96-*` jar before extra mod installation, and install `evilcraft-26.1.2-neoforge-1.2.97.jar` from Modrinth with a checksum. Remove this local replacement once a newer ATM11 release bundles the fixed EvilCraft version.
 - June 6, 2026 follow-up: the AUTO_CURSEFORGE refresh logged that it was overriding the mod loader from `26.1.2.71` to `26.1.2.75`, but still ran the pack's `26.1.2.71` NeoForge installer. A separate loader-only `TYPE=NEOFORGE VERSION=26.1.2 NEOFORGE_VERSION=26.1.2.75 SETUP_ONLY=true` run updated `/data/run.sh` and installed the `26.1.2.75` libraries.
 - June 10, 2026 follow-up: keep the removal glob narrow, such as `evilcraft-26.1.2-neoforge-1.2.96-*.jar`, so Ansible does not delete the replacement `evilcraft-26.1.2-neoforge-1.2.97.jar` and restart Minecraft on every playbook run.
-- June 13, 2026 update: remove the temporary EvilCraft replacement for ATM11 `0.2.1`. The repo no longer sets `CF_EXCLUDE_MODS=evilcraft`, no longer removes `evilcraft-26.1.2-neoforge-1.2.96-*`, and no longer installs `evilcraft-26.1.2-neoforge-1.2.97.jar`; the server should use the EvilCraft jar bundled by the ATM11 `0.2.1` CurseForge server pack.
+- June 13, 2026 update: remove the temporary EvilCraft replacement for ATM11 `0.3.0`. The repo no longer sets `CF_EXCLUDE_MODS=evilcraft`, no longer removes `evilcraft-26.1.2-neoforge-1.2.96-*`, and no longer installs `evilcraft-26.1.2-neoforge-1.2.97.jar`; the server should use the EvilCraft jar bundled by the ATM11 `0.3.0` CurseForge server pack.
 - June 13, 2026 finding: player login still failed after the EvilCraft override was removed. Server logs showed repeated SecurityCraft manual packet stack traces: `Recipe#assemble unexpectedly returned null for type crafting` from `net.geforcemods.securitycraft.items.SCManualItem.safeAssemble`, followed by client-side connection resets.
 - June 13, 2026 failed attempt: replacing ATM11's `[26.1.2] SecurityCraft v1.10.1-beta3.jar` with Modrinth's stable `[1.21.1] SecurityCraft v1.10.1.jar` did not work. The stable jar declares `minecraft` dependency range `[1.21.1,1.22)`, while this ATM11 NeoForge server presents `minecraft` as `26.1.2`, so the server refuses to start. Do not use that jar as the replacement for this pack.
-- June 10, 2026 finding: ATM11 `0.2.1` crashed while loading `kaisyn:village/birch_forest_romanian/streets/crossroad_04` with `java.lang.OutOfMemoryError: Java heap space`.
+- June 10, 2026 finding: ATM11 `0.3.0` crashed while loading `kaisyn:village/birch_forest_romanian/streets/crossroad_04` with `java.lang.OutOfMemoryError: Java heap space`.
 - Meaning: in `start_mode=preinstalled_run_script`, `minecraft.service` launches `/data/run.sh` directly. That script reads `/data/user_jvm_args.txt`, and the live file still contained NeoForge's default `-Xmx1G -Xms1G`, so the repo `MEMORY=10G` value was not reaching Java at runtime.
 - Repo fix: manage `/data/user_jvm_args.txt` for preinstalled profiles from `runtime_env.MEMORY` and `runtime_env.INIT_MEMORY`, then restart `minecraft.service`.
-- June 17, 2026 finding: ATM11 `0.2.1` failed during FML startup because `fastsuite`, `cristellib`, and `gateways` require NeoForge `26.1.2.76` or newer while the repo still pinned `26.1.2.75`.
+- June 17, 2026 finding: ATM11 `0.3.0` failed during FML startup because `fastsuite`, `cristellib`, and `gateways` require NeoForge `26.1.2.76` or newer while the repo still pinned `26.1.2.75`.
 - Repo fix: bump `atm11.runtime_env.NEOFORGE_VERSION` to `26.1.2.76` and rerun `make ansible-minecraft-vm` so the loader-only setup refreshes `/data/run.sh` and installed NeoForge libraries.
-- July 16, 2026 finding: ATM11 `0.2.1` failed during FML startup because `agritechevolved` requires NeoForge `26.1.2.78` or newer while the repo still pinned `26.1.2.76`. Because `minecraft.service` runs Docker with `--rm`, the failed container disappears and a later `docker logs minecraft` reports `No such container`.
+- July 16, 2026 finding: ATM11 `0.3.0` failed during FML startup because `agritechevolved` requires NeoForge `26.1.2.78` or newer while the repo still pinned `26.1.2.76`. Because `minecraft.service` runs Docker with `--rm`, the failed container disappears and a later `docker logs minecraft` reports `No such container`.
 - Repo fix: bump `atm11.runtime_env.NEOFORGE_VERSION` to `26.1.2.78` and rerun `make ansible-minecraft-vm`; use `journalctl -u minecraft` to inspect startup failures when no container remains.
+- August 2, 2026 finding: ATM11 `0.3.0` failed during FML startup because bundled `apothic_spawners`, `aether_ii`, and `kubejs` require NeoForge `26.1.2.84` or newer, while `balm` requires `26.1.2.93` or newer.
+- The loader-only setup installed the requested libraries but left an existing `/data/run.sh` pointing at `26.1.2.78`; `SETUP_ONLY` does not rewrite that script when it already exists.
+- Repo fix: bump `atm11.runtime_env.NEOFORGE_VERSION` to `26.1.2.93`, explicitly rewrite the NeoForge argument-file reference in preinstalled `run.sh`, and rerun `make ansible-minecraft-vm`.
+- August 6, 2026 finding: `CF_FILENAME_MATCHER=0.3.0` installs the upstream manifest version `0.3.0-beta`; comparing the installed version to the filename matcher as an exact string causes every playbook run to reinstall ATM11 even when the requested pack is already present.
+- Repo fix: treat `CF_FILENAME_MATCHER` as a version prefix in the preinstalled-profile drift check while continuing to require an exact pinned NeoForge loader match.
 
 ## Lag Notes
 

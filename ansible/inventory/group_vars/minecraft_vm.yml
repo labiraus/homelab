@@ -13,11 +13,8 @@ minecraft_vm_common_runtime_env: &minecraft_vm_common_runtime_env
   MEMORY: 10G
   INIT_MEMORY: 2G
   TZ: UTC
-  TYPE: NEOFORGE
-  VERSION: "1.21.1"
-  MOD_PLATFORM: AUTO_CURSEFORGE
 
-minecraft_vm_active_server: atm11
+minecraft_vm_active_server: ftb_skies_2_aero
 
 minecraft_vm_servers:
   atm10_tts:
@@ -25,8 +22,19 @@ minecraft_vm_servers:
     backup_dir: "{{ minecraft_vm_servers_root }}/atm10_tts/backups"
     runtime_env:
       <<: *minecraft_vm_common_runtime_env
+      TYPE: NEOFORGE
+      VERSION: "1.21.1"
+      MOD_PLATFORM: AUTO_CURSEFORGE
       CF_SLUG: all-the-mods-10-sky
       CF_FILENAME_MATCHER: "2.0.2"
+  ftb_skies_2_aero:
+    data_dir: "{{ minecraft_vm_servers_root }}/ftb_skies_2_aero/data"
+    backup_dir: "{{ minecraft_vm_servers_root }}/ftb_skies_2_aero/backups"
+    runtime_env:
+      <<: *minecraft_vm_common_runtime_env
+      MOD_PLATFORM: FTBA
+      FTB_MODPACK_ID: "134"
+      FTB_MODPACK_VERSION_ID: "100448"
   atm11:
     data_dir: "{{ minecraft_vm_servers_root }}/atm11/data"
     backup_dir: "{{ minecraft_vm_servers_root }}/atm11/backups"
@@ -70,6 +78,9 @@ minecraft_vm_servers:
             proxywhitelist: []
     runtime_env:
       <<: *minecraft_vm_common_runtime_env
+      TYPE: NEOFORGE
+      VERSION: "1.21.1"
+      MOD_PLATFORM: AUTO_CURSEFORGE
       CF_SLUG: all-the-mods-11
-      CF_FILENAME_MATCHER: "0.2.1"
-      NEOFORGE_VERSION: "26.1.2.78"
+      CF_FILENAME_MATCHER: "0.3.0"
+      NEOFORGE_VERSION: "26.1.2.93"

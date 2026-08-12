@@ -215,10 +215,11 @@ Managed Minecraft VM state:
 - makes `/srv/minecraft` writable by the `ubuntu` login user for direct SFTP uploads
 - renders per-profile container env and runtime metadata under `/etc/minecraft/servers`
 - keeps `/etc/minecraft/minecraft.env`, `/etc/minecraft/runtime.env`, `/srv/minecraft/data`, and `/srv/minecraft/backups` pointed at the active profile
-- enforces selected `server.properties` values such as `enable-rcon=true`, `sync-chunk-writes=false`, and `spawn-protection=0` for the active `atm11` profile
+- enforces selected `server.properties` values such as the current RCON credentials and `sync-chunk-writes=false` across every initialized profile, plus profile-specific values such as `spawn-protection=0` for `atm11`
 - manages a `minecraft.service` systemd unit that runs the active profile's image
+- uses profile runtime metadata and a shared launcher so bootstrap profiles and profiles that start from a preinstalled `run.sh` can be switched without regenerating the systemd unit
 - keeps the shared image default at `itzg/minecraft-server:java21`, while `atm11` overrides to `itzg/minecraft-server:java25` because current NeoForge server builds require Java 25 there
-- pins `atm11` to `NEOFORGE_VERSION=26.1.2.78`, mirrors that into `CF_MOD_LOADER_VERSION` for AUTO_CURSEFORGE installs, and starts it via the already-installed `/data/run.sh` script so the VM keeps using the repo-selected NeoForge build
+- pins `atm11` to `NEOFORGE_VERSION=26.1.2.93`, mirrors that into `CF_MOD_LOADER_VERSION` for AUTO_CURSEFORGE installs, and starts it via the already-installed `/data/run.sh` script so the VM keeps using the repo-selected NeoForge build
 - refreshes preinstalled AUTO_CURSEFORGE profile files when the generated `run.sh` or `.curseforge-manifest.json` drift away from the repo-pinned modpack or NeoForge version
 - runs a loader-only NeoForge setup for profiles with `loader_setup_version` after the CurseForge refresh, which is needed when a server pack keeps its original loader installer despite `CF_MOD_LOADER_VERSION`
 - manages `/data/user_jvm_args.txt` for preinstalled profiles from the repo `MEMORY` and `INIT_MEMORY` values, because the direct `/data/run.sh` path does not consume the container image's normal memory environment handling
@@ -230,10 +231,11 @@ Managed Minecraft VM state:
 
 Current seeded profiles:
 
-- `atm11` is the repo-authoritative active profile and is pinned with `CF_SLUG=all-the-mods-11`, `CF_FILENAME_MATCHER=0.2.1`, `NEOFORGE_VERSION=26.1.2.78`, and `start_mode=preinstalled_run_script`
+- `ftb_skies_2_aero` is the repo-authoritative active profile and is pinned to Aero `1.6.0` with `FTB_MODPACK_ID=134`, `FTB_MODPACK_VERSION_ID=100448`, `MOD_PLATFORM=FTBA`, and Java 21
+- `atm11` preserves the existing ATM11 world and is pinned with `CF_SLUG=all-the-mods-11`, `CF_FILENAME_MATCHER=0.3.0`, `NEOFORGE_VERSION=26.1.2.93`, and `start_mode=preinstalled_run_script`
 - `atm10_tts` preserves the older ATM10 To The Sky world with `CF_SLUG=all-the-mods-10-sky` and `CF_FILENAME_MATCHER=2.0.2`
 
-The first multi-profile rollout migrates the old single-server `/srv/minecraft/data` and `/srv/minecraft/backups` directories into the `atm10_tts` profile before repointing the active links to `atm11`.
+The original multi-profile rollout migrated the old single-server `/srv/minecraft/data` and `/srv/minecraft/backups` directories into `atm10_tts`. Current rollouts preserve that historical profile and point the active links to the repo-selected profile.
 
 For world restores or other bulk file copies, prefer direct SFTP to the VM rather than port-forwarding through Kubernetes. The Minecraft VM has its own LAN IP and the playbook makes `/srv/minecraft` writable by `ubuntu`, so you can upload straight to:
 
@@ -254,9 +256,15 @@ Switch profiles directly on the VM:
 ```bash
 ssh nidavellir 'sudo minecraft-switch atm10_tts'
 ssh nidavellir 'sudo minecraft-switch atm11'
+ssh nidavellir 'sudo minecraft-switch ftb_skies_2_aero'
 ```
 
-The repo remains authoritative. Rerunning `make ansible-minecraft-vm` reapplies the configured `minecraft_vm_active_server`, which currently switches the active profile back to `atm11`.
+The repo remains authoritative. Rerunning `make ansible-minecraft-vm` reapplies the configured `minecraft_vm_active_server`, which currently switches the active profile back to `ftb_skies_2_aero`.
+
+Before the first Aero rollout, stop ATM11 and archive its `world` directory under
+`/srv/minecraft/archives/atm11-world-<UTC timestamp>.tar.gz`. Verify the tarball with `tar -tzf`,
+confirm at least 15 GB remains free, and leave `/srv/minecraft/servers/atm11/data` untouched. If Aero
+fails to initialize, use `sudo minecraft-switch atm11` to return to the preserved profile.
 
 After the playbook adds or refreshes Docker group membership for `ubuntu`, start a new SSH session before relying on plain `docker ps` or `docker logs`. Until then, use `sudo docker ...`.
 

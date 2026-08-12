@@ -6,6 +6,7 @@ minecraft_vm_dir_group: "{{ minecraft_vm_upload_user }}"
 minecraft_vm_dir_mode: "0775"
 minecraft_vm_curseforge_refresh_retries: 5
 minecraft_vm_curseforge_refresh_delay_seconds: 20
+minecraft_vm_server_properties_wait_timeout: 3600
 
 minecraft_vm_etc_dir: /etc/minecraft
 minecraft_vm_servers_config_dir: "{{ minecraft_vm_etc_dir }}/servers"
@@ -13,7 +14,11 @@ minecraft_vm_active_server_file: "{{ minecraft_vm_etc_dir }}/active-server"
 minecraft_vm_active_env_link: "{{ minecraft_vm_etc_dir }}/minecraft.env"
 minecraft_vm_active_runtime_link: "{{ minecraft_vm_etc_dir }}/runtime.env"
 minecraft_vm_switch_script_path: /usr/local/bin/minecraft-switch
+minecraft_vm_launcher_script_path: /usr/local/bin/minecraft-launch
 minecraft_vm_rcon_port: "25575"
+minecraft_vm_supported_start_modes:
+  - bootstrap
+  - preinstalled_run_script
 
 minecraft_vm_legacy_server_name: atm10_tts
 minecraft_vm_legacy_data_dir: "{{ minecraft_vm_root }}/data"

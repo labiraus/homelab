@@ -1,0 +1,27 @@
+---
+- name: Check Minecraft profile server.properties
+  ansible.builtin.stat:
+    path: "{{ minecraft_vm_server_profile.value.data_dir }}/server.properties"
+  register: minecraft_vm_profile_server_properties_stat
+
+- name: Combine Minecraft profile server.properties overrides
+  ansible.builtin.set_fact:
+    minecraft_vm_profile_server_properties: >-
+      {{
+        minecraft_vm_server_properties
+        | combine(minecraft_vm_server_profile.value.server_properties | default({}))
+        | combine({'rcon.password': minecraft_vm_rcon_password})
+      }}
+  no_log: true
+
+- name: Manage Minecraft profile server.properties overrides
+  ansible.builtin.lineinfile:
+    path: "{{ minecraft_vm_server_profile.value.data_dir }}/server.properties"
+    regexp: "^{{ minecraft_vm_server_property.key | regex_escape }}="
+    line: "{{ minecraft_vm_server_property.key }}={{ minecraft_vm_server_property.value }}"
+  loop: "{{ minecraft_vm_profile_server_properties | dict2items }}"
+  loop_control:
+    loop_var: minecraft_vm_server_property
+  when: minecraft_vm_profile_server_properties_stat.stat.exists
+  no_log: true
+  notify: Restart minecraft

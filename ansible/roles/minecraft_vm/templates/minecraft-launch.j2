@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+docker_args=(
+  run
+  --name "${CONTAINER_NAME}"
+  --rm
+  -p "${PORT}:25565"
+  -v "${DATA_DIR}:/data"
+  -v "${BACKUP_DIR}:/backups"
+  --env-file "{{ minecraft_vm_active_env_link }}"
+)
+
+case "${START_MODE}" in
+  bootstrap)
+    exec /usr/bin/docker "${docker_args[@]}" "${IMAGE}"
+    ;;
+  preinstalled_run_script)
+    exec /usr/bin/docker "${docker_args[@]}" \
+      --entrypoint /bin/bash "${IMAGE}" -lc 'cd /data && exec ./run.sh nogui'
+    ;;
+  *)
+    echo "Unsupported Minecraft start mode: ${START_MODE}" >&2
+    exit 1
+    ;;
+esac
