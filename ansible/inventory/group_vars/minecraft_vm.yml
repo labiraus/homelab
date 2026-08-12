@@ -34,7 +34,7 @@ minecraft_vm_servers:
       <<: *minecraft_vm_common_runtime_env
       MOD_PLATFORM: FTBA
       FTB_MODPACK_ID: "134"
-      FTB_MODPACK_VERSION_ID: "100448"
+      FTB_MODPACK_VERSION_ID: "100458"
   atm11:
     data_dir: "{{ minecraft_vm_servers_root }}/atm11/data"
     backup_dir: "{{ minecraft_vm_servers_root }}/atm11/backups"

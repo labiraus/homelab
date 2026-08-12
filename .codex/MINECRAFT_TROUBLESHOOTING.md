@@ -55,7 +55,7 @@ The Ansible playbook installs Docker, renders per-profile files under `/etc/mine
   - `image=itzg/minecraft-server:java21`
   - `MOD_PLATFORM=FTBA`
   - `FTB_MODPACK_ID=134`
-  - `FTB_MODPACK_VERSION_ID=100448` (Aero `1.6.0`)
+  - `FTB_MODPACK_VERSION_ID=100458` (Aero `1.6.0`; `100448` is the earlier `1.4.1` release)
   - `start_mode=bootstrap`
 - `atm11`:
   - `image=itzg/minecraft-server:java25`

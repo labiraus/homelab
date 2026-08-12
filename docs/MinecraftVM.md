@@ -19,7 +19,7 @@ Minecraft runs outside Kubernetes on a dedicated Ubuntu VM on `proxmox-node1`.
 - default active server profile: `ftb_skies_2_aero`
 - available managed server profiles: `ftb_skies_2_aero`, `atm11`, `atm10_tts`
 - shared default image: `itzg/minecraft-server:java21`
-- `ftb_skies_2_aero` pins FTB pack ID `134`, version ID `100448` (Aero `1.6.0`), and uses the image's FTBA bootstrap path on Java 21
+- `ftb_skies_2_aero` pins FTB pack ID `134`, version ID `100458` (Aero `1.6.0`), and uses the image's FTBA bootstrap path on Java 21
 - first-time modpack installation is allowed up to one hour to create `server.properties`, since the FTB installer downloads thousands of individual pack files
 - `atm11` overrides to `itzg/minecraft-server:java25` because its current NeoForge server bootstrap requires Java 25
 - `atm11` also pins `NEOFORGE_VERSION=26.1.2.93`
