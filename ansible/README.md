@@ -231,7 +231,7 @@ Managed Minecraft VM state:
 
 Current seeded profiles:
 
-- `ftb_skies_2_aero` is the repo-authoritative active profile and is pinned to Aero `1.6.0` with `FTB_MODPACK_ID=134`, `FTB_MODPACK_VERSION_ID=100458`, `MOD_PLATFORM=FTBA`, and Java 21
+- `ftb_skies_2_aero` is the repo-authoritative active profile and is pinned to Aero `1.7.3` with `FTB_MODPACK_ID=134`, `FTB_MODPACK_VERSION_ID=100475`, `MOD_PLATFORM=FTBA`, and Java 21
 - `atm11` preserves the existing ATM11 world and is pinned with `CF_SLUG=all-the-mods-11`, `CF_FILENAME_MATCHER=0.3.0`, `NEOFORGE_VERSION=26.1.2.93`, and `start_mode=preinstalled_run_script`
 - `atm10_tts` preserves the older ATM10 To The Sky world with `CF_SLUG=all-the-mods-10-sky` and `CF_FILENAME_MATCHER=2.0.2`
 
