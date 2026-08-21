@@ -16,11 +16,12 @@ Minecraft runs outside Kubernetes on a dedicated Ubuntu VM on `proxmox-node1`.
 - `cpu_cores = 6`
 - `memory_mb = 14336`
 - `disk_size_gb = 120`
-- default active server profile: `ftb_skies_2_aero`
-- available managed server profiles: `ftb_skies_2_aero`, `atm11`, `atm10_tts`
+- default active server profile: `atm10_aeronautics`
+- available managed server profiles: `atm10_aeronautics`, `ftb_skies_2_aero`, `atm11`, `atm10_tts`
 - shared default image: `itzg/minecraft-server:java21`
 - `ftb_skies_2_aero` pins FTB pack ID `134`, version ID `100475` (Aero `1.7.3`), and uses the image's FTBA bootstrap path on Java 21
-- first-time modpack installation is allowed up to one hour to create `server.properties`, since the FTB installer downloads thousands of individual pack files
+- `atm10_aeronautics` pins the CurseForge pack `all-the-mods-10-aeronautics` at `0.4.1` (Minecraft 1.21.1 / NeoForge) and uses the image's AUTO_CURSEFORGE bootstrap path on Java 21
+- first-time modpack installation is allowed up to one hour to create `server.properties`, since a modpack installer can download thousands of individual pack files
 - `atm11` overrides to `itzg/minecraft-server:java25` because its current NeoForge server bootstrap requires Java 25
 - `atm11` also pins `NEOFORGE_VERSION=26.1.2.93`
 - `atm11` mirrors that pin into `CF_MOD_LOADER_VERSION` so the CurseForge installer refreshes the server with the same NeoForge build instead of resolving a newer one
@@ -69,16 +70,17 @@ ssh nidavellir 'cat /etc/minecraft/active-server'
 ssh nidavellir 'readlink -f /srv/minecraft/data'
 ```
 
-Switch between Aero and the preserved ATM11 world with:
+Switch between managed profiles with:
 
 ```bash
 ssh nidavellir 'sudo minecraft-switch atm11'
+ssh nidavellir 'sudo minecraft-switch atm10_aeronautics'
 ssh nidavellir 'sudo minecraft-switch ftb_skies_2_aero'
 ```
 
-The switch helper gracefully restarts the single `minecraft.service`; both profiles remain isolated
+The switch helper gracefully restarts the single `minecraft.service`; all profiles remain isolated
 under `/srv/minecraft/servers/<profile>`, and only one container binds TCP `25565` at a time. Rerunning
-the Ansible playbook restores the repo-authoritative `ftb_skies_2_aero` selection.
+the Ansible playbook restores the repo-authoritative `atm10_aeronautics` selection.
 
 Before the first Aero deployment, preserve a cold copy of the ATM11 world:
 

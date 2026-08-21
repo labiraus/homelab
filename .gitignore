@@ -62,3 +62,5 @@ apps/ui/yarn-error.log*
 # Processor local artifacts
 apps/processor/dist/
 apps/processor/npm-debug.log*
+
+/backups/

@@ -14,9 +14,19 @@ minecraft_vm_common_runtime_env: &minecraft_vm_common_runtime_env
   INIT_MEMORY: 2G
   TZ: UTC
 
-minecraft_vm_active_server: ftb_skies_2_aero
+minecraft_vm_active_server: atm10_aeronautics
 
 minecraft_vm_servers:
+  atm10_aeronautics:
+    data_dir: "{{ minecraft_vm_servers_root }}/atm10_aeronautics/data"
+    backup_dir: "{{ minecraft_vm_servers_root }}/atm10_aeronautics/backups"
+    runtime_env:
+      <<: *minecraft_vm_common_runtime_env
+      TYPE: NEOFORGE
+      VERSION: "1.21.1"
+      MOD_PLATFORM: AUTO_CURSEFORGE
+      CF_SLUG: all-the-mods-10-aeronautics
+      CF_FILENAME_MATCHER: "0.4.1"
   atm10_tts:
     data_dir: "{{ minecraft_vm_servers_root }}/atm10_tts/data"
     backup_dir: "{{ minecraft_vm_servers_root }}/atm10_tts/backups"
