@@ -231,8 +231,8 @@ Managed Minecraft VM state:
 
 Current seeded profiles:
 
-- `atm10_aeronautics` is the repo-authoritative active profile and is pinned to All The Mods 10 Aeronautics `0.4.1` with `CF_SLUG=all-the-mods-10-aeronautics`, `MOD_PLATFORM=AUTO_CURSEFORGE`, Minecraft 1.21.1 / NeoForge, and Java 21
-- `ftb_skies_2_aero` preserves the prior Aero world and is pinned to Aero `1.7.3` with `FTB_MODPACK_ID=134`, `FTB_MODPACK_VERSION_ID=100475`, `MOD_PLATFORM=FTBA`, and Java 21
+- `ftb_skies_2_aero` is the repo-authoritative active profile and is pinned to Aero `1.9.1` with `FTB_MODPACK_ID=134`, `FTB_MODPACK_VERSION_ID=100490`, `MOD_PLATFORM=FTBA`, and Java 21
+- `atm10_aeronautics` preserves its world and is pinned to All The Mods 10 Aeronautics `0.4.1` with `CF_SLUG=all-the-mods-10-aeronautics`, `MOD_PLATFORM=AUTO_CURSEFORGE`, Minecraft 1.21.1 / NeoForge, and Java 21
 - `atm11` preserves the existing ATM11 world and is pinned with `CF_SLUG=all-the-mods-11`, `CF_FILENAME_MATCHER=0.3.0`, `NEOFORGE_VERSION=26.1.2.93`, and `start_mode=preinstalled_run_script`
 - `atm10_tts` preserves the older ATM10 To The Sky world with `CF_SLUG=all-the-mods-10-sky` and `CF_FILENAME_MATCHER=2.0.2`
 
@@ -261,7 +261,7 @@ ssh nidavellir 'sudo minecraft-switch atm10_aeronautics'
 ssh nidavellir 'sudo minecraft-switch ftb_skies_2_aero'
 ```
 
-The repo remains authoritative. Rerunning `make ansible-minecraft-vm` reapplies the configured `minecraft_vm_active_server`, which currently switches the active profile back to `atm10_aeronautics`.
+The repo remains authoritative. Rerunning `make ansible-minecraft-vm` reapplies the configured `minecraft_vm_active_server`, which currently switches the active profile back to `ftb_skies_2_aero`.
 
 Before the first Aero rollout, stop ATM11 and archive its `world` directory under
 `/srv/minecraft/archives/atm11-world-<UTC timestamp>.tar.gz`. Verify the tarball with `tar -tzf`,
