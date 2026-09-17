@@ -251,3 +251,11 @@ Then use these checks:
 The repo also includes `sql/rag/ops_dashboard_queries.pgsql` for the Postgres-backed portions of these checks. Run it through the local `psql` workflow after opening the usual app-db port-forward.
 
 These checks reinforce the current service boundaries. Do not add a separate workflow engine for observability alone.
+
+## Minecraft FTB release mismatch
+
+If an FTB download page advertises the requested release but its installer ID resolves to another
+version, check the live pack and version API before changing Ansible. On September 17, 2026, the
+indexed Aero download page paired `1.10.0` with `100504`, while the live API identified that ID as
+`1.11.0`. The correct Aero `1.10.0` ID is `100497`. See [Minecraft VM updates](../docs/MinecraftVM.md#updating-a-managed-server-version)
+for cold backups and installed-version/readiness checks.

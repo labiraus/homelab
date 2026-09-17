@@ -18,6 +18,7 @@ Keep this area focused on service-state automation, not general cluster deployme
 - Prefer pull scripts from the real source of truth, such as `scripts/ansible-fetch-secrets.sh` for `svartalfheim` MinIO admin credentials, over checked-in example secret files.
 - If a playbook produces operator-facing outputs or generated manifests, document where they land and how they should be applied.
 - Update `ansible/README.md` when changing role expectations, required env vars, or playbook flow.
+- Before changing an FTB version pin, verify the requested release name against both the live pack API and the version API (`https://api.feed-the-beast.com/v1/modpacks/public/modpack/<pack-id>/<version-id>`). Indexed server-download pages can pair a stale release label with a newer version ID.
 
 ## Safety Notes
 

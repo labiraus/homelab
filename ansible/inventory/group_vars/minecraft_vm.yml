@@ -44,7 +44,7 @@ minecraft_vm_servers:
       <<: *minecraft_vm_common_runtime_env
       MOD_PLATFORM: FTBA
       FTB_MODPACK_ID: "134"
-      FTB_MODPACK_VERSION_ID: "100490"
+      FTB_MODPACK_VERSION_ID: "100497" # Aero 1.10.0; verify against the live FTB version API
   atm11:
     data_dir: "{{ minecraft_vm_servers_root }}/atm11/data"
     backup_dir: "{{ minecraft_vm_servers_root }}/atm11/backups"

@@ -19,7 +19,7 @@ Minecraft runs outside Kubernetes on a dedicated Ubuntu VM on `proxmox-node1`.
 - default active server profile: `ftb_skies_2_aero`
 - available managed server profiles: `atm10_aeronautics`, `ftb_skies_2_aero`, `atm11`, `atm10_tts`
 - shared default image: `itzg/minecraft-server:java21`
-- `ftb_skies_2_aero` pins FTB pack ID `134`, version ID `100490` (Aero `1.9.1`), and uses the image's FTBA bootstrap path on Java 21
+- `ftb_skies_2_aero` pins FTB pack ID `134`, version ID `100497` (Aero `1.10.0`), and uses the image's FTBA bootstrap path on Java 21
 - `atm10_aeronautics` pins the CurseForge pack `all-the-mods-10-aeronautics` at `0.4.1` (Minecraft 1.21.1 / NeoForge) and uses the image's AUTO_CURSEFORGE bootstrap path on Java 21
 - first-time modpack installation is allowed up to one hour to create `server.properties`, since a modpack installer can download thousands of individual pack files
 - `atm11` overrides to `itzg/minecraft-server:java25` because its current NeoForge server bootstrap requires Java 25
@@ -105,6 +105,18 @@ If `docker logs minecraft` reports `No such container`, inspect `sudo journalctl
 ## Updating a managed server version
 
 When updating a managed profile such as `atm11`, take the server offline first so the world data is consistent, archive the profile data, copy that archive to the external MinIO host `svartalfheim`, then bump the pinned modpack version in Ansible and reapply the role.
+
+For `ftb_skies_2_aero`, update `FTB_MODPACK_VERSION_ID` rather than a CurseForge filename
+matcher. Verify the release name in the live [FTB pack API](https://api.feed-the-beast.com/v1/modpacks/public/modpack/134)
+and [version API](https://api.feed-the-beast.com/v1/modpacks/public/modpack/134/100497): Aero
+`1.10.0` is version `100497`, with Minecraft `1.21.1`, NeoForge `21.1.248`, and Java 21.
+Indexed server-download pages may show a stale release label beside a newer version ID.
+After applying, verify `/srv/minecraft/data/.ftb-installed`, the installed manifest, startup
+completion in the journal, and an authenticated RCON response; an active systemd service alone
+does not mean the modpack has finished installing or the world has loaded.
+
+If SSH to `svartalfheim` is unavailable, verify a cold archive on the VM and an independent copy
+on operator storage before upgrading. Record that the normal backup-host copy remains outstanding.
 
 Example: update `atm11` from `0.0.5` to `0.0.23`.
 
