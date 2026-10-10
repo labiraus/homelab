@@ -25,7 +25,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
 - `apps/ui/src/WorldRecordEditor.jsx` and `WorldHistory.jsx`/`WorldAdministration.jsx`: canon editing, history, reconciliation, owner lifecycle and recovery UI
 - `docs/worldbuilder/`: architecture, migration, audit, decisions, implementation status, acceptance matrix, dependency validation, API contract and LAN runbook
 - `sql/worldbuilder/`: explicit schema-v1/v2 migrations, immutable identity registry and dedicated runtime grants
-- `scripts/worldbuilder/`: disposable database and offline manifest checks
+- `scripts/worldbuilder/`: disposable database tests (including a loopback Docker-exec transport fallback) and offline manifest checks
 - `docs/`
   - `Setup.md`: Kubernetes setup path for local machine, Proxmox worker prep, SSH, kubeconfig, and worker network stability
   - `Secrets.md`: generated local secrets and Ansible-only secret handling

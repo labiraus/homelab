@@ -4,7 +4,12 @@ set -euo pipefail
 repo_dir=$(cd "$(dirname "$0")/../.." && pwd)
 container_name="worldbuilder-test-${RANDOM}-$$"
 docker run -d --name "$container_name" -e POSTGRES_PASSWORD=offline-test-only -e POSTGRES_DB=worldbuilder_test -p "127.0.0.1:${WORLDBUILDER_TEST_PORT:-}:5432" postgres:16.13 >/dev/null
-trap 'docker rm -f "$container_name" >/dev/null' EXIT
+relay_pid=""
+cleanup() {
+  if [[ -n "$relay_pid" ]]; then kill "$relay_pid" 2>/dev/null || true; fi
+  docker rm -f "$container_name" >/dev/null
+}
+trap cleanup EXIT
 for attempt in {1..30}; do
   if docker exec "$container_name" pg_isready -U postgres -d worldbuilder_test >/dev/null 2>&1; then break; fi
   sleep 1
@@ -58,7 +63,8 @@ if sql -c 'SET ROLE worldbuilder_relay; INSERT INTO worldbuilder.world VALUES(ge
 port=$(docker port "$container_name" 5432/tcp | awk -F: 'NR==1 {print $NF}')
 test_host=""
 # Container socket readiness can precede host forwarding (and the image's final TCP server).
-for attempt in {1..15}; do
+if [[ "${WORLDBUILDER_TEST_TRANSPORT:-tcp}" != exec ]]; then
+ for attempt in {1..15}; do
   for candidate_host in 127.0.0.1 host.docker.internal; do
     if PGCONNECT_TIMEOUT=2 PGPASSWORD=offline-test-only psql -h "$candidate_host" -p "$port" -U postgres -d worldbuilder_test -Atc 'SELECT 1' >/dev/null 2>&1; then
       test_host=$candidate_host
@@ -66,7 +72,25 @@ for attempt in {1..15}; do
     fi
   done
   sleep 1
-done
+ done
+fi
+if [[ -z "$test_host" ]] && command -v socat >/dev/null; then
+  # Docker-outside-Docker may expose its API while host port forwarding is broken.
+  # Relay only a local loopback socket through docker exec into our own container.
+  relay_log=$(mktemp /tmp/worldbuilder-relay-XXXXXX.log)
+  socat -d -d TCP-LISTEN:0,bind=127.0.0.1,reuseaddr,fork "EXEC:bash '$repo_dir/scripts/worldbuilder/postgres-exec-bridge.sh' '$container_name'" 2>"$relay_log" &
+  relay_pid=$!
+  for attempt in {1..20}; do
+    relay_port=$(sed -nE 's/.*listening on.*127\.0\.0\.1:([0-9]+).*/\1/p' "$relay_log" | head -1)
+    if [[ -n "$relay_port" ]] && PGCONNECT_TIMEOUT=2 PGPASSWORD=offline-test-only psql -h 127.0.0.1 -p "$relay_port" -U postgres -d worldbuilder_test -Atc 'SELECT 1' >/dev/null 2>&1; then
+      test_host=127.0.0.1
+      port=$relay_port
+      echo "Using disposable PostgreSQL Docker-exec bridge on loopback port $port"
+      break
+    fi
+    sleep 0.1
+  done
+fi
 if [[ -z "$test_host" ]]; then
   echo "FAIL: disposable PostgreSQL host port is unreachable; try WORLDBUILDER_TEST_PORT=25433 in Docker-outside-Docker" >&2
   exit 1

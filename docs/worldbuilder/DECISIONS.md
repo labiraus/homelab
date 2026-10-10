@@ -65,3 +65,11 @@ Add migration 002 instead of modifying migration 001. Preserve v1 snapshots exac
 ## 2026-10-10 — Tested dependency upgrades and high-severity CI gates
 
 Use supported security fixes with build/test evidence. Upgrade Vitest to maintained 4.1.11 for the advisory fixed only in maintained majors, retain Vite 7 at patched 7.3.7, and refresh compatible transitive packages. Both application CI pipelines now reject high/critical npm advisories before publication. Preserve MinIO 8 while its remaining transitive fixes require incompatible module/API changes or a forced downgrade; record that limitation in [dependency validation](DEPENDENCIES.md), rather than claim a clean processor audit.
+
+## 2026-10-10 — Explicit temporal rule policies
+
+Represent additional machine checks as reviewed rule records using existing structured type/predicate/timeline/validity columns and bounded string configuration. Count relationship edges and true boolean facts with interval sweeps, not sampling or floating point time arithmetic. Scope minimum cardinality to rule/entity validity; exclusivity counts only true facts on the declared timeline. Chronology exceptions must themselves be canonical true facts valid at the event tick. This adds deterministic enforcement without inventing implicit resurrection semantics or treating model prose as an exception. Numeric life-date facts are restricted to exact safe integers, while event and interval ticks retain signed 64-bit comparisons.
+
+## 2026-10-10 — Resilient disposable database transport
+
+Repeated host-port failures were infrastructure preflight failures, not domain test results. Reuse the available Docker API to relay binary PostgreSQL traffic from a loopback-only socat socket to the exact generated disposable container. Expose explicit exec-transport selection and automatic fallback, with cleanup limited to the local relay and owned container. This preserves real PostgreSQL coverage without reaching a cluster, changing host networking or installing another persistent database.

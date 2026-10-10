@@ -92,3 +92,5 @@ The production image is built from `apps/ui/dockerfile`. It builds the Vite app 
 `WorldAdministration.jsx` lists members and provides reasoned, version-checked owner actions for membership, transfer and archive/reopen. Names/default timelines/settings use the structured canonical record editor and independent publication review. Archived worlds retain readable canon and story history. Newly opened worlds use the published default timeline.
 
 Dependency versions and security checks are recorded in [Worldbuilder dependency validation](../../docs/worldbuilder/DEPENDENCIES.md). CI runs build/tests and rejects high/critical npm advisories before publishing.
+
+The rule editor supports scoped relationship cardinality, exclusive boolean predicates and life-bound exception predicates with fictional validity intervals. These remain proposed canon until reviewed and published.

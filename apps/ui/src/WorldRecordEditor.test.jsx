@@ -157,4 +157,36 @@ describe("structured canon editing", () => {
       attributes: { ...rule.attributes, death: "death" },
     });
   });
+  it("preserves and edits a scoped relationship cardinality rule", () => {
+    const onStage = vi.fn();
+    const rule = {
+      id: "friends",
+      kind: "rule",
+      label: "One friend",
+      type: "person",
+      timeline: "main",
+      predicate: "friend",
+      from: 0,
+      until: 20,
+      attributes: { check: "relationship_cardinality", max: "1" },
+    };
+    render(
+      <WorldRecordEditor
+        records={[...records, { id: "main", kind: "timeline", label: "Main" }]}
+        timeline="main"
+        record={rule}
+        onStage={onStage}
+        onNew={() => {}}
+      />,
+    );
+    fireEvent.change(
+      screen.getByLabelText("Maximum simultaneous relationships"),
+      { target: { value: "2" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Stage record" }));
+    expect(onStage).toHaveBeenCalledWith({
+      ...rule,
+      attributes: { check: "relationship_cardinality", max: "2" },
+    });
+  });
 });

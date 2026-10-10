@@ -36,3 +36,7 @@ A staged manual draft retains its original revision when canon is refreshed. Rel
 A 409 administration response means its expected administration version changed; reload world metadata and review the action. An archived world rejects canon/story/inference writes until its owner reopens it. Owners can still revoke members while archived. Transfer leaves the former owner as admin, so new owner-only operations from that account correctly return 403.
 
 Migration 002 aborts if immutable history reuses an ID for different record kinds. Inventory the affected world/ID/revisions and design an explicit reviewed migration; never rewrite old snapshots to bypass the check. Current external requires schema 2 and dedicated grants. Apply migrations only through the authorised LAN sequence; a v1 app rollback requires the feature disabled.
+
+## Disposable Docker PostgreSQL is healthy but unreachable
+
+Docker-outside-Docker can keep its API available while published host-port forwarding stops working, even on previously successful fixed ports. The harness now falls back to a loopback socat listener relaying binary traffic through `docker exec` into its own generated `worldbuilder-test-*` container. To skip unreliable host-port probing, run `WORLDBUILDER_TEST_TRANSPORT=exec bash scripts/worldbuilder/test-postgres.sh`. This requires local `socat` and container Bash; no LAN endpoint or production credentials are used. The harness removes the listener and its own container on exit. Do not interpret a transport preflight failure as a passing integration test.

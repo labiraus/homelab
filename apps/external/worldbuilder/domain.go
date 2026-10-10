@@ -4,6 +4,7 @@ package worldbuilder
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"regexp"
 	"sort"
 	"strings"
@@ -189,7 +190,21 @@ func Validate(s Snapshot) error {
 			continue
 		}
 		if rule.Attributes["check"] != "life_bounds" {
-			return bad("unsupported deterministic world rule")
+			if err := validateAdditionalRule(rule, s); err != nil {
+				return err
+			}
+			continue
+		}
+		exceptions, err := rulePredicates(rule.Attributes["exceptions"], 0)
+		if err != nil {
+			return err
+		}
+		if rule.Type != "" {
+			for predicate := range exceptions {
+				if s[rule.Type].Fields[predicate] != "boolean" {
+					return bad("chronology exceptions must be declared boolean facts")
+				}
+			}
 		}
 		birth, death := rule.Attributes["birth"], rule.Attributes["death"]
 		if birth == "" || death == "" {
@@ -197,6 +212,12 @@ func Validate(s Snapshot) error {
 		}
 		for _, event := range s {
 			if event.Kind != "event" || event.Subject == "" || event.From == nil {
+				continue
+			}
+			if (rule.Type != "" && s[event.Subject].Type != rule.Type) || (rule.Timeline != "" && event.Timeline != rule.Timeline) || (rule.From != nil && *event.From < *rule.From) || (rule.Until != nil && *event.From >= *rule.Until) {
+				continue
+			}
+			if hasChronologyException(s, event, exceptions) {
 				continue
 			}
 			for _, fact := range s {
@@ -207,10 +228,10 @@ func Validate(s Snapshot) error {
 					continue
 				}
 				tick, ok := fact.Value.(float64)
-				if !ok {
-					return bad("life-bound dates must be numeric fictional ticks")
+				if !ok || math.Trunc(tick) != tick || math.Abs(tick) > 9007199254740991 {
+					return bad("life-bound date facts must be exact safe-integer fictional ticks")
 				}
-				if (fact.Predicate == birth && float64(*event.From) < tick) || (fact.Predicate == death && float64(*event.From) >= tick) {
+				if (fact.Predicate == birth && *event.From < int64(tick)) || (fact.Predicate == death && *event.From >= int64(tick)) {
 					return bad("event falls outside its participant's canonical life bounds")
 				}
 			}

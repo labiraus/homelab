@@ -11,6 +11,20 @@ const kinds = [
   "rule",
   "world_settings",
 ];
+const ruleFields = {
+  life_bounds: {
+    birth: "Birth predicate",
+    death: "Death predicate",
+    exceptions: "Exception predicates (comma separated, optional)",
+  },
+  relationship_cardinality: {
+    min: "Minimum simultaneous relationships",
+    max: "Maximum simultaneous relationships",
+  },
+  exclusive_facts: {
+    predicates: "Exclusive boolean predicates (comma separated)",
+  },
+};
 const valueTypes = ["string", "number", "boolean", "entity"];
 const entries = (value) =>
   Object.entries(value ?? {}).map(([name, value]) => ({ name, value }));
@@ -130,7 +144,15 @@ export default function WorldRecordEditor({
     entries(record?.attributes).filter(
       (r) =>
         record?.kind !== "rule" ||
-        !["check", "birth", "death"].includes(r.name),
+        ![
+          "check",
+          "birth",
+          "death",
+          "exceptions",
+          "min",
+          "max",
+          "predicates",
+        ].includes(r.name),
     ),
   );
   const [error, setError] = useState("");
@@ -174,8 +196,8 @@ export default function WorldRecordEditor({
         ...draft,
         attributes: mapFromRows(attributes, "Attributes", true),
       };
-      if (scoped) {
-        candidate.timeline = draft.timeline || timeline;
+      if (scoped || draft.kind === "rule") {
+        if (scoped) candidate.timeline = draft.timeline || timeline;
         for (const key of ["from", "until"]) {
           if (draft[key] === "" || draft[key] === undefined)
             delete candidate[key];
@@ -212,11 +234,16 @@ export default function WorldRecordEditor({
         candidate.relations = mapFromRows(relations, "Relationships");
       }
       if (draft.kind === "rule" && draft.attributes?.check) {
-        Object.assign(candidate.attributes, {
-          check: draft.attributes.check,
-          birth: draft.attributes.birth || "",
-          death: draft.attributes.death || "",
-        });
+        candidate.attributes.check = draft.attributes.check;
+        for (const key of Object.keys(
+          ruleFields[draft.attributes.check] || {},
+        )) {
+          if (
+            draft.attributes[key] !== undefined &&
+            draft.attributes[key] !== ""
+          )
+            candidate.attributes[key] = draft.attributes[key];
+        }
       }
       onStage(candidate);
     } catch (e) {
@@ -401,24 +428,73 @@ export default function WorldRecordEditor({
             >
               <option value="">Natural-language guidance only</option>
               <option value="life_bounds">Life bounds</option>
+              <option value="relationship_cardinality">
+                Relationship cardinality
+              </option>
+              <option value="exclusive_facts">Exclusive facts</option>
             </select>
           </label>
-          {draft.attributes?.check === "life_bounds" &&
-            ["birth", "death"].map((key) => (
-              <label key={key}>
-                {key === "birth" ? "Birth predicate" : "Death predicate"}
-                <input
-                  required
-                  value={draft.attributes?.[key] ?? ""}
-                  onChange={(e) =>
-                    set("attributes", {
-                      ...draft.attributes,
-                      [key]: e.target.value,
-                    })
-                  }
-                />
-              </label>
-            ))}
+          {draft.attributes?.check && (
+            <>
+              {choose(
+                "Rule subject type",
+                "type",
+                "type",
+                draft.attributes.check !== "life_bounds",
+              )}
+              {choose(
+                "Rule timeline",
+                "timeline",
+                "timeline",
+                draft.attributes.check !== "life_bounds",
+              )}
+              {draft.attributes.check === "relationship_cardinality" && (
+                <label>
+                  Relationship predicate
+                  <select
+                    required
+                    value={draft.predicate || ""}
+                    onChange={(e) => set("predicate", e.target.value)}
+                  >
+                    <option value="">Choose declared relationship</option>
+                    {Object.keys(byId.get(draft.type)?.relations || {}).map(
+                      (p) => (
+                        <option key={p}>{p}</option>
+                      ),
+                    )}
+                  </select>
+                </label>
+              )}
+              {Object.entries(ruleFields[draft.attributes.check] || {}).map(
+                ([key, caption]) => (
+                  <label key={key}>
+                    {caption}
+                    <input
+                      required={["birth", "death", "predicates"].includes(key)}
+                      value={draft.attributes[key] || ""}
+                      onChange={(e) =>
+                        set("attributes", {
+                          ...draft.attributes,
+                          [key]: e.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                ),
+              )}
+              {["from", "until"].map((key) => (
+                <label key={key}>
+                  {key === "from" ? "Rule valid from" : "Rule valid until"}
+                  <input
+                    type="number"
+                    step="1"
+                    value={draft[key] ?? ""}
+                    onChange={(e) => set(key, e.target.value)}
+                  />
+                </label>
+              ))}
+            </>
+          )}
         </fieldset>
       )}
       <MapEditor

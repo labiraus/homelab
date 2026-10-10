@@ -68,3 +68,7 @@ If Codex makes an incorrect assumption about this repo, correct that assumption 
 ## CI script execution
 
 On Windows-backed workspaces, local executable permissions do not prove Git stores an executable file mode. For scripts invoked directly by CI, verify `git ls-files --stage` reports `100755`; use an explicit interpreter in CI as well.
+
+## Disposable database test transport
+
+Docker-outside-Docker published ports can become unreachable despite a healthy container. Use the Worldbuilder harness with `WORLDBUILDER_TEST_TRANSPORT=exec` for its loopback-only Docker-exec bridge when needed; do not switch these offline tests to a LAN/production DSN. A failed transport preflight is not a passing integration test.

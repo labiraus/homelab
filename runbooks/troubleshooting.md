@@ -263,3 +263,7 @@ for cold backups and installed-version/readiness checks.
 ## Worldbuilder migration
 
 Worldbuilder implementation and offline checks are tracked in [implementation status](../docs/worldbuilder/IMPLEMENTATION-STATUS.md). Use the [LAN runbook](../docs/worldbuilder/LAN-RUNBOOK.md) for discovery and controlled activation. Code publication on main is authorised; production migrations and feature activation require the separate LAN gate. Do not use the unfinished `scripts/pg-update.sh` placeholder for this migration.
+
+## Worldbuilder disposable PostgreSQL host forwarding
+
+If the test container is healthy but the devcontainer cannot reach its published port, use `WORLDBUILDER_TEST_TRANSPORT=exec bash scripts/worldbuilder/test-postgres.sh`. The local loopback socat bridge uses only the harness's generated test container and cleans up on exit. See [Worldbuilder troubleshooting](../docs/worldbuilder/TROUBLESHOOTING.md). This does not require cluster access or a production database connection.
