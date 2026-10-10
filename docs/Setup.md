@@ -221,6 +221,8 @@ This file contains cluster credentials and private key material. Keep it out of 
 
 The helper script defaults to `yggdrasil:~/.kube/config`. Override with `KUBECONFIG_SOURCE_HOST` or `KUBECONFIG_SOURCE_PATH` in `.devcontainer/.env` when the control-plane source changes.
 
+The devcontainer can start before this file exists: `KUBECONFIG` points to the file through the workspace mount. Run `make refresh-kubeconfig` inside the container once SSH access is configured; cluster commands require the resulting credentials.
+
 ### Manual Node Join
 
 If you need to join an Ubuntu machine to the cluster outside the Terraform-managed worker flow, use the Ansible playbook for the manual-worker inventory group.

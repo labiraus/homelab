@@ -16,6 +16,7 @@ Use the `.codex` docs as reference context:
 
 Directory-level `AGENTS.md` files currently exist for:
 
+- `.devcontainer/`
 - `ansible/`
 - `apps/`
 - `apps/mcp/`

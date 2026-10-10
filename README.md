@@ -148,21 +148,24 @@ Mounted local-only files:
 - `.devcontainer/.bashrc` -> `/home/vscode/.bashrc.devcontainer`
 - `.devcontainer/.env` -> `/home/vscode/.env`
 - `.devcontainer/ssh/` -> `/home/vscode/.ssh`
-- `.devcontainer/kubeconfig` -> `/home/vscode/.kube/config`
 - `plugin-cache/` -> `/home/vscode/terraform-plugin-cache`
+
+`KUBECONFIG` points to `/workspaces/homelab/.devcontainer/kubeconfig` through the workspace mount. The file can be absent when opening the container; run `make refresh-kubeconfig` inside it to restore cluster access. It is intentionally not a separate file bind mount, which would prevent startup when missing.
 
 Included tooling:
 
+- Latest Go supplied by the `devcontainers/go:1-bookworm` image
 - Docker outside Docker
 - GitHub CLI (`gh`)
 - Terraform
+- TFLint 0.64.0 and terraform-docs
 - Ansible Core 2.15.x
 - MinIO client (`mc`)
 - Flux
 - kubectl and Helm
 - k9s
 - cilium CLI
-- skaffold
+- istioctl 1.29.0
 - Node.js 24
 
 Bootstrap new machines from the example files:
@@ -174,7 +177,11 @@ Bootstrap new machines from the example files:
 
 Customize the container by editing local-only files such as `.devcontainer/.env`, `.devcontainer/.bashrc`, `.devcontainer/hosts`, and `.devcontainer/ssh/config`, then rebuild or reopen the devcontainer if needed.
 
-On container start, `.devcontainer/scripts/sync-hosts.sh` merges the lab host mappings from `.devcontainer/hosts` into the container `/etc/hosts` and appends the current container hostname. This keeps the tracked repo file stable while keeping the desktop-lite VNC session healthy.
+The workspace is mounted at `/workspaces/homelab`, and `.devcontainer/hosts` is mounted directly at `/etc/hosts`. The env-file path is resolved from the local workspace so startup does not depend on the host shell's working directory.
+
+Go follows the floating `mcr.microsoft.com/devcontainers/go:1-bookworm` base image instead of an exact patch pin. Pull that image before rebuilding to pick up its newest toolchain, and check `go version` after rebuilding. TFLint uses a versioned release archive with checksum verification; the Terraform feature's duplicate TFLint installation is disabled. The build context includes only the Dockerfile and the local `zscaler-ca.crt`; credentials and other local settings are mounted at runtime.
+
+The MinIO client is built from the pinned `RELEASE.2025-08-13T08-35-41Z` source tag because the public binary download endpoint returns HTTP 410. This installs only the operator client.
 
 ## Terraform Workflow
 

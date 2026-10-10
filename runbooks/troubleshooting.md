@@ -4,6 +4,18 @@ This runbook is for day-two document-platform and assistant operations.
 
 Postgres-backed state is authoritative. NATS, SSE, and MCP notifications are delivery paths; do not treat notification absence as proof that the durable state is missing.
 
+## Devcontainer Build Failures
+
+If the TFLint build step reports `bash: line 1: 404:: command not found`, the old `install_linux.sh` download returned an HTTP error body that was piped into Bash. Use the versioned release archive installation in `.devcontainer/Dockerfile`, which checks its SHA-256 checksum, and rebuild with **Dev Containers: Rebuild Container**. Downloads should use `curl -fsSL` and finish successfully before an installer is executed.
+
+If the MinIO client download from `dl.min.io` reports HTTP 410, use the Dockerfile's pinned source build of `github.com/minio/mc`. The retired binary endpoint is no longer part of the build. This Go-installed client reports `DEVELOPMENT.GOGET` in `mc --version`; use `go version -m /usr/local/bin/mc` to inspect the embedded module revision.
+
+The devcontainer uses the latest Go supplied by the floating `mcr.microsoft.com/devcontainers/go:1-bookworm` image. Pull that image before rebuilding to refresh a cached base. After rebuilding, check `go version` and `tflint --version`. Local startup also requires the configured bind-mount sources and `.devcontainer/.env` to exist; keep those credentials out of the image build context.
+
+If the image builds but startup reports `bind source path does not exist` for `.devcontainer/kubeconfig`, remove the obsolete dedicated kubeconfig mount by using the current `devcontainer.json`. It sets `KUBECONFIG` to the workspace copy instead, allowing startup before credentials exist. Reopen the container, then run `make refresh-kubeconfig` to restore Kubernetes access. Do not create a directory or fabricate cluster credentials to satisfy a file mount.
+
+If a standalone Node-based Dev Containers CLI fails with `unable to get local issuer certificate` on the corporate network, set `NODE_EXTRA_CA_CERTS` to the absolute path of `.devcontainer/zscaler-ca.crt` in the host shell before running it. Installing the CA inside the Dockerfile does not configure trust for the host process that downloads features. Keep TLS verification enabled.
+
 ## Document Processing Failures
 
 Start with inventory and lifecycle history:

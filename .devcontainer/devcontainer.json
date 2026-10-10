@@ -1,14 +1,19 @@
 {
   "name": "homelab",
   "build": {
-    "dockerfile": "Dockerfile"
+    "dockerfile": "Dockerfile",
+    "context": "."
   },
+  "workspaceFolder": "/workspaces/homelab",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/homelab,type=bind,consistency=cached",
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1.10.0": {
       "enableNonRootDocker": "true",
       "moby": "true"
     },
-    "ghcr.io/devcontainers/features/terraform:1.4.3": {},
+    "ghcr.io/devcontainers/features/terraform:1.4.3": {
+      "tflint": "none"
+    },
     "ghcr.io/goldsam/dev-container-features/flux2": {},
     "ghcr.io/audacioustux/devcontainers/k9s:1": {},
     "ghcr.io/audacioustux/devcontainers/cilium:1": {},
@@ -20,11 +25,6 @@
     }
   },
   "mounts": [
-    {
-      "type": "bind",
-      "source": "${localWorkspaceFolder}/.devcontainer/kubeconfig",
-      "target": "/home/vscode/.kube/config"
-    },
     {
       "type": "bind",
       "source": "${localWorkspaceFolder}/.devcontainer/hosts",
@@ -72,11 +72,12 @@
     }
   },
   "containerEnv": {
+    "KUBECONFIG": "/workspaces/homelab/.devcontainer/kubeconfig",
     "TF_PLUGIN_CACHE_DIR": "/home/vscode/terraform-plugin-cache"
   },
   "runArgs": [
     "--env-file",
-    ".devcontainer/.env"
+    "${localWorkspaceFolder}/.devcontainer/.env"
   ],
   "postCreateCommand": {
     "codex-config": "mkdir -p /home/vscode/.codex && cp /tmp/codex-config.toml /home/vscode/.codex/config.toml && chown vscode:vscode /home/vscode/.codex/config.toml && chmod 600 /home/vscode/.codex/config.toml",

@@ -1,0 +1,4 @@
+# Only the Dockerfile and local corporate CA belong in the image build context.
+**
+!Dockerfile
+!zscaler-ca.crt
