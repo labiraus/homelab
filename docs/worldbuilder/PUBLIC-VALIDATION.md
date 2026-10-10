@@ -24,3 +24,11 @@ No proxy environment variables were set, and a direct Python TLS socket still re
 4. Verify actual deployed image/chart revisions and Worldbuilder flags using the [LAN runbook](LAN-RUNBOOK.md). Source defaults keep Worldbuilder disabled; these public checks do not prove installed flag or schema state. Canon, search, story, generation and delegation acceptance remain pending the existing controlled activation gates.
 
 There is insufficient evidence for a source or gateway configuration fix. No application tests passed or failed in this probe: connectivity failed before a verified application response. Existing offline test and CI results remain separate evidence.
+
+## CI-managed diagnosis and iteration
+
+The user subsequently authorised repository fixes and CI/Flux deployment iterations. `.github/workflows/public-endpoints.yml` now runs credential-free public checks from a GitHub-hosted runner on checker changes, manual dispatch and successful app/Helm pipeline completion. It retries up to ten times, validates TLS normally, requires actual Labiraus discovery JSON and checks anonymous browser authentication behavior. Sanitized JSON artifacts retain DNS, certificate and response classifications without cookies, private bodies or redirect query parameters. Failure produces a failing CI check; it never disables TLS verification or invokes a cluster mutation.
+
+The CI check provides public availability evidence, not proof that a particular revision reconciled. MCP's advertised version is recorded when discovery succeeds. Authenticated integration checks and Flux source/release status still require an approved identity and cluster connectivity. The local kubeconfig currently has no current context, so no reconciliation status is available here. Do not declare the cluster stopped reconciling merely because public connectivity fails.
+
+Initial checker validation: six unit tests passed, covering unrelated/filter responses, TLS refusal before HTTP, identity rejection and redacted redirects. A local verified probe failed before HTTP, as expected from the current connection problem. Hosted-runner results will determine the next justified configuration change; no speculative gateway or DNS mutation is included.
