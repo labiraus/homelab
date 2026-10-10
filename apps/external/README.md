@@ -129,3 +129,5 @@ World names/default timelines/settings are reviewed `world_settings` records. Ow
 The canon validator also enforces temporal relationship cardinality, mutually exclusive boolean facts and explicit canonical chronology exceptions. Rule changes are ordinary reviewed operations and can be grouped atomically with affected records; see the rule contracts in the Worldbuilder API documentation.
 
 Scoped `/api/worlds/{world}/search` reconciles OpenSearch candidate IDs against authorised PostgreSQL snapshots, with canonical fallback and stable pinned pagination. Large-world AI evidence selection retains rule/settings/reference groups and reports limited coverage. See [API contracts](../../docs/worldbuilder/API.md).
+
+Optional MCP delegation uses only `/api/worldbuilder-tools` with signed, expiring, exact-request identity assertions and active-identity/membership checks. Reads and validated draft proposals are the entire allowlist; human routes remain separately mesh-restricted. Configure only after the [LAN gates](../../docs/worldbuilder/LAN-RUNBOOK.md).

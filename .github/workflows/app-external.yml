@@ -58,6 +58,10 @@ jobs:
         run: go test ./...
         working-directory: apps/external
 
+      - name: Shared identity and delegation tests
+        run: go test ./...
+        working-directory: apps/pkg/api
+
       - name: Worldbuilder PostgreSQL migration and integrity checks
         run: bash scripts/worldbuilder/test-postgres.sh
 

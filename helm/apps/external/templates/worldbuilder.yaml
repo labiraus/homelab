@@ -1,3 +1,6 @@
+{{- if and .Values.worldbuilder.mcp.enabled (not .Values.worldbuilder.enabled) }}
+{{- fail "Worldbuilder MCP requires worldbuilder.enabled" }}
+{{- end }}
 {{- if .Values.worldbuilder.enabled }}
 {{- $principal := required "worldbuilder.browserPrincipal must be verified before enabling canon" .Values.worldbuilder.browserPrincipal }}
 apiVersion: security.istio.io/v1
@@ -18,4 +21,28 @@ spec:
       to:
         - operation:
             paths: ["/api/worlds", "/api/worlds/*"]
+{{- if .Values.worldbuilder.mcp.enabled }}
+{{- $mcp := required "worldbuilder.mcp.principal must be verified before enabling delegation" .Values.worldbuilder.mcp.principal }}
+{{- if or (eq $mcp $principal) (contains "*" $mcp) }}
+{{- fail "Worldbuilder MCP principal must be exact and distinct from browser principal" }}
+{{- end }}
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ include "commonapi.fullname" . }}-worldbuilder-mcp
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "commonapi.selectorLabels" . | nindent 6 }}
+  action: DENY
+  rules:
+    - from:
+        - source:
+            notPrincipals: [{{ $mcp | quote }}]
+      to:
+        - operation:
+            paths: ["/api/worldbuilder-tools", "/api/worldbuilder-tools/*"]
+{{- end }}
 {{- end }}

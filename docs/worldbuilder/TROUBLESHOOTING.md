@@ -40,3 +40,7 @@ Migration 002 aborts if immutable history reuses an ID for different record kind
 ## Disposable Docker PostgreSQL is healthy but unreachable
 
 Docker-outside-Docker can keep its API available while published host-port forwarding stops working, even on previously successful fixed ports. The harness now falls back to a loopback socat listener relaying binary traffic through `docker exec` into its own generated `worldbuilder-test-*` container. To skip unreliable host-port probing, run `WORLDBUILDER_TEST_TRANSPORT=exec bash scripts/worldbuilder/test-postgres.sh`. This requires local `socat` and container Bash; no LAN endpoint or production credentials are used. The harness removes the listener and its own container on exit. Do not interpret a transport preflight failure as a passing integration test.
+
+## Empty trusted-principal list passed Helm required
+
+Delegation negative rendering found that `required` accepted `[]`, emitting an empty `notPrincipals` list. Added explicit `empty` rejection and wildcard checks; all negative/positive cases now pass in `check-manifests.py`. Validate security-sensitive collection inputs explicitly, rather than inferring string-style required semantics.

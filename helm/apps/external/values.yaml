@@ -302,3 +302,7 @@ worldbuilder:
   databaseSecret: worldbuilder-external
   browserPrincipal: ""
   aiSecret: ""
+  mcp:
+    enabled: false
+    delegationSecret: ""
+    principal: "" # Observed MCP service-account principal, never browser/processor.

@@ -86,6 +86,29 @@ orchestrator:
 
 Review the rendered diff before publishing. First ensure at least two recognised authenticated identities exist through the approved `auth.users` operator workflow; world membership alone does not register a login identity. Activate external only and prove world creation, owner membership, editor draft, independent review, atomic publication, history and cross-world denial. Verify the mesh DENY policy blocks processor/MCP direct world calls and spoofed headers; observe proxy sanitisation. Then activate relay/indexing and verify no pending backlog, durable retries, consumer acknowledgement, duplicate/out-of-order event handling and fresh-index rebuilding. Keep PostgreSQL canonical. Compare scoped search results/citations at current and historical revisions with PostgreSQL; test index lag, outage and rebuild without losing canonical results. Confirm partial-evidence counts are displayed on a world above 100 records, and measure search latency under the existing 5,000-record cap.
 
+Optional MCP activation is a separate stage after canon acceptance. Observe the actual MCP service-account principal and every authenticating edge principal for both Streamable HTTP and legacy SSE, including certificate and OAuth identity/header sanitisation. Verify callers cannot inject `X-Forwarded-Client-Cert`, `X-Auth-Request-Email`, `X-Forwarded-Email` or basic-auth usernames through either edge. Require active `auth.users` identity and current world membership. Keep the existing browser principal distinct from MCP; processor remains excluded from both canon interfaces.
+
+Provision an operator-generated cryptographically random key (at least 32 bytes) as `WORLDBUILDER_MCP_KEY` in a secret mounted only by external/MCP. Do not reuse AI, OAuth or database secrets. Prepare these Flux values using observed principals, not guessed names:
+
+```yaml
+external:
+  values:
+    worldbuilder:
+      mcp:
+        enabled: true
+        delegationSecret: worldbuilder-mcp
+        principal: "<observed exact MCP service-account principal>"
+mcp:
+  values:
+    worldbuilder:
+      enabled: true
+      delegationSecret: worldbuilder-mcp
+      trustedEdgePrincipals:
+        - "<observed authenticating edge principal>"
+```
+
+Render the merged configuration and inspect both DENY policies before source publication. Exercise tools/list and one scoped read on both transports; confirm inactive/nonmember actors fail, draft retries return the same draft, canon remains unchanged, and owner assertions cannot invoke review/publication/administration/private sessions. Confirm unsigned, modified, expired and wrong-audience assertions fail, direct `/api/worlds` access from MCP/processor is denied, and clocks differ by no more than the five-second future allowance. Disabling both delegation flags and rotating the key revokes access without changing canon or document tooling. These are prepared LAN tests, not observed results.
+
 Publish each approved configuration stage through the existing pipeline, not ad hoc Helm upgrades. Once LAN validation and the stage's approval are recorded:
 
 ```bash

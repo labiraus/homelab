@@ -184,6 +184,7 @@ type manifestTool struct {
 }
 
 type manifestSchema struct {
+	Items                *manifestSchema           `json:"items,omitempty"`
 	Type                 string                    `json:"type"`
 	Properties           map[string]manifestSchema `json:"properties,omitempty"`
 	Required             []string                  `json:"required,omitempty"`

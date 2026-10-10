@@ -14,3 +14,7 @@ This file applies to everything under `apps/mcp/`.
 - Preserve UUID-shaped session restoration for Streamable HTTP clients; native clients can cache `MCP-Session-Id` values across pod restarts and may not recover cleanly from an immediate `404`.
 - Keep `/.well-known/mcp.json`, OAuth protected-resource metadata, app README, and Helm route values aligned whenever endpoints or advertised transports change.
 - Preserve Origin validation and CORS preflight behavior together; browser compatibility should not weaken DNS-rebinding protection.
+
+## Worldbuilder delegation
+
+World tools require validated AuthStatus and a signed exact-request assertion to external’s dedicated operation allowlist. Never reuse raw UserID/header forwarding for canon, or add review/publication/administration/private-story operations to the MCP route. Keep the human browser route mesh restriction and both MCP transport edge restrictions when changing delegation.

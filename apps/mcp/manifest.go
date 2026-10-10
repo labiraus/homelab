@@ -584,7 +584,7 @@ var capabilityCatalog = []manifestCapabilitySource{
 func buildManifest(r *http.Request) manifestDocument {
 	document := newManifestDocument(r)
 
-	for _, capability := range capabilityCatalog {
+	for _, capability := range activeCapabilityCatalog() {
 		for _, operation := range capability.Operations {
 			switch operation.Primitive {
 			case manifestPrimitivePrompt:

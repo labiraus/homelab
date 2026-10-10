@@ -561,6 +561,8 @@ func executeToolOperation(ctx context.Context, r *http.Request, resolution toolR
 	}
 
 	switch binding.ExecutionMode {
+	case worldbuilderMode:
+		return proxyWorldbuilder(ctx, binding.Path, arguments)
 	case manifestExecutionModeHTTPProxy:
 		path, rpcErr := buildOperationPath(binding.Path, extractArgumentStrings(arguments, extractPathParameters(resolution.operation.Path)))
 		if rpcErr != nil {
@@ -1026,7 +1028,7 @@ func minioDeleteBucketObject(ctx context.Context, bucket string, objectKey strin
 }
 
 func findResourceOperationByURI(uri string) (resourceResolution, bool) {
-	for _, capability := range capabilityCatalog {
+	for _, capability := range activeCapabilityCatalog() {
 		for _, operation := range capability.Operations {
 			if operation.Primitive != manifestPrimitiveResource && operation.Primitive != manifestPrimitiveResourceTemplate {
 				continue
@@ -1051,7 +1053,7 @@ func findResourceOperationByURI(uri string) (resourceResolution, bool) {
 }
 
 func findPromptOperationByName(name string) (promptResolution, bool) {
-	for _, capability := range capabilityCatalog {
+	for _, capability := range activeCapabilityCatalog() {
 		for _, operation := range capability.Operations {
 			if operation.Primitive == manifestPrimitivePrompt && operation.ID == name {
 				return promptResolution{
@@ -1066,7 +1068,7 @@ func findPromptOperationByName(name string) (promptResolution, bool) {
 }
 
 func findToolOperationByName(name string) (toolResolution, bool) {
-	for _, capability := range capabilityCatalog {
+	for _, capability := range activeCapabilityCatalog() {
 		for _, operation := range capability.Operations {
 			if operation.Primitive == manifestPrimitiveTool && operation.ID == name {
 				return toolResolution{

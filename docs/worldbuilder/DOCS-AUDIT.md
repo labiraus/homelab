@@ -63,4 +63,6 @@ The active `.codex/REPO_PLAN.md` now points to Worldbuilder priorities instead o
 
 Search/evidence contracts and coverage limitations were reconciled in API, external/processor/UI READMEs, decisions, acceptance matrix and LAN validation gates in increment 7.
 
+MCP delegation contracts, chart inputs and activation gates were reconciled in increment 8. The initial deferral decision is retained with an explicit superseding decision. Helm and MCP agent guidance records the verified boundaries.
+
 No documents deleted. Relative links in the changed product docs and new execution records were checked locally. No generated OpenAPI files were edited; no application spec generator was found.

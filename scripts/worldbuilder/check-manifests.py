@@ -39,6 +39,23 @@ for chart in ['external','orchestrator']:
     result=subprocess.run(cmd,capture_output=True,text=True)
     (out/(chart+'-enabled.yaml')).write_text(result.stdout+result.stderr)
     if result.returncode:failures.append(chart+' enabled template')
+# Delegation activation requires separate principals and an indirect secret.
+for chart in ['external','mcp']:
+    directory=root/'helm/apps'/chart
+    cmd=['helm','template','homelab-'+chart,str(directory),'-f',str(directory/'values-ghcr.yaml'),'--set','global.allowMissingGeneratedSecretRefs=true','--set','worldbuilder.enabled=true']
+    if chart=='external':
+        cmd+=['--set','worldbuilder.browserPrincipal=cluster.local/ns/homelab/sa/browser','--set','worldbuilder.mcp.enabled=true','--set','worldbuilder.mcp.delegationSecret=worldbuilder-mcp']
+        principal='worldbuilder.mcp.principal'
+    else:
+        cmd+=['--set','worldbuilder.delegationSecret=worldbuilder-mcp']
+        principal='worldbuilder.trustedEdgePrincipals[0]'
+    for invalid in ['', '*']:
+        rejected=subprocess.run(cmd+(['--set',principal+'='+invalid] if invalid else []),capture_output=True,text=True)
+        if rejected.returncode==0:failures.append(chart+' accepted unverified delegation principal')
+    valid='cluster.local/ns/homelab/sa/'+('homelab-mcp' if chart=='external' else 'browser')
+    result=subprocess.run(cmd+['--set',principal+'='+valid],capture_output=True,text=True)
+    (out/(chart+'-delegation-enabled.yaml')).write_text(result.stdout+result.stderr)
+    if result.returncode:failures.append(chart+' delegation enabled template')
 print(f'{len(checked)} base/overlay combinations checked; local artifacts: {out}')
 print('Failures: '+(', '.join(failures) if failures else 'none'))
 sys.exit(bool(failures))

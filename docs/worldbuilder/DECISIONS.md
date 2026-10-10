@@ -24,7 +24,9 @@ The user explicitly changed the earlier no-deploy instruction: work from main so
 
 A single `record` projection has structured kind/reference/type/predicate/time columns and composite world-scoped foreign keys. JSONB holds scalar value, schema and presentation extensions. Immutable revision snapshots support exact historical reads and pinned story sessions. Current publication rewrites at most 5,000 records under the world lock; this favours reviewable transaction correctness over premature incremental projection complexity. Types, entities, sources, timelines, facts, relationships, events and rules share IDs; refs are validated by kind in external. Automatic timeline inheritance is absent.
 
-## 2026-10-10 — Browser publication boundary, MCP delegation deferred
+## 2026-10-10 — Browser publication boundary, initial MCP deferral
+
+Deferral superseded by the scoped delegation decision below; the browser publication boundary remains.
 
 Existing auth middleware accepts trusted forwarded identity headers. It cannot distinguish an AI request carrying a user's header from a human review. Require mesh-enforced oauth2-proxy-only access to all new world routes before activation; deny processor/MCP direct world access. External supplies authorised canon context to processor over a private token endpoint. Processor has no tool router or canon DB privileges. A future scoped MCP delegation contract needs separate read/propose capabilities and must never allow review/publication. Existing MCP transports and document tools remain compatible.
 
@@ -77,3 +79,7 @@ Repeated host-port failures were infrastructure preflight failures, not domain t
 ## 2026-10-10 — Reconcile discovery and declare partial AI evidence
 
 OpenSearch contributes bounded candidate IDs only; external checks membership first and resolves content and temporal visibility from PostgreSQL. Historical reads bypass the current index. Canonical lexical ranking plus a complete bounded scan preserves results/pagination through index lag or outage. This prioritises correctness at the existing 5,000-record world limit; it is not yet an indexed performance optimisation or vector search. Large-world prompts use bounded reference closures, retain required rules/settings/story dependencies, and declare selected evidence in request, response, audit and UI. Model output cannot override that declaration. Whole-world consistency and absence cannot be inferred from a partial selection.
+
+## 2026-10-10 — Request-bound MCP delegation with separate capabilities
+
+Use a dedicated short-lived HMAC assertion plus existing mTLS mesh restrictions rather than raw forwarded email on human routes. The signed actor must remain an active application identity and current world member. A narrow operation switch permits reads and validated draft creation only, even for owners. Reuse `pkg/api` for request-signing primitives and external’s domain validator; add no service, table or alternative canon writer. Exact draft request IDs make bounded replay idempotent. Signing keys remain secret references; activation requires separate observed MCP/edge principals and sanitisation checks. Existing MCP transport and document behaviour stays intact.

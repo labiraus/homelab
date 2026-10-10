@@ -1,1 +1,6 @@
+{{- if .Values.worldbuilder.enabled }}
+{{- $secret := required "worldbuilder.delegationSecret is required" .Values.worldbuilder.delegationSecret }}
+{{- $_ := set .Values "env" (merge (dict "WORLDBUILDER_MCP_ENABLED" "true") (.Values.env | default dict)) }}
+{{- $_ := set .Values "envFromSecrets" (append .Values.envFromSecrets $secret) }}
+{{- end }}
 {{- include "commonapi.manifest" . }}

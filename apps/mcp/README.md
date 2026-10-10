@@ -113,3 +113,7 @@ The current event sequence is:
 `documents.events.minio.stored` is emitted by the browser-facing upload path after the raw object is written to MinIO. Notification fan-out is best-effort and does not block the underlying document upload, queue, or processing path.
 
 Lifecycle events are also appended to `rag.document_lifecycle_events` when the orchestrator queues work and when the processor starts, completes, or fails a processing attempt. `documents.inventory.list` still exposes the latest event summary from `rag.documents.last_event_*`, while `documents.history.list` exposes the full recorded timeline.
+
+## Worldbuilder tools (opt-in)
+
+`worldbuilder.worlds`, `.canon`, `.search`, `.record` and `.propose` are advertised only with `WORLDBUILDER_MCP_ENABLED=true`. A dedicated `WORLDBUILDER_MCP_KEY` (at least 32 cryptographically random bytes) signs the current authenticated actor and exact request to external’s narrow delegation endpoint. Raw user-ID context is insufficient. External rechecks active identity and membership; proposal tools create drafts only, never submit/review/publish or read private stories. See [contracts](../../docs/worldbuilder/API.md) and [LAN activation gates](../../docs/worldbuilder/LAN-RUNBOOK.md). The chart requires `worldbuilder.delegationSecret` and nonempty exact `worldbuilder.trustedEdgePrincipals`; both transports must be verified before activation. No secrets or canon database credentials belong in MCP source.

@@ -72,3 +72,5 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 If a charting convention or Flux integration rule proves durable, record it here.
 
 If a lesson is specific to one chart family, add a more local `AGENTS.md` under that subtree later.
+
+- Helm `required` does not reject an empty list in the locally verified Helm version. Security-sensitive principal lists must explicitly test `empty` and reject wildcard entries; include negative render tests.

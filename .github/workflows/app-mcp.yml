@@ -56,6 +56,10 @@ jobs:
         run: go test ./...
         working-directory: apps/mcp
 
+      - name: Shared identity and delegation tests
+        run: go test ./...
+        working-directory: apps/pkg/api
+
   ghcr:
     needs: test
     name: "MCP Build to GHCR"
