@@ -58,6 +58,7 @@ psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/001_up.sql
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/002_up.sql
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/003_up.sql
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/004_up.sql
+psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/005_up.sql
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/grants.sql
 psql -X -v ON_ERROR_STOP=1 -c 'TABLE worldbuilder.schema_version;'
 psql -X -v ON_ERROR_STOP=1 -c "SELECT has_schema_privilege('app','worldbuilder','USAGE');"
@@ -157,8 +158,18 @@ No irreversible cleanup, live schema change or resource deletion is bundled with
 
 ## Schema-v4 compatibility and lifecycle validation
 
-Before enabling current external, verify max schema version 4 and dedicated grants including `record_identity` and restricted inference-ledger writes. Migration 002 must refuse historical same-ID/different-kind conflicts; inventory them and obtain a reviewed reconciliation plan rather than changing immutable history. Validate reviewed name/default-timeline settings, membership removal, owner transfer (exactly one owner), archive write refusal and retained history. Repeat an administration request and confirm its original version/result without another change. Old v1 snapshots remain intact; introduce their first settings record through review.
+Before enabling current external, verify max schema version 5 and dedicated grants including `record_identity` and restricted inference-ledger writes. Migration 002 must refuse historical same-ID/different-kind conflicts; inventory them and obtain a reviewed reconciliation plan rather than changing immutable history. Validate reviewed name/default-timeline settings, membership removal, owner transfer (exactly one owner), archive write refusal and retained history. Repeat an administration request and confirm its original version/result without another change. Old v1 snapshots remain intact; introduce their first settings record through review.
 
-Rollback keeps Worldbuilder disabled and data intact. Previous v1/v2/v3 binaries reject schema v4 when enabled; do not roll back to them with the feature enabled. All four down migrations refuse populated worlds; 003 also refuses any inference attempts. Restore drills include all 14 tables.
+Rollback keeps Worldbuilder disabled and data intact. Previous v1/v2/v3/v4 binaries reject schema v5 when enabled; do not roll back to them with the feature enabled. All five down migrations refuse populated worlds; 003 also refuses any inference attempts. Restore drills include all 16 tables.
 
 Validate private definition reuse at a historical pin after canon advances, owner isolation (including world administrators), saved summary/choice reload and exact turn retries after later turns. Check that generated candidates retain sessionVersion and stale generation is rejected before inference. Exercise narrative-to-premise creation and verify its original timeline/revision are preserved. Compare summaries against full stored turn history; summaries are provisional, not canonical evidence. Existing sessions must retain pre-migration narration/state with empty initial memory.
+
+## Durable generation activation and recovery gate
+
+Apply explicit migration `005_up.sql` after 001–004, refresh dedicated grants and verify max version 5 before current external activation. Back up and restore all 16 Worldbuilder tables, including generation jobs/outbox and inference ledger; rollback disables flags and preserves populated data. Previous schema-4 binaries cannot run enabled against schema 5.
+
+Keep `worldbuilder.jobs.enabled=false` on both charts until synchronous AI, identity and budget checks above pass. Provision one dedicated worker secret through the existing secret workflow (key `WORLDBUILDER_JOB_TOKEN`, at least 32 bytes); reference it as `worldbuilder.jobs.workerSecret` on external and orchestrator. Verify external `worldbuilder.jobs.principal` is the actual orchestrator mesh identity, distinct from browser and MCP. Inspect the conditional ingress/egress policies for orchestrator→external TCP 8080 and test forged/missing token, human browser principal and wrong service principal denial. The configurable orchestrator `worldbuilder.jobs.externalAPIURL` must be the private external service root. Activate these flags only as a separately reviewed main-branch values change.
+
+Test a three-part narrative with a worker restart between saved parts, duplicate dispatch, cancellation, revoked member and stale story version. Verify one ledger attempt per executed part and no canonical publication. Kill external after reservation but before checkpoint commit: an expired claim must become `uncertain`, retain any earlier parts and require deliberate new-request action. Kill before reservation: the unstarted part may resume. Compare PostgreSQL job/checkpoint/ledger state with broker pending counts and UI refresh. Observe actual three-replica JetStream quorum and seven-day retention.
+
+If dispatch was lost after broker retention or a broker restore, first stop the generation worker through reviewed configuration and inspect queued/running jobs, outbox IDs and per-part ledger records read-only. Preserve `uncertain` and terminal jobs. For a demonstrably unstarted queued job, an operator may separately approve replay of its existing metadata event with its original event ID, or reset only that event's delivered marker for relay. This is a controlled mutation, not an automatic recovery command; do not clear ledger reservations, reset completed steps or overwrite private requests. Re-enable the worker and observe convergence before further replay. Source CI cannot establish these LAN observations.

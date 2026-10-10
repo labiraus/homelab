@@ -83,6 +83,27 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 		return nil, pageErr
 	}
 	resource := strings.Join(path, "/")
+	if resource == "generations" {
+		if r.Method == "GET" {
+			return sc.generations(ctx, limit, offset)
+		}
+		if r.Method == "POST" {
+			var b GenerationRequest
+			if err := decode(w, r, &b); err != nil {
+				return nil, err
+			}
+			return sc.createGeneration(ctx, b)
+		}
+	}
+	if len(path) == 2 && path[0] == "generations" && r.Method == "GET" {
+		return sc.generation(ctx, path[1])
+	}
+	if len(path) == 3 && path[0] == "generations" && path[2] == "cancel" && r.Method == "POST" {
+		if err := emptyBody(w, r); err != nil {
+			return nil, err
+		}
+		return sc.cancelGeneration(ctx, path[1])
+	}
 	if resource == "" && r.Method == "GET" {
 		return sc.world, nil
 	}

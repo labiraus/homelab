@@ -10,16 +10,17 @@ import (
 )
 
 type ReasonRequest struct {
-	Story        *StoryContext `json:"story,omitempty"`
-	RequestID    string        `json:"requestId,omitempty"`
-	WorldID      string        `json:"worldId"`
-	Revision     int64         `json:"revision"`
-	Timeline     string        `json:"timeline"`
-	Question     string        `json:"question"`
-	Workflow     string        `json:"workflow"`
-	Evidence     []Evidence    `json:"evidence"`
-	Provisional  Snapshot      `json:"provisional,omitempty"`
-	ContextScope string        `json:"contextScope"`
+	Generation   *GenerationContext `json:"generation,omitempty"`
+	Story        *StoryContext      `json:"story,omitempty"`
+	RequestID    string             `json:"requestId,omitempty"`
+	WorldID      string             `json:"worldId"`
+	Revision     int64              `json:"revision"`
+	Timeline     string             `json:"timeline"`
+	Question     string             `json:"question"`
+	Workflow     string             `json:"workflow"`
+	Evidence     []Evidence         `json:"evidence"`
+	Provisional  Snapshot           `json:"provisional,omitempty"`
+	ContextScope string             `json:"contextScope"`
 }
 type ReasonResult struct {
 	SessionVersion *int64         `json:"sessionVersion,omitempty"`
@@ -37,20 +38,31 @@ type ReasonResult struct {
 }
 type Reasoner func(context.Context, ReasonRequest) (ReasonResult, error)
 
-func (sc *scope) reason(w http.ResponseWriter, r *http.Request, fn Reasoner, budget *InferenceBudget) (response any, returnErr error) {
-	if fn == nil {
-		return nil, &Problem{503, "unavailable", "Worldbuilder inference is not configured"}
-	}
-	var b struct {
-		Workflow        string `json:"workflow"`
-		Question        string `json:"question"`
-		Timeline        string `json:"timeline"`
-		Revision        int64  `json:"revision"`
-		SessionID       string `json:"sessionId,omitempty"`
-		ExpectedVersion *int64 `json:"expectedVersion,omitempty"`
-	}
+type ReasonInput struct {
+	Workflow        string `json:"workflow"`
+	Question        string `json:"question"`
+	Timeline        string `json:"timeline"`
+	Revision        int64  `json:"revision"`
+	SessionID       string `json:"sessionId,omitempty"`
+	ExpectedVersion *int64 `json:"expectedVersion,omitempty"`
+}
+type GenerationContext struct {
+	ID       string   `json:"id"`
+	Part     int      `json:"part"`
+	Parts    int      `json:"parts"`
+	Previous []string `json:"previous"`
+}
+
+func (sc *scope) reason(w http.ResponseWriter, r *http.Request, fn Reasoner, budget *InferenceBudget) (any, error) {
+	var b ReasonInput
 	if err := decode(w, r, &b); err != nil {
 		return nil, err
+	}
+	return sc.generate(r.Context(), b, fn, budget, nil)
+}
+func (sc *scope) generate(ctx context.Context, b ReasonInput, fn Reasoner, budget *InferenceBudget, generation *GenerationContext) (response any, returnErr error) {
+	if fn == nil {
+		return nil, &Problem{503, "unavailable", "Worldbuilder inference is not configured"}
 	}
 	if len(b.Question) == 0 || len(b.Question) > 4000 {
 		return nil, bad("question required (max 4000 characters)")
@@ -68,7 +80,7 @@ func (sc *scope) reason(w http.ResponseWriter, r *http.Request, fn Reasoner, bud
 	var story *StoryContext
 	var requiredRefs []string
 	if b.Workflow == "story_turn" {
-		s, err := sc.session(r.Context(), b.SessionID)
+		s, err := sc.session(ctx, b.SessionID)
 		if err != nil {
 			return nil, err
 		}
@@ -79,7 +91,7 @@ func (sc *scope) reason(w http.ResponseWriter, r *http.Request, fn Reasoner, bud
 			return nil, conflict("story version changed; reload before generating")
 		}
 		provisional = s.State
-		context, e := sc.storyContext(r.Context(), s)
+		context, e := sc.storyContext(ctx, s)
 		if e != nil {
 			return nil, e
 		}
@@ -88,26 +100,27 @@ func (sc *scope) reason(w http.ResponseWriter, r *http.Request, fn Reasoner, bud
 			requiredRefs = s.Definition.Participants
 		}
 	}
-	snapshot, err := sc.snapshot(r.Context(), b.Revision)
+	snapshot, err := sc.snapshot(ctx, b.Revision)
 	if err != nil {
 		return nil, err
 	}
 	if snapshot[b.Timeline].Kind != "timeline" {
 		return nil, bad("unknown timeline")
 	}
-	records, evidenceScope, err := sc.evidenceContext(r.Context(), snapshot, b.Revision, b.Timeline, b.Question, provisional, requiredRefs...)
+	records, evidenceScope, err := sc.evidenceContext(ctx, snapshot, b.Revision, b.Timeline, b.Question, provisional, requiredRefs...)
 	if err != nil {
 		return nil, err
 	}
 	request := ReasonRequest{WorldID: sc.world.ID, Revision: b.Revision, Timeline: b.Timeline, Question: b.Question, Workflow: b.Workflow, Evidence: Citations(sc.world.ID, b.Revision, b.Timeline, records), Provisional: provisional, ContextScope: evidenceScope.Coverage}
 	request.Story = story
+	request.Generation = generation
 	raw, _ := json.Marshal(request)
 	if len(raw)+100 > 100000 { // Reserve space for the correlation ID.
 		return nil, bad("canon context exceeds inference budget")
 	}
 	provenance := Provenance{Workflow: b.Workflow}
 	if budget != nil {
-		provenance, err = budget.reserve(r.Context(), sc.actor, b.SessionID, request)
+		provenance, err = budget.reserve(ctx, sc.actor, b.SessionID, request)
 		if err != nil {
 			return nil, err
 		}
@@ -120,16 +133,16 @@ func (sc *scope) reason(w http.ResponseWriter, r *http.Request, fn Reasoner, bud
 			return
 		}
 		provenance.LatencyMS = time.Since(started).Milliseconds()
-		slog.InfoContext(r.Context(), "worldbuilder inference completed", "requestId", provenance.RequestID, "workflow", b.Workflow, "latencyMs", provenance.LatencyMS, "valid", returnErr == nil)
+		slog.InfoContext(ctx, "worldbuilder inference completed", "requestId", provenance.RequestID, "workflow", b.Workflow, "latencyMs", provenance.LatencyMS, "valid", returnErr == nil)
 		if e := budget.finish(provenance, completed, returnErr == nil); e != nil {
-			slog.ErrorContext(r.Context(), "inference ledger completion failed", "requestId", provenance.RequestID)
+			slog.ErrorContext(ctx, "inference ledger completion failed", "requestId", provenance.RequestID)
 			if returnErr == nil {
 				response = nil
 				returnErr = &Problem{503, "inference_ledger", "inference completion could not be recorded"}
 			}
 		}
 	}()
-	result, err := fn(r.Context(), request)
+	result, err := fn(ctx, request)
 	completed = result
 	if err != nil {
 		return nil, err
@@ -187,6 +200,6 @@ func (sc *scope) reason(w http.ResponseWriter, r *http.Request, fn Reasoner, bud
 	provenance.LatencyMS = time.Since(started).Milliseconds()
 	result.Provenance = provenance
 	// Output remains a candidate. UI explicitly creates a draft or persists a provisional turn.
-	err = sc.audit(r.Context(), "ai."+b.Workflow, b.SessionID, map[string]any{"revision": b.Revision, "timeline": b.Timeline, "model": result.Model, "usage": result.Usage, "citations": result.Citations, "evidenceScope": evidenceScope, "provenance": provenance})
+	err = sc.audit(ctx, "ai."+b.Workflow, b.SessionID, map[string]any{"revision": b.Revision, "timeline": b.Timeline, "model": result.Model, "usage": result.Usage, "citations": result.Citations, "evidenceScope": evidenceScope, "provenance": provenance})
 	return result, err
 }

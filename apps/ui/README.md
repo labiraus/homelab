@@ -100,3 +100,5 @@ Wiki queries use the membership-scoped search API with pinned pagination. AI ans
 Generation details show the request correlation, reported model, duration and allocated allowance. The allowance is explicitly distinguished from a provider invoice.
 
 `WorldStorySetup.jsx` creates/reuses private immutable definitions at their canon pin, preserves IDs on uncertain retries, and retains generated premise scope. Sessions display provisional summary coverage and offered choices. Generated turns retain the inspected session version when saved.
+
+The Worlds reasoning panel lists private durable generations, queues up to four narrative parts, refreshes progress, cancels remaining work and inspects preserved partial results. Background generation must be enabled server-side. Retried queue submissions retain their UUID; inspected results retain their original canon/session versions before human save.

@@ -62,6 +62,23 @@ if subprocess.run(ai,capture_output=True).returncode==0:failures.append('AI acti
 result=subprocess.run(ai+['--set','worldbuilder.aiBudget.requestMicros=100','--set','worldbuilder.aiBudget.dailyMicros=1000','--set','worldbuilder.aiBudget.currency=TST','--set','worldbuilder.aiBudget.gatewayRoute=offline-fixture'],capture_output=True,text=True)
 (out/'external-ai-budget-enabled.yaml').write_text(result.stdout+result.stderr)
 if result.returncode:failures.append('AI explicit allowance template')
+# Background workers require a separately scoped credential and exact mesh identity.
+allowance=['--set','worldbuilder.aiBudget.requestMicros=100','--set','worldbuilder.aiBudget.dailyMicros=1000','--set','worldbuilder.aiBudget.currency=TST','--set','worldbuilder.aiBudget.gatewayRoute=offline-fixture']
+for chart in ['external','orchestrator']:
+    base=['helm','template','homelab-'+chart,str(root/'helm/apps'/chart),'--set','global.allowMissingGeneratedSecretRefs=true','--set','worldbuilder.enabled=true','--set','worldbuilder.jobs.enabled=true']
+    if chart=='external':
+        base+=['--set','worldbuilder.browserPrincipal=cluster.local/ns/homelab/sa/browser','--set','worldbuilder.jobs.principal=cluster.local/ns/homelab/sa/homelab-orchestrator']
+        if subprocess.run(base,capture_output=True).returncode==0:failures.append('jobs accepted missing AI configuration')
+        base+=['--set','worldbuilder.aiSecret=worldbuilder-ai']+allowance
+    if subprocess.run(base,capture_output=True).returncode==0:failures.append(chart+' jobs accepted missing worker secret')
+    base+=['--set','worldbuilder.jobs.workerSecret=worldbuilder-worker']
+    if chart=='external':
+        for principal in ['', '*','cluster.local/ns/homelab/sa/browser']:
+            if subprocess.run(base+['--set','worldbuilder.jobs.principal='+principal],capture_output=True).returncode==0:failures.append('jobs accepted invalid worker principal')
+    result=subprocess.run(base,capture_output=True,text=True)
+    (out/(chart+'-jobs-enabled.yaml')).write_text(result.stdout+result.stderr)
+    if result.returncode:failures.append(chart+' jobs enabled template')
+    if subprocess.run(base+['--set','worldbuilder.enabled=false'],capture_output=True).returncode==0:failures.append(chart+' jobs accepted disabled Worldbuilder')
 print(f'{len(checked)} base/overlay combinations checked; local artifacts: {out}')
 print('Failures: '+(', '.join(failures) if failures else 'none'))
 sys.exit(bool(failures))

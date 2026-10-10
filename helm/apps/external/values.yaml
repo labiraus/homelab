@@ -302,6 +302,10 @@ worldbuilder:
   databaseSecret: worldbuilder-external
   browserPrincipal: ""
   aiSecret: ""
+  jobs:
+    enabled: false
+    workerSecret: ""
+    principal: "" # Observed orchestrator identity; separate from browser/MCP.
   aiBudget:
     dailyRequests: 100
     concurrent: 2

@@ -14,5 +14,11 @@
 {{- $_ := set .Values "env" (merge (dict "WORLDBUILDER_MCP_ENABLED" "true") .Values.env) }}
 {{- $_ := set .Values "envFromSecrets" (append .Values.envFromSecrets $secret) }}
 {{- end }}
+{{- if .Values.worldbuilder.jobs.enabled }}
+{{- if empty .Values.worldbuilder.aiSecret }}{{- fail "generation jobs require configured AI" }}{{- end }}
+{{- $secret := required "worldbuilder.jobs.workerSecret is required" .Values.worldbuilder.jobs.workerSecret }}
+{{- $_ := set .Values "env" (merge (dict "WORLDBUILDER_JOBS_ENABLED" "true") .Values.env) }}
+{{- $_ := set .Values "envFromSecrets" (append .Values.envFromSecrets $secret) }}
+{{- end }}
 {{- end }}
 {{- include "commonapi.manifest" . }}

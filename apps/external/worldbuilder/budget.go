@@ -24,6 +24,8 @@ type InferenceBudget struct {
 	GatewayRoute  string
 }
 type Provenance struct {
+	GenerationID    string `json:"generationId,omitempty"`
+	GenerationPart  int    `json:"generationPart,omitempty"`
 	RequestID       string `json:"requestId"`
 	Workflow        string `json:"workflow"`
 	GatewayRoute    string `json:"gatewayRoute"`
@@ -75,7 +77,15 @@ func (b *InferenceBudget) reserve(ctx context.Context, actor, session string, re
 	}
 	raw, _ := json.Marshal(request)
 	digest := sha256.Sum256(raw)
-	_, err = tx.Exec(ctx, `INSERT INTO worldbuilder.inference_attempt(id,world_id,actor,workflow,revision,timeline,session_id,request_hash,lease_until,allocated_micros,currency,gateway_route) VALUES($1,$2,$3,$4,$5,$6,$7,$8,now()+interval '60 seconds',$9,$10,$11)`, p.RequestID, request.WorldID, actor, request.Workflow, request.Revision, request.Timeline, session, hex.EncodeToString(digest[:]), b.RequestMicros, b.Currency, b.GatewayRoute)
+	var generationID *string
+	var part *int
+	if request.Generation != nil {
+		generationID = &request.Generation.ID
+		part = &request.Generation.Part
+		p.GenerationID = *generationID
+		p.GenerationPart = *part
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO worldbuilder.inference_attempt(id,world_id,actor,workflow,revision,timeline,session_id,request_hash,lease_until,allocated_micros,currency,gateway_route,generation_job_id,generation_part) VALUES($1,$2,$3,$4,$5,$6,$7,$8,now()+interval '60 seconds',$9,$10,$11,$12,$13)`, p.RequestID, request.WorldID, actor, request.Workflow, request.Revision, request.Timeline, session, hex.EncodeToString(digest[:]), b.RequestMicros, b.Currency, b.GatewayRoute, generationID, part)
 	if err != nil {
 		return p, err
 	}

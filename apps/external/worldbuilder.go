@@ -34,9 +34,9 @@ func registerWorldbuilder(ctx context.Context, mux *http.ServeMux) error {
 	var user string
 	var elevated bool
 	err = pool.QueryRow(ctx, `SELECT current_user, (SELECT rolsuper OR rolcreaterole FROM pg_roles WHERE rolname=current_user),max(version) FROM worldbuilder.schema_version`).Scan(&user, &elevated, &version)
-	if err != nil || version != 4 || user != "worldbuilder_external" || elevated {
+	if err != nil || version != 5 || user != "worldbuilder_external" || elevated {
 		pool.Close()
-		return fmt.Errorf("Worldbuilder requires schema version 4 and nonprivileged worldbuilder_external login")
+		return fmt.Errorf("Worldbuilder requires schema version 5 and nonprivileged worldbuilder_external login")
 	}
 	go func() { <-ctx.Done(); pool.Close() }()
 	store := &worldbuilder.Store{Pool: pool, Reasoner: worldbuilderReasoner(), Discover: worldbuilder.OpenSearchDiscovery(os.Getenv("OPENSEARCH_BASE_URL"), os.Getenv("OPENSEARCH_USERNAME"), os.Getenv("OPENSEARCH_PASSWORD"))}
@@ -70,6 +70,14 @@ func registerWorldbuilder(ctx context.Context, mux *http.ServeMux) error {
 			return fmt.Errorf("Worldbuilder MCP requires a dedicated delegation key of at least 32 bytes")
 		}
 		mux.Handle(worldbuilder.ToolsPath, worldbuilder.ToolsHandler(store, key, validateIdentityEmail))
+	}
+	if strings.EqualFold(os.Getenv("WORLDBUILDER_JOBS_ENABLED"), "true") {
+		token := os.Getenv("WORLDBUILDER_JOB_TOKEN")
+		if len(token) < 32 || store.Reasoner == nil || store.Budget == nil {
+			return fmt.Errorf("durable generation requires its dedicated worker token and configured inference budget")
+		}
+		store.JobsEnabled = true
+		mux.Handle(worldbuilder.GenerationRunPath, worldbuilder.GenerationHandler(store, token, validateIdentityEmail))
 	}
 	handler := worldbuilder.Handler(store, func(r *http.Request) (string, bool) {
 		s, ok := api.AuthStatusFromContext(r.Context())

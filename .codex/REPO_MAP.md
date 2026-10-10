@@ -222,3 +222,5 @@ Current behavior note:
 - The root `AGENTS.md` is the main repo-wide agent policy; use the nearest directory-level `AGENTS.md` for more specific conventions.
 - The current GitOps path is Flux plus `helm/`; keep docs and changes aligned to that delivery model.
 - If Codex changes behavior, entry points, or layout, update both the human docs and this file in the same task.
+
+Worldbuilder durable generation: `apps/external/worldbuilder/generation.go` owns private jobs/checkpoints, `apps/orchestrator/worldbuilder_jobs.go` relays metadata and dispatches one part, `apps/ui/src/WorldGenerations.jsx` exposes private progress/candidates; `sql/worldbuilder/005_up.sql` adds explicit schema-v5 storage.

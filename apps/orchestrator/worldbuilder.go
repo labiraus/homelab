@@ -30,6 +30,12 @@ type canonEvent struct {
 // relayCanonOnce marks delivery only after a JetStream acknowledgement. A crash between
 // acknowledgement and commit resends the same event ID; consumers must be idempotent.
 func relayCanonOnce(ctx context.Context, pool *pgxpool.Pool, publish func(string, []byte) error) (bool, error) {
+	return relayWorldbuilderOutboxOnce(ctx, pool, "outbox", publish)
+}
+func relayWorldbuilderOutboxOnce(ctx context.Context, pool *pgxpool.Pool, table string, publish func(string, []byte) error) (bool, error) {
+	if table != "outbox" && table != "generation_outbox" {
+		return false, fmt.Errorf("unsupported Worldbuilder outbox")
+	}
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return false, err
@@ -37,7 +43,7 @@ func relayCanonOnce(ctx context.Context, pool *pgxpool.Pool, publish func(string
 	defer tx.Rollback(ctx)
 	var id string
 	var payload []byte
-	err = tx.QueryRow(ctx, `SELECT id::text,payload FROM worldbuilder.outbox WHERE delivered_at IS NULL ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&id, &payload)
+	err = tx.QueryRow(ctx, `SELECT id::text,payload FROM worldbuilder.`+table+` WHERE delivered_at IS NULL ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&id, &payload)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -47,13 +53,16 @@ func relayCanonOnce(ctx context.Context, pool *pgxpool.Pool, publish func(string
 	if err = publish(id, payload); err != nil {
 		return false, err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE worldbuilder.outbox SET delivered_at=now() WHERE id=$1`, id); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE worldbuilder.`+table+` SET delivered_at=now() WHERE id=$1`, id); err != nil {
 		return false, err
 	}
 	return true, tx.Commit(ctx)
 }
 func startWorldbuilder(ctx context.Context) error {
 	if !strings.EqualFold(os.Getenv("WORLDBUILDER_RELAY_ENABLED"), "true") {
+		if strings.EqualFold(os.Getenv("WORLDBUILDER_JOBS_ENABLED"), "true") {
+			return fmt.Errorf("generation jobs require the Worldbuilder relay")
+		}
 		return nil
 	}
 	dsn := strings.TrimSpace(os.Getenv("WORLDBUILDER_RELAY_DATABASE_URL"))
@@ -102,6 +111,11 @@ func startWorldbuilder(ctx context.Context) error {
 	}
 	sub, err := js.PullSubscribe("worldbuilder.canon.published", "worldbuilder-index-v1", nats.BindStream("worldbuilder-canon"), nats.ManualAck(), nats.AckExplicit())
 	if err != nil {
+		pool.Close()
+		nc.Close()
+		return err
+	}
+	if err = startGenerationJobs(ctx, pool, js); err != nil {
 		pool.Close()
 		nc.Close()
 		return err

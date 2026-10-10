@@ -44,3 +44,7 @@ Docker-outside-Docker can keep its API available while published host-port forwa
 ## Empty trusted-principal list passed Helm required
 
 Delegation negative rendering found that `required` accepted `[]`, emitting an empty `notPrincipals` list. Added explicit `empty` rejection and wildcard checks; all negative/positive cases now pass in `check-manifests.py`. Validate security-sensitive collection inputs explicitly, rather than inferring string-style required semantics.
+
+## Generation remains queued, failed or uncertain
+
+Inspect the private job in Worlds and refresh; completed parts remain inspectable. Queueing reserves no future budget, so later parts can stop at allowance or stale-story checks. `uncertain` means a reserved part lost its checkpoint/lease: do not automatically repeat it or refund its allowance. Check dispatch/consumer state and per-part inference attribution using the LAN runbook. Broker retention can require controlled metadata replay; never reset completed steps or reserved inference. A provider call currently holds the world transaction, so cancellation and other same-world operations can wait for its bounded timeout. This serialisation is a measured-load acceptance gate.

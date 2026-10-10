@@ -70,3 +70,5 @@ No documents deleted. Relative links in the changed product docs and new executi
 Schema-v3 budget/provenance contracts supersede v2 startup instructions in the active API, SQL, external README and SQL agent guidance. Historical increment logs retain their original schema/version evidence.
 
 Schema-v4 private definitions/memory replace the initial title-only story guidance in the API, app READMEs, acceptance matrix, SQL guidance and LAN runbook. Existing story pins and immutable narration remain preserved.
+
+Increment 11 updates active SQL/runtime contracts to schema 5, app READMEs and API with private checkpointed jobs, and the LAN/troubleshooting runbooks with separate worker activation and uncertain-work recovery. Historical increment counts/schema observations remain historical. The acceptance matrix and repository plan track durable jobs as locally verified while retaining LAN quorum/security/provider gates.

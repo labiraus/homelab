@@ -3,6 +3,7 @@ import { HistoryPanel, ReconciliationPanel } from "./WorldHistory.jsx";
 import WorldRecordEditor from "./WorldRecordEditor.jsx";
 import WorldAdministration from "./WorldAdministration.jsx";
 import WorldStorySetup from "./WorldStorySetup.jsx";
+import WorldGenerations from "./WorldGenerations.jsx";
 
 const base = import.meta.env.VITE_API_BASE_URL ?? "";
 async function api(path, body) {
@@ -897,6 +898,41 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
             >
               Generate candidate
             </button>
+            <WorldGenerations
+              api={api}
+              path={path}
+              archived={canon.world.archived}
+              request={{
+                workflow,
+                question,
+                timeline:
+                  workflow === "story_turn" ? session?.timeline : timeline,
+                revision:
+                  workflow === "story_turn"
+                    ? session?.pinnedRevision
+                    : canon.revision,
+                ...(workflow === "story_turn"
+                  ? {
+                      sessionId: session?.id,
+                      expectedVersion: session?.version,
+                    }
+                  : {}),
+              }}
+              onCandidate={(result, input) =>
+                run(async () => {
+                  if (input.workflow === "story_turn")
+                    await resume(
+                      await api(`${path}/sessions/${input.sessionId}`),
+                    );
+                  setAnswer({
+                    ...result,
+                    workflow: input.workflow,
+                    direction: input.question,
+                    timeline: input.timeline,
+                  });
+                })
+              }
+            />
             {answer && (
               <article>
                 <p>{answer.answer}</p>

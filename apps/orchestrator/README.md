@@ -159,3 +159,5 @@ Runtime configuration now expects both Postgres/NATS settings and the standard d
 - `MINIO_USE_SSL`
 - `MINIO_REGION`
 - `MINIO_BUCKET`
+
+Optional Worldbuilder generation dispatch requires schema 5, the existing relay flag and `WORLDBUILDER_JOBS_ENABLED=true`, `WORLDBUILDER_JOB_TOKEN` and `WORLDBUILDER_JOB_API_URL`. It relays metadata-only generation outbox events and invokes external's fixed worker endpoint one checkpoint at a time. Dedicated relay grants cannot read private jobs or mutate canon. Both jobs flags default off; configure the dedicated secret, verified mesh identity and conditional network path using the [LAN runbook](../../docs/worldbuilder/LAN-RUNBOOK.md).

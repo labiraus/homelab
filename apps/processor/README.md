@@ -35,3 +35,5 @@ Worldbuilder requests can mark `contextScope=selected_records`. The graph explic
 Worldbuilder correlation IDs supplied by external are forwarded to Envoy as `X-Request-ID`. Responses preserve the gateway-reported model when available. Durable per-actor allowance decisions belong to external before this endpoint; processor’s local burst/concurrency bounds remain an additional guard.
 
 `narrative_generate` returns scenario prose without mutations. `story_turn` consumes a scoped private definition, bounded summary/recent-turn context and canonical evidence, and may propose bounded summaries/choices. Provisional memory cannot supply canonical citation IDs or expand permissions.
+
+Durable generation checkpoints carry bounded previous provisional prose and part metadata through the same authenticated reasoning endpoint. Continuation text is untrusted context and cannot supply citations or publication authority. External owns private jobs, allowances and checkpoint persistence; processor remains a bounded per-part inference worker.
