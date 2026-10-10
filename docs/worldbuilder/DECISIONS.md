@@ -107,3 +107,7 @@ Default document evaluation calls authenticated external search rather than reim
 ## D022 — offline acceptance uses real boundaries with explicit limits
 
 Use the production UI build and canon HTTP/database engine in Chromium with test-only loopback identities, separate editor/reviewer contexts and origin-restricted requests. Never add a runtime authentication bypass. Verify typed connection traversal at the inspected revision/timeline/time. Validate every rendered custom resource against explicit upstream schema snapshots, failing missing kinds; installed CRDs, Kubernetes admission/CEL and real auth/mesh remain separate LAN gates. Keep a bounded 5,000-record domain benchmark distinct from cluster capacity claims. Optional graph/calendar visualisation is not a blocker for the implemented wiki/traversal/story workflow.
+
+## D023 — observe public delivery through CI with explicit evidence limits
+
+Run credential-free, certificate-verified public probes after artifact publication using hosted CI, preserving bounded sanitized artifacts and failing on connectivity/contract errors. Stamp MCP's immutable image tag into its existing discovery version and require the expected version after MCP publication; an older healthy response is not deployment confirmation. Keep Flux reconciliation and authenticated integration state explicitly unknown without their own observations. Do not change DNS/NAT, disable TLS verification or activate Worldbuilder based on a network filter page or a successful artifact build.

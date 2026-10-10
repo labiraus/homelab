@@ -45,12 +45,16 @@ class PublicEndpointTests(unittest.TestCase):
             self.assertFalse(self.inspect("/api/auth/status", {}, 302, {"Location": url})["ok"])
 
     def test_tls_failure_never_sends_http(self):
+        error = ssl.SSLCertVerificationError(1, "mismatch")
+        # Real OpenSSL errors carry a string reason; only URLError.reason wraps an exception.
+        error.reason = "CERTIFICATE_VERIFY_FAILED"
         with patch.object(smoke.socket, "getaddrinfo", return_value=[(0, 0, 0, "", ("192.0.2.1", 443))]), \
-             patch.object(smoke.socket, "create_connection", side_effect=ssl.SSLCertVerificationError(1, "mismatch")), \
+             patch.object(smoke.socket, "create_connection", side_effect=error), \
              patch.object(smoke.urllib.request, "build_opener") as opener:
             result = smoke.probe()
         self.assertFalse(result["ok"])
         self.assertEqual(result["error"], "tls_certificate_verification_failed")
+        self.assertEqual(result["tls_reason"], "CERTIFICATE_VERIFY_FAILED")
         opener.assert_not_called()
 
     def test_healthy_old_release_does_not_confirm_new_deployment(self):

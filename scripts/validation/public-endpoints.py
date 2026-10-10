@@ -75,7 +75,8 @@ def inspect_response(path, status, headers, body):
 
 
 def error_category(error):
-    error = getattr(error, "reason", error)
+    if isinstance(error, urllib.error.URLError):
+        error = error.reason
     if isinstance(error, ssl.SSLCertVerificationError):
         return "tls_certificate_verification_failed"
     if isinstance(error, socket.gaierror):
@@ -87,19 +88,35 @@ def error_category(error):
     return "connection_failed"
 
 
+def error_details(error):
+    if isinstance(error, urllib.error.URLError):
+        error = error.reason
+    details = {"error": error_category(error), "exception": type(error).__name__}
+    if isinstance(error, ssl.SSLError):
+        details["tls_reason"] = getattr(error, "reason", None)
+    if isinstance(error, ssl.SSLCertVerificationError):
+        details["verify_code"] = getattr(error, "verify_code", None)
+        details["verify_message"] = getattr(error, "verify_message", None)
+    return details
+
+
 def probe():
     host = urllib.parse.urlsplit(BASE).hostname
     report = {"time": datetime.datetime.now(datetime.timezone.utc).isoformat(), "ok": False, "checks": []}
+    stage = "dns"
     try:
         report["addresses"] = sorted({x[4][0] for x in socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)})
         context = ssl.create_default_context()
+        stage = "tcp"
         with socket.create_connection((host, 443), timeout=10) as raw:
+            stage = "tls"
             with context.wrap_socket(raw, server_hostname=host) as connection:
                 cert = connection.getpeercert()
                 report["tls"] = {"version": connection.version(), "expires": cert.get("notAfter"),
                                  "dns_names": [v for k, v in cert.get("subjectAltName", []) if k == "DNS"]}
     except OSError as error:
-        report["error"] = error_category(error)
+        report.update(error_details(error))
+        report["stage"] = stage
         return report
     opener = urllib.request.build_opener(NoRedirect, urllib.request.HTTPSHandler(context=context))
     for path in ("/.well-known/mcp.json", "/.well-known/oauth-protected-resource", "/api/auth/status"):
@@ -116,7 +133,7 @@ def probe():
                 else:
                     result = inspect_response(path, response.status, response.headers, body)
         except (OSError, urllib.error.URLError) as error:
-            result = {"path": path, "ok": False, "error": error_category(error)}
+            result = {"path": path, "ok": False, **error_details(error)}
         report["checks"].append(result)
     report["ok"] = all(c["ok"] for c in report["checks"])
     return report

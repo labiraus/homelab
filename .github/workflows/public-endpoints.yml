@@ -22,8 +22,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: public-endpoints
-  cancel-in-progress: false
+  group: public-endpoints-${{ github.event.workflow_run.name || github.event_name }}
+  cancel-in-progress: true
 
 jobs:
   public-smoke:
