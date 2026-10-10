@@ -97,6 +97,7 @@ Current behavior note:
 
 - Public API entry point: `apps/external/main.go`
 - Assistant API and orchestration entry points: `apps/processor/src/assistant_api.ts`, `apps/processor/src/assistant_llm.ts`, and `apps/processor/src/assistant_db.ts`
+- Private story definitions/memory: `apps/external/worldbuilder/story_definition.go`, `apps/ui/src/WorldStorySetup.jsx`, migration `sql/worldbuilder/004_up.sql`.
 - Inference allocation ledger: `apps/external/worldbuilder/budget.go`, `sql/worldbuilder/003_up.sql`; independent of canon transaction rollback.
 - MCP entry point: `apps/mcp/main.go`; optional canon delegation: `apps/mcp/worldbuilder.go`, `apps/external/worldbuilder/tools.go`, shared signatures in `apps/pkg/api/delegation.go`
 - Orchestrator entry point: `apps/orchestrator/main.go`

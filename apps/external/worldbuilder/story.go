@@ -11,28 +11,34 @@ import (
 )
 
 type Session struct {
-	ID             string   `json:"id"`
-	Title          string   `json:"title"`
-	Owner          string   `json:"owner"`
-	PinnedRevision int64    `json:"pinnedRevision"`
-	Timeline       string   `json:"timeline"`
-	Version        int64    `json:"version"`
-	State          Snapshot `json:"state"`
+	DefinitionID   string           `json:"definitionId,omitempty"`
+	Definition     *StoryDefinition `json:"definition,omitempty"`
+	Memory         StoryMemory      `json:"memory"`
+	ID             string           `json:"id"`
+	Title          string           `json:"title"`
+	Owner          string           `json:"owner"`
+	PinnedRevision int64            `json:"pinnedRevision"`
+	Timeline       string           `json:"timeline"`
+	Version        int64            `json:"version"`
+	State          Snapshot         `json:"state"`
 }
 type Turn struct {
-	RequestID       string      `json:"requestId"`
-	ExpectedVersion int64       `json:"expectedVersion"`
-	Narration       string      `json:"narration"`
-	Operations      []Operation `json:"operations"`
+	RequestID       string        `json:"requestId"`
+	ExpectedVersion int64         `json:"expectedVersion"`
+	Narration       string        `json:"narration"`
+	Operations      []Operation   `json:"operations"`
+	Direction       string        `json:"direction,omitempty"`
+	MemorySummary   string        `json:"memorySummary,omitempty"`
+	Choices         []StoryChoice `json:"choices,omitempty"`
 }
 
 func (sc *scope) session(ctx context.Context, id string) (Session, error) {
 	var s Session
-	var raw []byte
+	var raw, memory []byte
 	if _, err := uuid.Parse(id); err != nil {
 		return s, missing
 	}
-	err := sc.tx.QueryRow(ctx, `SELECT id::text,title,owner,pinned_revision,timeline_id,version,state FROM worldbuilder.story_session WHERE world_id=$1 AND id=$2 AND owner=$3`, sc.world.ID, id, sc.actor).Scan(&s.ID, &s.Title, &s.Owner, &s.PinnedRevision, &s.Timeline, &s.Version, &raw)
+	err := sc.tx.QueryRow(ctx, `SELECT id::text,title,owner,pinned_revision,timeline_id,version,state,COALESCE(definition_id::text,''),memory FROM worldbuilder.story_session WHERE world_id=$1 AND id=$2 AND owner=$3`, sc.world.ID, id, sc.actor).Scan(&s.ID, &s.Title, &s.Owner, &s.PinnedRevision, &s.Timeline, &s.Version, &raw, &s.DefinitionID, &memory)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s, missing
 	}
@@ -40,6 +46,19 @@ func (sc *scope) session(ctx context.Context, id string) (Session, error) {
 		return s, err
 	}
 	err = json.Unmarshal(raw, &s.State)
+	if err != nil {
+		return s, err
+	}
+	if err = json.Unmarshal(memory, &s.Memory); err != nil {
+		return s, err
+	}
+	if s.DefinitionID != "" {
+		d, e := sc.definition(ctx, s.DefinitionID)
+		if e != nil {
+			return s, e
+		}
+		s.Definition = &d
+	}
 	return s, err
 }
 func (sc *scope) createSession(ctx context.Context, s Session) (Session, error) {
@@ -47,7 +66,7 @@ func (sc *scope) createSession(ctx context.Context, s Session) (Session, error) 
 		return s, bad("session requires UUID id and title (max 200 characters)")
 	}
 	if old, err := sc.session(ctx, s.ID); err == nil {
-		if old.Title != s.Title || old.PinnedRevision != s.PinnedRevision || old.Timeline != s.Timeline {
+		if old.Title != s.Title || old.PinnedRevision != s.PinnedRevision || old.Timeline != s.Timeline || old.DefinitionID != s.DefinitionID {
 			return s, conflict("session id reused")
 		}
 		return old, nil
@@ -61,7 +80,18 @@ func (sc *scope) createSession(ctx context.Context, s Session) (Session, error) 
 	if canon[s.Timeline].Kind != "timeline" {
 		return s, bad("timeline is absent at pinned revision")
 	}
-	_, err = sc.tx.Exec(ctx, `INSERT INTO worldbuilder.story_session(world_id,id,owner,title,pinned_revision,timeline_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`, sc.world.ID, s.ID, sc.actor, s.Title, s.PinnedRevision, s.Timeline)
+	var definitionID *string
+	if s.DefinitionID != "" {
+		d, e := sc.definition(ctx, s.DefinitionID)
+		if e != nil {
+			return s, e
+		}
+		if d.PinnedRevision != s.PinnedRevision || d.Timeline != s.Timeline {
+			return s, bad("session must match its definition pin")
+		}
+		definitionID = &s.DefinitionID
+	}
+	_, err = sc.tx.Exec(ctx, `INSERT INTO worldbuilder.story_session(world_id,id,owner,title,pinned_revision,timeline_id,definition_id) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING`, sc.world.ID, s.ID, sc.actor, s.Title, s.PinnedRevision, s.Timeline, definitionID)
 	if err != nil {
 		return s, err
 	}
@@ -79,10 +109,16 @@ func (sc *scope) turn(ctx context.Context, id string, t Turn) (any, error) {
 	if _, err := uuid.Parse(t.RequestID); err != nil || strings.TrimSpace(t.Narration) == "" || len(t.Narration) > 16000 {
 		return nil, bad("turn requires UUID requestId and narration (max 16000 characters)")
 	}
+	if len(t.Direction) > 4000 {
+		return nil, bad("story direction exceeds budget")
+	}
+	if err = validateStoryMemory(t.MemorySummary, t.Choices); err != nil {
+		return nil, err
+	}
 	request, _ := json.Marshal(t)
-	var oldRequest, oldState []byte
+	var oldRequest, oldState, oldMemory []byte
 	var oldVersion int64
-	err = sc.tx.QueryRow(ctx, `SELECT request,state,version FROM worldbuilder.story_turn WHERE world_id=$1 AND session_id=$2 AND request_id=$3`, sc.world.ID, id, t.RequestID).Scan(&oldRequest, &oldState, &oldVersion)
+	err = sc.tx.QueryRow(ctx, `SELECT request,state,version,memory FROM worldbuilder.story_turn WHERE world_id=$1 AND session_id=$2 AND request_id=$3`, sc.world.ID, id, t.RequestID).Scan(&oldRequest, &oldState, &oldVersion, &oldMemory)
 	if err == nil {
 		var previous Turn
 		if err = json.Unmarshal(oldRequest, &previous); err != nil {
@@ -92,7 +128,7 @@ func (sc *scope) turn(ctx context.Context, id string, t Turn) (any, error) {
 		if string(normalized) != string(request) {
 			return nil, conflict("turn requestId reused with different content")
 		}
-		return map[string]any{"version": oldVersion, "state": json.RawMessage(oldState), "narration": t.Narration}, nil
+		return map[string]any{"version": oldVersion, "state": json.RawMessage(oldState), "narration": t.Narration, "memory": json.RawMessage(oldMemory)}, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
@@ -111,10 +147,8 @@ func (sc *scope) turn(ctx context.Context, id string, t Turn) (any, error) {
 	for k, v := range s.State {
 		combined[k] = v
 	}
-	for _, op := range t.Operations {
-		if op.Action != "put" || op.Record == nil || (op.Record.Kind != "fact" && op.Record.Kind != "relationship" && op.Record.Kind != "event") || op.Record.Timeline != s.Timeline {
-			return nil, bad("story transitions may only put facts, relationships and events in their pinned timeline")
-		}
+	if err = validateStoryOperations(t.Operations, s.Timeline); err != nil {
+		return nil, err
 	}
 	if len(t.Operations) > 0 {
 		combined, err = Apply(combined, t.Operations)
@@ -127,16 +161,25 @@ func (sc *scope) turn(ctx context.Context, id string, t Turn) (any, error) {
 	}
 	state, _ := json.Marshal(s.State)
 	next := s.Version + 1
-	if _, err = sc.tx.Exec(ctx, `INSERT INTO worldbuilder.story_turn(world_id,session_id,version,request_id,request,narration,state) VALUES($1,$2,$3,$4,$5,$6,$7)`, sc.world.ID, id, next, t.RequestID, request, t.Narration, state); err != nil {
+	if t.MemorySummary != "" {
+		s.Memory.Summary = t.MemorySummary
+		s.Memory.ThroughVersion = next
+	}
+	s.Memory.Choices = t.Choices
+	if s.Memory.Choices == nil {
+		s.Memory.Choices = []StoryChoice{}
+	}
+	memory, _ := json.Marshal(s.Memory)
+	if _, err = sc.tx.Exec(ctx, `INSERT INTO worldbuilder.story_turn(world_id,session_id,version,request_id,request,narration,state,memory) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, sc.world.ID, id, next, t.RequestID, request, t.Narration, state, memory); err != nil {
 		return nil, err
 	}
-	if _, err = sc.tx.Exec(ctx, `UPDATE worldbuilder.story_session SET version=$3,state=$4 WHERE world_id=$1 AND id=$2`, sc.world.ID, id, next, state); err != nil {
+	if _, err = sc.tx.Exec(ctx, `UPDATE worldbuilder.story_session SET version=$3,state=$4,memory=$5 WHERE world_id=$1 AND id=$2`, sc.world.ID, id, next, state, memory); err != nil {
 		return nil, err
 	}
 	if err = sc.audit(ctx, "story.turn", id, map[string]any{"version": next, "requestId": t.RequestID}); err != nil {
 		return nil, err
 	}
-	return map[string]any{"version": next, "state": s.State, "narration": t.Narration}, nil
+	return map[string]any{"version": next, "state": s.State, "narration": t.Narration, "memory": s.Memory}, nil
 }
 
 type Outcome struct {

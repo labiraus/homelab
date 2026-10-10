@@ -68,3 +68,5 @@ MCP delegation contracts, chart inputs and activation gates were reconciled in i
 No documents deleted. Relative links in the changed product docs and new execution records were checked locally. No generated OpenAPI files were edited; no application spec generator was found.
 
 Schema-v3 budget/provenance contracts supersede v2 startup instructions in the active API, SQL, external README and SQL agent guidance. Historical increment logs retain their original schema/version evidence.
+
+Schema-v4 private definitions/memory replace the initial title-only story guidance in the API, app READMEs, acceptance matrix, SQL guidance and LAN runbook. Existing story pins and immutable narration remain preserved.

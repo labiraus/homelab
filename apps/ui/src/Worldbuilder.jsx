@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { HistoryPanel, ReconciliationPanel } from "./WorldHistory.jsx";
 import WorldRecordEditor from "./WorldRecordEditor.jsx";
 import WorldAdministration from "./WorldAdministration.jsx";
+import WorldStorySetup from "./WorldStorySetup.jsx";
 
 const base = import.meta.env.VITE_API_BASE_URL ?? "";
 async function api(path, body) {
@@ -164,7 +165,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
   const [reviewReason, setReviewReason] = useState("");
   const [session, setSession] = useState(null),
     [turns, setTurns] = useState([]),
-    [storyTitle, setStoryTitle] = useState(""),
+    [premiseCandidate, setPremiseCandidate] = useState(""),
     [narration, setNarration] = useState("");
   const [question, setQuestion] = useState(""),
     [workflow, setWorkflow] = useState("canon_query"),
@@ -305,12 +306,23 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
     setMoreLists((old) => ({ ...old, turns: rows.length === 100 }));
     setAnswer(null);
   }
-  async function saveTurn(text = narration, ops = operations) {
+  async function saveTurn(
+    text = narration,
+    ops = operations,
+    candidate = null,
+  ) {
     await api(`${path}/sessions/${session.id}/turns`, {
       requestId: id(),
-      expectedVersion: session.version,
+      expectedVersion: candidate?.sessionVersion ?? session.version,
       narration: text,
       operations: ops,
+      ...(candidate
+        ? {
+            memorySummary: candidate.memorySummary,
+            choices: candidate.choices,
+            direction: candidate.direction,
+          }
+        : {}),
     });
     await resume(await api(`${path}/sessions/${session.id}`));
     setNarration("");
@@ -727,35 +739,20 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
           </fieldset>
           <fieldset disabled={busy}>
             <legend>Interactive stories</legend>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (canon.world.archived) return;
-                void run(async () => {
-                  const s = await api(`${path}/sessions`, {
-                    id: id(),
-                    title: storyTitle,
-                    pinnedRevision: canon.revision,
-                    timeline,
-                  });
+            <WorldStorySetup
+              api={api}
+              path={path}
+              revision={canon.revision}
+              timeline={timeline}
+              archived={canon.world.archived}
+              premiseCandidate={premiseCandidate}
+              onStart={(s) =>
+                run(async () => {
                   await resume(s);
                   await reload();
-                });
-              }}
-            >
-              <label>
-                Story title
-                <input
-                  required
-                  value={storyTitle}
-                  onChange={(e) => setStoryTitle(e.target.value)}
-                  maxLength={200}
-                />
-              </label>
-              <button disabled={canon.world.archived}>
-                Start at revision {canon.revision}
-              </button>
-            </form>
+                })
+              }
+            />
             {sessions.map((s) => (
               <button key={s.id} onClick={() => void run(() => resume(s))}>
                 Resume {s.title}
@@ -770,6 +767,28 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                   {session.timeline}, turn {session.version}. Your provisional
                   state is private to this session.
                 </p>
+                {session.definition && (
+                  <p>Premise: {session.definition.premise}</p>
+                )}
+                {session.memory?.summary && (
+                  <p>
+                    Provisional summary through turn{" "}
+                    {session.memory.throughVersion}: {session.memory.summary}
+                  </p>
+                )}
+                {session.memory?.choices?.map((choice) => (
+                  <button
+                    key={choice.id}
+                    disabled={canon.world.archived}
+                    onClick={() => {
+                      setWorkflow("story_turn");
+                      setQuestion(choice.direction);
+                      setAnswer(null);
+                    }}
+                  >
+                    {choice.label}
+                  </button>
+                ))}
                 {[...turns].reverse().map((t) => (
                   <article key={t.version}>
                     <h4>Turn {t.version}</h4>
@@ -829,6 +848,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                   "canon_proposal",
                   "consistency_check",
                   "story_turn",
+                  "narrative_generate",
                 ].map((x) => (
                   <option key={x} value={x}>
                     {x.replaceAll("_", " ")}
@@ -859,10 +879,19 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                         ? session.pinnedRevision
                         : canon.revision,
                     ...(workflow === "story_turn"
-                      ? { sessionId: session.id }
+                      ? {
+                          sessionId: session.id,
+                          expectedVersion: session.version,
+                        }
                       : {}),
                   });
-                  setAnswer({ ...value, workflow });
+                  setAnswer({
+                    ...value,
+                    workflow,
+                    direction: question,
+                    timeline:
+                      workflow === "story_turn" ? session.timeline : timeline,
+                  });
                 })
               }
             >
@@ -913,6 +942,31 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                   <summary>Candidate changes</summary>
                   <pre>{JSON.stringify(answer.operations, null, 2)}</pre>
                 </details>
+                {answer.memorySummary && (
+                  <p>Proposed provisional summary: {answer.memorySummary}</p>
+                )}
+                {answer.choices?.length > 0 && (
+                  <ul>
+                    {answer.choices.map((choice) => (
+                      <li key={choice.id}>
+                        {choice.label}: {choice.direction}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {answer.workflow === "narrative_generate" && (
+                  <button
+                    onClick={() =>
+                      setPremiseCandidate({
+                        text: answer.answer,
+                        revision: answer.baseRevision,
+                        timeline: answer.timeline,
+                      })
+                    }
+                  >
+                    Use as a private story premise
+                  </button>
+                )}
                 {answer.workflow === "canon_proposal" && canEdit && (
                   <button
                     disabled={!reason || !answer.operations.length}
@@ -928,7 +982,9 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                 {answer.workflow === "story_turn" && session && (
                   <button
                     onClick={() =>
-                      void run(() => saveTurn(answer.answer, answer.operations))
+                      void run(() =>
+                        saveTurn(answer.answer, answer.operations, answer),
+                      )
                     }
                   >
                     Save candidate as provisional turn

@@ -57,6 +57,7 @@ pg_dump -Fc -f backups/before-worldbuilder.dump
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/001_up.sql
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/002_up.sql
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/003_up.sql
+psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/004_up.sql
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/grants.sql
 psql -X -v ON_ERROR_STOP=1 -c 'TABLE worldbuilder.schema_version;'
 psql -X -v ON_ERROR_STOP=1 -c "SELECT has_schema_privilege('app','worldbuilder','USAGE');"
@@ -154,8 +155,10 @@ WHERE status='reserved' AND lease_until<now();
 
 No irreversible cleanup, live schema change or resource deletion is bundled with source publication.
 
-## Schema-v3 compatibility and lifecycle validation
+## Schema-v4 compatibility and lifecycle validation
 
-Before enabling current external, verify max schema version 3 and dedicated grants including `record_identity` and restricted inference-ledger writes. Migration 002 must refuse historical same-ID/different-kind conflicts; inventory them and obtain a reviewed reconciliation plan rather than changing immutable history. Validate reviewed name/default-timeline settings, membership removal, owner transfer (exactly one owner), archive write refusal and retained history. Repeat an administration request and confirm its original version/result without another change. Old v1 snapshots remain intact; introduce their first settings record through review.
+Before enabling current external, verify max schema version 4 and dedicated grants including `record_identity` and restricted inference-ledger writes. Migration 002 must refuse historical same-ID/different-kind conflicts; inventory them and obtain a reviewed reconciliation plan rather than changing immutable history. Validate reviewed name/default-timeline settings, membership removal, owner transfer (exactly one owner), archive write refusal and retained history. Repeat an administration request and confirm its original version/result without another change. Old v1 snapshots remain intact; introduce their first settings record through review.
 
-Rollback keeps Worldbuilder disabled and data intact. Previous v1/v2 binaries reject schema v3 when enabled; do not roll back to them with the feature enabled. All three down migrations refuse populated worlds; 003 also refuses any inference attempts. Restore drills include all 13 tables.
+Rollback keeps Worldbuilder disabled and data intact. Previous v1/v2/v3 binaries reject schema v4 when enabled; do not roll back to them with the feature enabled. All four down migrations refuse populated worlds; 003 also refuses any inference attempts. Restore drills include all 14 tables.
+
+Validate private definition reuse at a historical pin after canon advances, owner isolation (including world administrators), saved summary/choice reload and exact turn retries after later turns. Check that generated candidates retain sessionVersion and stale generation is rejected before inference. Exercise narrative-to-premise creation and verify its original timeline/revision are preserved. Compare summaries against full stored turn history; summaries are provisional, not canonical evidence. Existing sessions must retain pre-migration narration/state with empty initial memory.

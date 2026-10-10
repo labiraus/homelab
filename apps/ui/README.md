@@ -98,3 +98,5 @@ The rule editor supports scoped relationship cardinality, exclusive boolean pred
 Wiki queries use the membership-scoped search API with pinned pagination. AI answers display selected/total evidence counts when only part of a large timeline was inspected.
 
 Generation details show the request correlation, reported model, duration and allocated allowance. The allowance is explicitly distinguished from a provider invoice.
+
+`WorldStorySetup.jsx` creates/reuses private immutable definitions at their canon pin, preserves IDs on uncertain retries, and retains generated premise scope. Sessions display provisional summary coverage and offered choices. Generated turns retain the inspected session version when saved.

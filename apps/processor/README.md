@@ -33,3 +33,5 @@ Dependency versions and security checks are recorded in [Worldbuilder dependency
 Worldbuilder requests can mark `contextScope=selected_records`. The graph explicitly treats this as partial canon, cannot claim global absence/consistency, and still accepts only supplied canonical citation IDs. External owns selection and validates returned scope/operations.
 
 Worldbuilder correlation IDs supplied by external are forwarded to Envoy as `X-Request-ID`. Responses preserve the gateway-reported model when available. Durable per-actor allowance decisions belong to external before this endpoint; processor’s local burst/concurrency bounds remain an additional guard.
+
+`narrative_generate` returns scenario prose without mutations. `story_turn` consumes a scoped private definition, bounded summary/recent-turn context and canonical evidence, and may propose bounded summaries/choices. Provisional memory cannot supply canonical citation IDs or expand permissions.

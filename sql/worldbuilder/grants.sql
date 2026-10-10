@@ -7,6 +7,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON worldbuilder.world, worldbuilder.member,
 GRANT SELECT, INSERT ON worldbuilder.revision, worldbuilder.audit, worldbuilder.story_turn, worldbuilder.story_outcome, worldbuilder.outbox TO worldbuilder_external;
 GRANT SELECT ON worldbuilder.schema_version TO worldbuilder_external;
 GRANT SELECT, INSERT ON worldbuilder.record_identity TO worldbuilder_external;
+GRANT SELECT, INSERT ON worldbuilder.story_definition TO worldbuilder_external;
 GRANT SELECT, INSERT ON worldbuilder.inference_attempt TO worldbuilder_external;
 GRANT UPDATE(status,model,usage,latency_ms,finished_at) ON worldbuilder.inference_attempt TO worldbuilder_external;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA worldbuilder TO worldbuilder_external;

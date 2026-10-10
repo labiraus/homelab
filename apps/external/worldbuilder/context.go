@@ -23,7 +23,7 @@ func recordReferences(record Record) []string {
 	return refs
 }
 
-func (sc *scope) evidenceContext(ctx context.Context, s Snapshot, revision int64, timeline, question string, provisional Snapshot) ([]Record, EvidenceScope, error) {
+func (sc *scope) evidenceContext(ctx context.Context, s Snapshot, revision int64, timeline, question string, provisional Snapshot, requiredRefs ...string) ([]Record, EvidenceScope, error) {
 	all := Records(s, timeline, "", nil)
 	scope := EvidenceScope{Coverage: "complete_timeline", CanonRecordCount: len(all), EvidenceCount: len(all), DiscoveryStatus: "not_needed"}
 	if len(all) <= 100 {
@@ -73,6 +73,11 @@ func (sc *scope) evidenceContext(ctx context.Context, s Snapshot, revision int64
 			if !include(record.ID) {
 				return nil, scope, bad("required rules/settings exceed the evidence budget")
 			}
+		}
+	}
+	for _, id := range requiredRefs {
+		if !include(id) {
+			return nil, scope, bad("story cast exceeds evidence budget")
 		}
 	}
 	for _, record := range Records(provisional, timeline, "", nil) {

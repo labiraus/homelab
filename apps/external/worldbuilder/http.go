@@ -331,11 +331,12 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 				Title          string `json:"title"`
 				PinnedRevision int64  `json:"pinnedRevision"`
 				Timeline       string `json:"timeline"`
+				DefinitionID   string `json:"definitionId,omitempty"`
 			}
 			if err := decode(w, r, &b); err != nil {
 				return nil, err
 			}
-			return sc.createSession(ctx, Session{ID: b.ID, Title: b.Title, PinnedRevision: b.PinnedRevision, Timeline: b.Timeline})
+			return sc.createSession(ctx, Session{ID: b.ID, Title: b.Title, PinnedRevision: b.PinnedRevision, Timeline: b.Timeline, DefinitionID: b.DefinitionID})
 		}
 		if r.Method == "GET" {
 			rows, err := sc.tx.Query(ctx, `SELECT id::text FROM worldbuilder.story_session WHERE world_id=$1 AND owner=$2 ORDER BY created_at DESC LIMIT $3 OFFSET $4`, sc.world.ID, sc.actor, limit, offset)
@@ -366,6 +367,21 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 			return result, nil
 		}
 	}
+	if resource == "story-definitions" {
+		if r.Method == "GET" {
+			return sc.definitions(ctx, limit, offset)
+		}
+		if r.Method == "POST" {
+			var d StoryDefinition
+			if err := decode(w, r, &d); err != nil {
+				return nil, err
+			}
+			return sc.createDefinition(ctx, d)
+		}
+	}
+	if len(path) == 2 && path[0] == "story-definitions" && r.Method == "GET" {
+		return sc.definition(ctx, path[1])
+	}
 	if len(path) >= 2 && path[0] == "sessions" {
 		if len(path) == 2 && r.Method == "GET" {
 			return sc.session(ctx, path[1])
@@ -374,7 +390,7 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 			if _, err := sc.session(ctx, path[1]); err != nil {
 				return nil, err
 			}
-			rows, err := sc.tx.Query(ctx, `SELECT version,narration,state FROM worldbuilder.story_turn WHERE world_id=$1 AND session_id=$2 ORDER BY version DESC LIMIT $3 OFFSET $4`, sc.world.ID, path[1], limit, offset)
+			rows, err := sc.tx.Query(ctx, `SELECT version,narration,state,memory,request->>'direction' FROM worldbuilder.story_turn WHERE world_id=$1 AND session_id=$2 ORDER BY version DESC LIMIT $3 OFFSET $4`, sc.world.ID, path[1], limit, offset)
 			if err != nil {
 				return nil, err
 			}
@@ -383,11 +399,12 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 			for rows.Next() {
 				var version int64
 				var narration string
-				var state []byte
-				if err = rows.Scan(&version, &narration, &state); err != nil {
+				var state, memory []byte
+				var direction *string
+				if err = rows.Scan(&version, &narration, &state, &memory, &direction); err != nil {
 					return nil, err
 				}
-				turns = append(turns, map[string]any{"version": version, "narration": narration, "state": json.RawMessage(state)})
+				turns = append(turns, map[string]any{"version": version, "narration": narration, "state": json.RawMessage(state), "memory": json.RawMessage(memory), "direction": direction})
 			}
 			return turns, rows.Err()
 		}

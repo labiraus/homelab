@@ -44,3 +44,5 @@ If a lesson applies only to one app, add a more specific `AGENTS.md` under that 
 - A successful source or artifact publication is not evidence of cluster readiness.
 - AI proposal candidates must retain their generation `baseRevision` when persisted; never replace it with a newly fetched revision to avoid a conflict. Rebase explicitly and obtain fresh review.
 - Manual editor staging must also retain the displayed revision and original before-state. Refreshing canon must not silently change a draft's base revision. Reconciliation creates a fresh draft with explicit conflict choices and independent approval.
+
+- Generated story candidates must retain their inspected sessionVersion when saved; do not substitute a refreshed session version. Definitions and narrative premises retain their original revision/timeline pin. Compare persisted JSONB semantically in tests, since PostgreSQL may reorder object keys without changing content.

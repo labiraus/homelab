@@ -1,6 +1,6 @@
 # external
 
-External now contains the default-disabled Worldbuilder canon engine, authorised wiki/history, proposal/review/publication, bounded reasoning proxy and persistent story APIs under `/api/worlds`. See [API contract](../../docs/worldbuilder/API.md). `WORLDBUILDER_ENABLED=true` requires schema version 3 and a dedicated `worldbuilder_external` login supplied through `WORLDBUILDER_DATABASE_URL`. Startup never migrates. Existing document and assistant routes below remain compatible.
+External now contains the default-disabled Worldbuilder canon engine, authorised wiki/history, proposal/review/publication, bounded reasoning proxy and persistent story APIs under `/api/worlds`. See [API contract](../../docs/worldbuilder/API.md). `WORLDBUILDER_ENABLED=true` requires schema version 4 and a dedicated `worldbuilder_external` login supplied through `WORLDBUILDER_DATABASE_URL`. Startup never migrates. Existing document and assistant routes below remain compatible.
 
 Revision lists/diffs, proposal and story reconciliation, and compensating restore are available through the same authenticated API. Reconciliation compares original/current/proposed records, requires explicit conflict decisions and creates a freshly validated draft; it never transfers approval or changes a session pin. Audit records preserve lineage and exact retry requests. The current runtime requires the additive version-2 migration. Canon lists also accept a validated comma-separated `kind` filter before pagination, allowing complete editor reference catalogs without widening world/timeline/revision scope.
 
@@ -132,4 +132,6 @@ Scoped `/api/worlds/{world}/search` reconciles OpenSearch candidate IDs against 
 
 Optional MCP delegation uses only `/api/worldbuilder-tools` with signed, expiring, exact-request identity assertions and active-identity/membership checks. Reads and validated draft proposals are the entire allowlist; human routes remain separately mesh-restricted. Configure only after the [LAN gates](../../docs/worldbuilder/LAN-RUNBOOK.md).
 
-AI activation additionally requires schema-v3 inference reservations and explicit `worldbuilder.aiBudget` settings. Daily UTC request/concurrency/allocated-allowance limits are per actor across replicas/worlds, persist across failures/restarts, and use a separate small database pool. See [budget/provenance contracts](../../docs/worldbuilder/API.md); no provider tariff is assumed.
+AI activation additionally requires migration-003 inference reservations and explicit `worldbuilder.aiBudget` settings. Daily UTC request/concurrency/allocated-allowance limits are per actor across replicas/worlds, persist across failures/restarts, and use a separate small database pool. See [budget/provenance contracts](../../docs/worldbuilder/API.md); no provider tariff is assumed.
+
+Schema 4 adds owner-private immutable story definitions and atomic turn memory/choices. Story generation checks expected session version before spending allowance and returns that version for later human save. Narrative generation returns prose only; see the API contract.
