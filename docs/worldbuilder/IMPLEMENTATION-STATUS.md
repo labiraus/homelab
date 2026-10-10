@@ -66,7 +66,7 @@ This is a tested incremental slice across M1–M7, **not completion of every acc
 
 ## Verification log — 2026-10-10
 
-Local tools: Go 1.27.2, Node 24.21.0, Helm 4.3.0. CI keeps declared Go 1.25.6; its actual run is separately observed after push. All PostgreSQL/NATS/OpenSearch writes below targeted newly created disposable Docker services, never the homelab cluster. Go integration tests normally skip without explicit disposable DSNs; the database harness runs them with real PostgreSQL.
+Local tools: Go 1.27.2, Node 24.21.0, Helm 4.3.0. CI keeps declared Go 1.25.6; all five application CI test gates, including the external PostgreSQL integration harness, have passed on their configured runners. All PostgreSQL/NATS/OpenSearch writes below targeted newly created disposable Docker services, never the homelab cluster. Go integration tests normally skip without explicit disposable DSNs; the database harness runs them with real PostgreSQL.
 
 Use `GOCACHE=/tmp/worldbuilder-go-cache GOMODCACHE=/tmp/worldbuilder-go-mod GOPATH=/tmp/worldbuilder-gopath` in the restricted workspace.
 
@@ -116,6 +116,17 @@ Local artifacts: `/tmp/worldbuilder-postgres-final.log`, `/tmp/worldbuilder-post
 
 Source commit `422f3c3` was pushed to `main`; all five app pipelines and Helm discovery started. Processor CI `38061475297` completed successfully and published through the existing artifact pipeline. Helm discovery `38061475275` succeeded; separate Helm app publishing was correctly skipped because changed app source already triggers the paired image/chart pipelines.
 
-External CI `38061475231` passed Go unit tests but its database step failed with exit 126: the script was stored as mode 100644 despite local executable access on the Windows-backed workspace. The `needs: test` gate prevented external publication. Corrective commit sets tracked executable mode and explicit Bash invocation; follow-up results will be recorded after observation. Other app CI results remain in progress at this checkpoint.
+External CI `38061475231` passed Go unit tests but its database step failed with exit 126: the script was stored as mode 100644 despite local executable access on the Windows-backed workspace. The `needs: test` gate prevented external publication. Corrective commit `0219456` sets tracked executable mode and explicit Bash invocation. Follow-up [external run 38061652923](https://github.com/labiraus/homelab/actions/runs/38061652923) completed successfully: Go/unit tests, disposable PostgreSQL migration/integrity/recovery checks, image build/signing/push and paired Helm chart publication all passed.
+
+All five application delivery pipelines are now successful. External published from corrective commit `0219456`; the four unchanged applications published from source commit `422f3c3`:
+
+- [Processor 38061475297](https://github.com/labiraus/homelab/actions/runs/38061475297)
+- [UI 38061475254](https://github.com/labiraus/homelab/actions/runs/38061475254)
+- [Orchestrator 38061475364](https://github.com/labiraus/homelab/actions/runs/38061475364)
+- [MCP 38061475285](https://github.com/labiraus/homelab/actions/runs/38061475285)
+
+The repository has `core.filemode=false`; Git executable mode is now explicit. No disposable Worldbuilder containers remain.
 
 Feature activation remains off by default. No live cluster deployment/ready state has been observed.
+
+Final delivery checkpoint: both source and CI correction commits are on origin/main. This documentation-only handover update does not trigger app/chart publication. Working-tree cleanliness is checked after its commit. No cluster context was contacted; actual Flux reconciliation, pod readiness and Worldbuilder activation remain **BLOCKED_CLUSTER_ACCESS**.

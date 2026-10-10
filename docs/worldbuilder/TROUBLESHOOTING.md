@@ -22,3 +22,5 @@ Use [implementation status](IMPLEMENTATION-STATUS.md) for exact check results an
 The final database repeat succeeded on explicit port 25434 after adding bounded TCP readiness retries across localhost and host.docker.internal. Container socket readiness alone can precede final TCP/host forwarding readiness; the harness now checks the actual connection before starting Go tests.
 
 - First main external CI (`38061475231`) passed unit tests but failed the disposable database script at exit 126. The Windows-backed workspace allowed local execution while Git had stored the new shell script as mode `100644`. Corrected tracked mode to `100755`, explicitly invoked Bash in CI, and added the rule to root AGENTS.md. External artifact publication was blocked by its test dependency; processor publication succeeded independently.
+
+The corrective external run `38061652923` completed successfully, including PostgreSQL checks and image/chart publication. All five application pipelines now pass; the executable-mode failure is resolved, not an outstanding deployment blocker.

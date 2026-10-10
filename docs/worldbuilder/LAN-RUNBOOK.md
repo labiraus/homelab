@@ -83,7 +83,7 @@ orchestrator:
       rebuildOnStart: false
 ```
 
-Review the rendered diff before publishing. First activate external only and prove world creation, owner membership, editor draft, independent review, atomic publication, history and cross-world denial. Verify the mesh DENY policy blocks processor/MCP direct world calls and spoofed headers; observe proxy sanitisation. Then activate relay/indexing and verify no pending backlog, durable retries, consumer acknowledgement, duplicate/out-of-order event handling and fresh-index rebuilding. Keep PostgreSQL canonical.
+Review the rendered diff before publishing. First ensure at least two recognised authenticated identities exist through the approved `auth.users` operator workflow; world membership alone does not register a login identity. Activate external only and prove world creation, owner membership, editor draft, independent review, atomic publication, history and cross-world denial. Verify the mesh DENY policy blocks processor/MCP direct world calls and spoofed headers; observe proxy sanitisation. Then activate relay/indexing and verify no pending backlog, durable retries, consumer acknowledgement, duplicate/out-of-order event handling and fresh-index rebuilding. Keep PostgreSQL canonical.
 
 Publish each approved configuration stage through the existing pipeline, not ad hoc Helm upgrades. Once LAN validation and the stage's approval are recorded:
 
