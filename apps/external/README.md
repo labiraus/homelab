@@ -139,3 +139,5 @@ Schema 4 adds owner-private immutable story definitions and atomic turn memory/c
 Durable creative jobs use schema 5 and `WORLDBUILDER_JOBS_ENABLED=false` by default. Enabling requires configured reasoning/budget plus dedicated `WORLDBUILDER_JOB_TOKEN`; the fixed worker endpoint reloads private human intent and checks current access. Job lists/details/cancellation live under each world's `/generations`; queued output remains a candidate. See the [durable API contract](../../docs/worldbuilder/API.md#durable-creative-generations-schema-5).
 
 Consistency checks now run deterministic validation first and optionally bind a proposal via `changeId`. Structured evidence-backed findings are advisory and audited with model provenance; they never change review status. Stale proposal checks fail before allocating inference.
+
+Worldbuilder endpoints emit fixed request/outcome labels in existing external Prometheus metrics. The [operator guide](../../docs/worldbuilder/OBSERVABILITY.md) includes a Grafana source dashboard and privacy-preserving read-only PostgreSQL diagnostics; private IDs and narrative text never become metric labels.

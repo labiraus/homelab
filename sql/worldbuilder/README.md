@@ -23,3 +23,5 @@ See [API and invariants](../../docs/worldbuilder/API.md) and [controlled LAN ste
 If published ports remain unreachable, `WORLDBUILDER_TEST_TRANSPORT=exec bash scripts/worldbuilder/test-postgres.sh` uses a local loopback socat bridge through Docker exec into the disposable container. The harness also attempts this fallback automatically after TCP preflight fails when socat is installed. The relay and container are removed on exit; no database or cluster credential files are loaded.
 
 Current enabled binaries require v5; older v1/v2/v3/v4 binaries fail their startup version check against v5. Production rollback disables the feature and retains every populated table, including unresolved inference reservations. Ledger runtime grants permit insert/read and completion fields only, not allocation/identity/time rewrites or deletion.
+
+`ops_dashboard_queries.pgsql` is an operator-only read-only aggregate diagnostic script, tested against disposable data by the migration harness. It reports backlogs, job/lease states, allowance and governance counts without prompts, narrative output, emails or world names. See [observability](../../docs/worldbuilder/OBSERVABILITY.md).

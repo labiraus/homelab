@@ -69,7 +69,7 @@ func registerWorldbuilder(ctx context.Context, mux *http.ServeMux) error {
 		if len(key) < 32 {
 			return fmt.Errorf("Worldbuilder MCP requires a dedicated delegation key of at least 32 bytes")
 		}
-		mux.Handle(worldbuilder.ToolsPath, worldbuilder.ToolsHandler(store, key, validateIdentityEmail))
+		mux.Handle(worldbuilder.ToolsPath, observeWorldbuilder("worldbuilder_tools", worldbuilder.ToolsHandler(store, key, validateIdentityEmail)))
 	}
 	if strings.EqualFold(os.Getenv("WORLDBUILDER_JOBS_ENABLED"), "true") {
 		token := os.Getenv("WORLDBUILDER_JOB_TOKEN")
@@ -77,12 +77,13 @@ func registerWorldbuilder(ctx context.Context, mux *http.ServeMux) error {
 			return fmt.Errorf("durable generation requires its dedicated worker token and configured inference budget")
 		}
 		store.JobsEnabled = true
-		mux.Handle(worldbuilder.GenerationRunPath, worldbuilder.GenerationHandler(store, token, validateIdentityEmail))
+		mux.Handle(worldbuilder.GenerationRunPath, observeWorldbuilder("worldbuilder_worker", worldbuilder.GenerationHandler(store, token, validateIdentityEmail)))
 	}
 	handler := worldbuilder.Handler(store, func(r *http.Request) (string, bool) {
 		s, ok := api.AuthStatusFromContext(r.Context())
 		return s.Email, ok && s.Valid
 	})
+	handler = observeWorldbuilder("worldbuilder", handler)
 	mux.Handle("/api/worlds", handler)
 	mux.Handle("/api/worlds/", handler)
 	return nil

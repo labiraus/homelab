@@ -126,6 +126,7 @@ if sql < "$repo_dir/sql/worldbuilder/002_down.sql" >/dev/null 2>&1; then echo 'F
 if sql < "$repo_dir/sql/worldbuilder/003_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated inference down migration succeeded'; exit 1; fi
 if sql < "$repo_dir/sql/worldbuilder/004_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated story-definition down migration succeeded'; exit 1; fi
 if sql < "$repo_dir/sql/worldbuilder/005_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated generation down migration succeeded'; exit 1; fi
+sql < "$repo_dir/sql/worldbuilder/ops_dashboard_queries.pgsql"
 docker exec "$container_name" createdb -U postgres worldbuilder_restore
 docker exec "$container_name" pg_dump -U postgres -d worldbuilder_test -Fc -f /tmp/worldbuilder.dump
 docker exec "$container_name" pg_restore -U postgres -d worldbuilder_restore --exit-on-error /tmp/worldbuilder.dump

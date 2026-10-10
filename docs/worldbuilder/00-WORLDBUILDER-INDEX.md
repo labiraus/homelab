@@ -35,3 +35,5 @@ The existing codebase and deployed manifests are evidence of the **current state
 - [Troubleshooting](TROUBLESHOOTING.md)
 - [API/event contracts](API.md)
 - [Concrete LAN runbook](LAN-RUNBOOK.md)
+
+- [Operational metrics, dashboard and read-only recovery diagnostics](OBSERVABILITY.md).
