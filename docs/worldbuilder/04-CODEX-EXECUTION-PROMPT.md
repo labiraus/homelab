@@ -1,6 +1,6 @@
 # Codex execution prompt — Worldbuilder AI pivot
 
-Copy the text below into Codex while at the root of the existing Evolve checkout (with the infrastructure repository available as normal). This file is an execution instruction; no blanket permission for cluster deployment is implied.
+Use this instruction from the audited homelab monorepo root. The initial audit and remote implementation are recorded in [implementation status](IMPLEMENTATION-STATUS.md); read that evidence before repeating completed work. No blanket permission for direct cluster mutation or feature activation is implied.
 
 ---
 
@@ -8,7 +8,7 @@ You are the lead engineer carrying out an incremental architectural pivot of the
 
 ## Operating conditions and hard safety rules
 
-I am currently working remotely and have no cluster network access. You may build, refactor, test and render manifests locally, but **must not attempt cluster mutations or live deployments**. Do not run `kubectl apply`, `helm upgrade`, `flux reconcile`, destructive Terraform, or database/volume destruction. Do not push/merge into any GitOps branch that automatically applies to the cluster. Work on a feature branch or unmerged PR if the repo workflow supports this; first verify the GitOps branch/source behaviour. Cluster validation and rollout will occur separately when LAN access returns tomorrow. Never mark a deployment successful without live observations. Do not assume secrets, context, storage configuration or registry availability. Ask for intervention only for genuine hard blockers; otherwise continue with safe local implementation and record limitations.
+I am currently working remotely and have no cluster network access. You may build, refactor, test and render manifests locally, but **must not attempt cluster mutations or live deployments**. Do not run `kubectl apply`, `helm upgrade`, `flux reconcile`, destructive Terraform, or database/volume destruction. For this execution, the user explicitly superseded the initial no-push rule: work on `main` and publish tested source so the existing CI/GitOps pipeline picks it up, keeping Worldbuilder activation flags disabled. Verify the recorded branch/source behaviour; `dev` is not an isolated deployment environment. Direct cluster validation, production migrations/secrets and feature activation occur separately when LAN access returns. Never mark a deployment successful without live observations. Do not assume secrets, context, storage configuration or registry availability. Ask for intervention only for genuine hard blockers; otherwise continue with safe local implementation and record limitations.
 
 ## First pass — inspect and reconcile (mandatory before implementation)
 

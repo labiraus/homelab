@@ -31,7 +31,7 @@ You currently have no access to the Kubernetes cluster. Work now must be **offli
 | Secret references, env vars, ports, storage claims, probes | Checked against existing values and policies |
 | Database backup/restore plan | Named steps and responsible storage location, **not yet tested on cluster** |
 | Rollback checklist | Compatible versions, database recovery and GitOps revert path |
-| GitOps auto-sync safety | Confirm that feature branch/PR will not roll to live workloads |
+| GitOps auto-sync safety | Tested main publication is authorised for this execution; confirm default-off flags and distinguish published artifacts from observed readiness |
 
 Document actual status as `LOCAL_VERIFIED`, `NOT_RUN`, `BLOCKED_CLUSTER_ACCESS`, or `FAILED`. No `DEPLOYED` status for offline work.
 

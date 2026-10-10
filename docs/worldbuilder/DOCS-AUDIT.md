@@ -19,9 +19,9 @@ Disposition describes intended reconciliation; implementation status records che
 | `docs/RetentionAndRecovery.md` | Active product/platform guidance | update | Worldbuilder scope and verified implementation; [architecture](01-WORLDBUILDER-ARCHITECTURE.md), [status](IMPLEMENTATION-STATUS.md); prior plan preserved in archive |
 | `runbooks/troubleshooting.md` | Active product/platform guidance | update | Worldbuilder scope and verified implementation; [architecture](01-WORLDBUILDER-ARCHITECTURE.md), [status](IMPLEMENTATION-STATUS.md); prior plan preserved in archive |
 | `apps/mcp/AGENTS.md` | Platform or retained document capability | retain | Accurate capability/operations guidance remains; no claim of Worldbuilder deployment |
-| `apps/mcp/README.md` | Platform or retained document capability | retain | Accurate capability/operations guidance remains; no claim of Worldbuilder deployment |
-| `helm/AGENTS.md` | Platform or retained document capability | retain | Accurate capability/operations guidance remains; no claim of Worldbuilder deployment |
-| `sql/AGENTS.md` | Platform or retained document capability | retain | Accurate capability/operations guidance remains; no claim of Worldbuilder deployment |
+| `apps/mcp/README.md` | Platform or retained document capability | update | Active integration/evaluation/schema guidance reconciled; see [status](IMPLEMENTATION-STATUS.md); no claim of Worldbuilder deployment |
+| `helm/AGENTS.md` | Platform or retained document capability | update | Active integration/evaluation/schema guidance reconciled; see [status](IMPLEMENTATION-STATUS.md); no claim of Worldbuilder deployment |
+| `sql/AGENTS.md` | Platform or retained document capability | update | Active integration/evaluation/schema guidance reconciled; see [status](IMPLEMENTATION-STATUS.md); no claim of Worldbuilder deployment |
 | `docs/Auth.md` | Platform or retained document capability | retain | Accurate capability/operations guidance remains; no claim of Worldbuilder deployment |
 | `docs/OAuth2ProxyGoogle.md` | Platform or retained document capability | retain | Accurate capability/operations guidance remains; no claim of Worldbuilder deployment |
 | `docs/GoogleOIDCSetup.md` | Platform or retained document capability | retain | Accurate capability/operations guidance remains; no claim of Worldbuilder deployment |
@@ -30,7 +30,7 @@ Disposition describes intended reconciliation; implementation status records che
 | `docs/EnvoyAIGateway.md` | Platform or retained document capability | retain | Accurate capability/operations guidance remains; no claim of Worldbuilder deployment |
 | `docs/MCPPrompts.md` | Platform or retained document capability | retain | Accurate capability/operations guidance remains; no claim of Worldbuilder deployment |
 | `docs/FileTypeExpansion.md` | Platform or retained document capability | retain | Accurate capability/operations guidance remains; no claim of Worldbuilder deployment |
-| `evals/ragas/README.md` | Platform or retained document capability | retain | Accurate capability/operations guidance remains; no claim of Worldbuilder deployment |
+| `evals/ragas/README.md` | Platform or retained document capability | update | Active integration/evaluation/schema guidance reconciled; see [status](IMPLEMENTATION-STATUS.md); no claim of Worldbuilder deployment |
 | `docs/StorageBootstrap.md` | Platform or retained document capability | retain | Accurate capability/operations guidance remains; no claim of Worldbuilder deployment |
 | `docs/WorkerRedeploy.md` | Platform or retained document capability | retain | Accurate capability/operations guidance remains; no claim of Worldbuilder deployment |
 | `docs/NodeClassification.md` | Platform or retained document capability | retain | Accurate capability/operations guidance remains; no claim of Worldbuilder deployment |
@@ -76,3 +76,5 @@ Increment 11 updates active SQL/runtime contracts to schema 5, app READMEs and A
 Increment 13: `evals/ragas/README.md`, `docs/RAG.md` and the Make target are updated from implicit CNPG/pgvector evaluation to authenticated external search by default. Legacy comparison code is retained explicitly; no source data is deleted. `evals/worldbuilder/README.md` documents synthetic canon fixtures and separate LAN semantic evaluation. Evaluation adapter CI is read-only and does not publish infrastructure.
 
 Increment 15 adds reproducible Chromium/API/database acceptance, bounded domain load and complete custom-resource schema coverage to `OFFLINE-ACCEPTANCE.md`; app and Helm guidance record actual fixture/dependency/schema lessons. The API documents scoped connection traversal. The acceptance matrix now separates completed remote requirements from actual LAN identity/provider/admission/load/cutover gates, optional visualisation and upstream dependency follow-ups.
+
+Final handover reconciles the execution prompt and remote checklist with the explicit main-branch publication override; direct cluster mutation/activation restrictions remain. Original wording is preserved in Git history.
