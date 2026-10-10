@@ -72,3 +72,5 @@ Schema-v3 budget/provenance contracts supersede v2 startup instructions in the a
 Schema-v4 private definitions/memory replace the initial title-only story guidance in the API, app READMEs, acceptance matrix, SQL guidance and LAN runbook. Existing story pins and immutable narration remain preserved.
 
 Increment 11 updates active SQL/runtime contracts to schema 5, app READMEs and API with private checkpointed jobs, and the LAN/troubleshooting runbooks with separate worker activation and uncertain-work recovery. Historical increment counts/schema observations remain historical. The acceptance matrix and repository plan track durable jobs as locally verified while retaining LAN quorum/security/provider gates.
+
+Increment 13: `evals/ragas/README.md`, `docs/RAG.md` and the Make target are updated from implicit CNPG/pgvector evaluation to authenticated external search by default. Legacy comparison code is retained explicitly; no source data is deleted. `evals/worldbuilder/README.md` documents synthetic canon fixtures and separate LAN semantic evaluation. Evaluation adapter CI is read-only and does not publish infrastructure.

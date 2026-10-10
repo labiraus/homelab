@@ -1,0 +1,22 @@
+name: Worldbuilder Evaluation Adapters
+on:
+  push:
+    paths:
+      - 'evals/**'
+      - '.github/workflows/worldbuilder-evaluation.yml'
+  pull_request:
+    paths:
+      - 'evals/**'
+      - '.github/workflows/worldbuilder-evaluation.yml'
+permissions:
+  contents: read
+jobs:
+  adapters:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.1.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m unittest discover -s evals/ragas -p 'test_*.py'
+      - run: python3 -m py_compile evals/ragas/chunking_eval.py evals/ragas/search_api.py

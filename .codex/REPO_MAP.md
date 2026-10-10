@@ -173,7 +173,7 @@ Current behavior note:
 - `external` and `mcp` expose durable document lifecycle history from `rag.document_lifecycle_events`.
 - `processor` stores conversations, per-user memories, tool calls, file proposals, and audit views in Postgres.
 - `rag.document_change_audits` links create/edit/revert operations to actor email, conversation ID, proposal ID, MinIO version markers, and processing versions.
-- `evals/ragas` is a migration gap until updated from legacy Postgres chunk reads to OpenSearch neural search.
+- `evals/ragas` defaults to authenticated external document search, preserving OpenSearch retrieval and citations; legacy PostgreSQL comparison is explicit. `evals/worldbuilder` documents synthetic processor fixtures and separate LAN quality evaluation.
 - `runbooks/troubleshooting.md` captures the current day-two checks for stuck document lifecycle states, NATS/KEDA lag, vLLM startup, assistant proposals, retention, and backup/recovery rehearsal.
 - `mcp` publishes prompt guidance for live document inventory, retrieval, curation, editing, reprocessing, history, notification, and MinIO browsing workflows.
 - `mcp` advertises strict top-level tool input schemas and validates prompt arguments plus advertised tool argument names, required fields, and primitive/object types before execution while leaving unknown nested payload fields to the owning service contract.

@@ -67,7 +67,7 @@ Worldbuilder milestone work follows the [migration](worldbuilder/02-WORLDBUILDER
 ## Chunking Evaluation
 
 Use `evals/ragas` to score whether the current processed chunks retrieve the right gold context for representative queries.
-The harness is currently a migration gap: it still reads the legacy Postgres `rag.chunks` and `rag.embeddings` rows. Before using it as a gate for the OpenSearch-native path, update it to query OpenSearch with the same neural search pipeline used by `external` and `mcp`.
+The default harness calls authenticated external document search, exercising the deployed OpenSearch retrieval/citation path. Legacy PostgreSQL embeddings require an explicit comparison backend; they do not validate current retrieval.
 Reports include citation-confidence fields for every retrieved chunk: source URI, object key, content type, chunk index, processing version, document metadata, chunk metadata, and the rendered citation label fields used by the UI and MCP surfaces.
 
 Setup:
@@ -82,7 +82,7 @@ cp evals/ragas/chunking_cases.example.jsonl evals/ragas/chunking_cases.jsonl
 Replace the example case with real JSONL rows. Each row should include a `query` plus `reference_context_ids`, `reference_contexts`, or both. Stable reference IDs use the citation format returned by search: `s3://documents/path/to/source.md#chunk-0`. Optional `prefix`, `documentId`, `metadata`, and `limit` fields use the same meaning as `documents.search`.
 The local `chunking_cases.jsonl` file is ignored because gold cases can include private source excerpts.
 
-Run it through the repo target, which reads the cluster Postgres credentials and opens a temporary port-forward:
+Run it through the repo target with an approved session supplied privately as `RAGAS_API_COOKIE` or `RAGAS_API_AUTHORIZATION`, and the observed external HTTPS root in `RAGAS_API_URL`. It does not fetch cluster credentials or open port-forwards:
 
 ```bash
 make ragas-chunking-eval RAGAS_ARGS="--min-id-recall 0.8 --min-context-recall 0.8"

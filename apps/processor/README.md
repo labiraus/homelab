@@ -39,3 +39,5 @@ Worldbuilder correlation IDs supplied by external are forwarded to Envoy as `X-R
 Durable generation checkpoints carry bounded previous provisional prose and part metadata through the same authenticated reasoning endpoint. Continuation text is untrusted context and cannot supply citations or publication authority. External owns private jobs, allowances and checkpoint persistence; processor remains a bounded per-part inference worker.
 
 `consistency_check` may return bounded findings with severity, uncertainty and published citations. Proposal operations are separate untrusted review context. Strict response validation rejects unknown fields, forged citations and approval authority; external repeats evidence checks and owns deterministic validation.
+
+Eight synthetic Worldbuilder evaluation cases run in `npm test` from `test/fixtures/worldbuilder-evaluation.json`; they exercise actual validator boundaries with scripted model output. [Evaluation guidance](../../evals/worldbuilder/README.md) separates these checks from live semantic quality and billing acceptance.

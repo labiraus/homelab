@@ -99,3 +99,7 @@ Use existing external/orchestrator/PostgreSQL/JetStream surfaces; no new service
 ## D020 — separate deterministic governance from semantic advice
 
 Consistency runs complete deterministic validation before inference allocation. Proposal checks reuse publication/submission invariants and reject stale bases before spending allowance. Model findings carry explicit bounded severity, uncertainty and published evidence; draft operations are segregated from canonical citations. Preserve findings with existing immutable AI audit metadata, without a schema migration or a new approval state. Keep the existing fixed independent-human review policy visible; configurable quorum is a future extension, not required for safe initial governance.
+
+## D021 — evaluate the authoritative retrieval boundary
+
+Default document evaluation calls authenticated external search rather than reimplementing OpenSearch queries or treating legacy pgvector rows as current retrieval. Keep the historical backend explicitly opt-in, remove automatic cluster-secret/port-forward handling from the Make target, and refuse redirects/session-header forwarding. Synthetic Worldbuilder fixtures test validator boundaries and realistic ambiguity but are not a provider-quality benchmark. Private LAN gold cases must record observed model/cost/evidence scope and human semantic scores separately.
