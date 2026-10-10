@@ -4,6 +4,8 @@
 
 ## 1. Read-only discovery when LAN access returns
 
+The [2026-10-10 public probe](PUBLIC-VALIDATION.md) was blocked by Zscaler with a certificate hostname mismatch. Validate normal public HTTPS, DNS/NAT routing and the installed Gateway certificate before using public application credentials; the probe did not establish application or cluster health.
+
 Run these in order, record the context and results in IMPLEMENTATION-STATUS.md, and stop on unexpected identity/environment. Commands below do not alter cluster resources.
 
 ```bash

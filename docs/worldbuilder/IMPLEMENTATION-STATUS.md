@@ -2,6 +2,8 @@
 
 Execution started 2026-10-10. **Required remote implementation and feasible offline acceptance completed through increment 15; tested main-branch publication authorised; no live cluster observations. Deployment activation and M8 cutover remain LAN-gated.**
 
+Public read-only probing on 2026-10-10 reached DNS/TLS but was blocked by Zscaler with a hostname-mismatched certificate and HTTP 403 diagnostic page. No verified application response or cluster state was obtained; see [public validation evidence and remaining checks](PUBLIC-VALIDATION.md).
+
 ## Verified inventory (M0)
 
 Only `/workspaces/homelab` is available; no separate `engine`/`infra` checkout is present. This monorepo contains both application and infrastructure code. No Cassandra client, schema, credentials or chart was found by case-insensitive source search outside the target docs. This is not evidence of absence from the live estate. No BFF, OpenAPI generator or application Kustomize overlays were found.

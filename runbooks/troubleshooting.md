@@ -4,6 +4,10 @@ This runbook is for day-two document-platform and assistant operations.
 
 Postgres-backed state is authoritative. NATS, SSE, and MCP notifications are delivery paths; do not treat notification absence as proof that the durable state is missing.
 
+## Public HTTPS fails before application authentication
+
+On 2026-10-10, `mcp.labiraus.com` resolved but the development network presented a Zscaler-issued certificate for unrelated `bprj.co.uk` names. Anonymous diagnostic responses were Zscaler HTTP 403 pages reporting “Access denied due to bad server certificate”. This is not an application authorization result. Do not disable certificate verification for normal use or send credentials through the failing connection. Have the network administrator investigate; on the approved LAN, compare DNS/NAT forwarding, Gateway certificate/listener readiness and HTTPRoute attachment read-only. Interception prevents concluding whether the origin certificate is also wrong. See [public validation evidence](../docs/worldbuilder/PUBLIC-VALIDATION.md).
+
 ## Document Processing Failures
 
 Start with inventory and lifecycle history:
