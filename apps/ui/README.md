@@ -90,3 +90,5 @@ The generated `dist/` output is local build artifact only. It should not be comm
 The production image is built from `apps/ui/dockerfile`. It builds the Vite app with Node and serves the output with Nginx.
 
 `WorldAdministration.jsx` lists members and provides reasoned, version-checked owner actions for membership, transfer and archive/reopen. Names/default timelines/settings use the structured canonical record editor and independent publication review. Archived worlds retain readable canon and story history. Newly opened worlds use the published default timeline.
+
+Dependency versions and security checks are recorded in [Worldbuilder dependency validation](../../docs/worldbuilder/DEPENDENCIES.md). CI runs build/tests and rejects high/critical npm advisories before publishing.

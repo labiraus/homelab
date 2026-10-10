@@ -59,6 +59,10 @@ jobs:
         run: npm run build && npm test
         working-directory: apps/ui
 
+      - name: Check dependency advisories
+        run: npm audit --audit-level=high
+        working-directory: apps/ui
+
   ghcr:
     needs: test
     name: "UI Build to GHCR"

@@ -49,6 +49,10 @@ jobs:
         run: npm run build && npm test
         working-directory: apps/processor
 
+      - name: Check dependency advisories
+        run: npm audit --audit-level=high
+        working-directory: apps/processor
+
   ghcr:
     needs: test
     name: "Processor Build to GHCR"

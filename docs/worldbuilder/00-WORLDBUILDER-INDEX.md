@@ -30,6 +30,7 @@ The existing codebase and deployed manifests are evidence of the **current state
 - [Documentation audit](DOCS-AUDIT.md)
 - [Implementation status and tests](IMPLEMENTATION-STATUS.md)
 - [Requirement acceptance matrix and remaining work](ACCEPTANCE-MATRIX.md)
+- [Dependency validation](DEPENDENCIES.md)
 - [Decisions](DECISIONS.md)
 - [Troubleshooting](TROUBLESHOOTING.md)
 - [API/event contracts](API.md)

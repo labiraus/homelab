@@ -23,7 +23,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
 - `ansible/`
   - external service state management, including the Minecraft VM
 - `apps/ui/src/WorldRecordEditor.jsx` and `WorldHistory.jsx`/`WorldAdministration.jsx`: canon editing, history, reconciliation, owner lifecycle and recovery UI
-- `docs/worldbuilder/`: architecture, migration, audit, decisions, implementation status, acceptance matrix, API contract and LAN runbook
+- `docs/worldbuilder/`: architecture, migration, audit, decisions, implementation status, acceptance matrix, dependency validation, API contract and LAN runbook
 - `sql/worldbuilder/`: explicit schema-v1/v2 migrations, immutable identity registry and dedicated runtime grants
 - `scripts/worldbuilder/`: disposable database and offline manifest checks
 - `docs/`

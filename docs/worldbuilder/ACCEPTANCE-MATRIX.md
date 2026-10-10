@@ -25,7 +25,7 @@ This matrix tracks the architecture and M1–M8 independently of the implemented
 | M7 outcome reconciliation | Private session original/current/provisional comparison -> fresh validated draft -> ordinary review/publish | LOCAL_VERIFIED including advanced canon, session-version guard, exact retries after later turns and preserved pin |
 | M7 visualisation | Wiki links | Optional graph/chronology views remain offline enhancements; no new authoritative store |
 | M8 recovery and cutover | Disposable pg_dump/restore, OpenSearch rebuild and concrete LAN runbook | LOCAL_VERIFIED initial recovery; operator recovery dashboards/fixtures and full custom-resource validation remain offline work; actual storage/security/cutover BLOCKED_CLUSTER_ACCESS |
-| M8 dependency and retained tool cleanup | Existing npm advisories and old RAGAS pgvector harness documented | TODO_OFFLINE: assess supported dependency fixes and align or retire obsolete evaluation paths without deleting source data |
+| M8 dependency and retained tool cleanup | Existing npm advisories and old RAGAS pgvector harness documented | PARTIAL: UI audit is clear; processor retains four moderate MinIO transitive findings with no compatible automatic fix; obsolete evaluation paths still need alignment without deleting source data |
 | M8 Cassandra inventory/decommission | No local resources found; export/checksum/restore plan in runbook | BLOCKED_CLUSTER_ACCESS; destructive removal requires separate operator approval even after inventory |
 | Delivery and deployment | Main-branch source publication authorised; CI gates images/charts | Initial slice CI green; increment publication evidence tracked in status; flags remain off; no live readiness observed |
 

@@ -64,7 +64,7 @@ This is a tested incremental slice across M1–M7, **not completion of every acc
 - `scripts/worldbuilder/`: reproducible local database, chart and Flux schema checks.
 - README, agent guidance, app READMEs, RAG diagram, setup/recovery docs and `.codex` plan/map reconciled; old plan archived. See DOCS-AUDIT.md.
 
-## Verification log — 2026-10-10
+## Initial-slice verification log — 2026-10-10
 
 Local tools: Go 1.27.2, Node 24.21.0, Helm 4.3.0. CI keeps declared Go 1.25.6; all five application CI test gates, including the external PostgreSQL integration harness, have passed on their configured runners. All PostgreSQL/NATS/OpenSearch writes below targeted newly created disposable Docker services, never the homelab cluster. Go integration tests normally skip without explicit disposable DSNs; the database harness runs them with real PostgreSQL.
 
@@ -110,9 +110,9 @@ Local artifacts: `/tmp/worldbuilder-postgres-final.log`, `/tmp/worldbuilder-post
 
 **NOT_RUN**: browser automation against real oauth2-proxy, real-model adversarial/grounding evaluation, full non-Flux CRD schema validation, production-scale load/latency/cost tests. Initial UI and context caps, per-world serialisation and snapshot rewrites are documented in [API.md](API.md).
 
-**Known retained gaps**: npm advisories (processor 7; UI 13), legacy RAGAS harness still reads old pgvector rows, unfinished `scripts/pg-update.sh` remains unused, no Cassandra estate inventory outside this checkout. No dependency upgrades or destructive data cleanups are hidden in this migration.
+**Known retained gaps**: npm advisories (latest check: processor 4 moderate; UI 0; see [dependency validation](DEPENDENCIES.md)), legacy RAGAS harness still reads old pgvector rows, unfinished `scripts/pg-update.sh` remains unused, no Cassandra estate inventory outside this checkout. Dependency upgrades are explicitly recorded below; no destructive data cleanup was performed.
 
-## Publication record
+## Initial-slice publication record
 
 Source commit `422f3c3` was pushed to `main`; all five app pipelines and Helm discovery started. Processor CI `38061475297` completed successfully and published through the existing artifact pipeline. Helm discovery `38061475275` succeeded; separate Helm app publishing was correctly skipped because changed app source already triggers the paired image/chart pipelines.
 
@@ -129,7 +129,7 @@ The repository has `core.filemode=false`; Git executable mode is now explicit. N
 
 Feature activation remains off by default. No live cluster deployment/ready state has been observed.
 
-Final delivery checkpoint: both source and CI correction commits are on origin/main. This documentation-only handover update does not trigger app/chart publication. Working-tree cleanliness is checked after its commit. No cluster context was contacted; actual Flux reconciliation, pod readiness and Worldbuilder activation remain **BLOCKED_CLUSTER_ACCESS**.
+Initial-slice delivery checkpoint: both source and CI correction commits are on origin/main. This documentation-only handover update does not trigger app/chart publication. Working-tree cleanliness is checked after its commit. No cluster context was contacted; actual Flux reconciliation, pod readiness and Worldbuilder activation remain **BLOCKED_CLUSTER_ACCESS**.
 
 ## Increment 2 — history, reconciliation and compensation
 
@@ -167,3 +167,11 @@ UI adds owner administration, archived-state handling, default-timeline opening 
 LOCAL_VERIFIED (2026-10-10): `(cd apps/external && go test -race ./...)` with the documented cache variables passed; `(cd apps/ui && npm run build && npm test)` passed production build and 33 tests. `WORLDBUILDER_TEST_PORT=25434 GOPATH=/tmp/worldbuilder-gopath bash scripts/worldbuilder/test-postgres.sh` passed empty migration reruns/down/up, populated v1 upgrade with deleted identity recovery, refusal of conflicting historical identity, role isolation, settings publication, archive/revocation/transfer/retry/concurrent administration checks and existing canon/story/outbox suites. The pg_dump/restore checksum now covers all 12 canon/lifecycle/story tables, not only revision snapshots. Current log: `/tmp/worldbuilder-lifecycle-verified.log`; disposable services removed. `bash -n scripts/worldbuilder/test-postgres.sh` and `git diff --check` passed. No manifests changed; earlier render results remain applicable.
 
 Delivery observation: both [history external 38062683575](https://github.com/labiraus/homelab/actions/runs/38062683575) and [history UI 38062683593](https://github.com/labiraus/homelab/actions/runs/38062683593) succeeded for `4eea01b`. Both [editor external 38063044676](https://github.com/labiraus/homelab/actions/runs/38063044676) and [editor UI 38063044642](https://github.com/labiraus/homelab/actions/runs/38063044642) succeeded for `ea0ab1c`. No cluster readiness observation is implied.
+
+## Increment 5 — dependency remediation and publication gates
+
+Updated UI to Vite 7.3.7 / Vitest 4.1.11 and compatible lockfile fixes; retained processor MinIO 8 with compatible dependency updates. UI `npm run build && npm test` PASS (33 tests); processor same command PASS (30 tests). Final npm audit: UI zero; processor four moderate and zero high/critical. A forced SDK downgrade or incompatible ESM override was not applied. [Dependency validation](DEPENDENCIES.md) records commands, upstream advisory links and the remaining compatibility issue. Added high/critical audit gates to UI/processor CI after their build/tests, before publishing.
+
+Lifecycle source is published as `c20ac2d`; [UI run 38063580450](https://github.com/labiraus/homelab/actions/runs/38063580450) succeeded. [External lifecycle run 38063580318](https://github.com/labiraus/homelab/actions/runs/38063580318) also succeeded, including the schema-v2 disposable upgrade/integrity/recovery checks and image/chart publication.
+
+Increment-5 workflow checks: actionlint 1.7.7 passed for UI/processor workflows (shellcheck explicitly disabled); `npm audit --audit-level=high` passed in both apps; changed-document relative links and `git diff --check` passed.
