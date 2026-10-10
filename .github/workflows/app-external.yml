@@ -59,7 +59,7 @@ jobs:
         working-directory: apps/external
 
       - name: Worldbuilder PostgreSQL migration and integrity checks
-        run: scripts/worldbuilder/test-postgres.sh
+        run: bash scripts/worldbuilder/test-postgres.sh
 
   ghcr:
     needs: test

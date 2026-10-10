@@ -114,4 +114,8 @@ Local artifacts: `/tmp/worldbuilder-postgres-final.log`, `/tmp/worldbuilder-post
 
 ## Publication record
 
-Main-branch commit/push and resulting CI outcomes will be recorded here after they are observed. Feature activation remains off by default. Never read source publication as evidence of successful cluster deployment.
+Source commit `422f3c3` was pushed to `main`; all five app pipelines and Helm discovery started. Processor CI `38061475297` completed successfully and published through the existing artifact pipeline. Helm discovery `38061475275` succeeded; separate Helm app publishing was correctly skipped because changed app source already triggers the paired image/chart pipelines.
+
+External CI `38061475231` passed Go unit tests but its database step failed with exit 126: the script was stored as mode 100644 despite local executable access on the Windows-backed workspace. The `needs: test` gate prevented external publication. Corrective commit sets tracked executable mode and explicit Bash invocation; follow-up results will be recorded after observation. Other app CI results remain in progress at this checkpoint.
+
+Feature activation remains off by default. No live cluster deployment/ready state has been observed.
