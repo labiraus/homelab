@@ -51,6 +51,7 @@ MCP CI run `38082111065` passed tests and published the version-stamped image an
 | [Detailed public probe 38082334514](https://github.com/labiraus/homelab/actions/runs/38082334514) | Failed all ten attempts, 20:05:05–20:09:39 UTC: DNS `87.117.64.111`, stage `tls`, `SSLCertVerificationError`, verification code 62, hostname mismatch for `mcp.labiraus.com`. No HTTP response. |
 | [Post-publication probe 38082259713](https://github.com/labiraus/homelab/actions/runs/38082259713) | Failed all ten attempts, 20:05:22–20:09:54 UTC, with the same TLS hostname mismatch. Expected MCP version `0.0.0-uat.38082111065` was never observed. |
 | Earlier diagnostic push 38082111067 | Deliberately cancelled as superseded so the pending post-publication check could start. This was a CI cancellation, not a cluster operation. |
+| Documentation-only MCP run 38082754514 | Cancellation requested after the final `apps/mcp/AGENTS.md` documentation update matched the app workflow's broad path trigger. Runtime source was unchanged from the successfully published and probed image; no additional rebuild was needed. |
 
 Downloaded sanitized CI artifacts confirm these results. The revised checker's seven unit tests passed in hosted CI as well as locally. No application credentials were used by any probe. GitHub credentials were used only for authorized repository/CI operations, including reading diagnostic artifacts and cancelling the superseded check.
 
