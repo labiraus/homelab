@@ -14,12 +14,14 @@ import (
 type Store struct {
 	Pool     *pgxpool.Pool
 	Reasoner Reasoner
+	Discover Discover
 }
 type scope struct {
-	tx    pgx.Tx
-	world World
-	actor string
-	role  string
+	tx       pgx.Tx
+	world    World
+	actor    string
+	role     string
+	discover Discover
 }
 
 func (s *Store) inWorld(ctx context.Context, world, actor string, fn func(*scope) (any, error)) (any, error) {
@@ -31,7 +33,7 @@ func (s *Store) inWorld(ctx context.Context, world, actor string, fn func(*scope
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-	sc := &scope{tx: tx, actor: actor}
+	sc := &scope{tx: tx, actor: actor, discover: s.Discover}
 	// Serialise membership, publication and session changes within each world.
 	err = tx.QueryRow(ctx, `SELECT id::text,name,revision,default_timeline,archived,admin_version FROM worldbuilder.world WHERE id=$1 FOR UPDATE`, world).Scan(&sc.world.ID, &sc.world.Name, &sc.world.Revision, &sc.world.DefaultTimeline, &sc.world.Archived, &sc.world.AdminVersion)
 	if errors.Is(err, pgx.ErrNoRows) {

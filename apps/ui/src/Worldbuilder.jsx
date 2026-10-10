@@ -175,7 +175,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
     if (at !== "") params.set("at", at);
     if (query) params.set("q", query);
     const [c, d, s] = await Promise.all([
-      api(`${path}/canon?${params}`),
+      api(`${path}/${query ? "search" : "canon"}?${params}`),
       api(`${path}/changes`),
       api(`${path}/sessions`),
     ]);
@@ -321,7 +321,9 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
     const params = new URLSearchParams(canonFilters);
     params.set("revision", String(canon.revision));
     params.set("offset", String(canon.records.length));
-    const next = await api(`${path}/canon?${params}`);
+    const next = await api(
+      `${path}/${params.get("q") ? "search" : "canon"}?${params}`,
+    );
     setCanon({ ...canon, records: mergeRows(canon.records, next.records) });
   }
   async function loadMoreList(kind) {
@@ -869,6 +871,14 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
             {answer && (
               <article>
                 <p>{answer.answer}</p>
+                {answer.evidenceScope?.coverage === "selected_records" && (
+                  <p>
+                    Based on {answer.evidenceScope.evidenceCount} selected canon
+                    records out of {answer.evidenceScope.canonRecordCount}.
+                    Other canon may affect this answer; this is not a
+                    whole-world consistency check.
+                  </p>
+                )}
                 {answer.unknown && (
                   <p>Uncertainty: this is not established in canon.</p>
                 )}

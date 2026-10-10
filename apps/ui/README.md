@@ -94,3 +94,5 @@ The production image is built from `apps/ui/dockerfile`. It builds the Vite app 
 Dependency versions and security checks are recorded in [Worldbuilder dependency validation](../../docs/worldbuilder/DEPENDENCIES.md). CI runs build/tests and rejects high/critical npm advisories before publishing.
 
 The rule editor supports scoped relationship cardinality, exclusive boolean predicates and life-bound exception predicates with fictional validity intervals. These remain proposed canon until reviewed and published.
+
+Wiki queries use the membership-scoped search API with pinned pagination. AI answers display selected/total evidence counts when only part of a large timeline was inspected.

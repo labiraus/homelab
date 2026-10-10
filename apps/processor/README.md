@@ -29,3 +29,5 @@ The current ingestion baseline is UTF-8 `text/*`, with HTML-aware extraction for
 Future file-type expansion must still follow `docs/FileTypeExpansion.md`: document extraction rules, failure handling, citation policy, tests, and runtime dependencies before changing the worker container.
 
 Dependency versions and security checks are recorded in [Worldbuilder dependency validation](../../docs/worldbuilder/DEPENDENCIES.md). CI runs build/tests and rejects high/critical npm advisories before publishing.
+
+Worldbuilder requests can mark `contextScope=selected_records`. The graph explicitly treats this as partial canon, cannot claim global absence/consistency, and still accepts only supplied canonical citation IDs. External owns selection and validates returned scope/operations.

@@ -89,6 +89,25 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 	if resource == "members" && r.Method == "GET" {
 		return sc.members(ctx, limit, offset)
 	}
+	if resource == "search" && r.Method == "GET" {
+		revision, err := integerQuery(r, "revision", sc.world.Revision)
+		if err != nil {
+			return nil, err
+		}
+		var at *int64
+		if r.URL.Query().Has("at") {
+			value, e := integerQuery(r, "at", 0)
+			if e != nil {
+				return nil, e
+			}
+			at = &value
+		}
+		snapshot, err := sc.snapshot(ctx, revision)
+		if err != nil {
+			return nil, err
+		}
+		return sc.searchSnapshot(ctx, snapshot, revision, r.URL.Query().Get("timeline"), r.URL.Query().Get("q"), at, limit, offset)
+	}
 	if resource == "administration" && r.Method == "POST" {
 		var b AdminRequest
 		if err := decode(w, r, &b); err != nil {

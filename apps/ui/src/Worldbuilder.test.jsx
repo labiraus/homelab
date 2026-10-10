@@ -17,7 +17,7 @@ function mockApi(
     calls.push([url, options]);
     let data = [];
     if (url === "/api/worlds") data = [world];
-    else if (url.includes("/canon?"))
+    else if (url.includes("/canon?") || url.includes("/search?"))
       data = {
         world,
         revision: 1,
@@ -25,6 +25,19 @@ function mockApi(
         records: [{ id: "main", kind: "timeline", label: "Main" }],
       };
     else if (url.endsWith("/changes")) data = [change];
+    else if (url.endsWith("/reason"))
+      data = {
+        answer: "A partial answer",
+        unknown: false,
+        citations: [],
+        operations: [],
+        baseRevision: 1,
+        evidenceScope: {
+          coverage: "selected_records",
+          evidenceCount: 25,
+          canonRecordCount: 200,
+        },
+      };
     else if (url.endsWith("/submit")) {
       change.status = "ready_for_review";
       data = change;
@@ -37,6 +50,36 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("Worldbuilder", () => {
+  it("uses scoped search and identifies limited AI coverage", async () => {
+    const calls = mockApi();
+    render(<Worldbuilder email="editor@test" />);
+    await screen.findByRole("option", { name: "Novel" });
+    fireEvent.change(screen.getByLabelText("Open world"), {
+      target: { value: "w" },
+    });
+    await screen.findByText("Novel · canon revision 1");
+    fireEvent.change(screen.getByLabelText("Search canon"), {
+      target: { value: "Hero" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Load canon" }));
+    await waitFor(() =>
+      expect(
+        calls.some(
+          ([url]) =>
+            url.includes("/search?") &&
+            url.includes("q=Hero") &&
+            url.includes("timeline=main"),
+        ),
+      ).toBe(true),
+    );
+    fireEvent.change(screen.getByLabelText("Question or creative direction"), {
+      target: { value: "Who is Hero?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Generate candidate" }));
+    expect(
+      await screen.findByText(/25 selected canon records out of 200/),
+    ).toBeVisible();
+  });
   it("shows unavailable activation without fabricating worlds", async () => {
     global.fetch = vi.fn(async () => ({
       ok: false,

@@ -73,3 +73,7 @@ Represent additional machine checks as reviewed rule records using existing stru
 ## 2026-10-10 — Resilient disposable database transport
 
 Repeated host-port failures were infrastructure preflight failures, not domain test results. Reuse the available Docker API to relay binary PostgreSQL traffic from a loopback-only socat socket to the exact generated disposable container. Expose explicit exec-transport selection and automatic fallback, with cleanup limited to the local relay and owned container. This preserves real PostgreSQL coverage without reaching a cluster, changing host networking or installing another persistent database.
+
+## 2026-10-10 — Reconcile discovery and declare partial AI evidence
+
+OpenSearch contributes bounded candidate IDs only; external checks membership first and resolves content and temporal visibility from PostgreSQL. Historical reads bypass the current index. Canonical lexical ranking plus a complete bounded scan preserves results/pagination through index lag or outage. This prioritises correctness at the existing 5,000-record world limit; it is not yet an indexed performance optimisation or vector search. Large-world prompts use bounded reference closures, retain required rules/settings/story dependencies, and declare selected evidence in request, response, audit and UI. Model output cannot override that declaration. Whole-world consistency and absence cannot be inferred from a partial selection.

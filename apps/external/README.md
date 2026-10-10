@@ -127,3 +127,5 @@ Lifecycle delivery to the browser is best-effort. The document processing path r
 World names/default timelines/settings are reviewed `world_settings` records. Owner-only administration separately controls archive/reopen, versioned member changes, revocation and ownership transfer; immutable audit binds exact retries. Archived worlds allow reads and membership administration, while canon/story/inference writes are blocked. The database retains immutable record kinds after deletion.
 
 The canon validator also enforces temporal relationship cardinality, mutually exclusive boolean facts and explicit canonical chronology exceptions. Rule changes are ordinary reviewed operations and can be grouped atomically with affected records; see the rule contracts in the Worldbuilder API documentation.
+
+Scoped `/api/worlds/{world}/search` reconciles OpenSearch candidate IDs against authorised PostgreSQL snapshots, with canonical fallback and stable pinned pagination. Large-world AI evidence selection retains rule/settings/reference groups and reports limited coverage. See [API contracts](../../docs/worldbuilder/API.md).

@@ -39,6 +39,21 @@ test("answers retain resolvable evidence and usage", async () => {
   assert.deepEqual(result.citations, ["world:1:main:age"]);
   assert.equal(result.usage.total_tokens, 10);
 });
+test("selected evidence declares limited coverage and still rejects forged citations", async () => {
+  const selected = { ...request, contextScope: "selected_records" as const };
+  await runCanon(selected, async (messages) => {
+    assert.match(messages[0].content, /do not claim global absence/);
+    assert.equal(
+      JSON.parse(messages[1].content).contextScope,
+      "selected_records",
+    );
+    return response()(messages);
+  });
+  await assert.rejects(
+    runCanon(selected, response({ citations: ["world:1:main:omitted"] })),
+    /unresolvable/,
+  );
+});
 test("missing canon returns unknown without inference", async () => {
   const result = await runCanon({ ...request, evidence: [] }, async () => {
     throw new Error("must not call model");

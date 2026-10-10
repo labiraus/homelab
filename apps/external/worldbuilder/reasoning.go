@@ -8,22 +8,24 @@ import (
 )
 
 type ReasonRequest struct {
-	WorldID     string     `json:"worldId"`
-	Revision    int64      `json:"revision"`
-	Timeline    string     `json:"timeline"`
-	Question    string     `json:"question"`
-	Workflow    string     `json:"workflow"`
-	Evidence    []Evidence `json:"evidence"`
-	Provisional Snapshot   `json:"provisional,omitempty"`
+	WorldID      string     `json:"worldId"`
+	Revision     int64      `json:"revision"`
+	Timeline     string     `json:"timeline"`
+	Question     string     `json:"question"`
+	Workflow     string     `json:"workflow"`
+	Evidence     []Evidence `json:"evidence"`
+	Provisional  Snapshot   `json:"provisional,omitempty"`
+	ContextScope string     `json:"contextScope"`
 }
 type ReasonResult struct {
-	BaseRevision int64          `json:"baseRevision"`
-	Answer       string         `json:"answer"`
-	Unknown      bool           `json:"unknown"`
-	Citations    []string       `json:"citations"`
-	Operations   []Operation    `json:"operations"`
-	Model        string         `json:"model"`
-	Usage        map[string]any `json:"usage"`
+	BaseRevision  int64          `json:"baseRevision"`
+	Answer        string         `json:"answer"`
+	Unknown       bool           `json:"unknown"`
+	Citations     []string       `json:"citations"`
+	Operations    []Operation    `json:"operations"`
+	Model         string         `json:"model"`
+	Usage         map[string]any `json:"usage"`
+	EvidenceScope EvidenceScope  `json:"evidenceScope"`
 }
 type Reasoner func(context.Context, ReasonRequest) (ReasonResult, error)
 
@@ -71,12 +73,11 @@ func (sc *scope) reason(w http.ResponseWriter, r *http.Request, fn Reasoner) (an
 	if snapshot[b.Timeline].Kind != "timeline" {
 		return nil, bad("unknown timeline")
 	}
-	records := Records(snapshot, b.Timeline, "", nil)
-	// Explicitly bounded initial context. No silently truncated evidence or cross-world search.
-	if len(records) > 100 {
-		return nil, bad("world exceeds initial AI context budget; use scoped canon queries")
+	records, evidenceScope, err := sc.evidenceContext(r.Context(), snapshot, b.Revision, b.Timeline, b.Question, provisional)
+	if err != nil {
+		return nil, err
 	}
-	request := ReasonRequest{WorldID: sc.world.ID, Revision: b.Revision, Timeline: b.Timeline, Question: b.Question, Workflow: b.Workflow, Evidence: Citations(sc.world.ID, b.Revision, b.Timeline, records), Provisional: provisional}
+	request := ReasonRequest{WorldID: sc.world.ID, Revision: b.Revision, Timeline: b.Timeline, Question: b.Question, Workflow: b.Workflow, Evidence: Citations(sc.world.ID, b.Revision, b.Timeline, records), Provisional: provisional, ContextScope: evidenceScope.Coverage}
 	raw, _ := json.Marshal(request)
 	if len(raw) > 100000 {
 		return nil, bad("canon context exceeds inference budget")
@@ -116,7 +117,8 @@ func (sc *scope) reason(w http.ResponseWriter, r *http.Request, fn Reasoner) (an
 		}
 	}
 	result.BaseRevision = b.Revision
+	result.EvidenceScope = evidenceScope
 	// Output remains a candidate. UI explicitly creates a draft or persists a provisional turn.
-	err = sc.audit(r.Context(), "ai."+b.Workflow, b.SessionID, map[string]any{"revision": b.Revision, "timeline": b.Timeline, "model": result.Model, "usage": result.Usage, "citations": result.Citations})
+	err = sc.audit(r.Context(), "ai."+b.Workflow, b.SessionID, map[string]any{"revision": b.Revision, "timeline": b.Timeline, "model": result.Model, "usage": result.Usage, "citations": result.Citations, "evidenceScope": evidenceScope})
 	return result, err
 }

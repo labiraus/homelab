@@ -38,7 +38,7 @@ func registerWorldbuilder(ctx context.Context, mux *http.ServeMux) error {
 		return fmt.Errorf("Worldbuilder requires schema version 2 and nonprivileged worldbuilder_external login")
 	}
 	go func() { <-ctx.Done(); pool.Close() }()
-	handler := worldbuilder.Handler(&worldbuilder.Store{Pool: pool, Reasoner: worldbuilderReasoner()}, func(r *http.Request) (string, bool) {
+	handler := worldbuilder.Handler(&worldbuilder.Store{Pool: pool, Reasoner: worldbuilderReasoner(), Discover: worldbuilder.OpenSearchDiscovery(os.Getenv("OPENSEARCH_BASE_URL"), os.Getenv("OPENSEARCH_USERNAME"), os.Getenv("OPENSEARCH_PASSWORD"))}, func(r *http.Request) (string, bool) {
 		s, ok := api.AuthStatusFromContext(r.Context())
 		return s.Email, ok && s.Valid
 	})
