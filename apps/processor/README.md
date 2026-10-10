@@ -31,3 +31,5 @@ Future file-type expansion must still follow `docs/FileTypeExpansion.md`: docume
 Dependency versions and security checks are recorded in [Worldbuilder dependency validation](../../docs/worldbuilder/DEPENDENCIES.md). CI runs build/tests and rejects high/critical npm advisories before publishing.
 
 Worldbuilder requests can mark `contextScope=selected_records`. The graph explicitly treats this as partial canon, cannot claim global absence/consistency, and still accepts only supplied canonical citation IDs. External owns selection and validates returned scope/operations.
+
+Worldbuilder correlation IDs supplied by external are forwarded to Envoy as `X-Request-ID`. Responses preserve the gateway-reported model when available. Durable per-actor allowance decisions belong to external before this endpoint; processor’s local burst/concurrency bounds remain an additional guard.

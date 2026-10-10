@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,12 +34,36 @@ func registerWorldbuilder(ctx context.Context, mux *http.ServeMux) error {
 	var user string
 	var elevated bool
 	err = pool.QueryRow(ctx, `SELECT current_user, (SELECT rolsuper OR rolcreaterole FROM pg_roles WHERE rolname=current_user),max(version) FROM worldbuilder.schema_version`).Scan(&user, &elevated, &version)
-	if err != nil || version != 2 || user != "worldbuilder_external" || elevated {
+	if err != nil || version != 3 || user != "worldbuilder_external" || elevated {
 		pool.Close()
-		return fmt.Errorf("Worldbuilder requires schema version 2 and nonprivileged worldbuilder_external login")
+		return fmt.Errorf("Worldbuilder requires schema version 3 and nonprivileged worldbuilder_external login")
 	}
 	go func() { <-ctx.Done(); pool.Close() }()
 	store := &worldbuilder.Store{Pool: pool, Reasoner: worldbuilderReasoner(), Discover: worldbuilder.OpenSearchDiscovery(os.Getenv("OPENSEARCH_BASE_URL"), os.Getenv("OPENSEARCH_USERNAME"), os.Getenv("OPENSEARCH_PASSWORD"))}
+	if store.Reasoner != nil {
+		budget := &worldbuilder.InferenceBudget{Currency: os.Getenv("WORLDBUILDER_AI_CURRENCY"), GatewayRoute: os.Getenv("WORLDBUILDER_AI_GATEWAY_ROUTE")}
+		for name, target := range map[string]*int64{"WORLDBUILDER_AI_DAILY_REQUESTS": &budget.DailyRequests, "WORLDBUILDER_AI_CONCURRENT": &budget.Concurrent, "WORLDBUILDER_AI_REQUEST_MICROS": &budget.RequestMicros, "WORLDBUILDER_AI_DAILY_MICROS": &budget.DailyMicros} {
+			*target, err = strconv.ParseInt(os.Getenv(name), 10, 64)
+			if err != nil {
+				return fmt.Errorf("invalid inference budget setting %s", name)
+			}
+		}
+		if err = budget.Validate(); err != nil {
+			return err
+		}
+		config, e := pgxpool.ParseConfig(dsn)
+		if e != nil {
+			return e
+		}
+		config.MaxConns = 2
+		config.MinConns = 0
+		budget.Pool, err = pgxpool.NewWithConfig(ctx, config)
+		if err != nil {
+			return err
+		}
+		go func() { <-ctx.Done(); budget.Pool.Close() }()
+		store.Budget = budget
+	}
 	if strings.EqualFold(os.Getenv("WORLDBUILDER_MCP_ENABLED"), "true") {
 		key := []byte(os.Getenv("WORLDBUILDER_MCP_KEY"))
 		if len(key) < 32 {
@@ -73,6 +98,7 @@ func worldbuilderReasoner() worldbuilder.Reasoner {
 		}
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("Authorization", "Bearer "+token)
+		request.Header.Set("X-Request-ID", input.RequestID)
 		response, err := client.Do(request)
 		if err != nil {
 			return result, &worldbuilder.Problem{Status: 502, Code: "inference", Message: "Inference is unavailable"}

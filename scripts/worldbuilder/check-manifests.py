@@ -56,6 +56,12 @@ for chart in ['external','mcp']:
     result=subprocess.run(cmd+['--set',principal+'='+valid],capture_output=True,text=True)
     (out/(chart+'-delegation-enabled.yaml')).write_text(result.stdout+result.stderr)
     if result.returncode:failures.append(chart+' delegation enabled template')
+# AI must fail closed without an operator-defined allowance (values are test-only).
+ai=['helm','template','homelab-external',str(root/'helm/apps/external'),'--set','global.allowMissingGeneratedSecretRefs=true','--set','worldbuilder.enabled=true','--set','worldbuilder.browserPrincipal=cluster.local/ns/homelab/sa/browser','--set','worldbuilder.aiSecret=worldbuilder-ai']
+if subprocess.run(ai,capture_output=True).returncode==0:failures.append('AI activation accepted missing allowance')
+result=subprocess.run(ai+['--set','worldbuilder.aiBudget.requestMicros=100','--set','worldbuilder.aiBudget.dailyMicros=1000','--set','worldbuilder.aiBudget.currency=TST','--set','worldbuilder.aiBudget.gatewayRoute=offline-fixture'],capture_output=True,text=True)
+(out/'external-ai-budget-enabled.yaml').write_text(result.stdout+result.stderr)
+if result.returncode:failures.append('AI explicit allowance template')
 print(f'{len(checked)} base/overlay combinations checked; local artifacts: {out}')
 print('Failures: '+(', '.join(failures) if failures else 'none'))
 sys.exit(bool(failures))

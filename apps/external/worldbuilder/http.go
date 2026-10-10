@@ -64,7 +64,7 @@ func Handler(store *Store, identity Identity) http.Handler {
 					return nil, conflict("world is archived; an owner must reopen it before writing")
 				}
 				if len(parts) == 2 && parts[1] == "reason" && r.Method == "POST" {
-					return sc.reason(w, r, store.Reasoner)
+					return sc.reason(w, r, store.Reasoner, store.Budget)
 				}
 				return route(w, r, sc, parts[1:])
 			})

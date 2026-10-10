@@ -2,6 +2,11 @@
 {{- $_ := set .Values "env" (merge (dict "WORLDBUILDER_ENABLED" "true") (.Values.env | default dict)) }}
 {{- $_ := set .Values "envFromSecrets" (append .Values.envFromSecrets .Values.worldbuilder.databaseSecret) }}
 {{- if .Values.worldbuilder.aiSecret }}
+{{- $budget := .Values.worldbuilder.aiBudget }}
+{{- if or (lt (int64 $budget.requestMicros) 1) (lt (int64 $budget.dailyMicros) (int64 $budget.requestMicros)) (empty $budget.currency) (empty $budget.gatewayRoute) }}
+{{- fail "Worldbuilder AI requires explicit positive per-request/daily allowances, currency and gateway route" }}
+{{- end }}
+{{- $_ := set .Values "env" (merge (dict "WORLDBUILDER_AI_DAILY_REQUESTS" (toString $budget.dailyRequests) "WORLDBUILDER_AI_CONCURRENT" (toString $budget.concurrent) "WORLDBUILDER_AI_REQUEST_MICROS" (toString $budget.requestMicros) "WORLDBUILDER_AI_DAILY_MICROS" (toString $budget.dailyMicros) "WORLDBUILDER_AI_CURRENCY" $budget.currency "WORLDBUILDER_AI_GATEWAY_ROUTE" $budget.gatewayRoute) .Values.env) }}
 {{- $_ := set .Values "envFromSecrets" (append .Values.envFromSecrets .Values.worldbuilder.aiSecret) }}
 {{- end }}
 {{- if .Values.worldbuilder.mcp.enabled }}

@@ -56,6 +56,7 @@ pg_dump -Fc -f backups/before-worldbuilder.dump
 # Explicit migration; no application/Helm hook runs this.
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/001_up.sql
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/002_up.sql
+psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/003_up.sql
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/grants.sql
 psql -X -v ON_ERROR_STOP=1 -c 'TABLE worldbuilder.schema_version;'
 psql -X -v ON_ERROR_STOP=1 -c "SELECT has_schema_privilege('app','worldbuilder','USAGE');"
@@ -126,7 +127,7 @@ kubectl -n homelab rollout status deployment/homelab-external --timeout=180s
 kubectl -n homelab rollout status deployment/homelab-orchestrator --timeout=180s
 ```
 
-For AI, next set `external.values.worldbuilder.aiSecret` and `processor.values.worldbuilder.aiSecret` to the verified shared secret name, publish that separately reviewed stage, and validate `AI_GATEWAY_BASE_URL` and model JSON capability. Run authorised `make vllm-gateway-smoke`, grounded unknown/citation/adversarial tests, usage limits and privacy checks. Test session reload/restart, concurrent turns, provisional-state isolation and story-outcome review/publish/wiki flow. Confirm actual backup restore and outbox/OpenSearch recovery with fixture worlds before broader use.
+For AI, first verify provider/model pricing, maximum bounded input/output charges and the actual gateway route. Set explicit `external.values.worldbuilder.aiBudget` fields: `dailyRequests`, `concurrent`, positive `requestMicros`/`dailyMicros`, uppercase three-letter `currency` and a meaningful `gatewayRoute` label. Derive a conservative per-attempt allowance from observed route limits/tariffs; do not treat test fixture amounts or allocated ledger amounts as provider invoices. Confirm multiple external replicas share daily/concurrency limits, failed calls remain allocated, and abandoned leases cease blocking after 60 seconds without refunding that day. Then set `external.values.worldbuilder.aiSecret` and `processor.values.worldbuilder.aiSecret` to the verified shared secret name, publish that separately reviewed stage, and validate `AI_GATEWAY_BASE_URL` and model JSON capability. Run authorised `make vllm-gateway-smoke`, grounded unknown/citation/adversarial tests, usage limits and privacy checks. Test session reload/restart, concurrent turns, provisional-state isolation and story-outcome review/publish/wiki flow. Confirm actual backup restore and outbox/OpenSearch recovery with fixture worlds before broader use.
 
 Read-only progress SQL through local psql:
 
@@ -136,12 +137,16 @@ SELECT id, name, revision FROM worldbuilder.world ORDER BY created_at;
 SELECT count(*) AS pending, min(created_at) AS oldest FROM worldbuilder.outbox WHERE delivered_at IS NULL;
 SELECT status, count(*) FROM worldbuilder.change_set GROUP BY status;
 SELECT action, count(*) FROM worldbuilder.audit GROUP BY action;
+SELECT status, currency, count(*), sum(allocated_micros) AS allocated_micros
+FROM worldbuilder.inference_attempt GROUP BY status, currency;
+SELECT count(*) AS unresolved_expired_attempts FROM worldbuilder.inference_attempt
+WHERE status='reserved' AND lease_until<now();
 ```
 
 ## 4. Reversibility and stop conditions
 
 - If identity/header isolation, schema grants, backup health or storage differ from the plan, stop before activation.
-- App rollback: disable the Worldbuilder flags through reviewed Flux values and publish that change; keep schema/data/secrets for recovery. Prior app versions ignore the additive schema.
+- App rollback: disable the Worldbuilder flags through reviewed Flux values and publish that change; keep schema/data/secrets for recovery. Older enabled binaries reject newer schema versions; keep their feature flag off.
 - Canon rollback: create a compensating proposal from a historical snapshot, obtain a different reviewer and publish a new revision. Never UPDATE/DELETE revision history.
 - Projection rollback: restore the previous image if needed; recreate only the derived test index under approval and rebuild from PostgreSQL. Never use search as recovery authority.
 - Database restore: restore to a new isolated database, compare revisions/audit/story/turn counts and checksums, then make an explicitly approved connection cutover. Do not run `001_down.sql` on populated production canon; it intentionally refuses.
@@ -149,8 +154,8 @@ SELECT action, count(*) FROM worldbuilder.audit GROUP BY action;
 
 No irreversible cleanup, live schema change or resource deletion is bundled with source publication.
 
-## Schema-v2 lifecycle validation
+## Schema-v3 compatibility and lifecycle validation
 
-Before enabling current external, verify max schema version 2 and dedicated grants including `record_identity`. Migration 002 must refuse historical same-ID/different-kind conflicts; inventory them and obtain a reviewed reconciliation plan rather than changing immutable history. Validate reviewed name/default-timeline settings, membership removal, owner transfer (exactly one owner), archive write refusal and retained history. Repeat an administration request and confirm its original version/result without another change. Old v1 snapshots remain intact; introduce their first settings record through review.
+Before enabling current external, verify max schema version 3 and dedicated grants including `record_identity` and restricted inference-ledger writes. Migration 002 must refuse historical same-ID/different-kind conflicts; inventory them and obtain a reviewed reconciliation plan rather than changing immutable history. Validate reviewed name/default-timeline settings, membership removal, owner transfer (exactly one owner), archive write refusal and retained history. Repeat an administration request and confirm its original version/result without another change. Old v1 snapshots remain intact; introduce their first settings record through review.
 
-Rollback keeps Worldbuilder disabled and data intact. The previous v1 binary rejects schema v2 when enabled; do not roll back to it with the feature enabled. Both down migrations refuse populated worlds.
+Rollback keeps Worldbuilder disabled and data intact. Previous v1/v2 binaries reject schema v3 when enabled; do not roll back to them with the feature enabled. All three down migrations refuse populated worlds; 003 also refuses any inference attempts. Restore drills include all 13 tables.

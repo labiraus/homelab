@@ -66,3 +66,5 @@ Search/evidence contracts and coverage limitations were reconciled in API, exter
 MCP delegation contracts, chart inputs and activation gates were reconciled in increment 8. The initial deferral decision is retained with an explicit superseding decision. Helm and MCP agent guidance records the verified boundaries.
 
 No documents deleted. Relative links in the changed product docs and new execution records were checked locally. No generated OpenAPI files were edited; no application spec generator was found.
+
+Schema-v3 budget/provenance contracts supersede v2 startup instructions in the active API, SQL, external README and SQL agent guidance. Historical increment logs retain their original schema/version evidence.

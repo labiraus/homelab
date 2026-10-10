@@ -15,6 +15,7 @@ type Store struct {
 	Pool     *pgxpool.Pool
 	Reasoner Reasoner
 	Discover Discover
+	Budget   *InferenceBudget
 }
 type scope struct {
 	tx       pgx.Tx

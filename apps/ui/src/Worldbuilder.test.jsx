@@ -32,6 +32,12 @@ function mockApi(
         citations: [],
         operations: [],
         baseRevision: 1,
+        provenance: {
+          requestId: "generation-1",
+          latencyMs: 25,
+          allocatedMicros: 100,
+          currency: "TST",
+        },
         evidenceScope: {
           coverage: "selected_records",
           evidenceCount: 25,
@@ -79,6 +85,9 @@ describe("Worldbuilder", () => {
     expect(
       await screen.findByText(/25 selected canon records out of 200/),
     ).toBeVisible();
+    fireEvent.click(screen.getByText("Generation details"));
+    expect(screen.getByText(/Request: generation-1/)).toBeVisible();
+    expect(screen.getByText(/0.000100 TST/)).toBeVisible();
   });
   it("shows unavailable activation without fabricating worlds", async () => {
     global.fetch = vi.fn(async () => ({

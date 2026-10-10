@@ -96,3 +96,5 @@ Dependency versions and security checks are recorded in [Worldbuilder dependency
 The rule editor supports scoped relationship cardinality, exclusive boolean predicates and life-bound exception predicates with fictional validity intervals. These remain proposed canon until reviewed and published.
 
 Wiki queries use the membership-scoped search API with pinned pagination. AI answers display selected/total evidence counts when only part of a large timeline was inspected.
+
+Generation details show the request correlation, reported model, duration and allocated allowance. The allowance is explicitly distinguished from a provider invoice.

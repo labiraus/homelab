@@ -39,6 +39,36 @@ test("answers retain resolvable evidence and usage", async () => {
   assert.deepEqual(result.citations, ["world:1:main:age"]);
   assert.equal(result.usage.total_tokens, 10);
 });
+test("gateway forwards correlation and retains the reported model", async (t) => {
+  const previous = process.env.AI_GATEWAY_BASE_URL;
+  process.env.AI_GATEWAY_BASE_URL = "http://offline-gateway.test/v1";
+  t.after(() => {
+    if (previous === undefined) delete process.env.AI_GATEWAY_BASE_URL;
+    else process.env.AI_GATEWAY_BASE_URL = previous;
+  });
+  const requestId = "00000000-0000-4000-8000-000000000001";
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async (_url: unknown, options?: RequestInit) => {
+      assert.equal(
+        new Headers(options?.headers).get("X-Request-ID"),
+        requestId,
+      );
+      const output = await response()([]);
+      return new Response(
+        JSON.stringify({
+          model: "reported-model",
+          usage: { total_tokens: 10 },
+          choices: [{ message: { content: output.text } }],
+        }),
+      );
+    },
+  );
+  const result = await runCanon({ ...request, requestId });
+  assert.equal(result.model, "reported-model");
+  assert.equal(result.usage.total_tokens, 10);
+});
 test("selected evidence declares limited coverage and still rejects forged citations", async () => {
   const selected = { ...request, contextScope: "selected_records" as const };
   await runCanon(selected, async (messages) => {

@@ -302,6 +302,14 @@ worldbuilder:
   databaseSecret: worldbuilder-external
   browserPrincipal: ""
   aiSecret: ""
+  aiBudget:
+    dailyRequests: 100
+    concurrent: 2
+    # Operator-defined maximum allowance per attempt; no tariff is assumed.
+    requestMicros: 0
+    dailyMicros: 0
+    currency: ""
+    gatewayRoute: ""
   mcp:
     enabled: false
     delegationSecret: ""

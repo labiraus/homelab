@@ -882,6 +882,20 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                 {answer.unknown && (
                   <p>Uncertainty: this is not established in canon.</p>
                 )}
+                {answer.provenance?.requestId && (
+                  <details>
+                    <summary>Generation details</summary>
+                    <p>Model: {answer.model || "not reported"}</p>
+                    <p>Request: {answer.provenance.requestId}</p>
+                    <p>Duration: {answer.provenance.latencyMs} ms</p>
+                    <p>
+                      Budget allocated:{" "}
+                      {(answer.provenance.allocatedMicros / 1000000).toFixed(6)}{" "}
+                      {answer.provenance.currency}. This is an allowance, not an
+                      invoice.
+                    </p>
+                  </details>
+                )}
                 <ul>
                   {answer.citations.map((c) => (
                     <li key={c}>

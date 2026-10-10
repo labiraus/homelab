@@ -19,10 +19,14 @@ sql < "$repo_dir/sql/worldbuilder/001_up.sql"
 sql < "$repo_dir/sql/worldbuilder/001_up.sql"
 sql < "$repo_dir/sql/worldbuilder/002_up.sql"
 sql < "$repo_dir/sql/worldbuilder/002_up.sql"
+sql < "$repo_dir/sql/worldbuilder/003_up.sql"
+sql < "$repo_dir/sql/worldbuilder/003_up.sql"
+sql < "$repo_dir/sql/worldbuilder/003_down.sql"
 sql < "$repo_dir/sql/worldbuilder/002_down.sql"
 sql < "$repo_dir/sql/worldbuilder/001_down.sql"
 sql < "$repo_dir/sql/worldbuilder/001_up.sql"
 sql < "$repo_dir/sql/worldbuilder/002_up.sql"
+sql < "$repo_dir/sql/worldbuilder/003_up.sql"
 sql -c 'CREATE ROLE worldbuilder_external NOINHERIT LOGIN; CREATE ROLE worldbuilder_relay NOINHERIT LOGIN; CREATE ROLE legacy_app NOINHERIT LOGIN;'
 sql < "$repo_dir/sql/worldbuilder/grants.sql"
 # Upgrade a populated version-1 database independently of the empty up/down tests.
@@ -38,6 +42,8 @@ INSERT INTO worldbuilder.revision(world_id,revision,snapshot,actor,reason) VALUE
 SQL
 upgrade_sql < "$repo_dir/sql/worldbuilder/002_up.sql"
 upgrade_sql < "$repo_dir/sql/worldbuilder/002_up.sql"
+upgrade_sql < "$repo_dir/sql/worldbuilder/003_up.sql"
+upgrade_sql < "$repo_dir/sql/worldbuilder/003_up.sql"
 upgrade_sql <<'SQL'
 DO $$ BEGIN
  IF (SELECT kind FROM worldbuilder.record_identity WHERE id='deleted') IS DISTINCT FROM 'source' THEN RAISE EXCEPTION 'deleted identity missing after upgrade'; END IF;
@@ -102,11 +108,12 @@ export GOMODCACHE="${GOMODCACHE:-/tmp/worldbuilder-go-mod}"
 (cd "$repo_dir/apps/orchestrator" && go test -timeout=120s -race -count=1 -run '^TestCanon' .)
 if sql < "$repo_dir/sql/worldbuilder/001_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated schema down migration succeeded'; exit 1; fi
 if sql < "$repo_dir/sql/worldbuilder/002_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated lifecycle down migration succeeded'; exit 1; fi
+if sql < "$repo_dir/sql/worldbuilder/003_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated inference down migration succeeded'; exit 1; fi
 docker exec "$container_name" createdb -U postgres worldbuilder_restore
 docker exec "$container_name" pg_dump -U postgres -d worldbuilder_test -Fc -f /tmp/worldbuilder.dump
 docker exec "$container_name" pg_restore -U postgres -d worldbuilder_restore --exit-on-error /tmp/worldbuilder.dump
 checksum_parts=()
-for canon_table in world member revision record record_identity change_set audit outbox story_session story_turn story_outcome schema_version; do
+for canon_table in world member revision record record_identity change_set audit outbox story_session story_turn story_outcome inference_attempt schema_version; do
   checksum_parts+=("SELECT '${canon_table}:' || row_to_json(t)::text AS item FROM worldbuilder.${canon_table} t")
 done
 checksum_union=${checksum_parts[0]}
@@ -115,4 +122,4 @@ checksum_query="SELECT md5(string_agg(item, ',' ORDER BY item)) FROM ($checksum_
 original=$(sql -Atc "$checksum_query")
 restored=$(docker exec "$container_name" psql -X -U postgres -d worldbuilder_restore -Atc "$checksum_query")
 [[ "$original" == "$restored" ]] || { echo 'FAIL: restored canon/lifecycle/story data differs'; exit 1; }
-echo 'PASS: migrations 001/002 rerun/rollback, populated upgrade/conflict gates, role isolation, canon/lifecycle/story/outbox integration and all-table restore checksum'
+echo 'PASS: migrations 001/002/003 rerun/rollback, populated upgrade/conflict gates, role isolation, canon/lifecycle/story/outbox integration and all-table restore checksum'

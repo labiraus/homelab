@@ -97,6 +97,7 @@ Current behavior note:
 
 - Public API entry point: `apps/external/main.go`
 - Assistant API and orchestration entry points: `apps/processor/src/assistant_api.ts`, `apps/processor/src/assistant_llm.ts`, and `apps/processor/src/assistant_db.ts`
+- Inference allocation ledger: `apps/external/worldbuilder/budget.go`, `sql/worldbuilder/003_up.sql`; independent of canon transaction rollback.
 - MCP entry point: `apps/mcp/main.go`; optional canon delegation: `apps/mcp/worldbuilder.go`, `apps/external/worldbuilder/tools.go`, shared signatures in `apps/pkg/api/delegation.go`
 - Orchestrator entry point: `apps/orchestrator/main.go`
 - Orchestrator request, scan, and async contract shapes: `apps/orchestrator/documents.go` and `apps/orchestrator/scan.go`
