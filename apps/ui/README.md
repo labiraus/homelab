@@ -1,8 +1,10 @@
 # ui
 
-This is a small Vite and React frontend used to verify routing to the public API from one place.
+The authenticated Worlds tab (`Worldbuilder.jsx`) provides world creation, membership, wiki/history, structured record staging, independent review/publication, pinned story sessions, turn persistence and outcome proposals. AI candidates remain explicit drafts or provisional turns. The API is disabled until its LAN gate, and the UI reports that condition. Existing Labiraus document tools below remain available.
 
-Externally, the UI should present itself as Labiraus even though the repo keeps the app under `apps/ui/`.
+This is the Vite/React frontend for Worldbuilder and retained Labiraus operator/document tools.
+
+Worldbuilder is the worldbuilding product within the existing Labiraus host and authentication shell. Keep infrastructure names and legacy route identifiers stable.
 
 ## What It Does
 

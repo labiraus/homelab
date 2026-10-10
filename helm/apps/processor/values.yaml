@@ -284,3 +284,7 @@ affinity: {}
 
 env:
   configValue: "default"
+
+# Secret contains WORLDBUILDER_AI_TOKEN, shared only with external; empty disables AI.
+worldbuilder:
+  aiSecret: ""

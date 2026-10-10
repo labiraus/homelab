@@ -73,6 +73,10 @@ func main() {
 			slog.ErrorContext(ctx, "nats bootstrap stopped", "error", err)
 			return
 		}
+		if err := startWorldbuilder(ctx); err != nil {
+			slog.ErrorContext(ctx, "Worldbuilder startup failed", "error", err)
+			return
+		}
 		close(base.Ready)
 	}()
 

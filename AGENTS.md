@@ -25,7 +25,8 @@ Directory-level `AGENTS.md` files currently exist for:
 
 ## Working Rules
 
-- Treat the Labiraus MCP server (`homelab-mcp` in local Codex config) as the primary subject of this repo and its deployed surface area, not as a sidecar utility.
+- Worldbuilder AI is the application target; follow `docs/worldbuilder/` and its verified implementation status. The Labiraus MCP server (`homelab-mcp`) remains a first-class deployed integration surface.
+- The Worldbuilder target initially assumed separate engine/infra repositories, Cassandra and Fastify. This checkout is a monorepo with existing PostgreSQL and Node HTTP; audit actual code before acting on illustrative paths. No Cassandra resource removal is authorised by its absence from this checkout.
 - When evaluating the deployed project, prefer using the Labiraus MCP server together with other repo-native tools such as local `psql`, Helm/Flux inspection, and app logs so MCP-discovered behavior is checked against the rest of the deployed system.
 - Prefer small, targeted changes that fit the current structure of the repo.
 - When changing behavior, config, workflows, or layout, update the relevant human docs in the same task.

@@ -193,3 +193,9 @@ affinity: {}
 
 env:
   configValue: "default"
+
+worldbuilder:
+  enabled: false
+  databaseSecret: worldbuilder-relay
+  openSearchURL: http://labiraus-rag-data.data.svc.cluster.local:9200
+  rebuildOnStart: false

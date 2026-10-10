@@ -1,5 +1,7 @@
 # processor
 
+Worldbuilder LangGraph workflows live in `src/worldbuilder.ts`: canon query/proposal, advisory consistency check and story-turn candidates. `/worldbuilder/generate` requires a private `WORLDBUILDER_AI_TOKEN` shared only with external. Evidence is supplied by external; processor has no canon DB access or publication tools. Inference uses only `AI_GATEWAY_BASE_URL`, caps context/response bytes, 768 output tokens, 20 requests/minute and two concurrent calls per process. These are local limits, not a provider billing guarantee. Model usage is returned for external audit. No token means this endpoint is disabled. Existing document/assistant APIs below remain separate.
+
 `processor` is the internal TypeScript service for processor-owned assistant workflows and document-processing jobs.
 
 For synchronous browser assistant requests, it exposes internal `/assistant/...` routes called by `external`. It owns conversation state, explicit memories, proposal state, prompt construction, RAG context lookup through `external`, LangGraph-based chat orchestration, model calls through Envoy AI Gateway, and tool-call logging in Postgres.

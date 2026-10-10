@@ -1,0 +1,83 @@
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { afterEach, describe, it, expect, vi } from "vitest";
+import Worldbuilder from "./Worldbuilder.jsx";
+const world = { id: "w", name: "Novel", revision: 1, role: "editor" };
+function mockApi(
+  change = {
+    status: "draft",
+    author: "editor@test",
+    id: "c",
+    reason: "Add hero",
+    baseRevision: 1,
+    operations: [],
+  },
+) {
+  const calls = [];
+  global.fetch = vi.fn(async (url, options = {}) => {
+    calls.push([url, options]);
+    let data = [];
+    if (url === "/api/worlds") data = [world];
+    else if (url.includes("/canon?"))
+      data = {
+        world,
+        revision: 1,
+        total: 1,
+        records: [{ id: "main", kind: "timeline", label: "Main" }],
+      };
+    else if (url.endsWith("/changes")) data = [change];
+    else if (url.endsWith("/submit")) {
+      change.status = "ready_for_review";
+      data = change;
+    }
+    return { ok: true, json: async () => data };
+  });
+  return calls;
+}
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+describe("Worldbuilder", () => {
+  it("shows unavailable activation without fabricating worlds", async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 404,
+      json: async () => ({}),
+    }));
+    render(<Worldbuilder email="editor@test" />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("not enabled");
+  });
+  it("loads canon and submits draft without publishing", async () => {
+    const calls = mockApi();
+    render(<Worldbuilder email="editor@test" />);
+    await screen.findByRole("option", { name: "Novel" });
+    fireEvent.change(screen.getByLabelText("Open world"), {
+      target: { value: "w" },
+    });
+    await screen.findByText("Novel · canon revision 1");
+    fireEvent.click(screen.getByRole("button", { name: "Submit for review" }));
+    await waitFor(() =>
+      expect(calls.some(([u]) => u.endsWith("/submit"))).toBe(true),
+    );
+    expect(calls.some(([u]) => u.endsWith("/publish"))).toBe(false);
+    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
+  });
+  it("does not expose self-approval for an owner", async () => {
+    world.role = "owner";
+    mockApi({
+      status: "ready_for_review",
+      author: "editor@test",
+      id: "c",
+      reason: "Own proposal",
+      baseRevision: 1,
+      operations: [],
+    });
+    render(<Worldbuilder email="editor@test" />);
+    await screen.findByRole("option", { name: "Novel" });
+    fireEvent.change(screen.getByLabelText("Open world"), {
+      target: { value: "w" },
+    });
+    await screen.findByText("Own proposal");
+    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
+    world.role = "editor";
+  });
+});

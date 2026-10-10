@@ -1,1 +1,4 @@
+{{- if .Values.worldbuilder.aiSecret }}
+{{- $_ := set .Values "envFromSecrets" (append .Values.envFromSecrets .Values.worldbuilder.aiSecret) }}
+{{- end }}
 {{- include "commonapi.manifest" . }}

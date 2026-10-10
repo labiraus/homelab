@@ -1,6 +1,6 @@
 # Worldbuilder AI — Migration documentation index
 
-Status: **approved target architecture; implementation pending repository audit**.
+Status: **approved target architecture; offline implementation in progress, no observed deployment**.
 
 This documentation supersedes Evolve's previous document-first product direction for **application behaviour**. It does not automatically supersede infrastructure, security, development, or operations documents.
 
@@ -24,3 +24,12 @@ This documentation supersedes Evolve's previous document-first product direction
 ## Authority and change discipline
 
 The existing codebase and deployed manifests are evidence of the **current state**, not of the desired state. This set defines the **target** but is not evidence that target code or components already exist. All illustrative paths, tables, endpoints and events must be aligned with the actual repository after inventory. Mark unverified assumptions instead of guessing.
+
+## Execution records
+
+- [Documentation audit](DOCS-AUDIT.md)
+- [Implementation status and tests](IMPLEMENTATION-STATUS.md)
+- [Decisions](DECISIONS.md)
+- [Troubleshooting](TROUBLESHOOTING.md)
+- [API/event contracts](API.md)
+- [Concrete LAN runbook](LAN-RUNBOOK.md)

@@ -1397,3 +1397,15 @@ a {
 		align-items: center;
 	}
 }
+
+.worldbuilder fieldset { margin-block: 1.5rem; padding: 1rem; border: 1px solid var(--border-color, #777); border-radius: .5rem; }
+.worldbuilder form { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; margin-block: 1rem; }
+.worldbuilder label { display: inline-flex; flex-direction: column; gap: .3rem; margin: .35rem; }
+.worldbuilder input, .worldbuilder select, .worldbuilder textarea, .worldbuilder button { padding: .5rem; font: inherit; }
+.worldbuilder textarea { min-width: 20rem; min-height: 5rem; }
+.worldbuilder button { margin: .3rem; cursor: pointer; }
+.worldbuilder button:disabled { cursor: default; opacity: .5; }
+.worldbuilder pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.world-records { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+.worldbuilder article { padding: .75rem; border-bottom: 1px solid var(--border-color, #777); }
+.worldbuilder [role="alert"] { color: #e96969; }

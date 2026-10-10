@@ -14,7 +14,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
 - `.devcontainer/`
   - Devcontainer config, mounted kubeconfig, SSH config, env file
 - `apps/`
-  - `external/`: public Go service
+  - `external/`: public Go service; `worldbuilder/` owns canon validation/publication, revision queries, reasoning boundary and story persistence
   - `mcp/`: public Go MCP service; see `apps/mcp/AGENTS.md` for transport/client-compatibility rules
   - `orchestrator/`: internal Go document service
   - `processor/`: internal TypeScript service for assistant orchestration plus the NATS JetStream worker that extracts text and indexes derived retrieval state into OpenSearch
@@ -22,6 +22,9 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - `pkg/`: shared Go modules
 - `ansible/`
   - external service state management, including the Minecraft VM
+- `docs/worldbuilder/`: architecture, migration, audit, decisions, implementation status, API contract and LAN runbook
+- `sql/worldbuilder/`: explicit additive migrations and dedicated runtime grants
+- `scripts/worldbuilder/`: disposable database and offline manifest checks
 - `docs/`
   - `Setup.md`: Kubernetes setup path for local machine, Proxmox worker prep, SSH, kubeconfig, and worker network stability
   - `Secrets.md`: generated local secrets and Ansible-only secret handling

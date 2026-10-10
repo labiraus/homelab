@@ -2,7 +2,7 @@
 
 ## Important distinction
 
-You currently have no access to the Kubernetes cluster. Work now must be **offline/remote preparatory**: source changes, unit/integration tests with local dependencies if available, chart/schema validation and generated manifest inspection. Do not confuse green local tests with successful deployment. Tomorrow, on LAN, run the cluster verification and controlled rollout steps.
+You currently have no access to the Kubernetes cluster. Work now must be **offline/remote preparatory**: source changes, unit/integration tests with local dependencies if available, chart/schema validation and generated manifest inspection. Do not confuse green local tests with successful deployment. When LAN access is restored, run the cluster verification and controlled activation steps. The user subsequently authorised main-branch CI publication during this session; this supersedes the no-push instruction for source delivery only. Database migration and feature activation remain gated. Concrete commands are in [LAN-RUNBOOK.md](LAN-RUNBOOK.md).
 
 ## Phase R — remote preparation (execute now)
 
@@ -16,7 +16,7 @@ You currently have no access to the Kubernetes cluster. Work now must be **offli
 
 **Forbidden until verified cluster access and approval**
 - `kubectl apply`, `helm upgrade/install/uninstall`, `flux reconcile`, destructive Terraform apply, scale-down or replacement of Cassandra, database/PVC deletion, credential rotation, production schema changes against live DB.
-- GitOps PR merge or push to a branch auto-applied by Flux, if that would trigger unverified live changes. Work in a feature branch and stage deployment changes in PRs, blocked from auto-reconciliation. Validate the actual branch-to-cluster policy before pushing.
+- Unapproved GitOps publication. For this execution the user has explicitly authorised main-branch CI publication; publish only after offline checks, with Worldbuilder flags disabled. Never equate artifact publication with cluster verification.
 - Any claim that pods, volumes, database connections, inference, ingress or external integrations are working in the cluster.
 
 ## Remote verification checklist
@@ -35,7 +35,7 @@ You currently have no access to the Kubernetes cluster. Work now must be **offli
 
 Document actual status as `LOCAL_VERIFIED`, `NOT_RUN`, `BLOCKED_CLUSTER_ACCESS`, or `FAILED`. No `DEPLOYED` status for offline work.
 
-## Phase L — LAN / cluster validation (tomorrow)
+## Phase L — LAN / cluster validation (when access returns)
 
 This is a **separate human-authorised execution gate**, not an automatic continuation of remote work. Before any mutating operations:
 

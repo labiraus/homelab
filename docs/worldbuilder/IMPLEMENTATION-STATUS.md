@@ -1,0 +1,117 @@
+# Worldbuilder implementation status
+
+Execution started 2026-10-10. **Local verification complete for the initial slice; main-branch CI publication subsequently authorised; no live cluster observations.**
+
+## Verified inventory (M0)
+
+Only `/workspaces/homelab` is available; no separate `engine`/`infra` checkout is present. This monorepo contains both application and infrastructure code. No Cassandra client, schema, credentials or chart was found by case-insensitive source search outside the target docs. This is not evidence of absence from the live estate. No BFF, OpenAPI generator or application Kustomize overlays were found.
+
+| Component | Verified source / entry point | Gap to target |
+|---|---|---|
+| Public API | `apps/external/main.go`, `db.go`, `assistant.go`, `search.go` | Document routes and processor proxy; canon domain absent at audit |
+| MCP | `apps/mcp/main.go`, `documents.go`, `external_proxy.go`, `transport.go` | Existing document tools; no world tools; preserve compatibility |
+| AI/worker | `apps/processor/src/index.ts`, `assistant_api.ts`, `assistant_llm.ts` | Node HTTP (not Fastify); LangGraph assistant chat and NATS worker; no canon grounding |
+| Orchestrator | `apps/orchestrator/main.go`, `db.go`, `documents.go`, `scan.go` | Document reconciliation and JetStream publishing; no transactional canon outbox |
+| UI | `apps/ui/src/App.jsx`, `main.jsx`, `vite.config.js` | React/Vite document, inventory, search, assistant views |
+| PostgreSQL | `apps/pkg/postgresutil/postgres.go` (`Begin`, `GetPool`); `sql/auth.pgsql`, `sql/rag/schema.pgsql`, `sql/assistant/schema.pgsql` | pgx already present; dedicated canon schema/roles required |
+| Retrieval | `apps/processor/src/opensearch.ts`, `apps/pkg/opensearchrag/opensearchrag.go` | Rebuildable document index; no world/timeline/revision projection |
+| Messaging | `apps/pkg/documentevents/events.go`, `apps/processor/src/config.ts` | `documents.ingest`, stream `documents`; `documents.events.>`, stream `document-events` |
+| Inference | `helm/infra/vllm/templates/aigateway.yaml`, `helm/infra/envoy-ai-gateway/`, `docs/EnvoyAIGateway.md` | Gateway configured in source; model/embeddings compatibility needs LAN observation |
+| Platform | `components/{kubernetes,minecraft-vm}/`, `helm/{apps,bootstrap,data,infra}/`, `ansible/` | Preserve hardware/network/auth; no Terraform change needed |
+| Recovery | `helm/data/postgres/templates/{cluster,scheduledbackup}.yaml`, `docs/RetentionAndRecovery.md` | Existing CNPG app-db, Longhorn 10Gi, external MinIO WAL/base backups; restore health unverified |
+
+## GitOps safety
+
+`.github/workflows/app-*.yml` and `helm-all.yml` publish on `main` and `dev`. Flux bootstrap charts create OCIRepository/HelmRelease resources watching `uat` semver tags at one-minute intervals. Both branches are deployment triggers, not isolated environments. Initially created `feat/worldbuilder-offline-foundation` under the no-push instruction. The user then explicitly requested main-branch CI deployment, superseding that instruction for source delivery. Switched to `main`; planned publication keeps Worldbuilder runtime flags disabled. No direct cluster mutations, production SQL, feature activation or Cassandra removal are authorised. Git credential-path dry-run push succeeded; GitHub CLI has no login. Public GitHub Actions API is readable for delivery observation.
+
+Pre-existing edits were preserved; by the main-branch switch they had been included in the existing `84adfb9` base commit, not in our migration changes: `.devcontainer/Dockerfile`, `.devcontainer/devcontainer.json`, `AGENTS.md`, `README.md`, `docs/Setup.md`, `runbooks/troubleshooting.md`, untracked `.devcontainer/.dockerignore`, `.devcontainer/AGENTS.md`.
+
+## Dependency-ordered implementation map
+
+1. M0: reconcile product docs and preserve prior plan as history.
+2. M1: additive versioned canon migration, dedicated runtime credentials, disposable migration/restore harness; reuse pgx and CNPG.
+3. M2/M3: world membership, typed projections and immutable snapshots; deterministic validation, separate human reviewer, atomic publication and transactional outbox.
+4. M4: world/wiki/editor/review UI on existing external API.
+5. M5: authorised revision-scoped evidence and tested LangGraph grounding; durable projection work after outbox foundation.
+6. M6/M7: persistent pinned story sessions, atomic/idempotent turns, outcomes routed to ordinary review.
+7. M8: prepare discovery/export/recovery and controlled rollout; no decommission offline.
+
+## Milestone checkpoints
+
+| Milestone | Source implementation and result | Remaining gate |
+|---|---|---|
+| M0 | LOCAL_VERIFIED: audited actual monorepo, doc dispositions, archive and active plan reconciliation | Live estate inventory remains unknown |
+| M1 | LOCAL_VERIFIED: dedicated schema/roles, explicit migrations, existing pgx/CNPG reuse, disposable up/up/down/up and restore tests | BLOCKED_CLUSTER_ACCESS: independent migration owner, credentials, storage, CNPG recovery |
+| M2 | LOCAL_VERIFIED initial domain: world/member, typed entity schemas, facts/relationships/events/timelines/rules/sources, relational projections and immutable snapshots, fictional ticks and lexical wiki queries | Full world settings/archive, ownership transfer, timeline inheritance/calendar presentation, richer schema/editor capabilities remain follow-ups |
+| M3 | LOCAL_VERIFIED: independent approval, revalidation, per-world locks, atomic projection/revision/audit/outbox, stale revision/revoked review checks, retries and compensating revision | Live multi-user/header/mesh trust validation and richer review policies |
+| M4 | LOCAL_VERIFIED initial React Worlds tab: wiki/history, editor staging, before/after preview, membership, review/publish | UI paging beyond initial caps, richer multi-field schema editing and visual acceptance on deployed host |
+| M5 | LOCAL_VERIFIED: bounded LangGraph workflows, external-scoped evidence and resolvable citations, candidate-only outputs, transactional outbox relay, NATS duplicate handling, OpenSearch external-version indexing/rebuild | BLOCKED_CLUSTER_ACCESS: Envoy/model JSON compatibility and live quality; canon vector/embedding search, scoped MCP delegation and distributed cost quotas are not implemented |
+| M6 | LOCAL_VERIFIED: persistent pinned sessions, private provisional typed state, atomic narration/turn/state, optimistic concurrency and idempotency; generated candidates explicitly saved | Rich story definitions/scenario authoring, persisted summaries and durable long-running generation jobs remain follow-ups |
+| M7 | LOCAL_VERIFIED initial outcome -> draft -> review -> publish -> wiki path; advanced canon conflicts require explicit reconciliation | Optional graph/chronology visualisations and assisted conflict rebasing remain follow-ups; projection end-to-end cluster observation pending |
+| M8 | Prepared inventory/export, staged rollout, backup/recovery and compensating rollback runbook | BLOCKED_CLUSTER_ACCESS; no Cassandra removal or cutover claimed |
+
+This is a tested incremental slice across M1–M7, **not completion of every acceptance criterion in M1–M8**. The unimplemented items above are explicit follow-ups rather than claims of deployed functionality.
+
+## Changed components
+
+- `apps/external/worldbuilder/` and `worldbuilder.go`: domain, database transaction engine, HTTP routes, reasoning boundary, story persistence and integration tests; `main.go` registers only when enabled.
+- `sql/worldbuilder/`: schema version 1, guarded empty rollback, dedicated grants and operator notes.
+- `apps/orchestrator/worldbuilder.go`: optional relay/index consumer; `worldbuilder_test.go` covers retry, projection, rebuild and real disposable transport/index integration.
+- `apps/processor/src/worldbuilder.ts`: bounded token-authenticated LangGraph endpoint and tests; no canonical DB access or model-selected tools.
+- `apps/ui/src/Worldbuilder.jsx` and tests: world/wiki/editor/review/story/AI candidates within the existing auth shell.
+- App Helm templates/values: disabled flags and private secret references, browser-principal DENY policy and optional indexing egress. No CNPG/PVC/Terraform changes.
+- `.github/workflows/app-*.yml`: main tests gate publication, correct Go working directories, TS/UI builds, disposable database test in external CI; outdated action runtimes updated to setup-go/setup-node v6 and cache v5.
+- `scripts/worldbuilder/`: reproducible local database, chart and Flux schema checks.
+- README, agent guidance, app READMEs, RAG diagram, setup/recovery docs and `.codex` plan/map reconciled; old plan archived. See DOCS-AUDIT.md.
+
+## Verification log — 2026-10-10
+
+Local tools: Go 1.27.2, Node 24.21.0, Helm 4.3.0. CI keeps declared Go 1.25.6; its actual run is separately observed after push. All PostgreSQL/NATS/OpenSearch writes below targeted newly created disposable Docker services, never the homelab cluster. Go integration tests normally skip without explicit disposable DSNs; the database harness runs them with real PostgreSQL.
+
+Use `GOCACHE=/tmp/worldbuilder-go-cache GOMODCACHE=/tmp/worldbuilder-go-mod GOPATH=/tmp/worldbuilder-gopath` in the restricted workspace.
+
+| Exact command/context | Result |
+|---|---|
+| `(cd apps/external && go test -race ./...)` with cache variables | LOCAL_VERIFIED; root package passes, domain unit tests pass; explicit DB integration is separately run below |
+| `(cd apps/orchestrator && go test -race ./...)` | LOCAL_VERIFIED; normal unit tests pass; explicit service tests separately run below |
+| `(cd apps/mcp && go test -race ./...)` | LOCAL_VERIFIED; race suite passed |
+| `for module in apps/pkg/*/go.mod; do (cd "${module%/go.mod}" && go test ./...); done` with cache variables | LOCAL_VERIFIED; all 14 shared modules compiled/tested (modules without tests reported as such), no cluster endpoints supplied |
+| `scripts/worldbuilder/test-postgres.sh`; final Docker-outside-Docker repeat with `WORLDBUILDER_TEST_PORT=25434` | LOCAL_VERIFIED: PostgreSQL 16.13 up/up/down/up; denied legacy schema access/relay canon writes; publication/history/world isolation/temporal/chronology/story/outcome/concurrency/failure/compensation tests; outbox retry; populated-down refusal; pg_dump/pg_restore revision checksum match. Dedicated external runtime-role publication, immutable-history denial and authoritative AI scope/base-revision regression also passed |
+| `(cd apps/processor && npm ci --cache /tmp/worldbuilder-npm-cache --ignore-scripts && npm run build && npm test)` | LOCAL_VERIFIED compile + 30 tests (six new Worldbuilder cases); npm advisories remain |
+| `(cd apps/ui && npm ci --cache /tmp/worldbuilder-npm-cache-ui --ignore-scripts && npm run build && npm test)` | LOCAL_VERIFIED production build + 22 tests (three new Worldbuilder cases); npm advisories remain |
+| `python3 scripts/worldbuilder/check-manifests.py` | LOCAL_VERIFIED: 26 base/GHCR/ECR combinations across five app charts, postgres, flux-apps/data/infra, vllm and Envoy AI Gateway; Helm lint/template plus local `kubectl kustomize` builds; explicit enabled renders and missing-principal refusal |
+| `flux install --export > /tmp/worldbuilder-flux-schemas.yaml` then `/tmp/worldbuilder-python/bin/python scripts/worldbuilder/validate-flux.py /tmp/worldbuilder-flux-schemas.yaml /tmp/worldbuilder-manifests-tf796e6g` | LOCAL_VERIFIED: 76 rendered Flux resources validated against installed Flux CRD schemas. Other custom-resource schemas (CNPG/Istio/AI Gateway) are not covered by this check |
+| `go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 -shellcheck= .github/workflows/app-{external,orchestrator,mcp,processor,ui}.yml` with cache variables | LOCAL_VERIFIED after updating obsolete action runtimes; shellcheck explicitly disabled |
+| `git diff --check` and relative Markdown link scan of changed product docs | LOCAL_VERIFIED, no whitespace errors/broken product links |
+| `GIT_TERMINAL_PROMPT=0 git push --dry-run origin main` | LOCAL_VERIFIED credential path, no remote changes from dry run |
+
+Disposable live transport/index test:
+
+```bash
+# Services created only for this local test, with no persistent host mounts:
+docker run -d --name worldbuilder-offline-postgres -e POSTGRES_PASSWORD=offline-test-only -e POSTGRES_DB=worldbuilder_test -p 127.0.0.1:25432:5432 postgres:16.13
+docker exec -i worldbuilder-offline-postgres psql -U postgres -d worldbuilder_test -v ON_ERROR_STOP=1 < sql/worldbuilder/001_up.sql
+docker run -d --name worldbuilder-offline-nats -p 127.0.0.1:24222:4222 nats:2.11.9 -js
+docker run -d --name worldbuilder-offline-search --memory=2g -e discovery.type=single-node -e DISABLE_SECURITY_PLUGIN=true -e DISABLE_INSTALL_DEMO_CONFIG=true -e OPENSEARCH_JAVA_OPTS='-Xms512m -Xmx512m' -p 127.0.0.1:29200:9200 opensearchproject/opensearch:3.7.0
+# From apps/orchestrator, with the cache variables above:
+WORLDBUILDER_TEST_DATABASE_URL='postgres://postgres:offline-test-only@host.docker.internal:25432/worldbuilder_test?sslmode=disable' \
+WORLDBUILDER_TEST_NATS_URL='nats://host.docker.internal:24222' \
+WORLDBUILDER_TEST_OPENSEARCH_URL='http://host.docker.internal:29200' \
+go test -race -count=1 -v -run TestCanonLiveTransportAndIndex .
+```
+
+**LOCAL_VERIFIED**: real JetStream acknowledgement/dedup, durable pull/ack, OpenSearch index creation/projection, older event rejection preserving revision 2, and snapshot rebuild passed. One-node disposable services do not prove three-node cluster quorum, security configuration or cluster networking. Disposable containers are removed after validation.
+
+Local artifacts: `/tmp/worldbuilder-postgres-final.log`, `/tmp/worldbuilder-postgres-roles.log`, `/tmp/worldbuilder-postgres-checked.log`, `/tmp/worldbuilder-shared-go.log`, `/tmp/worldbuilder-manifests-tf796e6g/`. These are local diagnostics, not committed artifacts and may disappear after the session; durable outcomes are recorded here. Render checks use missing-secret placeholders only offline.
+
+## Unresolved issues and activation gates
+
+**BLOCKED_CLUSTER_ACCESS**: live proxy/header/mTLS trust, dedicated migration-owner/runtime privileges, production migration, CNPG storage/WAL/base backup/restore health, external MinIO reachability, registry/signature observation, Envoy model support/quality, live NATS/OpenSearch topology, rollout readiness and network policies. Follow the exact read-only sequence and separately authorised stages in [LAN-RUNBOOK.md](LAN-RUNBOOK.md).
+
+**NOT_RUN**: browser automation against real oauth2-proxy, real-model adversarial/grounding evaluation, full non-Flux CRD schema validation, production-scale load/latency/cost tests. Initial UI and context caps, per-world serialisation and snapshot rewrites are documented in [API.md](API.md).
+
+**Known retained gaps**: npm advisories (processor 7; UI 13), legacy RAGAS harness still reads old pgvector rows, unfinished `scripts/pg-update.sh` remains unused, no Cassandra estate inventory outside this checkout. No dependency upgrades or destructive data cleanups are hidden in this migration.
+
+## Publication record
+
+Main-branch commit/push and resulting CI outcomes will be recorded here after they are observed. Feature activation remains off by default. Never read source publication as evidence of successful cluster deployment.

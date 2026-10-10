@@ -295,3 +295,10 @@ affinity: {}
 
 env:
   configValue: "default"
+
+# Off until explicit migration, dedicated grants and browser mTLS identity validation.
+worldbuilder:
+  enabled: false
+  databaseSecret: worldbuilder-external
+  browserPrincipal: ""
+  aiSecret: ""

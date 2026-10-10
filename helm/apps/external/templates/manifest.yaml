@@ -1,1 +1,8 @@
+{{- if .Values.worldbuilder.enabled }}
+{{- $_ := set .Values "env" (merge (dict "WORLDBUILDER_ENABLED" "true") (.Values.env | default dict)) }}
+{{- $_ := set .Values "envFromSecrets" (append .Values.envFromSecrets .Values.worldbuilder.databaseSecret) }}
+{{- if .Values.worldbuilder.aiSecret }}
+{{- $_ := set .Values "envFromSecrets" (append .Values.envFromSecrets .Values.worldbuilder.aiSecret) }}
+{{- end }}
+{{- end }}
 {{- include "commonapi.manifest" . }}

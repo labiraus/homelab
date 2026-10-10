@@ -1,0 +1,21 @@
+{{- if .Values.worldbuilder.enabled }}
+{{- $principal := required "worldbuilder.browserPrincipal must be verified before enabling canon" .Values.worldbuilder.browserPrincipal }}
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ include "commonapi.fullname" . }}-worldbuilder-browser
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "commonapi.selectorLabels" . | nindent 6 }}
+  action: DENY
+  rules:
+    - from:
+        - source:
+            notPrincipals:
+              - {{ $principal | quote }}
+      to:
+        - operation:
+            paths: ["/api/worlds", "/api/worlds/*"]
+{{- end }}

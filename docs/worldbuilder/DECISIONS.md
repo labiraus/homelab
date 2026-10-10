@@ -1,0 +1,47 @@
+# Worldbuilder decisions
+
+## 2026-10-10 — Adapt to verified monorepo
+
+The target's separate engine/infra repos, Cassandra and Fastify are assumptions, not present implementation. Use existing Go external, Node HTTP processor with LangGraph, React UI, pgx and CNPG. Do not introduce a framework, database, BFF or new service. Keep Labiraus infrastructure/resource identifiers and MCP transport names stable; Worldbuilder is the application direction. No Cassandra removal is justified by local absence.
+
+## 2026-10-10 — Additive, default-disabled migration
+
+Use a separate `worldbuilder` schema and explicitly configured external-only connection. Legacy document APIs and MinIO data remain available; they are source material, never canon. No automatic startup migration or Helm migration hook. Human-controlled migration precedes feature activation. Existing shared app credentials are insufficient for canon isolation: schema ownership and runtime role grants must be validated before activation.
+
+## 2026-10-10 — Governance and historical reads
+
+Use world-scoped stable IDs, relational current projections and complete immutable revision snapshots initially (target thousands of entities). Publication takes a world row lock, rechecks membership, approval and expected revision, then commits projections, history, audit and outbox together. Prefer explicit independent reviewer approval over self-approval. Full snapshots simplify provable pinned reads and compensation; incremental storage optimisation requires measurements.
+
+## 2026-10-10 — Offline boundary
+
+No cluster mutations, remote database access, pushes, CI dispatches or automatic deployments. Future LAN instructions are a separately authorised gate. Preserve existing recovery and external MinIO rules.
+
+## 2026-10-10 — Subsequent user instruction authorises main-branch CI delivery
+
+The user explicitly changed the earlier no-deploy instruction: work from main so CI deploys, then validate on LAN. Switched back to main and will publish tested source via existing CI/Flux. This supersedes the earlier feature-branch/no-push decision for source delivery. Canon schema installation, dedicated credentials, mesh identity validation and feature activation remain separately gated; no direct cluster command is authorised by that source-delivery change. All new runtime flags default off.
+
+## 2026-10-10 — Reuse a relational projection and immutable full snapshots
+
+A single `record` projection has structured kind/reference/type/predicate/time columns and composite world-scoped foreign keys. JSONB holds scalar value, schema and presentation extensions. Immutable revision snapshots support exact historical reads and pinned story sessions. Current publication rewrites at most 5,000 records under the world lock; this favours reviewable transaction correctness over premature incremental projection complexity. Types, entities, sources, timelines, facts, relationships, events and rules share IDs; refs are validated by kind in external. Automatic timeline inheritance is absent.
+
+## 2026-10-10 — Browser publication boundary, MCP delegation deferred
+
+Existing auth middleware accepts trusted forwarded identity headers. It cannot distinguish an AI request carrying a user's header from a human review. Require mesh-enforced oauth2-proxy-only access to all new world routes before activation; deny processor/MCP direct world access. External supplies authorised canon context to processor over a private token endpoint. Processor has no tool router or canon DB privileges. A future scoped MCP delegation contract needs separate read/propose capabilities and must never allow review/publication. Existing MCP transports and document tools remain compatible.
+
+## 2026-10-10 — Outbox relay and projection stay in orchestrator
+
+Orchestrator already owns durable async coordination. Add optional outbox relay and a durable NATS projection consumer there, using a read-only canon snapshot grant and delivery-only outbox update grant. Projection is a deterministic copy, not extraction or inference. OpenSearch external versioning handles duplicate/out-of-order events; PostgreSQL remains user-facing retrieval authority initially. No new service is needed. Canon embedding/vector search and index-backed candidate discovery are follow-ups; no model/provider capability is assumed.
+
+## 2026-10-10 — Explicit bounded reasoning and story candidates
+
+LangGraph supports four workflows with fixed evidence, bounded context, strict output and resolvable IDs; no model-selected tool calls exist. Reasoning returns candidates only. UI actions explicitly save draft proposals or provisional story turns. Session version and request IDs guard atomic persistence, and outcome reconciliation refuses silent rebase when current canon differs from the pin. Model grounding validation proves scope/reference integrity, not semantic truth; live quality evaluation remains required. Per-process rate/token ceilings are not distributed financial cost caps.
+
+## 2026-10-10 — Main publication must depend on tests
+
+Audit found that app CI skipped main-branch tests and Go jobs ran from the non-module repository root. Corrected all app pipelines to run tests on main, build TypeScript/frontend, use each Go module's working directory, and make publication depend on tests. External CI additionally runs disposable migration/integrity/recovery tests. Existing artifact tagging/signing and Flux discovery patterns are preserved.
+
+The CI runtime update was driven by actionlint failures on the existing setup-go v3, setup-node v2 and cache v2/v3 actions. Replacement major tags were verified against the upstream repositories; setup actions use their documented Node 24 runtime ([setup-go](https://github.com/actions/setup-go), [setup-node](https://github.com/actions/setup-node), [cache](https://github.com/actions/cache)). No app framework/toolchain version was changed by that action-runtime fix.
+
+## 2026-10-10 — Preserve AI proposal base revision
+
+Review found that a generated candidate could otherwise be saved with a later UI-selected revision. Canon proposal inference now requires the current revision, returns its explicit `baseRevision`, and the UI retains that value when saving the draft. Stale proposals conflict rather than silently acquiring a new base. Regression tests also prove unauthorised calls never invoke the reasoner and inference alone creates no proposal.

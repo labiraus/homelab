@@ -10,12 +10,12 @@ Build a collaborative worldbuilding application where **the world, not the LLM, 
 |---|---|---|
 | Existing UI SPA | Keep, redesign features | World dashboard, wiki, structured editor, AI chat, review queue, story experiences, timelines and graphs |
 | `external` (Go) | Expand | AuthZ, worlds, canonical queries, typed data contracts, change sets, atomic publication, story persistence |
-| `processor` (TS/Fastify) | Refactor | LangGraph workflows, grounded retrieval, AI proposals, consistency reasoning, narrative generation |
+| `processor` (TypeScript; audited implementation uses Node HTTP) | Refactor | LangGraph workflows, grounded retrieval, AI proposals, consistency reasoning, narrative generation |
 | `orchestrator` (Go) + NATS JetStream | Keep | Durable background indexing, import, bulk consistency, longer generation |
 | `mcp` (Go) | Keep thin | Authorised proxy into existing API capabilities; no bypass to canonical DB |
 | `bff` | Inspect | Retain only if it provides a real client-aggregation boundary |
-| Cassandra | Phase out | Export/retire once actual consumers and data are migrated |
-| PostgreSQL | Add | Only authoritative store for canon, audit/change governance and persistent story state |
+| Cassandra | Inventory gate | None found in available checkout; any external consumers/data require export and verified cutover before retirement |
+| PostgreSQL | Reuse existing CNPG; add canon schema | Only authoritative store for canon, audit/change governance and persistent story state |
 | OpenSearch | Keep | Rebuildable text/vector/hybrid search, **not authority** |
 | Envoy AI Gateway | Keep | Central provider-neutral inference and usage governance |
 | Object storage | Add/reuse | Manuscripts, large sources and long narrative artefacts; link from PostgreSQL |

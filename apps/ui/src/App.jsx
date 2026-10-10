@@ -1,3 +1,4 @@
+import Worldbuilder from "./Worldbuilder.jsx";
 import { useEffect, useRef, useState } from "react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -40,6 +41,8 @@ function pageFromHash() {
 		return "overview";
 	}
 	switch (window.location.hash) {
+		case "#/worlds":
+			return "worlds";
 		case "#/assistant":
 			return "assistant";
 		case "#/documents":
@@ -1046,7 +1049,7 @@ function App() {
 	useEffect(() => {
 		if (
 			!documentsEnabled &&
-			(page === "assistant" || page === "documents" || page === "inventory" || page === "search")
+			(page === "worlds" || page === "assistant" || page === "documents" || page === "inventory" || page === "search")
 		) {
 			setPage("overview");
 			if (typeof window !== "undefined") {
@@ -1360,7 +1363,7 @@ function App() {
 			return;
 		}
 		window.location.hash =
-			nextPage === "assistant"
+			nextPage === "worlds" ? "#/worlds" : nextPage === "assistant"
 				? "#/assistant"
 				: nextPage === "documents"
 				? "#/documents"
@@ -2344,6 +2347,7 @@ function App() {
 							Documents
 						</button>
 					) : null}
+				{documentsEnabled ? <button type="button" className={`topbar-tab ${page === "worlds" ? "active" : ""}`} onClick={() => navigateToPage("worlds")}>Worlds</button> : null}
 				</nav>
 
 				<div className="topbar-actions">
@@ -2455,7 +2459,7 @@ function App() {
 			</header>
 
 			<div className="workspace">
-				{page === "overview" ? (
+				{page === "worlds" && documentsEnabled ? <Worldbuilder email={authStatus.email}/> : page === "overview" ? (
 					<section className="workspace-shell">
 						<header className="workspace-header">
 							<div>

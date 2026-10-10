@@ -4,7 +4,7 @@ This file applies to everything under `apps/`.
 
 ## Purpose
 
-`apps/` contains the example and utility services that run inside the cluster plus shared Go packages under `apps/pkg/`.
+`apps/` contains Worldbuilder and retained document services plus shared Go packages under `apps/pkg/`. Canon publication belongs only to external; processor can generate candidates, never approve or publish.
 
 The goal here is clarity and operability, not unnecessary abstraction.
 
@@ -20,8 +20,8 @@ The goal here is clarity and operability, not unnecessary abstraction.
 
 - `external/` is the public Go service
 - `mcp/` is the Go MCP service
-- `orchestrator/` is the internal Go document service
-- `processor/` is the TypeScript NATS JetStream worker
+- `orchestrator/` is the internal Go document control plane and optional canon outbox/index worker
+- `processor/` is the TypeScript Node HTTP/LangGraph service and NATS JetStream worker
 - `ui/` is the Vite frontend
 - `pkg/` contains shared Go helpers used by application code
 
@@ -35,3 +35,10 @@ The goal here is clarity and operability, not unnecessary abstraction.
 If a repeated app-level convention emerges, record it here.
 
 If a lesson applies only to one app, add a more specific `AGENTS.md` under that app directory later rather than overloading this file.
+
+## Build and canon boundaries
+
+- There is no root `go.mod` or `go.work`. Run Go checks from each module directory (for example `cd apps/external && go test ./...`); CI must use the same working directory.
+- Worldbuilder canon credentials belong only to external. Processor and MCP must not receive the schema owner/runtime login or human publication authority. Mesh identity/header isolation must be validated before enabling the feature.
+- A successful source or artifact publication is not evidence of cluster readiness.
+- AI proposal candidates must retain their generation `baseRevision` when persisted; never replace it with a newly fetched revision to avoid a conflict. Rebase explicitly and obtain fresh review.

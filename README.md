@@ -1,10 +1,10 @@
-# Homelab
+# Worldbuilder AI on Labiraus
 
 This repository combines five related areas for the Labiraus homelab platform:
 
 - Terraform for provisioning Kubernetes worker VMs and dedicated service VMs on Proxmox
 - Helm charts for cluster bootstrap and in-cluster workloads
-- Small application services used inside the cluster
+- Worldbuilder application services plus retained document tooling
 - Ansible for external service management, including MinIO on `svartalfheim`
 - Ansible for dedicated VM-hosted workloads such as Minecraft and post-provision Kubernetes worker bootstrap
 
@@ -109,11 +109,13 @@ The app stack under `apps/` is intentionally small:
 - `apps/pkg/*`: shared Go packages for HTTP server startup, logging, metrics, and integrations
 - `evals/ragas`: RAGAS-based retrieval/chunking quality checks against live processed chunks
 
-Current document-platform direction:
+Worldbuilder is the application target: PostgreSQL canon, independently reviewed atomic publication, revision-scoped wiki and AI, and persistent provisional stories. See the [architecture and migration index](docs/worldbuilder/00-WORLDBUILDER-INDEX.md), [implementation status](docs/worldbuilder/IMPLEMENTATION-STATUS.md), and [LAN rollout gate](docs/worldbuilder/LAN-RUNBOOK.md). The new application is default-disabled pending schema, dedicated credentials and mesh identity validation. CI publication is authorised on `main`; this is not a claim of cluster readiness.
+
+Retained document capabilities:
 
 - MinIO on `svartalfheim` is the canonical raw object store
 - Postgres via CNPG is the source of truth for metadata, workflow state, lifecycle history, audits, and assistant state
-- OpenSearch is the source of truth for derived RAG chunks, vectors, indexing, and retrieval
+- OpenSearch is a rebuildable derived RAG index; it is never authoritative canon
 - document lifecycle history is also persisted in Postgres for processing and reprocessing audits
 - browser and MCP surfaces expose retrieval, cited context, lifecycle history, metadata curation, guarded text edits, and reprocess requests while `orchestrator` keeps workflow ownership
 - the Assistant tab lets authenticated users ask RAG-backed questions, save approved per-user memories, approve or reject proposed text create/edit operations, and inspect file-change audit rows

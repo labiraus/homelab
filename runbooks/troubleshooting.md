@@ -259,3 +259,7 @@ version, check the live pack and version API before changing Ansible. On Septemb
 indexed Aero download page paired `1.10.0` with `100504`, while the live API identified that ID as
 `1.11.0`. The correct Aero `1.10.0` ID is `100497`. See [Minecraft VM updates](../docs/MinecraftVM.md#updating-a-managed-server-version)
 for cold backups and installed-version/readiness checks.
+
+## Worldbuilder migration
+
+Worldbuilder implementation and offline checks are tracked in [implementation status](../docs/worldbuilder/IMPLEMENTATION-STATUS.md). Use the [LAN runbook](../docs/worldbuilder/LAN-RUNBOOK.md) for discovery and controlled activation. Code publication on main is authorised; production migrations and feature activation require the separate LAN gate. Do not use the unfinished `scripts/pg-update.sh` placeholder for this migration.
