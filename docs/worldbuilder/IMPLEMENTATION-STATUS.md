@@ -4,6 +4,8 @@ Execution started 2026-10-10. **Required remote implementation and feasible offl
 
 Public read-only probing on 2026-10-10 reached DNS/TLS but was blocked by Zscaler with a hostname-mismatched certificate and HTTP 403 diagnostic page. No verified application response or cluster state was obtained; see [public validation evidence and remaining checks](PUBLIC-VALIDATION.md).
 
+Subsequent user-authorised CI diagnosis added automatic verified public probes and fixed MCP builds advertising `local` by embedding the published image version. MCP CI `38082111065` successfully published image/chart `0.0.0-uat.38082111065`. Independent hosted probes, including its post-publication check, each failed ten times with TLS hostname mismatch (code 62) at `87.117.64.111`; no deployed version or application response was observable. Seven checker tests, MCP Go tests and affected workflow lint pass. Flux state remains unknown because no usable cluster observation connection is configured; continuation needs verified ingress routing or read-only cluster status, not an assumed stopped reconciliation.
+
 ## Verified inventory (M0)
 
 Only `/workspaces/homelab` is available; no separate `engine`/`infra` checkout is present. This monorepo contains both application and infrastructure code. No Cassandra client, schema, credentials or chart was found by case-insensitive source search outside the target docs. This is not evidence of absence from the live estate. No BFF, OpenAPI generator or application Kustomize overlays were found.

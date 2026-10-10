@@ -13,6 +13,7 @@ This file applies to everything under `apps/mcp/`.
 - Keep supported protocol-version negotiation broad for native clients: currently `2025-11-25`, `2025-06-18`, `2025-03-26`, and `2024-11-05`.
 - Preserve UUID-shaped session restoration for Streamable HTTP clients; native clients can cache `MCP-Session-Id` values across pod restarts and may not recover cleanly from an immediate `404`.
 - Keep `/.well-known/mcp.json`, OAuth protected-resource metadata, app README, and Helm route values aligned whenever endpoints or advertised transports change.
+- Preserve CI stamping of `pkg/base.BuildVersion` with the immutable MCP image tag. Post-publication checks must observe that exact discovery version; a healthy older release or the default `local` version is not confirmation of the new deployment.
 - Preserve Origin validation and CORS preflight behavior together; browser compatibility should not weaken DNS-rebinding protection.
 
 ## Worldbuilder delegation

@@ -2,6 +2,8 @@
 
 Read-only checks from the development container completed at approximately 19:54 UTC. **Public application functionality remains unverified: this network's Zscaler filter prevented a verified connection to the application.** No credentials were sent, application data changed, cluster commands executed, or feature flags activated.
 
+**Update at 20:10 UTC:** independent GitHub-hosted checks also reject the public endpoint's certificate for a hostname mismatch. MCP image/chart publication succeeded, but the expected deployed version could not be observed. This is now independently confirmed public TLS failure, not merely a local filter diagnosis. Flux reconciliation remains unknown.
+
 ## Observations
 
 | Check | Observed result |
@@ -40,3 +42,18 @@ Version-aware validation: seven checker tests pass, including refusal to treat a
 First hosted run `38081898430` failed all ten attempts (19:58–20:03 UTC), resolving the same `87.117.64.111` but reaching no verified HTTP response. Its initial error classification was too broad: real `ssl.SSLError.reason` is a string, whereas `urllib.error.URLError.reason` wraps an exception. Corrected that distinction and extended the regression fixture; subsequent artifacts identify DNS/TCP/TLS stage, TLS verification code/message and exception type. A repeated local probe now correctly records TLS hostname mismatch, verification code 62. No TLS verification is disabled by the checker.
 
 MCP CI run `38082111065` passed tests and published the version-stamped image and matching chart (`0.0.0-uat.38082111065`). This establishes publication only; the post-publication probe must still observe it. Probe concurrency is grouped by triggering workflow so newer checks supersede older checks of the same kind without dropping a pending MCP version check for an unrelated publication.
+
+## Final observed CI results and continuation boundary
+
+| Run | Result |
+|---|---|
+| [MCP publication 38082111065](https://github.com/labiraus/homelab/actions/runs/38082111065) | Tests and image/chart publication succeeded for source `4736490`, version `0.0.0-uat.38082111065`. |
+| [Detailed public probe 38082334514](https://github.com/labiraus/homelab/actions/runs/38082334514) | Failed all ten attempts, 20:05:05–20:09:39 UTC: DNS `87.117.64.111`, stage `tls`, `SSLCertVerificationError`, verification code 62, hostname mismatch for `mcp.labiraus.com`. No HTTP response. |
+| [Post-publication probe 38082259713](https://github.com/labiraus/homelab/actions/runs/38082259713) | Failed all ten attempts, 20:05:22–20:09:54 UTC, with the same TLS hostname mismatch. Expected MCP version `0.0.0-uat.38082111065` was never observed. |
+| Earlier diagnostic push 38082111067 | Deliberately cancelled as superseded so the pending post-publication check could start. This was a CI cancellation, not a cluster operation. |
+
+Downloaded sanitized CI artifacts confirm these results. The revised checker's seven unit tests passed in hosted CI as well as locally. No application credentials were used by any probe. GitHub credentials were used only for authorized repository/CI operations, including reading diagnostic artifacts and cancelling the superseded check.
+
+Read-only CI configuration inspection found no repository Actions secrets or `uat` environment secrets, and only `USE_ECR` among environment variable names; no approved cluster-observation credential was available there. The local kubeconfig has no active context. Consequently, neither successful Flux reconciliation nor stopped reconciliation can be asserted. Do not keep republishing unrelated changes to infer either state.
+
+The next evidence required is the verified current WAN/ingress address and/or an approved read-only cluster connection showing Gateway listener, Certificate/CertificateRequest/ACME Challenge, HTTPRoute and Flux source/release status. The user was asked whether `87.117.64.111` is correct; no answer had arrived when recording this result. If DNS/NAT targets the wrong host, fix its actual configuration owner. If the correct Gateway is serving the wrong certificate, use the observed Certificate/route/controller failure to prepare a targeted chart change, test it, publish via CI and repeat the version-aware check. Current source already declares the matching hostname/certificate; changing it without installed-state evidence would be speculative. Authenticated Worldbuilder acceptance and controlled activation remain pending.
