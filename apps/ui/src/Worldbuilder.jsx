@@ -4,6 +4,7 @@ import WorldRecordEditor from "./WorldRecordEditor.jsx";
 import WorldAdministration from "./WorldAdministration.jsx";
 import WorldStorySetup from "./WorldStorySetup.jsx";
 import WorldGenerations from "./WorldGenerations.jsx";
+import WorldConnections from "./WorldConnections.jsx";
 import ProposalFindings, { Findings } from "./WorldFindings.jsx";
 
 const base = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -155,6 +156,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
   const [catalog, setCatalog] = useState([]);
   const [editingRevision, setEditingRevision] = useState(null);
   const [linkedRecord, setLinkedRecord] = useState(null);
+  const [connectionScope, setConnectionScope] = useState(null);
   const [canonFilters, setCanonFilters] = useState(() =>
     new URLSearchParams({ timeline: initialTimeline, limit: "500" }).toString(),
   );
@@ -508,6 +510,21 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                       ))}
                     </dl>
                   )}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConnectionScope({
+                        id: r.id,
+                        revision: canon.revision,
+                        timeline:
+                          new URLSearchParams(canonFilters).get("timeline") ||
+                          timeline,
+                        at: new URLSearchParams(canonFilters).get("at") || "",
+                      })
+                    }
+                  >
+                    Explore connections of {r.label || r.id}
+                  </button>
                   {canEdit && r.kind !== "world_settings" && (
                     <button
                       type="button"
@@ -534,6 +551,16 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
             <button disabled={busy} onClick={() => void run(loadMoreCanon)}>
               Load more canon records
             </button>
+          )}
+          {connectionScope && (
+            <WorldConnections
+              key={JSON.stringify(connectionScope)}
+              api={api}
+              path={path}
+              scope={connectionScope}
+              onExplore={setConnectionScope}
+              onClose={() => setConnectionScope(null)}
+            />
           )}
           {linkedRecord && (
             <aside aria-label="Linked canon record">

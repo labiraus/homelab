@@ -104,6 +104,36 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 		}
 		return sc.cancelGeneration(ctx, path[1])
 	}
+	if len(path) == 3 && path[0] == "records" && path[2] == "connections" && r.Method == "GET" {
+		revision, err := integerQuery(r, "revision", sc.world.Revision)
+		if err != nil {
+			return nil, err
+		}
+		timeline := r.URL.Query().Get("timeline")
+		if timeline == "" {
+			return nil, bad("timeline is required")
+		}
+		var at *int64
+		if r.URL.Query().Has("at") {
+			tick, e := integerQuery(r, "at", 0)
+			if e != nil {
+				return nil, e
+			}
+			at = &tick
+		}
+		snapshot, err := sc.snapshot(ctx, revision)
+		if err != nil {
+			return nil, err
+		}
+		records, err := Connections(snapshot, path[1], timeline, at)
+		if err != nil {
+			return nil, err
+		}
+		total := int64(len(records))
+		start := min(offset, total)
+		end := start + min(limit, total-start)
+		return map[string]any{"recordId": path[1], "revision": revision, "timeline": timeline, "records": records[start:end], "total": total}, nil
+	}
 	if resource == "" && r.Method == "GET" {
 		return sc.world, nil
 	}

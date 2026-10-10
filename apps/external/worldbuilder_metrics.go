@@ -30,11 +30,12 @@ func observeWorldbuilder(label string, next http.Handler) http.Handler {
 		start := time.Now()
 		out := &worldbuilderStatusWriter{ResponseWriter: w}
 		prometheusutil.IncrementProcessed(label, "call")
+		completed := false
 		defer func() {
 			prometheusutil.OpDuration(label, time.Since(start))
 			state := "success"
 			switch {
-			case out.status >= 500:
+			case !completed || out.status >= 500:
 				state = "error"
 			case out.status == 429:
 				state = "budget"
@@ -48,5 +49,6 @@ func observeWorldbuilder(label string, next http.Handler) http.Handler {
 			prometheusutil.IncrementProcessed(label, state)
 		}()
 		next.ServeHTTP(out, r)
+		completed = true
 	})
 }

@@ -59,6 +59,21 @@ jobs:
         run: npm run build && npm test
         working-directory: apps/ui
 
+      - name: Set up Go for disposable canon acceptance
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.6'
+          cache: false
+
+      - name: Install Chromium for browser acceptance
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/ui
+
+      - name: Browser acceptance against disposable PostgreSQL
+        run: bash scripts/worldbuilder/test-postgres.sh
+        env:
+          WORLDBUILDER_BROWSER_TEST: '1'
+
       - name: Check dependency advisories
         run: npm audit --audit-level=high
         working-directory: apps/ui

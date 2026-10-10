@@ -103,3 +103,7 @@ Consistency runs complete deterministic validation before inference allocation. 
 ## D021 — evaluate the authoritative retrieval boundary
 
 Default document evaluation calls authenticated external search rather than reimplementing OpenSearch queries or treating legacy pgvector rows as current retrieval. Keep the historical backend explicitly opt-in, remove automatic cluster-secret/port-forward handling from the Make target, and refuse redirects/session-header forwarding. Synthetic Worldbuilder fixtures test validator boundaries and realistic ambiguity but are not a provider-quality benchmark. Private LAN gold cases must record observed model/cost/evidence scope and human semantic scores separately.
+
+## D022 — offline acceptance uses real boundaries with explicit limits
+
+Use the production UI build and canon HTTP/database engine in Chromium with test-only loopback identities, separate editor/reviewer contexts and origin-restricted requests. Never add a runtime authentication bypass. Verify typed connection traversal at the inspected revision/timeline/time. Validate every rendered custom resource against explicit upstream schema snapshots, failing missing kinds; installed CRDs, Kubernetes admission/CEL and real auth/mesh remain separate LAN gates. Keep a bounded 5,000-record domain benchmark distinct from cluster capacity claims. Optional graph/calendar visualisation is not a blocker for the implemented wiki/traversal/story workflow.

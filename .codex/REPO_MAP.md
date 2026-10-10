@@ -224,3 +224,5 @@ Current behavior note:
 - If Codex changes behavior, entry points, or layout, update both the human docs and this file in the same task.
 
 Worldbuilder durable generation: `apps/external/worldbuilder/generation.go` owns private jobs/checkpoints, `apps/orchestrator/worldbuilder_jobs.go` relays metadata and dispatches one part, `apps/ui/src/WorldGenerations.jsx` exposes private progress/candidates; `sql/worldbuilder/005_up.sql` adds explicit schema-v5 storage.
+
+Offline acceptance and operations: `docs/worldbuilder/OFFLINE-ACCEPTANCE.md`, `OBSERVABILITY.md`, `apps/ui/browser/worldbuilder.spec.js`, test-only `apps/external/worldbuilder/browser_test.go`, `scripts/worldbuilder/export-crd-schemas.sh`, `validate-custom-resources.py`, and `sql/worldbuilder/ops_dashboard_queries.pgsql`. Typed-reference traversal is in `connections.go` / `WorldConnections.jsx`.

@@ -46,3 +46,5 @@ If a lesson applies only to one app, add a more specific `AGENTS.md` under that 
 - Manual editor staging must also retain the displayed revision and original before-state. Refreshing canon must not silently change a draft's base revision. Reconciliation creates a fresh draft with explicit conflict choices and independent approval.
 
 - Generated story candidates must retain their inspected sessionVersion when saved; do not substitute a refreshed session version. Definitions and narrative premises retain their original revision/timeline pin. Compare persisted JSONB semantically in tests, since PostgreSQL may reorder object keys without changing content.
+
+- Browser acceptance may use fixture identities only in Go `_test.go` code serving loopback/disposable data. Never add a runtime authentication bypass; restrict fixture browser requests to the local origin. For native selects, prefer their accessible combobox role when exact label matching includes option text.

@@ -3,10 +3,12 @@ on:
   push:
     paths:
       - 'evals/**'
+      - 'scripts/worldbuilder/**'
       - '.github/workflows/worldbuilder-evaluation.yml'
   pull_request:
     paths:
       - 'evals/**'
+      - 'scripts/worldbuilder/**'
       - '.github/workflows/worldbuilder-evaluation.yml'
 permissions:
   contents: read
@@ -20,3 +22,5 @@ jobs:
           python-version: '3.12'
       - run: python3 -m unittest discover -s evals/ragas -p 'test_*.py'
       - run: python3 -m py_compile evals/ragas/chunking_eval.py evals/ragas/search_api.py
+      - run: python3 -m pip install -r scripts/worldbuilder/requirements.txt
+      - run: python3 scripts/worldbuilder/test-custom-resources.py

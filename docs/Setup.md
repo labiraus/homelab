@@ -424,4 +424,4 @@ ssh root@proxmox-node1 'dmidecode -t bios | sed -n "1,20p"'
 
 ## Worldbuilder migration
 
-Worldbuilder implementation and offline checks are tracked in [implementation status](worldbuilder/IMPLEMENTATION-STATUS.md). Use the [LAN runbook](worldbuilder/LAN-RUNBOOK.md) for discovery and controlled activation. Code publication on main is authorised; production migrations and feature activation require the separate LAN gate. Do not use the unfinished `scripts/pg-update.sh` placeholder for this migration.
+Worldbuilder source migration and feasible offline acceptance are complete; schema/identity/provider activation remains LAN-gated. Reproduce browser, CRD and load checks with [offline acceptance](worldbuilder/OFFLINE-ACCEPTANCE.md). Detailed implementation and offline checks are tracked in [implementation status](worldbuilder/IMPLEMENTATION-STATUS.md). Use the [LAN runbook](worldbuilder/LAN-RUNBOOK.md) for discovery and controlled activation. Code publication on main is authorised; production migrations and feature activation require the separate LAN gate. Do not use the unfinished `scripts/pg-update.sh` placeholder for this migration.

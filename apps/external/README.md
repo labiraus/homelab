@@ -141,3 +141,5 @@ Durable creative jobs use schema 5 and `WORLDBUILDER_JOBS_ENABLED=false` by defa
 Consistency checks now run deterministic validation first and optionally bind a proposal via `changeId`. Structured evidence-backed findings are advisory and audited with model provenance; they never change review status. Stale proposal checks fail before allocating inference.
 
 Worldbuilder endpoints emit fixed request/outcome labels in existing external Prometheus metrics. The [operator guide](../../docs/worldbuilder/OBSERVABILITY.md) includes a Grafana source dashboard and privacy-preserving read-only PostgreSQL diagnostics; private IDs and narrative text never become metric labels.
+
+`/records/{id}/connections` adds authorised, paginated forward/back typed-reference traversal at a pinned timeline/revision/time. Optional `WORLDBUILDER_BROWSER_TEST=1` in the disposable harness runs Chromium against a loopback server defined only in `worldbuilder/browser_test.go`; no runtime auth switch is introduced. [Offline acceptance](../../docs/worldbuilder/OFFLINE-ACCEPTANCE.md) also records the 5,000-record domain benchmark and exact CRD schema checks.
