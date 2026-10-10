@@ -82,6 +82,8 @@ def error_category(error):
         return "dns_lookup_failed"
     if isinstance(error, (TimeoutError, socket.timeout)):
         return "connection_timeout"
+    if isinstance(error, ConnectionResetError):
+        return "connection_reset"
     return "connection_failed"
 
 
@@ -120,17 +122,29 @@ def probe():
     return report
 
 
+def require_version(report, expected):
+    if not expected:
+        return report
+    report["expected_mcp_version"] = expected
+    manifest = next((c for c in report["checks"] if c["path"] == "/.well-known/mcp.json"), {})
+    if report["ok"] and manifest.get("mcp_version") != expected:
+        report["ok"] = False
+        report["error"] = "published_mcp_version_not_observed"
+    return report
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--attempts", type=int, default=1)
     parser.add_argument("--interval", type=int, default=30)
     parser.add_argument("--output", default="public-endpoints.json")
+    parser.add_argument("--expected-mcp-version", default="")
     args = parser.parse_args()
     if not 1 <= args.attempts <= 12 or not 0 <= args.interval <= 60:
         parser.error("attempts must be 1..12 and interval 0..60 seconds")
     reports = []
     for attempt in range(args.attempts):
-        report = probe()
+        report = require_version(probe(), args.expected_mcp_version)
         reports.append(report)
         print(json.dumps(report), flush=True)
         Path(args.output).write_text(json.dumps({"target": BASE, "attempts": reports,

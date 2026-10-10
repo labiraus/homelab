@@ -39,7 +39,15 @@ jobs:
       - name: Test response classification and TLS failure handling
         run: python3 -m unittest discover -s scripts/validation -p 'test_*.py' -v
       - name: Wait for public endpoint availability
-        run: python3 scripts/validation/public-endpoints.py --attempts 10 --interval 30 --output public-endpoints.json
+        env:
+          UPSTREAM_WORKFLOW: ${{ github.event.workflow_run.name }}
+          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          args=()
+          if [[ "$UPSTREAM_WORKFLOW" == "App MCP CI/CD" ]]; then
+            args+=(--expected-mcp-version "0.0.0-uat.${UPSTREAM_RUN_ID}")
+          fi
+          python3 scripts/validation/public-endpoints.py --attempts 10 --interval 30 --output public-endpoints.json "${args[@]}"
       - name: Retain sanitized connectivity evidence
         if: always()
         uses: actions/upload-artifact@v4

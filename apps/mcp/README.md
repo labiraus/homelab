@@ -5,6 +5,8 @@
 Externally, this service should be treated as the Labiraus MCP server even though the repo and Kubernetes objects still use the `mcp` app name internally.
 It is a primary product surface of this repo alongside the browser UI, and should stay aligned with the same Postgres-backed document state and orchestrator-owned control flows.
 
+CI stamps the published image tag into `pkg/base.BuildVersion` using the Docker `BUILD_VERSION` argument (local builds default to `local`). Discovery and MCP initialization expose this version. After MCP image/chart publication, Public Endpoint Validation waits for that exact version through verified public HTTPS; an older healthy deployment does not satisfy the check. Public availability/version evidence still does not establish authenticated tool behavior or the status of every Flux release.
+
 It exposes one MCP entrypoint that fronts:
 
 - external-proxied document workflow actions

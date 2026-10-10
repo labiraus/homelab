@@ -82,6 +82,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           registry: mcp
           tag: uat
+          build-args: |
+            BUILD_VERSION=0.0.0-uat.${{ github.run_id }}
 
       - name: Publish Helm chart to GHCR
         uses: ./.github/actions/helm/ghcr

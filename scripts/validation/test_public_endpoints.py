@@ -53,6 +53,13 @@ class PublicEndpointTests(unittest.TestCase):
         self.assertEqual(result["error"], "tls_certificate_verification_failed")
         opener.assert_not_called()
 
+    def test_healthy_old_release_does_not_confirm_new_deployment(self):
+        report = {"ok": True, "checks": [{"path": "/.well-known/mcp.json", "mcp_version": "local"}]}
+        self.assertFalse(smoke.require_version(report, "0.0.0-uat.123")["ok"])
+        self.assertEqual(report["error"], "published_mcp_version_not_observed")
+        report = {"ok": True, "checks": [{"path": "/.well-known/mcp.json", "mcp_version": "0.0.0-uat.123"}]}
+        self.assertTrue(smoke.require_version(report, "0.0.0-uat.123")["ok"])
+
 
 if __name__ == "__main__":
     unittest.main()
