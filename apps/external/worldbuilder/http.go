@@ -178,6 +178,24 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 			return nil, bad("unknown timeline at requested revision")
 		}
 		records := Records(snapshot, timeline, r.URL.Query().Get("q"), at)
+		if resource == "canon" && r.URL.Query().Has("kind") {
+			kinds := map[string]bool{}
+			for _, kind := range strings.Split(r.URL.Query().Get("kind"), ",") {
+				switch kind {
+				case "type", "entity", "source", "timeline", "fact", "relationship", "event", "rule":
+					kinds[kind] = true
+				default:
+					return nil, bad("unsupported record kind filter")
+				}
+			}
+			filtered := []Record{}
+			for _, record := range records {
+				if kinds[record.Kind] {
+					filtered = append(filtered, record)
+				}
+			}
+			records = filtered
+		}
 		if len(path) == 2 && path[0] == "records" {
 			record, ok := snapshot[path[1]]
 			if !ok || !Visible(record, timeline, at) {

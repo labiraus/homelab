@@ -39,6 +39,7 @@ If a lesson applies only to one app, add a more specific `AGENTS.md` under that 
 ## Build and canon boundaries
 
 - There is no root `go.mod` or `go.work`. Run Go checks from each module directory (for example `cd apps/external && go test ./...`); CI must use the same working directory.
+- When a tool's working directory is already an app directory, pass app-relative paths to formatters and scripts; do not repeat the repository's `apps/<name>/` prefix.
 - Worldbuilder canon credentials belong only to external. Processor and MCP must not receive the schema owner/runtime login or human publication authority. Mesh identity/header isolation must be validated before enabling the feature.
 - A successful source or artifact publication is not evidence of cluster readiness.
 - AI proposal candidates must retain their generation `baseRevision` when persisted; never replace it with a newly fetched revision to avoid a conflict. Rebase explicitly and obtain fresh review.

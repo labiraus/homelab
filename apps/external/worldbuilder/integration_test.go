@@ -137,6 +137,18 @@ func TestPublicationIsolationHistoryAndTemporalQueries(t *testing.T) {
 		}
 	}
 	w2 := h.world()
+	raw = h.call("reader@example.test", "GET", path+"/canon?timeline=main&revision=1&kind=type,source&limit=1&offset=1", nil, 200)
+	var catalog struct {
+		Records []Record
+		Total   int
+	}
+	if err = json.Unmarshal(raw, &catalog); err != nil {
+		t.Fatal(err)
+	}
+	if catalog.Total != 2 || len(catalog.Records) != 1 || catalog.Records[0].Kind != "source" {
+		t.Fatalf("bad filtered catalog: %s", raw)
+	}
+	h.call("reader@example.test", "GET", path+"/canon?timeline=main&kind=private", nil, 422)
 	cross := Record{ID: "foreign", Kind: "relationship", Subject: "hero", Target: "friend", Predicate: "friend", Source: "source", Timeline: "main"}
 	h.call("editor@example.test", "POST", "/"+w2+"/changes", map[string]any{"id": uuid.NewString(), "baseRevision": 0, "reason": "cross-world", "operations": []Operation{{Action: "put", ID: cross.ID, Record: &cross}}}, 422)
 	if _, err = h.pool.Exec(context.Background(), `UPDATE worldbuilder.revision SET reason='rewrite' WHERE world_id=$1`, w); err == nil {

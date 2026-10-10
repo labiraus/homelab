@@ -20,7 +20,7 @@ All paths below are relative to `/api/worlds`. JSON bodies reject unknown fields
 | POST `/` | `{id: UUID, name}`; idempotent owner retry; initial revision 0 and `main` timeline |
 | GET `/{world}` | World name, current revision, caller role |
 | POST `/{world}/members` | Owner only: `{principal: email, role: admin/editor/reviewer/reader}`; owner cannot demote self |
-| GET `/{world}/canon` | Required `timeline`; optional `revision` (default current), `at` fictional tick, lexical `q`, `offset`, `limit` (1–500, default 100); returns records, resolvable citations, total and revision |
+| GET `/{world}/canon` | Required `timeline`; optional `revision` (default current), `at` fictional tick, lexical `q`, comma-separated `kind` filter, `offset`, `limit` (1–500, default 100); returns records, resolvable citations, total and revision |
 | GET `/{world}/records/{id}` | Same required timeline and revision scope; resolves a single canonical citation |
 | GET `/{world}/revisions` | Published revision metadata (actor, reason, real timestamp), newest first; paginated |
 | GET `/{world}/diff` | Required nonnegative `from`, optional `to` (current); paginated complete before/after records and total across all timelines |
@@ -41,7 +41,7 @@ All paths below are relative to `/api/worlds`. JSON bodies reject unknown fields
 | POST `/{world}/sessions/{id}/reconcile` | Rebase body plus `expectedVersion`; turns explicitly reconciled provisional state into a fresh draft without changing the session pin |
 | POST `/{world}/sessions/{id}/outcomes` | `{id: UUID, expectedVersion, baseRevision, reason}`; transforms provisional state into a draft; independent review still required |
 
-List routes accept `offset` and `limit` (1–500, default 100). Published history and revision diffs have UI paging controls. Other UI lists still load at most 500 canon records and 100 proposals/sessions/turns; their paging controls remain a UX follow-up.
+List routes accept `offset` and `limit` (1–500, default 100). Published history and revision diffs have page controls. Worlds, canon, proposals, sessions and turns have load-more controls (500 canon records or 100 other rows per request). Canon continuation requests retain the inspected revision and applied filters; editing an unapplied search field does not alter them. Mutable proposal/session/world lists use offset pagination with ID deduplication; refresh to observe concurrent insertions. Editor reference choices fetch the bounded type/entity/source/timeline catalog at one revision independently of wiki filters.
 
 Important writes use client UUIDs as idempotency keys. Reusing keys with different payloads yields 409. Submitted proposal operations cannot change; corrections/rebase create a new proposal and need fresh review. The synchronous validation phase is represented by the transition `draft -> ready_for_review`; no pretend async `validating` state is persisted. Rejecting is terminal for that proposal.
 
@@ -85,3 +85,7 @@ Session definitions (title, owner, timeline) and pinned revision live in Postgre
 Revision lists and diffs are membership-scoped and read immutable PostgreSQL snapshots, including all timelines. Diff pages are ordered by record ID. Proposal diffs compare against the original base, while reconciliation compares that base with current canon. Deletion and addition use an absent (`null`) side. Changes that already match current canon are omitted from a reconciled draft; an empty result cannot be submitted. Record-level conflict detection intentionally requires review even when edits touch different attributes of one record. Cross-record validation still applies after conflict choices.
 
 Restore creates an ordinary compensating draft against the inspected current revision, with the target recorded in immutable audit. Original snapshots remain unchanged. A stale base returns 409; more than 100 operations returns 422 and requires smaller independently valid proposals. Restore/reconciliation request IDs bind to the complete request and actor, and never imply publication permission.
+
+## Structured editing
+
+The UI prefills complete records, locks existing ID/kind, and preserves schemas, relationship declarations and attributes when editing one field. Type definitions support multiple predicates and relationship types, including self-reference. Fact inputs derive value type from the subject schema; boolean false and explicit validity/timeline survive edits. Rules expose natural-language guidance or the supported life-bound check with birth/death predicates. Duplicate schema names are rejected locally; external remains the authoritative validator. The browser editor rejects fictional tick values outside JavaScript safe integers rather than silently rounding them; API clients may use the full signed 64-bit range. A loaded record cannot be staged against a different revision after refresh.

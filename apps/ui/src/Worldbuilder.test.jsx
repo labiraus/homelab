@@ -117,4 +117,67 @@ describe("Worldbuilder", () => {
       world.revision = 1;
     }
   });
+  it("pages canon at the inspected revision and loads editor references independently", async () => {
+    const novel = { ...world, revision: 4 };
+    const references = [
+      {
+        id: "person",
+        kind: "type",
+        label: "Person",
+        fields: { age: "number" },
+      },
+      { id: "source", kind: "source", label: "Notes" },
+    ];
+    const calls = [];
+    global.fetch = vi.fn(async (url) => {
+      calls.push(url);
+      const parsed = new URL(url, "https://test.local");
+      let data = [];
+      if (parsed.pathname === "/api/worlds") data = [novel];
+      if (parsed.pathname.endsWith("/canon")) {
+        const catalog = parsed.searchParams.has("kind");
+        const offset = Number(parsed.searchParams.get("offset") || 0);
+        data = {
+          world: novel,
+          revision: 4,
+          timeline: "main",
+          total: 2,
+          records: catalog
+            ? references
+            : offset
+              ? [
+                  {
+                    id: "friend",
+                    kind: "entity",
+                    type: "person",
+                    label: "Friend",
+                  },
+                ]
+              : [{ id: "hero", kind: "entity", type: "person", label: "Hero" }],
+        };
+      }
+      return { ok: true, json: async () => data };
+    });
+    render(<Worldbuilder email="editor@test" />);
+    await screen.findByRole("option", { name: "Novel" });
+    fireEvent.change(screen.getByLabelText("Open world"), {
+      target: { value: "w" },
+    });
+    await screen.findByRole("option", { name: "Person" });
+    fireEvent.change(screen.getByLabelText("Search canon"), {
+      target: { value: "Unsubmitted search" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Load more canon records" }),
+    );
+    await screen.findByRole("button", { name: "Edit Friend" });
+    const page = calls
+      .map((url) => new URL(url, "https://test.local"))
+      .find((url) => url.searchParams.get("offset") === "1");
+    expect(page.searchParams.get("revision")).toBe("4");
+    expect(page.searchParams.has("q")).toBe(false);
+    expect(
+      screen.queryByRole("button", { name: "Load more canon records" }),
+    ).toBeNull();
+  });
 });

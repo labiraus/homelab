@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { HistoryPanel, ReconciliationPanel } from "./WorldHistory.jsx";
+import WorldRecordEditor from "./WorldRecordEditor.jsx";
 
 const base = import.meta.env.VITE_API_BASE_URL ?? "";
 async function api(path, body) {
@@ -20,16 +21,26 @@ async function api(path, body) {
   return data;
 }
 const id = () => crypto.randomUUID();
+const mergeRows = (before, after, key = "id") => [
+  ...new Map([...before, ...after].map((row) => [row[key], row])).values(),
+];
 export default function Worldbuilder({ email }) {
   const [worlds, setWorlds] = useState([]),
     [selected, setSelected] = useState(""),
     [name, setName] = useState(""),
     [error, setError] = useState("");
+  const [moreWorlds, setMoreWorlds] = useState(false);
+  const [worldOffset, setWorldOffset] = useState(0);
+  const [worldsBusy, setWorldsBusy] = useState(false);
   useEffect(() => {
     let active = true;
     api("")
       .then((rows) => {
-        if (active) setWorlds(rows);
+        if (active) {
+          setWorlds(rows);
+          setWorldOffset(rows.length);
+          setMoreWorlds(rows.length === 100);
+        }
       })
       .catch((e) => {
         if (active) setError(e.message);
@@ -42,7 +53,10 @@ export default function Worldbuilder({ email }) {
     e.preventDefault();
     try {
       const w = await api("", { id: id(), name });
-      setWorlds(await api(""));
+      const first = await api("");
+      setWorlds(mergeRows(first, [w]));
+      setWorldOffset(first.length);
+      setMoreWorlds(first.length === 100);
       setSelected(w.id);
       setName("");
       setError("");
@@ -81,6 +95,26 @@ export default function Worldbuilder({ email }) {
           ))}
         </select>
       </label>
+      {moreWorlds && (
+        <button
+          disabled={worldsBusy}
+          onClick={async () => {
+            setWorldsBusy(true);
+            try {
+              const rows = await api(`?offset=${worldOffset}&limit=100`);
+              setWorlds(mergeRows(worlds, rows));
+              setWorldOffset(worldOffset + rows.length);
+              setMoreWorlds(rows.length === 100);
+            } catch (e) {
+              setError(e.message);
+            } finally {
+              setWorldsBusy(false);
+            }
+          }}
+        >
+          Load more worlds
+        </button>
+      )}
       {selected && <World key={selected} worldId={selected} email={email} />}
     </section>
   );
@@ -101,6 +135,18 @@ function World({ worldId, email }) {
   const [stagedRevision, setStagedRevision] = useState(null);
   const [stagedBefore, setStagedBefore] = useState({});
   const [reconcileTarget, setReconcileTarget] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [editorKey, setEditorKey] = useState(0);
+  const [catalog, setCatalog] = useState([]);
+  const [editingRevision, setEditingRevision] = useState(null);
+  const [linkedRecord, setLinkedRecord] = useState(null);
+  const [canonFilters, setCanonFilters] = useState("timeline=main&limit=500");
+  const [listOffsets, setListOffsets] = useState({
+    changes: 0,
+    sessions: 0,
+    turns: 0,
+  });
+  const [moreLists, setMoreLists] = useState({});
   const [member, setMember] = useState(""),
     [role, setRole] = useState("editor"),
     [reviewReason, setReviewReason] = useState("");
@@ -122,8 +168,19 @@ function World({ worldId, email }) {
       api(`${path}/sessions`),
     ]);
     setCanon(c);
+    setCanonFilters(params.toString());
     setChanges(d);
     setSessions(s);
+    setListOffsets((old) => ({
+      ...old,
+      changes: d.length,
+      sessions: s.length,
+    }));
+    setMoreLists((old) => ({
+      ...old,
+      changes: d.length === 100,
+      sessions: s.length === 100,
+    }));
   }
   useEffect(() => {
     let active = true;
@@ -137,6 +194,16 @@ function World({ worldId, email }) {
           setCanon(c);
           setChanges(d);
           setSessions(s);
+          setListOffsets((old) => ({
+            ...old,
+            changes: d.length,
+            sessions: s.length,
+          }));
+          setMoreLists((old) => ({
+            ...old,
+            changes: d.length === 100,
+            sessions: s.length === 100,
+          }));
         }
       })
       .catch((e) => {
@@ -146,6 +213,34 @@ function World({ worldId, email }) {
       active = false;
     };
   }, [path]);
+  useEffect(() => {
+    if (!canon) return;
+    let active = true;
+    async function loadCatalog() {
+      const result = [];
+      let offset = 0;
+      while (true) {
+        const params = new URLSearchParams({
+          timeline: canon.timeline || timeline,
+          revision: String(canon.revision),
+          kind: "type,entity,source,timeline",
+          limit: "500",
+          offset: String(offset),
+        });
+        const page = await api(`${path}/canon?${params}`);
+        result.push(...page.records);
+        offset += page.records.length;
+        if (offset >= page.total || page.records.length === 0) break;
+      }
+      if (active) setCatalog(result);
+    }
+    void loadCatalog().catch((e) => {
+      if (active) setError(e.message);
+    });
+    return () => {
+      active = false;
+    };
+  }, [path, canon?.revision, canon?.timeline]);
   async function run(fn) {
     setBusy(true);
     setError("");
@@ -189,7 +284,10 @@ function World({ worldId, email }) {
   }
   async function resume(s) {
     setSession(s);
-    setTurns(await api(`${path}/sessions/${s.id}/turns`));
+    const rows = await api(`${path}/sessions/${s.id}/turns`);
+    setTurns(rows);
+    setListOffsets((old) => ({ ...old, turns: rows.length }));
+    setMoreLists((old) => ({ ...old, turns: rows.length === 100 }));
     setAnswer(null);
   }
   async function saveTurn(text = narration, ops = operations) {
@@ -204,12 +302,44 @@ function World({ worldId, email }) {
     setOperations([]);
     await reload();
   }
+  async function loadMoreCanon() {
+    const params = new URLSearchParams(canonFilters);
+    params.set("revision", String(canon.revision));
+    params.set("offset", String(canon.records.length));
+    const next = await api(`${path}/canon?${params}`);
+    setCanon({ ...canon, records: mergeRows(canon.records, next.records) });
+  }
+  async function loadMoreList(kind) {
+    const suffix = kind === "turns" ? `sessions/${session.id}/turns` : kind;
+    const rows = await api(
+      `${path}/${suffix}?limit=100&offset=${listOffsets[kind]}`,
+    );
+    if (kind === "changes") setChanges(mergeRows(changes, rows));
+    if (kind === "sessions") setSessions(mergeRows(sessions, rows));
+    if (kind === "turns") setTurns(mergeRows(turns, rows, "version"));
+    setListOffsets({ ...listOffsets, [kind]: listOffsets[kind] + rows.length });
+    setMoreLists({ ...moreLists, [kind]: rows.length === 100 });
+  }
+  function listMore(kind, caption) {
+    return (
+      moreLists[kind] && (
+        <button onClick={() => void run(() => loadMoreList(kind))}>
+          Load more {caption}
+        </button>
+      )
+    );
+  }
+  function editRecord(record, recordRevision = canon.revision) {
+    setEditing(record);
+    setEditingRevision(recordRevision);
+    setEditorKey((key) => key + 1);
+  }
   const canEdit =
     canon && ["owner", "admin", "editor"].includes(canon.world.role);
   const canReview =
     canon && ["owner", "admin", "reviewer"].includes(canon.world.role);
   const records = canon?.records ?? [];
-  const staged = new Map(records.map((r) => [r.id, r]));
+  const staged = new Map([...catalog, ...records].map((r) => [r.id, r]));
   for (const op of operations) {
     if (op.action === "delete") staged.delete(op.id);
     else staged.set(op.id, op.record);
@@ -222,9 +352,23 @@ function World({ worldId, email }) {
         const a = e.target.closest?.('a[href^="#canon-"]');
         if (a) {
           e.preventDefault();
-          document
-            .getElementById(a.getAttribute("href").slice(1))
-            ?.scrollIntoView({ behavior: "smooth" });
+          const target = document.getElementById(
+            a.getAttribute("href").slice(1),
+          );
+          if (target) target.scrollIntoView({ behavior: "smooth" });
+          else if (canon)
+            void run(async () => {
+              const recordId = a.getAttribute("href").slice("#canon-".length);
+              const params = new URLSearchParams({
+                timeline: canon.timeline || timeline,
+                revision: String(canon.revision),
+              });
+              setLinkedRecord(
+                await api(
+                  `${path}/records/${encodeURIComponent(recordId)}?${params}`,
+                ),
+              );
+            });
         }
       }}
     >
@@ -322,6 +466,16 @@ function World({ worldId, email }) {
                   {canEdit && (
                     <button
                       type="button"
+                      onClick={() => {
+                        editRecord(staged.get(r.id) || r);
+                      }}
+                    >
+                      Edit {r.label || r.id}
+                    </button>
+                  )}
+                  {canEdit && (
+                    <button
+                      type="button"
                       onClick={() => stage({ action: "delete", id: r.id })}
                     >
                       Propose removal
@@ -331,6 +485,30 @@ function World({ worldId, email }) {
               ))}
             </div>
           </fieldset>
+          {canon.records.length < canon.total && (
+            <button disabled={busy} onClick={() => void run(loadMoreCanon)}>
+              Load more canon records
+            </button>
+          )}
+          {linkedRecord && (
+            <aside aria-label="Linked canon record">
+              <h3>{linkedRecord.record.label || linkedRecord.record.id}</h3>
+              <p>Revision {linkedRecord.revision}</p>
+              <pre>{JSON.stringify(linkedRecord.record, null, 2)}</pre>
+              {canEdit && (
+                <button
+                  onClick={() =>
+                    editRecord(linkedRecord.record, linkedRecord.revision)
+                  }
+                >
+                  Edit linked record
+                </button>
+              )}
+              <button onClick={() => setLinkedRecord(null)}>
+                Close linked record
+              </button>
+            </aside>
+          )}
           <HistoryPanel
             api={api}
             path={path}
@@ -352,12 +530,24 @@ function World({ worldId, email }) {
           {canEdit && (
             <fieldset disabled={busy}>
               <legend>Structured editor</legend>
-              <RecordEditor
+              <WorldRecordEditor
+                key={editorKey}
+                record={editing}
+                onNew={() => {
+                  setEditing(null);
+                  setEditorKey((key) => key + 1);
+                }}
                 records={editorRecords}
                 timeline={timeline}
-                onStage={(record) =>
-                  stage({ action: "put", id: record.id, record })
-                }
+                onStage={(record) => {
+                  if (editing && editingRevision !== canon.revision) {
+                    setError(
+                      "Load the edited record's original revision before staging it.",
+                    );
+                    return;
+                  }
+                  stage({ action: "put", id: record.id, record });
+                }}
               />
               <h3>Proposed changes</h3>
               {operations.length > 0 && (
@@ -528,6 +718,7 @@ function World({ worldId, email }) {
                 )}
               </article>
             ))}
+            {listMore("changes", "proposals")}
           </fieldset>
           <fieldset disabled={busy}>
             <legend>Interactive stories</legend>
@@ -562,6 +753,7 @@ function World({ worldId, email }) {
                 Resume {s.title}
               </button>
             ))}
+            {listMore("sessions", "stories")}
             {session && (
               <>
                 <h3>{session.title}</h3>
@@ -576,6 +768,7 @@ function World({ worldId, email }) {
                     <p>{t.narration}</p>
                   </article>
                 ))}
+                {listMore("turns", "turns")}
                 <details>
                   <summary>Provisional state</summary>
                   <pre>{JSON.stringify(session.state, null, 2)}</pre>
@@ -717,164 +910,5 @@ function World({ worldId, email }) {
         </>
       )}
     </div>
-  );
-}
-function RecordEditor({ records, timeline, onStage }) {
-  const [kind, setKind] = useState("entity"),
-    [key, setKey] = useState(""),
-    [label, setLabel] = useState(""),
-    [type, setType] = useState(""),
-    [subject, setSubject] = useState(""),
-    [target, setTarget] = useState(""),
-    [source, setSource] = useState(""),
-    [predicate, setPredicate] = useState(""),
-    [valueType, setValueType] = useState("string"),
-    [value, setValue] = useState(""),
-    [from, setFrom] = useState(""),
-    [until, setUntil] = useState("");
-  const choose = (caption, v, set, kind) => (
-    <label>
-      {caption}
-      <select value={v} onChange={(e) => set(e.target.value)}>
-        <option value="">Choose {kind}</option>
-        {records
-          .filter((r) => r.kind === kind)
-          .map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.label || r.id}
-            </option>
-          ))}
-      </select>
-    </label>
-  );
-  function stage(e) {
-    e.preventDefault();
-    const r = { id: key, kind, ...(label ? { label } : {}) };
-    if (kind === "entity") r.type = type;
-    if (["fact", "relationship", "event"].includes(kind)) {
-      Object.assign(r, { timeline, source });
-      if (subject) r.subject = subject;
-      if (from !== "") r.from = Number(from);
-      if (until !== "") r.until = Number(until);
-    }
-    if (kind === "fact")
-      Object.assign(r, {
-        predicate,
-        valueType,
-        value:
-          valueType === "number"
-            ? Number(value)
-            : valueType === "boolean"
-              ? value === "true"
-              : value,
-      });
-    if (kind === "relationship") Object.assign(r, { predicate, target });
-    if (kind === "type") {
-      r.fields = predicate ? { [predicate]: valueType } : {};
-      r.relations = target ? { [value]: target } : {};
-    }
-    onStage(r);
-  }
-  return (
-    <form onSubmit={stage}>
-      <label>
-        Record kind
-        <select value={kind} onChange={(e) => setKind(e.target.value)}>
-          {[
-            "entity",
-            "type",
-            "source",
-            "timeline",
-            "fact",
-            "relationship",
-            "event",
-            "rule",
-          ].map((k) => (
-            <option key={k}>{k}</option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Stable ID
-        <input
-          required
-          pattern="[a-zA-Z0-9_-]{1,64}"
-          value={key}
-          onChange={(e) => setKey(e.target.value)}
-        />
-      </label>
-      <label>
-        Label
-        <input
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          maxLength={500}
-        />
-      </label>
-      {kind === "entity" && choose("Entity type", type, setType, "type")}
-      {["fact", "relationship", "event"].includes(kind) && (
-        <>
-          {choose("Subject", subject, setSubject, "entity")}
-          {choose("Source", source, setSource, "source")}
-          <label>
-            Valid from
-            <input
-              type="number"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-            />
-          </label>
-          <label>
-            Valid until
-            <input
-              type="number"
-              value={until}
-              onChange={(e) => setUntil(e.target.value)}
-            />
-          </label>
-        </>
-      )}
-      {kind === "relationship" && choose("Target", target, setTarget, "entity")}
-      {["fact", "relationship", "type"].includes(kind) && (
-        <label>
-          Predicate
-          <input
-            value={predicate}
-            onChange={(e) => setPredicate(e.target.value)}
-          />
-        </label>
-      )}
-      {["fact", "type"].includes(kind) && (
-        <>
-          <label>
-            Value type
-            <select
-              value={valueType}
-              onChange={(e) => setValueType(e.target.value)}
-            >
-              {["string", "number", "boolean", "entity"].map((v) => (
-                <option key={v}>{v}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {kind === "type" ? "Relationship name (optional)" : "Value"}
-            <input value={value} onChange={(e) => setValue(e.target.value)} />
-          </label>
-        </>
-      )}
-      {kind === "type" &&
-        choose(
-          "Relationship target type (optional)",
-          target,
-          setTarget,
-          "type",
-        )}
-      <button>Stage record</button>
-      <p>
-        Using an existing ID proposes a complete replacement. Published records
-        change only after review.
-      </p>
-    </form>
   );
 }

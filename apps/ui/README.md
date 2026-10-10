@@ -2,7 +2,7 @@
 
 The authenticated Worlds tab (`Worldbuilder.jsx`) provides world creation, membership, wiki/history, structured record staging, independent review/publication, pinned story sessions, turn persistence and outcome proposals. AI candidates remain explicit drafts or provisional turns. The API is disabled until its LAN gate, and the UI reports that condition. Existing Labiraus document tools below remain available.
 
-`WorldHistory.jsx` adds paginated published history, complete record diffs, compensating restore drafts and explicit original/current/proposed reconciliation for proposals and private story outcomes. The preview's revision and story version are preserved on save; conflicts require a choice and fresh independent review. Manual staged changes retain their original revision when canon is refreshed.
+`WorldHistory.jsx` adds paginated published history, complete record diffs, compensating restore drafts and explicit original/current/proposed reconciliation for proposals and private story outcomes. The preview's revision and story version are preserved on save; conflicts require a choice and fresh independent review. Manual staged changes retain their original revision when canon is refreshed. `WorldRecordEditor.jsx` loads complete existing records, edits multi-field schemas and relationship declarations, preserves attributes and provides typed fact/rule inputs. Editor reference choices load all bounded reference pages at one revision independently of wiki filters. Load-more controls cover worlds, canon, proposals, sessions and turns; links resolve unloaded records through the scoped record API.
 
 This is the Vite/React frontend for Worldbuilder and retained Labiraus operator/document tools.
 
