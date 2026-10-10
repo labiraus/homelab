@@ -2,8 +2,9 @@ import importlib.util
 import json
 from pathlib import Path
 import ssl
+import subprocess
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 spec = importlib.util.spec_from_file_location("public_endpoints", Path(__file__).with_name("public-endpoints.py"))
 smoke = importlib.util.module_from_spec(spec)
@@ -63,6 +64,26 @@ class PublicEndpointTests(unittest.TestCase):
         self.assertEqual(report["error"], "published_mcp_version_not_observed")
         report = {"ok": True, "checks": [{"path": "/.well-known/mcp.json", "mcp_version": "0.0.0-uat.123"}]}
         self.assertTrue(smoke.require_version(report, "0.0.0-uat.123")["ok"])
+
+    def test_diagnostics_keep_verification_and_redact_http_redirect(self):
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.status = 302
+        response.headers = {"Location": "https://unrelated.example/path?private=value", "Set-Cookie": "secret=value"}
+        opener = MagicMock()
+        opener.open.return_value = response
+        with patch.object(smoke.subprocess, "run", return_value=subprocess.CompletedProcess([], 1, b"", b"")) as run, \
+             patch.object(smoke.urllib.request, "build_opener", return_value=opener):
+            report = smoke.connection_diagnostics()
+        self.assertIn("-verify_return_error", run.call_args.args[0])
+        self.assertIn("-verify_hostname", run.call_args.args[0])
+        request = opener.open.call_args.args[0]
+        self.assertEqual(request.full_url, "http://mcp.labiraus.com/.well-known/acme-challenge/homelab-readonly-probe")
+        self.assertNotIn("Authorization", request.headers)
+        self.assertNotIn("private", json.dumps(report))
+        self.assertNotIn("secret", json.dumps(report))
+        self.assertEqual(report["tls_verification_exit"], 1)
+        response.read.assert_not_called()
 
 
 if __name__ == "__main__":

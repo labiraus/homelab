@@ -42,12 +42,13 @@ jobs:
         env:
           UPSTREAM_WORKFLOW: ${{ github.event.workflow_run.name }}
           UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
+          PROBE_ATTEMPTS: ${{ github.event_name == 'push' && '1' || '10' }}
         run: |
           args=()
           if [[ "$UPSTREAM_WORKFLOW" == "App MCP CI/CD" ]]; then
             args+=(--expected-mcp-version "0.0.0-uat.${UPSTREAM_RUN_ID}")
           fi
-          python3 scripts/validation/public-endpoints.py --attempts 10 --interval 30 --output public-endpoints.json "${args[@]}"
+          python3 scripts/validation/public-endpoints.py --attempts "$PROBE_ATTEMPTS" --interval 30 --output public-endpoints.json "${args[@]}"
       - name: Retain sanitized connectivity evidence
         if: always()
         uses: actions/upload-artifact@v4

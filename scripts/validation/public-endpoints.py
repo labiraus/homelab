@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import socket
 import ssl
+import subprocess
 import time
 import urllib.error
 import urllib.parse
@@ -150,6 +151,49 @@ def require_version(report, expected):
     return report
 
 
+def connection_diagnostics():
+    """Public certificate and HTTP-01 routing evidence; never an application pass."""
+    host = urllib.parse.urlsplit(BASE).hostname
+    result = {}
+    try:
+        tls = subprocess.run(
+            ["openssl", "s_client", "-connect", host + ":443", "-servername", host,
+             "-verify_hostname", host, "-verify_return_error", "-showcerts"],
+            input=b"", capture_output=True, timeout=12,
+        )
+        result["tls_verification_exit"] = tls.returncode
+        start = tls.stdout.find(b"-----BEGIN CERTIFICATE-----")
+        end = tls.stdout.find(b"-----END CERTIFICATE-----")
+        if 0 <= start < end and end - start < 65536:
+            certificate = tls.stdout[start:end + len(b"-----END CERTIFICATE-----")]
+            parsed = subprocess.run(
+                ["openssl", "x509", "-noout", "-subject", "-issuer", "-dates", "-ext", "subjectAltName"],
+                input=certificate, capture_output=True, timeout=5,
+            )
+            if parsed.returncode == 0:
+                result["presented_public_certificate"] = parsed.stdout.decode("utf-8", "replace")[:4000]
+    except (OSError, subprocess.TimeoutExpired) as error:
+        result["certificate_diagnostic_error"] = type(error).__name__
+    # HTTP-01 must be publicly routable on port 80. No real token, cookie or identity is sent.
+    path = "/.well-known/acme-challenge/homelab-readonly-probe"
+    opener = urllib.request.build_opener(NoRedirect)
+    try:
+        request = urllib.request.Request("http://" + host + path, headers={"User-Agent": "homelab-public-smoke/1.0"})
+        try:
+            response = opener.open(request, timeout=10)
+        except urllib.error.HTTPError as error:
+            response = error
+        with response:
+            location = urllib.parse.urlsplit(response.headers.get("Location", ""))
+            result["http01_route"] = {"path": path, "status": response.status,
+                "server": response.headers.get("Server", "")[:200],
+                "content_type": response.headers.get("Content-Type", "")[:100],
+                "redirect_host": location.hostname, "redirect_path": location.path[:200]}
+    except (OSError, urllib.error.URLError, ValueError) as error:
+        result["http01_route"] = error_details(error)
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--attempts", type=int, default=1)
@@ -162,6 +206,8 @@ def main():
     reports = []
     for attempt in range(args.attempts):
         report = require_version(probe(), args.expected_mcp_version)
+        if not report["ok"] and attempt + 1 == args.attempts:
+            report["connection_diagnostics"] = connection_diagnostics()
         reports.append(report)
         print(json.dumps(report), flush=True)
         Path(args.output).write_text(json.dumps({"target": BASE, "attempts": reports,
