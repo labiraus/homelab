@@ -2,6 +2,8 @@
 
 External now contains the default-disabled Worldbuilder canon engine, authorised wiki/history, proposal/review/publication, bounded reasoning proxy and persistent story APIs under `/api/worlds`. See [API contract](../../docs/worldbuilder/API.md). `WORLDBUILDER_ENABLED=true` requires schema version 1 and a dedicated `worldbuilder_external` login supplied through `WORLDBUILDER_DATABASE_URL`. Startup never migrates. Existing document and assistant routes below remain compatible.
 
+Revision lists/diffs, proposal and story reconciliation, and compensating restore are available through the same authenticated API. Reconciliation compares original/current/proposed records, requires explicit conflict decisions and creates a freshly validated draft; it never transfers approval or changes a session pin. Audit records preserve lineage and exact retry requests. These additions remain compatible with schema version 1.
+
 `external` is the public Go HTTP API for the homelab app stack.
 
 It is the browser-facing API for `ui` and should remain a stable surface even as the internal async pipeline evolves behind `orchestrator` and `processor`.

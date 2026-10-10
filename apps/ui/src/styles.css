@@ -1407,5 +1407,7 @@ a {
 .worldbuilder button:disabled { cursor: default; opacity: .5; }
 .worldbuilder pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .world-records { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+.world-diff { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+.world-diff section { min-width: 0; }
 .worldbuilder article { padding: .75rem; border-bottom: 1px solid var(--border-color, #777); }
 .worldbuilder [role="alert"] { color: #e96969; }

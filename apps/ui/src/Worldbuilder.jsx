@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { HistoryPanel, ReconciliationPanel } from "./WorldHistory.jsx";
 
 const base = import.meta.env.VITE_API_BASE_URL ?? "";
 async function api(path, body) {
@@ -97,6 +98,9 @@ function World({ worldId, email }) {
     [query, setQuery] = useState("");
   const [operations, setOperations] = useState([]),
     [reason, setReason] = useState("");
+  const [stagedRevision, setStagedRevision] = useState(null);
+  const [stagedBefore, setStagedBefore] = useState({});
+  const [reconcileTarget, setReconcileTarget] = useState(null);
   const [member, setMember] = useState(""),
     [role, setRole] = useState("editor"),
     [reviewReason, setReviewReason] = useState("");
@@ -153,9 +157,25 @@ function World({ worldId, email }) {
       setBusy(false);
     }
   }
+  function stage(operation) {
+    if (operations.length && stagedRevision !== canon.revision) {
+      setError(
+        "Load the draft's original revision or clear staged changes before editing another revision.",
+      );
+      return;
+    }
+    if (!operations.length) {
+      setStagedRevision(canon.revision);
+      setStagedBefore(Object.fromEntries(canon.records.map((r) => [r.id, r])));
+    }
+    setOperations((current) => [
+      ...current.filter((op) => op.id !== operation.id),
+      operation,
+    ]);
+  }
   async function propose(
     ops = operations,
-    baseRevision = canon.world.revision,
+    baseRevision = stagedRevision ?? canon.revision,
   ) {
     await api(`${path}/changes`, {
       id: id(),
@@ -164,6 +184,7 @@ function World({ worldId, email }) {
       operations: ops,
     });
     setOperations([]);
+    setStagedRevision(null);
     await reload();
   }
   async function resume(s) {
@@ -301,12 +322,7 @@ function World({ worldId, email }) {
                   {canEdit && (
                     <button
                       type="button"
-                      onClick={() =>
-                        setOperations((current) => [
-                          ...current.filter((op) => op.id !== r.id),
-                          { action: "delete", id: r.id },
-                        ])
-                      }
+                      onClick={() => stage({ action: "delete", id: r.id })}
                     >
                       Propose removal
                     </button>
@@ -315,6 +331,24 @@ function World({ worldId, email }) {
               ))}
             </div>
           </fieldset>
+          <HistoryPanel
+            api={api}
+            path={path}
+            currentRevision={canon.world.revision}
+            canEdit={canEdit}
+            onSaved={reload}
+          />
+          {reconcileTarget && (
+            <ReconciliationPanel
+              key={`${reconcileTarget.kind}/${reconcileTarget.id}`}
+              api={api}
+              path={path}
+              target={reconcileTarget}
+              canEdit={canEdit}
+              onSaved={reload}
+              onClose={() => setReconcileTarget(null)}
+            />
+          )}
           {canEdit && (
             <fieldset disabled={busy}>
               <legend>Structured editor</legend>
@@ -322,13 +356,16 @@ function World({ worldId, email }) {
                 records={editorRecords}
                 timeline={timeline}
                 onStage={(record) =>
-                  setOperations((current) => [
-                    ...current.filter((op) => op.id !== record.id),
-                    { action: "put", id: record.id, record },
-                  ])
+                  stage({ action: "put", id: record.id, record })
                 }
               />
               <h3>Proposed changes</h3>
+              {operations.length > 0 && (
+                <p>
+                  Draft based on revision {stagedRevision}. Refreshing canon
+                  does not rebase staged changes.
+                </p>
+              )}
               {operations.map((op) => (
                 <div key={op.id}>
                   <strong>
@@ -339,7 +376,7 @@ function World({ worldId, email }) {
                     <pre>
                       {JSON.stringify(
                         {
-                          before: records.find((r) => r.id === op.id) ?? null,
+                          before: stagedBefore[op.id] ?? null,
                           after: op.record ?? null,
                         },
                         null,
@@ -433,6 +470,13 @@ function World({ worldId, email }) {
                   <summary>Inspect operations</summary>
                   <pre>{JSON.stringify(c.operations, null, 2)}</pre>
                 </details>
+                <button
+                  onClick={() =>
+                    setReconcileTarget({ kind: "changes", id: c.id })
+                  }
+                >
+                  Compare proposal with current canon
+                </button>
                 {c.status === "draft" && c.author === email && (
                   <button
                     onClick={() =>
@@ -552,20 +596,12 @@ function World({ worldId, email }) {
                 </button>
                 {canEdit && (
                   <button
-                    disabled={!reason || !Object.keys(session.state).length}
+                    disabled={!Object.keys(session.state).length}
                     onClick={() =>
-                      void run(async () => {
-                        await api(`${path}/sessions/${session.id}/outcomes`, {
-                          id: id(),
-                          expectedVersion: session.version,
-                          baseRevision: session.pinnedRevision,
-                          reason,
-                        });
-                        await reload();
-                      })
+                      setReconcileTarget({ kind: "sessions", id: session.id })
                     }
                   >
-                    Propose story outcome for review
+                    Reconcile story outcome for review
                   </button>
                 )}
                 <p>

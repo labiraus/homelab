@@ -42,3 +42,4 @@ If a lesson applies only to one app, add a more specific `AGENTS.md` under that 
 - Worldbuilder canon credentials belong only to external. Processor and MCP must not receive the schema owner/runtime login or human publication authority. Mesh identity/header isolation must be validated before enabling the feature.
 - A successful source or artifact publication is not evidence of cluster readiness.
 - AI proposal candidates must retain their generation `baseRevision` when persisted; never replace it with a newly fetched revision to avoid a conflict. Rebase explicitly and obtain fresh review.
+- Manual editor staging must also retain the displayed revision and original before-state. Refreshing canon must not silently change a draft's base revision. Reconciliation creates a fresh draft with explicit conflict choices and independent approval.

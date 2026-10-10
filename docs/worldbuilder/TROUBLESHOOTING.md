@@ -24,3 +24,9 @@ The final database repeat succeeded on explicit port 25434 after adding bounded 
 - First main external CI (`38061475231`) passed unit tests but failed the disposable database script at exit 126. The Windows-backed workspace allowed local execution while Git had stored the new shell script as mode `100644`. Corrected tracked mode to `100755`, explicitly invoked Bash in CI, and added the rule to root AGENTS.md. External artifact publication was blocked by its test dependency; processor publication succeeded independently.
 
 The corrective external run `38061652923` completed successfully, including PostgreSQL checks and image/chart publication. All five application pipelines now pass; the executable-mode failure is resolved, not an outstanding deployment blocker.
+
+## Stale proposal or story outcome
+
+Open “Compare proposal with current canon” or “Reconcile story outcome for review”. Inspect original/current/proposed records, choose a resolution for each conflict and supply a reason. Save the fresh draft and obtain new independent approval. A 409 after preview means canon or the story changed again: refresh the comparison and inspect it again. Cross-record 422 findings (for example a deleted subject or changed schema) require omitting the invalid change or preparing a corrected proposal in the structured editor. Keeping current canon for every record produces no changes and cannot create an empty draft.
+
+A staged manual draft retains its original revision when canon is refreshed. Reload that revision to continue staging, or clear the staged changes before editing another revision. Do not replace its base revision to suppress conflicts. History restore also produces a reviewed draft; published revisions are never rewritten.

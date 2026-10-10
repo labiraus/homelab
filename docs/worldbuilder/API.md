@@ -22,6 +22,12 @@ All paths below are relative to `/api/worlds`. JSON bodies reject unknown fields
 | POST `/{world}/members` | Owner only: `{principal: email, role: admin/editor/reviewer/reader}`; owner cannot demote self |
 | GET `/{world}/canon` | Required `timeline`; optional `revision` (default current), `at` fictional tick, lexical `q`, `offset`, `limit` (1–500, default 100); returns records, resolvable citations, total and revision |
 | GET `/{world}/records/{id}` | Same required timeline and revision scope; resolves a single canonical citation |
+| GET `/{world}/revisions` | Published revision metadata (actor, reason, real timestamp), newest first; paginated |
+| GET `/{world}/diff` | Required nonnegative `from`, optional `to` (current); paginated complete before/after records and total across all timelines |
+| POST `/{world}/restore` | `{id: UUID, baseRevision, targetRevision, reason}`; draft compensation for an older revision, up to 100 operations; fresh review required |
+| GET `/{world}/changes/{id}/diff` | Complete proposal before/after at its immutable base revision |
+| GET `/{world}/changes/{id}/reconciliation` | Original/current/proposed records, record-level conflicts and cross-record validation finding |
+| POST `/{world}/changes/{id}/rebase` | `{id: UUID, baseRevision, reason, resolutions: {recordId: current/proposed}}`; `baseRevision` is the preview current revision; creates a fresh draft |
 | GET `/{world}/changes` | Latest proposals (paginated), including operations, review and publication state |
 | POST `/{world}/changes` | `{id: UUID, baseRevision, reason, operations}`; creates validated immutable draft |
 | POST `/{world}/changes/{id}/submit` | `{}`; author submits for independent review after deterministic validation |
@@ -31,9 +37,11 @@ All paths below are relative to `/api/worlds`. JSON bodies reject unknown fields
 | GET/POST `/{world}/sessions` | List caller's sessions (paginated); create with `{id: UUID, title, pinnedRevision, timeline}` |
 | GET `/{world}/sessions/{id}` | Only session owner and current world member can resume |
 | GET/POST `/{world}/sessions/{id}/turns` | Paginated turns, newest first; append `{requestId: UUID, expectedVersion, narration, operations}` atomically with state |
+| GET `/{world}/sessions/{id}/reconciliation` | Session-owner-only original/current/provisional comparison, including current story `expectedVersion` |
+| POST `/{world}/sessions/{id}/reconcile` | Rebase body plus `expectedVersion`; turns explicitly reconciled provisional state into a fresh draft without changing the session pin |
 | POST `/{world}/sessions/{id}/outcomes` | `{id: UUID, expectedVersion, baseRevision, reason}`; transforms provisional state into a draft; independent review still required |
 
-List routes accept `offset` and `limit` (1–500, default 100). The initial UI loads at most 500 canon records and 100 proposals/sessions/turns; richer paging controls remain a UX follow-up.
+List routes accept `offset` and `limit` (1–500, default 100). Published history and revision diffs have UI paging controls. Other UI lists still load at most 500 canon records and 100 proposals/sessions/turns; their paging controls remain a UX follow-up.
 
 Important writes use client UUIDs as idempotency keys. Reusing keys with different payloads yields 409. Submitted proposal operations cannot change; corrections/rebase create a new proposal and need fresh review. The synchronous validation phase is represented by the transition `draft -> ready_for_review`; no pretend async `validating` state is persisted. Rejecting is terminal for that proposal.
 
@@ -70,4 +78,10 @@ Processor receives authorised evidence selected by external; no canonical databa
 
 Strict output validates allowed keys, operation shape, world/timeline/revision and citation IDs. External independently validates canonical references and typed operations. Missing evidence returns explicit uncertainty. These checks prevent capability expansion and invented IDs; they do not prove that every model sentence is semantically supported. Quality, realistic adversarial evaluation and provider compatibility remain LAN gates.
 
-Session definitions (title, owner, timeline) and pinned revision live in PostgreSQL. Turns store narration, request, resulting provisional state and version together. Retries preserve the original response; concurrent expected-version writes conflict. Only facts/relationships/events can enter provisional state, and only on the pinned timeline. They never alter canon. Story outcomes are idempotent drafts. When canon has advanced, outcome creation returns a reviewable conflict; the author compares pinned/current snapshots and creates an explicitly reconciled fresh proposal. Automatic rebasing, long-running generation jobs, persistent summaries and full story-definition authoring are follow-ups.
+Session definitions (title, owner, timeline) and pinned revision live in PostgreSQL. Turns store narration, request, resulting provisional state and version together. Retries preserve the original response; concurrent expected-version writes conflict. Only facts/relationships/events can enter provisional state, and only on the pinned timeline. They never alter canon. Story outcomes are idempotent drafts. The legacy `/outcomes` route refuses advanced canon. The UI uses `/reconciliation` and `/reconcile`: each changed record shows original/current/proposed content, and concurrent modifications or deletions require an explicit `current` or `proposed` resolution. Other records may also be omitted by choosing `current`. Every surviving operation is validated against current schemas, references, chronology and rules. A changed canon revision or story version invalidates the preview. A new draft requires fresh independent review; no approval is inherited. Exact retries use immutable audit lineage and return the same draft even after publication or later turns. These drafts appear in the ordinary change list, with source session/proposal linkage in audit. Automatic field merging, long-running generation jobs, persistent summaries and full story-definition authoring remain follow-ups.
+
+## History and compensation
+
+Revision lists and diffs are membership-scoped and read immutable PostgreSQL snapshots, including all timelines. Diff pages are ordered by record ID. Proposal diffs compare against the original base, while reconciliation compares that base with current canon. Deletion and addition use an absent (`null`) side. Changes that already match current canon are omitted from a reconciled draft; an empty result cannot be submitted. Record-level conflict detection intentionally requires review even when edits touch different attributes of one record. Cross-record validation still applies after conflict choices.
+
+Restore creates an ordinary compensating draft against the inspected current revision, with the target recorded in immutable audit. Original snapshots remain unchanged. A stale base returns 409; more than 100 operations returns 422 and requires smaller independently valid proposals. Restore/reconciliation request IDs bind to the complete request and actor, and never imply publication permission.

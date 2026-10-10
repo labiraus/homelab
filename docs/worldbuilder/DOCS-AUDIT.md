@@ -57,6 +57,7 @@ The active `.codex/REPO_PLAN.md` now points to Worldbuilder priorities instead o
 | `sql/worldbuilder/` | retain (new) | Versioned migrations, grants, [schema notes](../../sql/worldbuilder/README.md) |
 | `scripts/worldbuilder/` | retain (new) | Disposable database, local manifests and Flux schema validation; [status](IMPLEMENTATION-STATUS.md) |
 | `docs/worldbuilder/API.md` | retain (new) | Source-maintained route/domain/event contract, no generator exists |
+| `docs/worldbuilder/ACCEPTANCE-MATRIX.md` | retain (new) | Requirement-level remaining work, linked from index/status; prevents treating an initial slice as full migration completion |
 | `Kustomization-gateway-api.yaml` | retain (historical diagnostic export) | Contains prior live status/UIDs; not a local app Kustomize overlay or deployment input |
 
 No documents deleted. Relative links in the changed product docs and new execution records were checked locally. No generated OpenAPI files were edited; no application spec generator was found.

@@ -1,6 +1,6 @@
 # Worldbuilder implementation status
 
-Execution started 2026-10-10. **Local verification complete for the initial slice; main-branch CI publication subsequently authorised; no live cluster observations.**
+Execution started 2026-10-10. **Initial slice verified locally; further offline increments in progress; main-branch CI publication subsequently authorised; no live cluster observations.**
 
 ## Verified inventory (M0)
 
@@ -43,11 +43,11 @@ Pre-existing edits were preserved; by the main-branch switch they had been inclu
 | M0 | LOCAL_VERIFIED: audited actual monorepo, doc dispositions, archive and active plan reconciliation | Live estate inventory remains unknown |
 | M1 | LOCAL_VERIFIED: dedicated schema/roles, explicit migrations, existing pgx/CNPG reuse, disposable up/up/down/up and restore tests | BLOCKED_CLUSTER_ACCESS: independent migration owner, credentials, storage, CNPG recovery |
 | M2 | LOCAL_VERIFIED initial domain: world/member, typed entity schemas, facts/relationships/events/timelines/rules/sources, relational projections and immutable snapshots, fictional ticks and lexical wiki queries | Full world settings/archive, ownership transfer, timeline inheritance/calendar presentation, richer schema/editor capabilities remain follow-ups |
-| M3 | LOCAL_VERIFIED: independent approval, revalidation, per-world locks, atomic projection/revision/audit/outbox, stale revision/revoked review checks, retries and compensating revision | Live multi-user/header/mesh trust validation and richer review policies |
-| M4 | LOCAL_VERIFIED initial React Worlds tab: wiki/history, editor staging, before/after preview, membership, review/publish | UI paging beyond initial caps, richer multi-field schema editing and visual acceptance on deployed host |
+| M3 | LOCAL_VERIFIED: independent approval, revalidation, per-world locks, atomic projection/revision/audit/outbox, stale revision/revoked review checks, retries and compensating revision | Explicit reconciliation, revision diffs and compensating restore implemented in the next increment; live multi-user/header/mesh trust validation and richer review policies remain |
+| M4 | LOCAL_VERIFIED initial React Worlds tab: wiki/history, editor staging, before/after preview, membership, review/publish | Published history/diff paging now implemented; other list paging, richer multi-field schema editing and visual acceptance on deployed host remain |
 | M5 | LOCAL_VERIFIED: bounded LangGraph workflows, external-scoped evidence and resolvable citations, candidate-only outputs, transactional outbox relay, NATS duplicate handling, OpenSearch external-version indexing/rebuild | BLOCKED_CLUSTER_ACCESS: Envoy/model JSON compatibility and live quality; canon vector/embedding search, scoped MCP delegation and distributed cost quotas are not implemented |
 | M6 | LOCAL_VERIFIED: persistent pinned sessions, private provisional typed state, atomic narration/turn/state, optimistic concurrency and idempotency; generated candidates explicitly saved | Rich story definitions/scenario authoring, persisted summaries and durable long-running generation jobs remain follow-ups |
-| M7 | LOCAL_VERIFIED initial outcome -> draft -> review -> publish -> wiki path; advanced canon conflicts require explicit reconciliation | Optional graph/chronology visualisations and assisted conflict rebasing remain follow-ups; projection end-to-end cluster observation pending |
+| M7 | LOCAL_VERIFIED initial outcome -> draft -> review -> publish -> wiki path; advanced canon conflicts now have original/current/proposed comparison and explicit fresh-draft reconciliation | Optional graph/chronology visualisations remain follow-ups; projection end-to-end cluster observation pending |
 | M8 | Prepared inventory/export, staged rollout, backup/recovery and compensating rollback runbook | BLOCKED_CLUSTER_ACCESS; no Cassandra removal or cutover claimed |
 
 This is a tested incremental slice across M1–M7, **not completion of every acceptance criterion in M1–M8**. The unimplemented items above are explicit follow-ups rather than claims of deployed functionality.
@@ -130,3 +130,20 @@ The repository has `core.filemode=false`; Git executable mode is now explicit. N
 Feature activation remains off by default. No live cluster deployment/ready state has been observed.
 
 Final delivery checkpoint: both source and CI correction commits are on origin/main. This documentation-only handover update does not trigger app/chart publication. Working-tree cleanliness is checked after its commit. No cluster context was contacted; actual Flux reconciliation, pod readiness and Worldbuilder activation remain **BLOCKED_CLUSTER_ACCESS**.
+
+## Increment 2 — history, reconciliation and compensation
+
+Implemented source: `apps/external/worldbuilder/history.go` plus HTTP routes and real-database tests; `apps/ui/src/WorldHistory.jsx` and component tests; manual draft revision retention in `Worldbuilder.jsx`. No migration/config/manifest changes; schema version 1 and disabled activation flags remain compatible.
+
+- Membership-scoped revision metadata and paginated complete before/after diffs.
+- Proposal and private story three-way comparison, explicit conflict choices, fresh deterministic validation, fresh independent approval and unchanged story pin.
+- Audited lineage and exact retry binding; compensating restore produces ordinary reviewed revisions.
+- UI history/diff paging, reconciliation and restore drafts. Manual staged drafts preserve the original revision and before-state across refresh.
+
+Validation completed locally for this increment (2026-10-10):
+
+- `GOCACHE=/tmp/worldbuilder-go-cache GOMODCACHE=/tmp/worldbuilder-go-mod GOPATH=/tmp/worldbuilder-gopath go test -race ./...` from `apps/external`: PASS.
+- `WORLDBUILDER_TEST_PORT=25434 GOPATH=/tmp/worldbuilder-gopath bash scripts/worldbuilder/test-postgres.sh`: PASS migration repeat/rollback, role isolation, all external domain/integration tests (four new database history/reconciliation scenarios plus classification unit test), orchestrator outbox tests, populated-down refusal and restore checksum. Log: `/tmp/worldbuilder-history-final.log`; disposable container removed.
+- `npm run build && npm test` from `apps/ui`: PASS production build and 26 tests, including three history/reconciliation components and manual draft revision regression.
+
+No manifest or configuration changed, so the previously passed render/schema checks remain applicable. Existing CI success above applies only to the initial slice until this increment's publication is observed. Remaining offline requirements remain active; see [acceptance matrix](ACCEPTANCE-MATRIX.md).

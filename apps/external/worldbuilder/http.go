@@ -83,6 +83,66 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 	if resource == "" && r.Method == "GET" {
 		return sc.world, nil
 	}
+	if resource == "revisions" && r.Method == "GET" {
+		return sc.revisions(ctx, limit, offset)
+	}
+	if resource == "diff" && r.Method == "GET" {
+		from, err := integerQuery(r, "from", -1)
+		if err != nil || from < 0 {
+			return nil, bad("nonnegative from revision is required")
+		}
+		to, err := integerQuery(r, "to", sc.world.Revision)
+		if err != nil || to < 0 {
+			return nil, bad("nonnegative to revision is required")
+		}
+		before, err := sc.snapshot(ctx, from)
+		if err != nil {
+			return nil, err
+		}
+		after, err := sc.snapshot(ctx, to)
+		if err != nil {
+			return nil, err
+		}
+		diff := Diff(before, after)
+		total := int64(len(diff))
+		start := min(offset, total)
+		end := start + min(limit, total-start)
+		return map[string]any{"fromRevision": from, "toRevision": to, "records": diff[start:end], "total": total}, nil
+	}
+	if resource == "restore" && r.Method == "POST" {
+		var b RestoreRequest
+		if err := decode(w, r, &b); err != nil {
+			return nil, err
+		}
+		return sc.restore(ctx, b)
+	}
+	if len(path) == 3 && (path[0] == "changes" || path[0] == "sessions") {
+		if path[2] == "reconciliation" && r.Method == "GET" {
+			return sc.reconcilePreview(ctx, path[0], path[1])
+		}
+		if ((path[0] == "changes" && path[2] == "rebase") || (path[0] == "sessions" && path[2] == "reconcile")) && r.Method == "POST" {
+			var b ReconcileRequest
+			if err := decode(w, r, &b); err != nil {
+				return nil, err
+			}
+			return sc.reconcile(ctx, path[0], path[1], b)
+		}
+		if path[0] == "changes" && path[2] == "diff" && r.Method == "GET" {
+			c, err := sc.change(ctx, path[1])
+			if err != nil {
+				return nil, err
+			}
+			before, err := sc.snapshot(ctx, c.BaseRevision)
+			if err != nil {
+				return nil, err
+			}
+			after, err := Apply(before, c.Operations)
+			if err != nil {
+				return nil, err
+			}
+			return map[string]any{"baseRevision": c.BaseRevision, "records": Diff(before, after)}, nil
+		}
+	}
 	if resource == "members" && r.Method == "POST" {
 		var b struct {
 			Principal string `json:"principal"`

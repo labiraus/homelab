@@ -45,3 +45,9 @@ The CI runtime update was driven by actionlint failures on the existing setup-go
 ## 2026-10-10 — Preserve AI proposal base revision
 
 Review found that a generated candidate could otherwise be saved with a later UI-selected revision. Canon proposal inference now requires the current revision, returns its explicit `baseRevision`, and the UI retains that value when saving the draft. Stale proposals conflict rather than silently acquiring a new base. Regression tests also prove unauthorised calls never invoke the reasoner and inference alone creates no proposal.
+
+## 2026-10-10 — Explicit reconciliation and compensation
+
+Add revision metadata/diffs and three-way record comparisons inside external, using existing immutable snapshots and per-world transaction locks. Conservatively flag concurrent record modification/deletion; the user chooses current or proposed, then ordinary validation catches changed references, schemas and rules. Reconciliation produces a new draft and independent review, never transfers approval, overwrites old operations or repins a story. Store source lineage and exact request in immutable audit for safe retries after canon advances. Restore uses the same publication engine to compensate, with a 100-operation cap; no schema change or history rewrite is needed.
+
+UI previews retain their observed canon revision and story version. Manual staging must retain its original revision and before-state too: review exposed an older implementation that substituted freshly loaded current revision when saving. Corrected it and added an editor regression test and app operating rule. No extra model inference or cluster capability is needed for these workflows.

@@ -14,10 +14,10 @@ The authoritative product target is [Worldbuilder architecture](../docs/worldbui
 
 ## Immediate priorities
 
-1. Finish offline validation, record limitations and publish the default-disabled implementation through CI on main as subsequently authorised by the user.
+1. Continue the remaining offline requirements in the [acceptance matrix](../docs/worldbuilder/ACCEPTANCE-MATRIX.md), validating and publishing each default-disabled increment on main. Initial source and CI correction are published; revision diff/reconciliation/compensation is the next verified increment.
 2. On LAN verify backup/restore, migration-owner isolation, dedicated role credentials, proxy service-account identity/header sanitisation and network policies before activation.
 3. Validate actual model JSON quality, embeddings support, JetStream delivery and OpenSearch idempotency/rebuild under failure.
-4. Extend initial context/pagination/editor limits using measured needs; validate multi-user acceptance and story outcome reconciliation.
+4. Complete settings/membership lifecycle, structured multi-field editing and remaining list pagination, scoped MCP/search integration, quotas/provenance and durable story workflows. Explicit story reconciliation and history/diff paging are implemented; live multi-user acceptance remains gated.
 5. Inventory any external Cassandra consumers and data. Never remove legacy storage without explicit inventory, export/checksum/restore evidence and separate approval.
 
 No live readiness or deployment success has been observed in this remote session.

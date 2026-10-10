@@ -80,4 +80,41 @@ describe("Worldbuilder", () => {
     expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
     world.role = "editor";
   });
+  it("keeps the original base revision when canon advances after staging", async () => {
+    const calls = mockApi();
+    render(<Worldbuilder email="editor@test" />);
+    await screen.findByRole("option", { name: "Novel" });
+    fireEvent.change(screen.getByLabelText("Open world"), {
+      target: { value: "w" },
+    });
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Propose removal" }),
+    );
+    world.revision = 2;
+    try {
+      fireEvent.click(screen.getByRole("button", { name: "Load canon" }));
+      await screen.findByText("Novel · canon revision 2");
+      fireEvent.change(screen.getByLabelText("Reason for change"), {
+        target: { value: "Remove timeline" },
+      });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Save draft proposal" }),
+      );
+      await waitFor(() =>
+        expect(
+          calls.some(
+            ([url, options]) =>
+              url.endsWith("/changes") && options.method === "POST",
+          ),
+        ).toBe(true),
+      );
+      const [, options] = calls.find(
+        ([url, options]) =>
+          url.endsWith("/changes") && options.method === "POST",
+      );
+      expect(JSON.parse(options.body).baseRevision).toBe(1);
+    } finally {
+      world.revision = 1;
+    }
+  });
 });
