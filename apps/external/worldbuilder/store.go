@@ -33,7 +33,7 @@ func (s *Store) inWorld(ctx context.Context, world, actor string, fn func(*scope
 	defer tx.Rollback(ctx)
 	sc := &scope{tx: tx, actor: actor}
 	// Serialise membership, publication and session changes within each world.
-	err = tx.QueryRow(ctx, `SELECT id::text,name,revision FROM worldbuilder.world WHERE id=$1 FOR UPDATE`, world).Scan(&sc.world.ID, &sc.world.Name, &sc.world.Revision)
+	err = tx.QueryRow(ctx, `SELECT id::text,name,revision,default_timeline,archived,admin_version FROM worldbuilder.world WHERE id=$1 FOR UPDATE`, world).Scan(&sc.world.ID, &sc.world.Name, &sc.world.Revision, &sc.world.DefaultTimeline, &sc.world.Archived, &sc.world.AdminVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, missing
 	}
@@ -55,7 +55,7 @@ func (s *Store) inWorld(ctx context.Context, world, actor string, fn func(*scope
 	return result, tx.Commit(ctx)
 }
 func (s *Store) Worlds(ctx context.Context, actor string, limit, offset int64) ([]World, error) {
-	rows, err := s.Pool.Query(ctx, `SELECT w.id::text,w.name,w.revision,m.role FROM worldbuilder.world w JOIN worldbuilder.member m ON m.world_id=w.id WHERE m.principal=$1 ORDER BY w.id LIMIT $2 OFFSET $3`, actor, limit, offset)
+	rows, err := s.Pool.Query(ctx, `SELECT w.id::text,w.name,w.revision,m.role,w.default_timeline,w.archived,w.admin_version FROM worldbuilder.world w JOIN worldbuilder.member m ON m.world_id=w.id WHERE m.principal=$1 ORDER BY w.id LIMIT $2 OFFSET $3`, actor, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (s *Store) Worlds(ctx context.Context, actor string, limit, offset int64) (
 	result := []World{}
 	for rows.Next() {
 		var w World
-		if err := rows.Scan(&w.ID, &w.Name, &w.Revision, &w.Role); err != nil {
+		if err := rows.Scan(&w.ID, &w.Name, &w.Revision, &w.Role, &w.DefaultTimeline, &w.Archived, &w.AdminVersion); err != nil {
 			return nil, err
 		}
 		result = append(result, w)
@@ -86,8 +86,8 @@ func (s *Store) CreateWorld(ctx context.Context, actor, id, name string) (World,
 	}
 	if tag.RowsAffected() == 0 {
 		var w World
-		err = tx.QueryRow(ctx, `SELECT w.id::text,w.name,w.revision,m.role FROM worldbuilder.world w JOIN worldbuilder.member m ON m.world_id=w.id WHERE w.id=$1 AND m.principal=$2 AND m.role='owner'`, id, actor).Scan(&w.ID, &w.Name, &w.Revision, &w.Role)
-		if errors.Is(err, pgx.ErrNoRows) || (err == nil && w.Name != name) {
+		err = tx.QueryRow(ctx, `SELECT w.id::text,w.name,w.revision,m.role,w.default_timeline,w.archived,w.admin_version FROM worldbuilder.world w JOIN worldbuilder.member m ON m.world_id=w.id WHERE w.id=$1 AND m.principal=$2 AND m.role='owner' AND EXISTS(SELECT FROM worldbuilder.audit a WHERE a.world_id=w.id AND a.action='world.create' AND a.actor=$2 AND a.detail->>'name'=$3)`, id, actor, name).Scan(&w.ID, &w.Name, &w.Revision, &w.Role, &w.DefaultTimeline, &w.Archived, &w.AdminVersion)
+		if errors.Is(err, pgx.ErrNoRows) {
 			return World{}, conflict("world id already used")
 		}
 		return w, err
@@ -95,7 +95,7 @@ func (s *Store) CreateWorld(ctx context.Context, actor, id, name string) (World,
 	if _, err = tx.Exec(ctx, `INSERT INTO worldbuilder.member VALUES($1,$2,'owner')`, id, actor); err != nil {
 		return World{}, err
 	}
-	snapshot := Snapshot{"main": {ID: "main", Kind: "timeline", Label: "Main continuity"}}
+	snapshot := Snapshot{"main": {ID: "main", Kind: "timeline", Label: "Main continuity"}, "world_settings": {ID: "world_settings", Kind: "world_settings", Label: name, Timeline: "main"}}
 	raw, _ := json.Marshal(snapshot)
 	if _, err = tx.Exec(ctx, `INSERT INTO worldbuilder.revision(world_id,revision,snapshot,actor,reason) VALUES($1,0,$2,$3,'World created')`, id, raw, actor); err != nil {
 		return World{}, err
@@ -107,7 +107,7 @@ func (s *Store) CreateWorld(ctx context.Context, actor, id, name string) (World,
 	if err = sc.audit(ctx, "world.create", id, map[string]string{"name": name}); err != nil {
 		return World{}, err
 	}
-	return World{ID: id, Name: name, Role: "owner"}, tx.Commit(ctx)
+	return World{ID: id, Name: name, Role: "owner", DefaultTimeline: "main"}, tx.Commit(ctx)
 }
 func (sc *scope) can(roles ...string) bool {
 	for _, r := range roles {
@@ -151,6 +151,9 @@ func (sc *scope) member(ctx context.Context, principal, role string) error {
 	}
 	_, err := sc.tx.Exec(ctx, `INSERT INTO worldbuilder.member VALUES($1,$2,$3) ON CONFLICT(world_id,principal) DO UPDATE SET role=excluded.role`, sc.world.ID, principal, role)
 	if err != nil {
+		return err
+	}
+	if _, err = sc.tx.Exec(ctx, `UPDATE worldbuilder.world SET admin_version=admin_version+1 WHERE id=$1`, sc.world.ID); err != nil {
 		return err
 	}
 	return sc.audit(ctx, "member.set", principal, map[string]string{"role": role})
@@ -198,7 +201,14 @@ func (sc *scope) propose(ctx context.Context, c Change) (Change, error) {
 	if err != nil {
 		return c, err
 	}
-	if _, err = Apply(before, c.Operations); err != nil {
+	after, err := Apply(before, c.Operations)
+	if err != nil {
+		return c, err
+	}
+	if err = sc.validateDefaultTimeline(after); err != nil {
+		return c, err
+	}
+	if err = sc.validateIdentity(ctx, c.Operations); err != nil {
 		return c, err
 	}
 	_, err = sc.tx.Exec(ctx, `INSERT INTO worldbuilder.change_set(world_id,id,author,base_revision,reason,operations) VALUES($1,$2,$3,$4,$5,$6)`, sc.world.ID, c.ID, sc.actor, c.BaseRevision, c.Reason, raw)
@@ -241,8 +251,14 @@ func (sc *scope) validateChange(ctx context.Context, c Change) error {
 	if err != nil {
 		return err
 	}
-	_, err = Apply(s, c.Operations)
-	return err
+	after, err := Apply(s, c.Operations)
+	if err != nil {
+		return err
+	}
+	if err = sc.validateDefaultTimeline(after); err != nil {
+		return err
+	}
+	return sc.validateIdentity(ctx, c.Operations)
 }
 func (sc *scope) review(ctx context.Context, id, decision, reason string) (Change, error) {
 	c, err := sc.change(ctx, id)
@@ -319,7 +335,13 @@ func (sc *scope) publish(ctx context.Context, id string) (Change, error) {
 	if err = sc.project(ctx, after); err != nil {
 		return c, err
 	}
-	if _, err = sc.tx.Exec(ctx, `UPDATE worldbuilder.world SET revision=$2 WHERE id=$1`, sc.world.ID, next); err != nil {
+	name, timeline := sc.world.Name, sc.world.DefaultTimeline
+	for _, r := range after {
+		if r.Kind == "world_settings" {
+			name, timeline = r.Label, r.Timeline
+		}
+	}
+	if _, err = sc.tx.Exec(ctx, `UPDATE worldbuilder.world SET revision=$2,name=$3,default_timeline=$4 WHERE id=$1`, sc.world.ID, next, name, timeline); err != nil {
 		return c, err
 	}
 	if _, err = sc.tx.Exec(ctx, `UPDATE worldbuilder.change_set SET status='published',published_revision=$3 WHERE world_id=$1 AND id=$2`, sc.world.ID, id, next); err != nil {

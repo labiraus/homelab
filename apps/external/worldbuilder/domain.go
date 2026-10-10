@@ -34,10 +34,13 @@ type Operation struct {
 	Record *Record `json:"record,omitempty"`
 }
 type World struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Revision int64  `json:"revision"`
-	Role     string `json:"role,omitempty"`
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	Revision        int64  `json:"revision"`
+	Role            string `json:"role,omitempty"`
+	DefaultTimeline string `json:"defaultTimeline"`
+	Archived        bool   `json:"archived"`
+	AdminVersion    int64  `json:"adminVersion"`
 }
 type Change struct {
 	ID                string      `json:"id"`
@@ -94,6 +97,9 @@ func Apply(before Snapshot, ops []Operation) (Snapshot, error) {
 			if _, ok := after[op.ID]; !ok {
 				return nil, bad("cannot delete missing record")
 			}
+			if after[op.ID].Kind == "world_settings" {
+				return nil, bad("world settings cannot be deleted; revise them through review")
+			}
 			delete(after, op.ID)
 		default:
 			return nil, bad("unsupported operation")
@@ -107,6 +113,7 @@ func Apply(before Snapshot, ops []Operation) (Snapshot, error) {
 
 func Validate(s Snapshot) error {
 	ref := func(id, kind string) bool { r, ok := s[id]; return ok && r.Kind == kind }
+	settingsCount := 0
 	for id, r := range s {
 		if id != r.ID || !identifier.MatchString(id) {
 			return bad("invalid record identity")
@@ -118,6 +125,11 @@ func Validate(s Snapshot) error {
 			return bad("fictional intervals are half-open and must increase")
 		}
 		switch r.Kind {
+		case "world_settings":
+			settingsCount++
+			if settingsCount > 1 || strings.TrimSpace(r.Label) == "" || len(r.Label) > 200 || !ref(r.Timeline, "timeline") {
+				return bad("world requires at most one settings record with name (max 200 characters) and valid default timeline")
+			}
 		case "type":
 			for p, t := range r.Fields {
 				if !identifier.MatchString(p) || !valueType(t) {
@@ -243,6 +255,9 @@ func overlaps(a, b Record) bool {
 	return (a.Until == nil || b.From == nil || *b.From < *a.Until) && (b.Until == nil || a.From == nil || *a.From < *b.Until)
 }
 func Visible(r Record, timeline string, at *int64) bool {
+	if r.Kind == "world_settings" {
+		return true
+	}
 	if r.Timeline != "" && r.Timeline != timeline {
 		return false
 	}

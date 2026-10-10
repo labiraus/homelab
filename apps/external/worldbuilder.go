@@ -33,9 +33,9 @@ func registerWorldbuilder(ctx context.Context, mux *http.ServeMux) error {
 	var user string
 	var elevated bool
 	err = pool.QueryRow(ctx, `SELECT current_user, (SELECT rolsuper OR rolcreaterole FROM pg_roles WHERE rolname=current_user),max(version) FROM worldbuilder.schema_version`).Scan(&user, &elevated, &version)
-	if err != nil || version != 1 || user != "worldbuilder_external" || elevated {
+	if err != nil || version != 2 || user != "worldbuilder_external" || elevated {
 		pool.Close()
-		return fmt.Errorf("Worldbuilder requires schema version 1 and nonprivileged worldbuilder_external login")
+		return fmt.Errorf("Worldbuilder requires schema version 2 and nonprivileged worldbuilder_external login")
 	}
 	go func() { <-ctx.Done(); pool.Close() }()
 	handler := worldbuilder.Handler(&worldbuilder.Store{Pool: pool, Reasoner: worldbuilderReasoner()}, func(r *http.Request) (string, bool) {

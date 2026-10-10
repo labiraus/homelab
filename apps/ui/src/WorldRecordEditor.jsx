@@ -9,6 +9,7 @@ const kinds = [
   "relationship",
   "event",
   "rule",
+  "world_settings",
 ];
 const valueTypes = ["string", "number", "boolean", "entity"];
 const entries = (value) =>
@@ -264,15 +265,22 @@ export default function WorldRecordEditor({
       <label>
         Label
         <input
-          required={["entity", "source", "timeline", "event", "rule"].includes(
-            draft.kind,
-          )}
+          required={[
+            "entity",
+            "source",
+            "timeline",
+            "event",
+            "rule",
+            "world_settings",
+          ].includes(draft.kind)}
           maxLength={500}
           value={draft.label ?? ""}
           onChange={(e) => set("label", e.target.value)}
         />
       </label>
       {draft.kind === "entity" && choose("Entity type", "type", "type")}
+      {draft.kind === "world_settings" &&
+        choose("Default timeline", "timeline", "timeline")}
       {scoped && (
         <>
           {choose("Subject", "subject", "entity", draft.kind !== "event")}

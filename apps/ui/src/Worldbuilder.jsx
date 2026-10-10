@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { HistoryPanel, ReconciliationPanel } from "./WorldHistory.jsx";
 import WorldRecordEditor from "./WorldRecordEditor.jsx";
+import WorldAdministration from "./WorldAdministration.jsx";
 
 const base = import.meta.env.VITE_API_BASE_URL ?? "";
 async function api(path, body) {
@@ -91,6 +92,7 @@ export default function Worldbuilder({ email }) {
           {worlds.map((w) => (
             <option key={w.id} value={w.id}>
               {w.name}
+              {w.archived ? " (archived)" : ""}
             </option>
           ))}
         </select>
@@ -115,18 +117,28 @@ export default function Worldbuilder({ email }) {
           Load more worlds
         </button>
       )}
-      {selected && <World key={selected} worldId={selected} email={email} />}
+      {selected && (
+        <World
+          key={selected}
+          worldId={selected}
+          email={email}
+          initialTimeline={
+            worlds.find((w) => w.id === selected)?.defaultTimeline || "main"
+          }
+          onWorld={(w) => setWorlds((rows) => mergeRows(rows, [w]))}
+        />
+      )}
     </section>
   );
 }
-function World({ worldId, email }) {
+function World({ worldId, email, initialTimeline = "main", onWorld }) {
   const path = `/${worldId}`;
   const [canon, setCanon] = useState(null),
     [changes, setChanges] = useState([]),
     [sessions, setSessions] = useState([]),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
-  const [timeline, setTimeline] = useState("main"),
+  const [timeline, setTimeline] = useState(initialTimeline),
     [revision, setRevision] = useState(""),
     [at, setAt] = useState(""),
     [query, setQuery] = useState("");
@@ -140,16 +152,16 @@ function World({ worldId, email }) {
   const [catalog, setCatalog] = useState([]);
   const [editingRevision, setEditingRevision] = useState(null);
   const [linkedRecord, setLinkedRecord] = useState(null);
-  const [canonFilters, setCanonFilters] = useState("timeline=main&limit=500");
+  const [canonFilters, setCanonFilters] = useState(() =>
+    new URLSearchParams({ timeline: initialTimeline, limit: "500" }).toString(),
+  );
   const [listOffsets, setListOffsets] = useState({
     changes: 0,
     sessions: 0,
     turns: 0,
   });
   const [moreLists, setMoreLists] = useState({});
-  const [member, setMember] = useState(""),
-    [role, setRole] = useState("editor"),
-    [reviewReason, setReviewReason] = useState("");
+  const [reviewReason, setReviewReason] = useState("");
   const [session, setSession] = useState(null),
     [turns, setTurns] = useState([]),
     [storyTitle, setStoryTitle] = useState(""),
@@ -168,6 +180,7 @@ function World({ worldId, email }) {
       api(`${path}/sessions`),
     ]);
     setCanon(c);
+    onWorld?.(c.world);
     setCanonFilters(params.toString());
     setChanges(d);
     setSessions(s);
@@ -185,7 +198,9 @@ function World({ worldId, email }) {
   useEffect(() => {
     let active = true;
     Promise.all([
-      api(`${path}/canon?timeline=main&limit=500`),
+      api(
+        `${path}/canon?${new URLSearchParams({ timeline: initialTimeline, limit: "500" })}`,
+      ),
       api(`${path}/changes`),
       api(`${path}/sessions`),
     ])
@@ -335,9 +350,13 @@ function World({ worldId, email }) {
     setEditorKey((key) => key + 1);
   }
   const canEdit =
-    canon && ["owner", "admin", "editor"].includes(canon.world.role);
+    canon &&
+    !canon.world.archived &&
+    ["owner", "admin", "editor"].includes(canon.world.role);
   const canReview =
-    canon && ["owner", "admin", "reviewer"].includes(canon.world.role);
+    canon &&
+    !canon.world.archived &&
+    ["owner", "admin", "reviewer"].includes(canon.world.role);
   const records = canon?.records ?? [];
   const staged = new Map([...catalog, ...records].map((r) => [r.id, r]));
   for (const op of operations) {
@@ -463,7 +482,17 @@ function World({ worldId, email }) {
                         .join(", ")}
                     </p>
                   )}
-                  {canEdit && (
+                  {r.attributes && (
+                    <dl>
+                      {Object.entries(r.attributes).map(([key, value]) => (
+                        <div key={key}>
+                          <dt>{key}</dt>
+                          <dd>{value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                  {canEdit && r.kind !== "world_settings" && (
                     <button
                       type="button"
                       onClick={() => {
@@ -599,45 +628,19 @@ function World({ worldId, email }) {
               </button>
             </fieldset>
           )}
+          {canon.world.archived && (
+            <p role="status">
+              This world is archived. History remains readable; an owner can
+              reopen it.
+            </p>
+          )}
           {canon.world.role === "owner" && (
-            <fieldset disabled={busy}>
-              <legend>World membership</legend>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void run(async () => {
-                    await api(`${path}/members`, { principal: member, role });
-                    setMember("");
-                  });
-                }}
-              >
-                <label>
-                  Member email
-                  <input
-                    type="email"
-                    required
-                    value={member}
-                    onChange={(e) => setMember(e.target.value)}
-                  />
-                </label>
-                <label>
-                  Role
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                  >
-                    {["editor", "reviewer", "reader", "admin"].map((r) => (
-                      <option key={r}>{r}</option>
-                    ))}
-                  </select>
-                </label>
-                <button>Set membership</button>
-              </form>
-              <p>
-                Add an independent reviewer before publishing your first
-                proposal.
-              </p>
-            </fieldset>
+            <WorldAdministration
+              api={api}
+              path={path}
+              world={canon.world}
+              onSaved={reload}
+            />
           )}
           <fieldset disabled={busy}>
             <legend>Review queue</legend>
@@ -667,7 +670,7 @@ function World({ worldId, email }) {
                 >
                   Compare proposal with current canon
                 </button>
-                {c.status === "draft" && c.author === email && (
+                {c.status === "draft" && c.author === email && canEdit && (
                   <button
                     onClick={() =>
                       void run(async () => {
@@ -725,6 +728,7 @@ function World({ worldId, email }) {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                if (canon.world.archived) return;
                 void run(async () => {
                   const s = await api(`${path}/sessions`, {
                     id: id(),
@@ -746,7 +750,9 @@ function World({ worldId, email }) {
                   maxLength={200}
                 />
               </label>
-              <button>Start at revision {canon.revision}</button>
+              <button disabled={canon.world.archived}>
+                Start at revision {canon.revision}
+              </button>
             </form>
             {sessions.map((s) => (
               <button key={s.id} onClick={() => void run(() => resume(s))}>
@@ -782,7 +788,7 @@ function World({ worldId, email }) {
                   />
                 </label>
                 <button
-                  disabled={!narration}
+                  disabled={!narration || canon.world.archived}
                   onClick={() => void run(() => saveTurn())}
                 >
                   Save turn with staged changes
@@ -805,7 +811,7 @@ function World({ worldId, email }) {
               </>
             )}
           </fieldset>
-          <fieldset disabled={busy}>
+          <fieldset disabled={busy || canon.world.archived}>
             <legend>Canon-grounded AI</legend>
             <label>
               Workflow

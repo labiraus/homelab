@@ -8,7 +8,7 @@ This describes the **source implementation**, default-disabled until the [LAN ga
 
 The current shared auth middleware trusts proxy identity headers. Therefore activation **requires** the chart's Istio DENY policy limiting `/api/worlds` and `/api/worlds/*` to the verified oauth2-proxy mTLS service principal, plus proxy header sanitisation. Processor/MCP cannot call these routes directly. Neither header conventions nor private networking alone prove a human approval boundary. MCP world delegation is intentionally gated until it has a scoped, verifiable identity contract. Existing MCP document tools are unchanged.
 
-External uses `WORLDBUILDER_DATABASE_URL` with nonprivileged login `worldbuilder_external`. Install schema as an independent migration owner, never the legacy shared `app` login. The processor/MCP shared login must have no schema USAGE and no membership in owner/runtime roles. Orchestrator's dedicated `worldbuilder_relay` can read immutable snapshots and deliver outbox records but cannot publish or alter canon. See [SQL notes](../../sql/worldbuilder/README.md).
+Current external requires schema version 2 (explicit 001 then 002 migrations). External uses `WORLDBUILDER_DATABASE_URL` with nonprivileged login `worldbuilder_external`. Install schema as an independent migration owner, never the legacy shared `app` login. The processor/MCP shared login must have no schema USAGE and no membership in owner/runtime roles. Orchestrator's dedicated `worldbuilder_relay` can read immutable snapshots and deliver outbox records but cannot publish or alter canon. See [SQL notes](../../sql/worldbuilder/README.md).
 
 ## Routes
 
@@ -17,9 +17,11 @@ All paths below are relative to `/api/worlds`. JSON bodies reject unknown fields
 | Method/path | Contract |
 |---|---|
 | GET `/` | Current member worlds; paginated |
-| POST `/` | `{id: UUID, name}`; idempotent owner retry; initial revision 0 and `main` timeline |
-| GET `/{world}` | World name, current revision, caller role |
-| POST `/{world}/members` | Owner only: `{principal: email, role: admin/editor/reviewer/reader}`; owner cannot demote self |
+| POST `/` | `{id: UUID, name}`; idempotent owner retry; initial revision 0, `main` timeline and `world_settings` record |
+| GET `/{world}` | World name, current revision, caller role, defaultTimeline, archived and adminVersion |
+| GET `/{world}/members` | Owner-only paginated principal/role list |
+| POST `/{world}/administration` | Owner-only `{requestId: UUID, expectedVersion: adminVersion, action, reason, principal?, role?}`; actions `set_member`, `remove_member`, `transfer_owner`, `archive`, `unarchive`; exact audited retries |
+| POST `/{world}/members` | Owner only: `{principal: email, role: admin/editor/reviewer/reader}`; owner cannot demote self; retained compatibility route also advances adminVersion; new UI uses versioned administration |
 | GET `/{world}/canon` | Required `timeline`; optional `revision` (default current), `at` fictional tick, lexical `q`, comma-separated `kind` filter, `offset`, `limit` (1–500, default 100); returns records, resolvable citations, total and revision |
 | GET `/{world}/records/{id}` | Same required timeline and revision scope; resolves a single canonical citation |
 | GET `/{world}/revisions` | Published revision metadata (actor, reason, real timestamp), newest first; paginated |
@@ -45,12 +47,13 @@ List routes accept `offset` and `limit` (1–500, default 100). Published histor
 
 Important writes use client UUIDs as idempotency keys. Reusing keys with different payloads yields 409. Submitted proposal operations cannot change; corrections/rebase create a new proposal and need fresh review. The synchronous validation phase is represented by the transition `draft -> ready_for_review`; no pretend async `validating` state is persisted. Rejecting is terminal for that proposal.
 
-World deletion, ownership transfer, arbitrary membership removal, and editing submitted drafts are not exposed by this initial slice. Preserve history; use canon delete operations followed by compensating puts where needed. Full world settings and archive lifecycle remain follow-ups.
+Physical world deletion is not exposed: archive preserves history. Only the owner can archive/reopen, manage or revoke members, or transfer ownership to another current member; the prior owner becomes admin in the same transaction. Administration checks `adminVersion` while holding the world lock and audits the full request/result. Archived worlds permit reads and owner membership administration, but reject canon/story/inference writes with 409. Existing sessions retain private state/pins; revoked members lose all world access immediately. Name/default timeline/settings changes require ordinary canonical review/publication. Submitted drafts stay immutable.
 
 ## Canon model
 
-A world contains at most 5,000 records initially. IDs are stable world-scoped `[a-zA-Z0-9_-]{1,64}` strings. Operations are `{action: put, id, record}` or `{action: delete, id}`; 1–100 per proposal, with no duplicate IDs. A put replaces a whole record. References are world-local and must survive final batch validation; composite SQL foreign keys recheck projection integrity.
+A world contains at most 5,000 records initially. An immutable identity registry retains record kinds even after deletion; reusing an ID for another kind is rejected, while reviewed restoration of the same kind is permitted. IDs are stable world-scoped `[a-zA-Z0-9_-]{1,64}` strings. Operations are `{action: put, id, record}` or `{action: delete, id}`; 1–100 per proposal, with no duplicate IDs. A put replaces a whole record. References are world-local and must survive final batch validation; composite SQL foreign keys recheck projection integrity.
 
+- `world_settings`: one global record with world name in `label` (max 200), default timeline in `timeline`, and versioned string settings/style guidance in `attributes`. New worlds bootstrap it; existing v1 worlds introduce it through an explicit reviewed proposal. It cannot be deleted, and the default timeline must remain valid. Publication updates world metadata atomically with the same revision.
 - `type`: `fields` maps predicate names to string/number/boolean/entity value types. `relations` maps relationship names to allowed target type IDs.
 - `entity`: requires type and label; presentation attributes are string pairs.
 - `timeline`: named explicit continuity. No automatic inheritance or divergence semantics yet.
@@ -89,3 +92,5 @@ Restore creates an ordinary compensating draft against the inspected current rev
 ## Structured editing
 
 The UI prefills complete records, locks existing ID/kind, and preserves schemas, relationship declarations and attributes when editing one field. Type definitions support multiple predicates and relationship types, including self-reference. Fact inputs derive value type from the subject schema; boolean false and explicit validity/timeline survive edits. Rules expose natural-language guidance or the supported life-bound check with birth/death predicates. Duplicate schema names are rejected locally; external remains the authoritative validator. The browser editor rejects fictional tick values outside JavaScript safe integers rather than silently rounding them; API clients may use the full signed 64-bit range. A loaded record cannot be staged against a different revision after refresh.
+
+Version-2 migration preserves old snapshots exactly. A restore targeting a pre-settings snapshot can conflict with required settings/default-timeline invariants; prepare a compensating proposal preserving valid settings in that case. Do not delete or rewrite history to make a migration or restore pass.

@@ -60,6 +60,9 @@ func Handler(store *Store, identity Identity) http.Handler {
 			}
 		} else {
 			result, err = store.inWorld(r.Context(), parts[0], actor, func(sc *scope) (any, error) {
+				if sc.world.Archived && r.Method != "GET" && !(len(parts) == 2 && (parts[1] == "administration" || parts[1] == "members")) {
+					return nil, conflict("world is archived; an owner must reopen it before writing")
+				}
 				if len(parts) == 2 && parts[1] == "reason" && r.Method == "POST" {
 					return sc.reason(w, r, store.Reasoner)
 				}
@@ -82,6 +85,16 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 	resource := strings.Join(path, "/")
 	if resource == "" && r.Method == "GET" {
 		return sc.world, nil
+	}
+	if resource == "members" && r.Method == "GET" {
+		return sc.members(ctx, limit, offset)
+	}
+	if resource == "administration" && r.Method == "POST" {
+		var b AdminRequest
+		if err := decode(w, r, &b); err != nil {
+			return nil, err
+		}
+		return sc.administer(ctx, b)
 	}
 	if resource == "revisions" && r.Method == "GET" {
 		return sc.revisions(ctx, limit, offset)
@@ -182,7 +195,7 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 			kinds := map[string]bool{}
 			for _, kind := range strings.Split(r.URL.Query().Get("kind"), ",") {
 				switch kind {
-				case "type", "entity", "source", "timeline", "fact", "relationship", "event", "rule":
+				case "type", "entity", "source", "timeline", "fact", "relationship", "event", "rule", "world_settings":
 					kinds[kind] = true
 				default:
 					return nil, bad("unsupported record kind filter")

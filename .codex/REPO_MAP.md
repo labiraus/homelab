@@ -22,9 +22,9 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - `pkg/`: shared Go modules
 - `ansible/`
   - external service state management, including the Minecraft VM
-- `apps/ui/src/WorldRecordEditor.jsx` and `WorldHistory.jsx`: complete canon editing, history, reconciliation and recovery UI
+- `apps/ui/src/WorldRecordEditor.jsx` and `WorldHistory.jsx`/`WorldAdministration.jsx`: canon editing, history, reconciliation, owner lifecycle and recovery UI
 - `docs/worldbuilder/`: architecture, migration, audit, decisions, implementation status, acceptance matrix, API contract and LAN runbook
-- `sql/worldbuilder/`: explicit additive migrations and dedicated runtime grants
+- `sql/worldbuilder/`: explicit schema-v1/v2 migrations, immutable identity registry and dedicated runtime grants
 - `scripts/worldbuilder/`: disposable database and offline manifest checks
 - `docs/`
   - `Setup.md`: Kubernetes setup path for local machine, Proxmox worker prep, SSH, kubeconfig, and worker network stability

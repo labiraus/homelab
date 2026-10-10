@@ -55,3 +55,9 @@ UI previews retain their observed canon revision and story version. Manual stagi
 ## 2026-10-10 — Complete records and pinned reference catalogs in the editor
 
 Whole-record replacement requires complete prefill; editing one field must not drop other type fields, relationships or attributes. Split structured editing into its own UI component and add dynamic schema rows. Fetch reference kinds separately from filtered wiki pages, pin every catalog/continuation request to the displayed revision, and validate kind filters server-side. Keep offset pagination compatible with existing APIs and deduplicate mutable list results; refresh observes concurrent insertions. Bound catalogs by the existing 5,000-record world cap. No additional service or query authority is needed.
+
+## 2026-10-10 — Governed settings and administrative lifecycle
+
+World name/default timeline/style settings are canonical records and must pass ordinary review/publication. Archive and membership/ownership are separate owner administration, serialized under the same world lock with their own expected version and immutable request/result audit. Archive is reversible and preserves all canon and story history; membership revocation still applies immediately. Transfer promotes an existing member and demotes the former owner to admin atomically, with a unique-owner index.
+
+Add migration 002 instead of modifying migration 001. Preserve v1 snapshots exactly, backfill permanent record-kind identities from all revisions, and abort on historical cross-kind ID reuse. New settings records in older worlds require explicit review; do not silently patch canon during migration. Current runtime requires schema 2; rollback disables the feature and retains data. No populated schema downgrade is supported.

@@ -12,10 +12,46 @@ done
 sql() { docker exec -i "$container_name" psql -X -U postgres -d worldbuilder_test -v ON_ERROR_STOP=1 "$@"; }
 sql < "$repo_dir/sql/worldbuilder/001_up.sql"
 sql < "$repo_dir/sql/worldbuilder/001_up.sql"
+sql < "$repo_dir/sql/worldbuilder/002_up.sql"
+sql < "$repo_dir/sql/worldbuilder/002_up.sql"
+sql < "$repo_dir/sql/worldbuilder/002_down.sql"
 sql < "$repo_dir/sql/worldbuilder/001_down.sql"
 sql < "$repo_dir/sql/worldbuilder/001_up.sql"
+sql < "$repo_dir/sql/worldbuilder/002_up.sql"
 sql -c 'CREATE ROLE worldbuilder_external NOINHERIT LOGIN; CREATE ROLE worldbuilder_relay NOINHERIT LOGIN; CREATE ROLE legacy_app NOINHERIT LOGIN;'
 sql < "$repo_dir/sql/worldbuilder/grants.sql"
+# Upgrade a populated version-1 database independently of the empty up/down tests.
+docker exec "$container_name" createdb -U postgres worldbuilder_upgrade
+upgrade_sql() { docker exec -i "$container_name" psql -X -U postgres -d worldbuilder_upgrade -v ON_ERROR_STOP=1 "$@"; }
+upgrade_sql < "$repo_dir/sql/worldbuilder/001_up.sql"
+upgrade_sql <<'SQL'
+INSERT INTO worldbuilder.world(id,name,revision) VALUES('00000000-0000-4000-8000-000000000001','Legacy world',1);
+INSERT INTO worldbuilder.member VALUES('00000000-0000-4000-8000-000000000001','owner@example.test','owner');
+INSERT INTO worldbuilder.revision(world_id,revision,snapshot,actor,reason) VALUES
+ ('00000000-0000-4000-8000-000000000001',0,'{"main":{"id":"main","kind":"timeline","label":"Main"},"deleted":{"id":"deleted","kind":"source","label":"Old source"}}','owner@example.test','Created'),
+ ('00000000-0000-4000-8000-000000000001',1,'{"main":{"id":"main","kind":"timeline","label":"Main"}}','owner@example.test','Deleted source');
+SQL
+upgrade_sql < "$repo_dir/sql/worldbuilder/002_up.sql"
+upgrade_sql < "$repo_dir/sql/worldbuilder/002_up.sql"
+upgrade_sql <<'SQL'
+DO $$ BEGIN
+ IF (SELECT kind FROM worldbuilder.record_identity WHERE id='deleted') IS DISTINCT FROM 'source' THEN RAISE EXCEPTION 'deleted identity missing after upgrade'; END IF;
+ IF (SELECT count(*) FROM worldbuilder.revision)<>2 THEN RAISE EXCEPTION 'upgrade changed history'; END IF;
+END $$;
+SQL
+if upgrade_sql < "$repo_dir/sql/worldbuilder/002_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated upgrade rollback succeeded'; exit 1; fi
+# Inconsistent legacy identity must fail before changing the schema.
+docker exec "$container_name" createdb -U postgres worldbuilder_conflict
+conflict_sql() { docker exec -i "$container_name" psql -X -U postgres -d worldbuilder_conflict -v ON_ERROR_STOP=1 "$@"; }
+conflict_sql < "$repo_dir/sql/worldbuilder/001_up.sql"
+conflict_sql <<'SQL'
+INSERT INTO worldbuilder.world(id,name,revision) VALUES('00000000-0000-4000-8000-000000000002','Conflicting legacy world',1);
+INSERT INTO worldbuilder.revision(world_id,revision,snapshot,actor,reason) VALUES
+ ('00000000-0000-4000-8000-000000000002',0,'{"reused":{"id":"reused","kind":"source","label":"Source"}}','owner@example.test','Created'),
+ ('00000000-0000-4000-8000-000000000002',1,'{"reused":{"id":"reused","kind":"timeline","label":"Timeline"}}','owner@example.test','Reused');
+SQL
+if conflict_sql < "$repo_dir/sql/worldbuilder/002_up.sql" >/dev/null 2>&1; then echo 'FAIL: conflicting historical identity migrated silently'; exit 1; fi
+conflict_sql -c "DO \$\$ BEGIN IF (SELECT max(version) FROM worldbuilder.schema_version)<>1 THEN RAISE EXCEPTION 'failed migration advanced schema'; END IF; END \$\$;"
 sql -c "SELECT has_schema_privilege('legacy_app','worldbuilder','USAGE') AS must_be_false;"
 if sql -c 'SET ROLE legacy_app; SELECT * FROM worldbuilder.world;' >/dev/null 2>&1; then echo 'FAIL: legacy user can access canon'; exit 1; fi
 if sql -c 'SET ROLE worldbuilder_relay; INSERT INTO worldbuilder.world VALUES(gen_random_uuid(), '\''bypass'\'', 0, now());' >/dev/null 2>&1; then echo 'FAIL: relay can mutate canon'; exit 1; fi
@@ -41,10 +77,18 @@ export GOMODCACHE="${GOMODCACHE:-/tmp/worldbuilder-go-mod}"
 (cd "$repo_dir/apps/external" && go test -timeout=120s -race -count=1 ./worldbuilder)
 (cd "$repo_dir/apps/orchestrator" && go test -timeout=120s -race -count=1 -run '^TestCanon' .)
 if sql < "$repo_dir/sql/worldbuilder/001_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated schema down migration succeeded'; exit 1; fi
+if sql < "$repo_dir/sql/worldbuilder/002_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated lifecycle down migration succeeded'; exit 1; fi
 docker exec "$container_name" createdb -U postgres worldbuilder_restore
 docker exec "$container_name" pg_dump -U postgres -d worldbuilder_test -Fc -f /tmp/worldbuilder.dump
 docker exec "$container_name" pg_restore -U postgres -d worldbuilder_restore --exit-on-error /tmp/worldbuilder.dump
-original=$(sql -Atc "SELECT md5(string_agg(world_id::text || ':' || revision::text || ':' || snapshot::text, ',' ORDER BY world_id,revision)) FROM worldbuilder.revision")
-restored=$(docker exec "$container_name" psql -X -U postgres -d worldbuilder_restore -Atc "SELECT md5(string_agg(world_id::text || ':' || revision::text || ':' || snapshot::text, ',' ORDER BY world_id,revision)) FROM worldbuilder.revision")
-[[ "$original" == "$restored" ]] || { echo 'FAIL: restored canon differs'; exit 1; }
-echo 'PASS: up/up/down/up, role isolation, publication/story/outbox integration, populated-down refusal and restore checksum'
+checksum_parts=()
+for canon_table in world member revision record record_identity change_set audit outbox story_session story_turn story_outcome schema_version; do
+  checksum_parts+=("SELECT '${canon_table}:' || row_to_json(t)::text AS item FROM worldbuilder.${canon_table} t")
+done
+checksum_union=${checksum_parts[0]}
+for part in "${checksum_parts[@]:1}"; do checksum_union+=" UNION ALL $part"; done
+checksum_query="SELECT md5(string_agg(item, ',' ORDER BY item)) FROM ($checksum_union) rows"
+original=$(sql -Atc "$checksum_query")
+restored=$(docker exec "$container_name" psql -X -U postgres -d worldbuilder_restore -Atc "$checksum_query")
+[[ "$original" == "$restored" ]] || { echo 'FAIL: restored canon/lifecycle/story data differs'; exit 1; }
+echo 'PASS: migrations 001/002 rerun/rollback, populated upgrade/conflict gates, role isolation, canon/lifecycle/story/outbox integration and all-table restore checksum'

@@ -30,3 +30,9 @@ The corrective external run `38061652923` completed successfully, including Post
 Open “Compare proposal with current canon” or “Reconcile story outcome for review”. Inspect original/current/proposed records, choose a resolution for each conflict and supply a reason. Save the fresh draft and obtain new independent approval. A 409 after preview means canon or the story changed again: refresh the comparison and inspect it again. Cross-record 422 findings (for example a deleted subject or changed schema) require omitting the invalid change or preparing a corrected proposal in the structured editor. Keeping current canon for every record produces no changes and cannot create an empty draft.
 
 A staged manual draft retains its original revision when canon is refreshed. Reload that revision to continue staging, or clear the staged changes before editing another revision. Do not replace its base revision to suppress conflicts. History restore also produces a reviewed draft; published revisions are never rewritten.
+
+## Lifecycle or identity migration conflict
+
+A 409 administration response means its expected administration version changed; reload world metadata and review the action. An archived world rejects canon/story/inference writes until its owner reopens it. Owners can still revoke members while archived. Transfer leaves the former owner as admin, so new owner-only operations from that account correctly return 403.
+
+Migration 002 aborts if immutable history reuses an ID for different record kinds. Inventory the affected world/ID/revisions and design an explicit reviewed migration; never rewrite old snapshots to bypass the check. Current external requires schema 2 and dedicated grants. Apply migrations only through the authorised LAN sequence; a v1 app rollback requires the feature disabled.

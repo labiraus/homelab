@@ -210,7 +210,7 @@ func TestAtomicFailureAndCompensation(t *testing.T) {
 	if err = h.pool.QueryRow(ctx, `SELECT revision FROM worldbuilder.world WHERE id=$1`, w).Scan(&rev); err != nil || rev != 0 {
 		t.Fatalf("partial revision %d %v", rev, err)
 	}
-	if err = h.pool.QueryRow(ctx, `SELECT count(*) FROM worldbuilder.record WHERE world_id=$1`, w).Scan(&count); err != nil || count != 1 {
+	if err = h.pool.QueryRow(ctx, `SELECT count(*) FROM worldbuilder.record WHERE world_id=$1`, w).Scan(&count); err != nil || count != 2 {
 		t.Fatalf("partial projection %d %v", count, err)
 	}
 	h.pool.Exec(ctx, `DROP TRIGGER test_outbox_fail ON worldbuilder.outbox`)
@@ -358,7 +358,7 @@ func TestDedicatedRuntimeRoleCanPublish(t *testing.T) {
 	var name string
 	var elevated bool
 	var version int
-	if err = pool.QueryRow(context.Background(), `SELECT current_user,(SELECT rolsuper OR rolcreaterole FROM pg_roles WHERE rolname=current_user),max(version) FROM worldbuilder.schema_version`).Scan(&name, &elevated, &version); err != nil || name != "worldbuilder_external" || elevated || version != 1 {
+	if err = pool.QueryRow(context.Background(), `SELECT current_user,(SELECT rolsuper OR rolcreaterole FROM pg_roles WHERE rolname=current_user),max(version) FROM worldbuilder.schema_version`).Scan(&name, &elevated, &version); err != nil || name != "worldbuilder_external" || elevated || version != 2 {
 		t.Fatalf("runtime identity check: %s %t %d %v", name, elevated, version, err)
 	}
 	if _, err = pool.Exec(context.Background(), `DELETE FROM worldbuilder.revision WHERE world_id=$1`, w); err == nil {

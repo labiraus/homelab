@@ -55,6 +55,7 @@ mkdir -p backups
 pg_dump -Fc -f backups/before-worldbuilder.dump
 # Explicit migration; no application/Helm hook runs this.
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/001_up.sql
+psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/002_up.sql
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/grants.sql
 psql -X -v ON_ERROR_STOP=1 -c 'TABLE worldbuilder.schema_version;'
 psql -X -v ON_ERROR_STOP=1 -c "SELECT has_schema_privilege('app','worldbuilder','USAGE');"
@@ -124,3 +125,9 @@ SELECT action, count(*) FROM worldbuilder.audit GROUP BY action;
 - Cassandra/manifests/PVs/credentials are untouched. Removal requires a separate inventory/export/recovery/reconciliation approval even after Worldbuilder acceptance.
 
 No irreversible cleanup, live schema change or resource deletion is bundled with source publication.
+
+## Schema-v2 lifecycle validation
+
+Before enabling current external, verify max schema version 2 and dedicated grants including `record_identity`. Migration 002 must refuse historical same-ID/different-kind conflicts; inventory them and obtain a reviewed reconciliation plan rather than changing immutable history. Validate reviewed name/default-timeline settings, membership removal, owner transfer (exactly one owner), archive write refusal and retained history. Repeat an administration request and confirm its original version/result without another change. Old v1 snapshots remain intact; introduce their first settings record through review.
+
+Rollback keeps Worldbuilder disabled and data intact. The previous v1 binary rejects schema v2 when enabled; do not roll back to it with the feature enabled. Both down migrations refuse populated worlds.
