@@ -37,3 +37,5 @@ Worldbuilder correlation IDs supplied by external are forwarded to Envoy as `X-R
 `narrative_generate` returns scenario prose without mutations. `story_turn` consumes a scoped private definition, bounded summary/recent-turn context and canonical evidence, and may propose bounded summaries/choices. Provisional memory cannot supply canonical citation IDs or expand permissions.
 
 Durable generation checkpoints carry bounded previous provisional prose and part metadata through the same authenticated reasoning endpoint. Continuation text is untrusted context and cannot supply citations or publication authority. External owns private jobs, allowances and checkpoint persistence; processor remains a bounded per-part inference worker.
+
+`consistency_check` may return bounded findings with severity, uncertainty and published citations. Proposal operations are separate untrusted review context. Strict response validation rejects unknown fields, forged citations and approval authority; external repeats evidence checks and owns deterministic validation.

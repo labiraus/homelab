@@ -4,6 +4,7 @@ import WorldRecordEditor from "./WorldRecordEditor.jsx";
 import WorldAdministration from "./WorldAdministration.jsx";
 import WorldStorySetup from "./WorldStorySetup.jsx";
 import WorldGenerations from "./WorldGenerations.jsx";
+import ProposalFindings, { Findings } from "./WorldFindings.jsx";
 
 const base = import.meta.env.VITE_API_BASE_URL ?? "";
 async function api(path, body) {
@@ -659,6 +660,11 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
           )}
           <fieldset disabled={busy}>
             <legend>Review queue</legend>
+            <p>
+              Policy: a different owner, admin or reviewer must approve.
+              Publication rechecks current roles, canon revision and
+              deterministic rules; AI cannot approve.
+            </p>
             <label>
               Review reason
               <input
@@ -685,6 +691,13 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                 >
                   Compare proposal with current canon
                 </button>
+                <ProposalFindings
+                  api={api}
+                  path={path}
+                  change={c}
+                  timeline={timeline}
+                  archived={canon.world.archived}
+                />
                 {c.status === "draft" && c.author === email && canEdit && (
                   <button
                     onClick={() =>
@@ -936,6 +949,9 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
             {answer && (
               <article>
                 <p>{answer.answer}</p>
+                {answer.workflow === "consistency_check" && (
+                  <Findings result={answer} />
+                )}
                 {answer.evidenceScope?.coverage === "selected_records" && (
                   <p>
                     Based on {answer.evidenceScope.evidenceCount} selected canon

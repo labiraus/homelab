@@ -102,3 +102,5 @@ Generation details show the request correlation, reported model, duration and al
 `WorldStorySetup.jsx` creates/reuses private immutable definitions at their canon pin, preserves IDs on uncertain retries, and retains generated premise scope. Sessions display provisional summary coverage and offered choices. Generated turns retain the inspected session version when saved.
 
 The Worlds reasoning panel lists private durable generations, queues up to four narrative parts, refreshes progress, cancels remaining work and inspects preserved partial results. Background generation must be enabled server-side. Retried queue submissions retain their UUID; inspected results retain their original canon/session versions before human save.
+
+The review queue explains independent human approval and offers proposal consistency checks at the inspected base revision. Advisory findings show severity, uncertainty, scoped evidence and deterministic-check metadata; partial evidence and an empty finding list never claim complete semantic consistency.

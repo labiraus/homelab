@@ -77,7 +77,7 @@ func (sc *scope) evidenceContext(ctx context.Context, s Snapshot, revision int64
 	}
 	for _, id := range requiredRefs {
 		if !include(id) {
-			return nil, scope, bad("story cast exceeds evidence budget")
+			return nil, scope, bad("required referenced records exceed evidence budget")
 		}
 	}
 	for _, record := range Records(provisional, timeline, "", nil) {

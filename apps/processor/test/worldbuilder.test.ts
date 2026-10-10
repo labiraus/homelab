@@ -287,3 +287,41 @@ test("durable continuation validates checkpoints and treats prior prose as untru
   }
   await assert.rejects(() => runCanon({ ...request, generation }, response()));
 });
+
+test("advisory findings require uncertainty and scoped evidence, never approval", async () => {
+  const finding = {
+    severity: "warning",
+    uncertainty: "high",
+    message: "Possible motive conflict",
+    citations: ["world:1:main:age"],
+  };
+  const input = {
+    ...request,
+    workflow: "consistency_check" as const,
+    review: {
+      changeId: "00000000-0000-4000-8000-000000000001",
+      baseRevision: 1,
+      operations: [{ action: "delete", id: "age" }],
+    },
+  };
+  const result = await runCanon(input, response({ findings: [finding] }));
+  assert.deepEqual(result.findings, [finding]);
+  for (const invalid of [
+    { ...finding, citations: ["foreign:1:main:age"] },
+    { ...finding, uncertainty: "certain" },
+    { ...finding, publish: true },
+    { ...finding, citations: [] },
+  ])
+    await assert.rejects(() =>
+      runCanon(input, response({ findings: [invalid] })),
+    );
+  await assert.rejects(() =>
+    runCanon(request, response({ findings: [finding] })),
+  );
+  await assert.rejects(() =>
+    runCanon(
+      { ...input, review: { ...input.review, baseRevision: 2 } },
+      response(),
+    ),
+  );
+});

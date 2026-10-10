@@ -10,6 +10,7 @@ import (
 )
 
 type ReasonRequest struct {
+	Review       *ReviewContext     `json:"review,omitempty"`
 	Generation   *GenerationContext `json:"generation,omitempty"`
 	Story        *StoryContext      `json:"story,omitempty"`
 	RequestID    string             `json:"requestId,omitempty"`
@@ -23,22 +24,25 @@ type ReasonRequest struct {
 	ContextScope string             `json:"contextScope"`
 }
 type ReasonResult struct {
-	SessionVersion *int64         `json:"sessionVersion,omitempty"`
-	Choices        []StoryChoice  `json:"choices,omitempty"`
-	MemorySummary  string         `json:"memorySummary,omitempty"`
-	Provenance     Provenance     `json:"provenance"`
-	BaseRevision   int64          `json:"baseRevision"`
-	Answer         string         `json:"answer"`
-	Unknown        bool           `json:"unknown"`
-	Citations      []string       `json:"citations"`
-	Operations     []Operation    `json:"operations"`
-	Model          string         `json:"model"`
-	Usage          map[string]any `json:"usage"`
-	EvidenceScope  EvidenceScope  `json:"evidenceScope"`
+	Findings       []AdvisoryFinding   `json:"findings,omitempty"`
+	Deterministic  *DeterministicCheck `json:"deterministic,omitempty"`
+	SessionVersion *int64              `json:"sessionVersion,omitempty"`
+	Choices        []StoryChoice       `json:"choices,omitempty"`
+	MemorySummary  string              `json:"memorySummary,omitempty"`
+	Provenance     Provenance          `json:"provenance"`
+	BaseRevision   int64               `json:"baseRevision"`
+	Answer         string              `json:"answer"`
+	Unknown        bool                `json:"unknown"`
+	Citations      []string            `json:"citations"`
+	Operations     []Operation         `json:"operations"`
+	Model          string              `json:"model"`
+	Usage          map[string]any      `json:"usage"`
+	EvidenceScope  EvidenceScope       `json:"evidenceScope"`
 }
 type Reasoner func(context.Context, ReasonRequest) (ReasonResult, error)
 
 type ReasonInput struct {
+	ChangeID        string `json:"changeId,omitempty"`
 	Workflow        string `json:"workflow"`
 	Question        string `json:"question"`
 	Timeline        string `json:"timeline"`
@@ -76,6 +80,11 @@ func (sc *scope) generate(ctx context.Context, b ReasonInput, fn Reasoner, budge
 	if b.Workflow == "canon_proposal" && b.Revision != sc.world.Revision {
 		return nil, conflict("AI proposals require current canon; reload before generating")
 	}
+	if b.ChangeID != "" && b.Workflow != "consistency_check" {
+		return nil, bad("proposal review context requires consistency_check")
+	}
+	var review *ReviewContext
+	var deterministic *DeterministicCheck
 	var provisional Snapshot
 	var story *StoryContext
 	var requiredRefs []string
@@ -104,6 +113,31 @@ func (sc *scope) generate(ctx context.Context, b ReasonInput, fn Reasoner, budge
 	if err != nil {
 		return nil, err
 	}
+	if b.Workflow == "consistency_check" {
+		if err = Validate(snapshot); err != nil {
+			return nil, err
+		}
+		deterministic = &DeterministicCheck{Passed: true, Revision: b.Revision, ChangeID: b.ChangeID}
+		if b.ChangeID != "" {
+			c, e := sc.change(ctx, b.ChangeID)
+			if e != nil {
+				return nil, e
+			}
+			if c.BaseRevision != b.Revision {
+				return nil, conflict("review must use the proposal base revision")
+			}
+			if e = sc.validateChange(ctx, c); e != nil {
+				return nil, e
+			}
+			review = &ReviewContext{ChangeID: c.ID, BaseRevision: c.BaseRevision, Operations: c.Operations}
+			for _, op := range c.Operations {
+				requiredRefs = append(requiredRefs, op.ID)
+				if op.Record != nil {
+					requiredRefs = append(requiredRefs, recordReferences(*op.Record)...)
+				}
+			}
+		}
+	}
 	if snapshot[b.Timeline].Kind != "timeline" {
 		return nil, bad("unknown timeline")
 	}
@@ -113,6 +147,7 @@ func (sc *scope) generate(ctx context.Context, b ReasonInput, fn Reasoner, budge
 	}
 	request := ReasonRequest{WorldID: sc.world.ID, Revision: b.Revision, Timeline: b.Timeline, Question: b.Question, Workflow: b.Workflow, Evidence: Citations(sc.world.ID, b.Revision, b.Timeline, records), Provisional: provisional, ContextScope: evidenceScope.Coverage}
 	request.Story = story
+	request.Review = review
 	request.Generation = generation
 	raw, _ := json.Marshal(request)
 	if len(raw)+100 > 100000 { // Reserve space for the correlation ID.
@@ -156,6 +191,10 @@ func (sc *scope) generate(ctx context.Context, b ReasonInput, fn Reasoner, budge
 			return nil, bad("inference returned an unresolvable citation")
 		}
 	}
+	if err = validateFindings(b.Workflow, result.Findings, allowed); err != nil {
+		return nil, err
+	}
+	result.Deterministic = deterministic
 	if !result.Unknown && len(result.Citations) == 0 {
 		return nil, bad("inference returned an ungrounded answer")
 	}
@@ -200,6 +239,6 @@ func (sc *scope) generate(ctx context.Context, b ReasonInput, fn Reasoner, budge
 	provenance.LatencyMS = time.Since(started).Milliseconds()
 	result.Provenance = provenance
 	// Output remains a candidate. UI explicitly creates a draft or persists a provisional turn.
-	err = sc.audit(ctx, "ai."+b.Workflow, b.SessionID, map[string]any{"revision": b.Revision, "timeline": b.Timeline, "model": result.Model, "usage": result.Usage, "citations": result.Citations, "evidenceScope": evidenceScope, "provenance": provenance})
+	err = sc.audit(ctx, "ai."+b.Workflow, b.SessionID, map[string]any{"revision": b.Revision, "timeline": b.Timeline, "model": result.Model, "usage": result.Usage, "citations": result.Citations, "evidenceScope": evidenceScope, "provenance": provenance, "findings": result.Findings, "deterministic": deterministic})
 	return result, err
 }

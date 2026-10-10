@@ -73,7 +73,7 @@ func (sc *scope) createGeneration(ctx context.Context, b GenerationRequest) (Gen
 	if b.Parts == 0 {
 		b.Parts = 1
 	}
-	if _, err := uuid.Parse(b.ID); err != nil || strings.TrimSpace(b.Question) == "" || len(b.Question) > 4000 || b.Parts < 1 || b.Parts > 4 || (b.Workflow != "story_turn" && b.Workflow != "narrative_generate") || (b.Workflow == "story_turn" && b.Parts != 1) {
+	if _, err := uuid.Parse(b.ID); err != nil || b.ChangeID != "" || strings.TrimSpace(b.Question) == "" || len(b.Question) > 4000 || b.Parts < 1 || b.Parts > 4 || (b.Workflow != "story_turn" && b.Workflow != "narrative_generate") || (b.Workflow == "story_turn" && b.Parts != 1) {
 		return Generation{}, bad("generation requires UUID id, creative workflow, question and 1–4 narrative parts (one story turn)")
 	}
 	raw, _ := json.Marshal(b)

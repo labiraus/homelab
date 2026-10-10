@@ -137,3 +137,5 @@ AI activation additionally requires migration-003 inference reservations and exp
 Schema 4 adds owner-private immutable story definitions and atomic turn memory/choices. Story generation checks expected session version before spending allowance and returns that version for later human save. Narrative generation returns prose only; see the API contract.
 
 Durable creative jobs use schema 5 and `WORLDBUILDER_JOBS_ENABLED=false` by default. Enabling requires configured reasoning/budget plus dedicated `WORLDBUILDER_JOB_TOKEN`; the fixed worker endpoint reloads private human intent and checks current access. Job lists/details/cancellation live under each world's `/generations`; queued output remains a candidate. See the [durable API contract](../../docs/worldbuilder/API.md#durable-creative-generations-schema-5).
+
+Consistency checks now run deterministic validation first and optionally bind a proposal via `changeId`. Structured evidence-backed findings are advisory and audited with model provenance; they never change review status. Stale proposal checks fail before allocating inference.
