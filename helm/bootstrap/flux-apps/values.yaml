@@ -49,6 +49,10 @@ external:
         enabled: true
         delegationSecret: worldbuilder-mcp
         principal: cluster.local/ns/homelab/sa/homelab-mcp
+      jobs:
+        enabled: true
+        workerSecret: worldbuilder-jobs
+        principal: cluster.local/ns/homelab/sa/homelab-orchestrator
     ingress:
       enabled: false
     security:
@@ -111,6 +115,10 @@ orchestrator:
       databaseSecret: worldbuilder-relay
       openSearchURL: http://labiraus-rag-data.data.svc.cluster.local:9200
       rebuildOnStart: false
+      jobs:
+        enabled: true
+        workerSecret: worldbuilder-jobs
+        externalAPIURL: http://homelab-external.homelab.svc.cluster.local
 
 processor:
   type: oci
