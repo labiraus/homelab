@@ -2,6 +2,8 @@
 
 This runbook is for day-two document-platform and assistant operations.
 
+If the UI image smoke check passes image-pull progress along with a container ID to `docker start`, keep stderr separate when parsing the stdout identifier from `docker create`. A cached image can hide this harness failure locally. Require a corrected actual-image check and successful CI chart publication; a published image alone is not a completed release.
+
 If a local Node image build reports `npm error Exit handler never called!`, verify registry TLS inside that Docker worker before blaming the lockfile. On this offline workstation, `node:24.13.0-bookworm-slim` could be pulled, but its direct fetch of `https://registry.npmjs.org/typescript` failed with `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`. Host/devcontainer npm success does not prove container trust. Use hosted CI's complete image/runtime checks while correcting workstation trust separately; retain `npm ci` and certificate verification. Do not add a private workstation CA or disable TLS verification in production Dockerfiles to bypass a local interception issue.
 
 For Worldbuilder dates outside JavaScript's safe integer range, inspect the raw HTTP JSON before ordinary `response.json()`/`JSON.parse()` converts numbers. The UI/processor preserve original date tokens and send large dates as decimal strings; external keeps exact numeric history. An “Exact fictional dates require … JSON source support” error means the browser needs updating, not that canon should be truncated or rewritten. See the [date wire contract](../docs/worldbuilder/API.md). Calendar formatting and life-bound fact types remain separate from this transport behavior.

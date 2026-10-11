@@ -6,7 +6,8 @@ import time
 
 
 def command(*args):
-    return subprocess.check_output(args, stderr=subprocess.STDOUT)
+    # A create-time pull reports progress on stderr; stdout is only the ID.
+    return subprocess.check_output(args)
 
 
 container = command("docker", "create", "--network", "none", sys.argv[1]).decode().strip()
