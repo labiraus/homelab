@@ -37,6 +37,7 @@ jobs:
           GITHUB_EVENT_BEFORE: ${{ github.event.before }}
           GITHUB_SHA: ${{ github.sha }}
         run: |
+          python3 scripts/build/test-app-publish-source.py
           python3 scripts/build/build_helm_matrix.py
 
   platform-validation:
@@ -122,11 +123,17 @@ jobs:
       - name: Dispatch app workflow
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_BRANCH: ${{ github.ref_name }}
+          APP_REPOSITORY: ${{ github.repository }}
+          APP_WORKFLOW: ${{ matrix.workflow }}
         shell: bash
         run: |
+          # This Helm job can finish after newer app commits. The app workflow
+          # runs its own complete acceptance against the revision selected here.
+          current_sha=$(gh api "repos/$APP_REPOSITORY/git/ref/heads/$APP_BRANCH" --jq '.object.sha')
           gh api \
             --method POST \
-            "repos/${{ github.repository }}/actions/workflows/${{ matrix.workflow }}/dispatches" \
-            -f ref="${{ github.ref_name }}" \
-            -f inputs[commit_sha]="${{ github.sha }}" \
+            "repos/$APP_REPOSITORY/actions/workflows/$APP_WORKFLOW/dispatches" \
+            -f ref="$APP_BRANCH" \
+            -f inputs[commit_sha]="$current_sha" \
             -f inputs[trigger_reason]="helm-chart"

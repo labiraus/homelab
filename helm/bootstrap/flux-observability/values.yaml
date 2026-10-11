@@ -6,6 +6,9 @@ image:
 min_version: 0.0.0-0
 prometheus:
   type: oci
+  values:
+    stack:
+      nodeExporterExcludedNodes: [midgard]
 
 jaeger:
   type: oci

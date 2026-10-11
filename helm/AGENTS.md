@@ -45,11 +45,13 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 
 - `libraries/commonapi/` is the shared chart template library
 - Its Istio resources are in `libraries/commonapi/templates/_istio.tpl`; discover template paths with `rg --files` before reading them rather than deriving filenames from Kubernetes kinds.
+- OAuth2 reverse proxying must preserve the public Host header for Worldbuilder's same-origin writes. Keep `OAUTH2_PROXY_PASS_HOST_HEADER=true`; do not bypass application origin checks to accommodate an internal upstream Host.
 - bootstrap charts define how Flux discovers and deploys workloads
 - `workloads/` is for miscellaneous user workloads that are deployed by Flux but are not considered core platform services
 - values files under `values/` complement this directory and should be checked when chart behavior changes
 - Bootstrap Flux charts create `OCIRepository` and `HelmRelease` resources that point at published chart artifacts, typically using the `ghcr-creds` secret for authenticated GHCR access.
 - A wrapper chart must give its nested HelmRelease a different namespace/name from the wrapper's own HelmRelease. The Prometheus wrapper is `flux-system/prometheus`; its upstream child is `flux-system/prometheus-stack`, retaining Helm release name `prometheus`. Otherwise reconciliation tries to overwrite its own chartRef with a chart spec.
+- A newer GitHub run ID does not prove newer source: a delayed Helm dispatcher promoted old MCP source after the auth fix. Dispatch the current branch revision and refuse application publication when relevant source/chart/shared-library/build files differ from that branch. During recovery, pin the verified MCP artifact with `mcp.chartVersion` until the replacement's actual security behavior is observed.
 - The `helm-all.yml` workflow tests charts on non-main branches and publishes them to GHCR on `main` and `dev`.
 - If a chart directory contains `values-ghcr.yaml`, the Helm CI pipeline uses that file for GHCR packaging; otherwise it falls back to `values.yaml`.
 - The upstream NATS chart deployed here uses Helm release name `nats` in namespace `nats`, which yields service DNS like `nats-nats.nats.svc.cluster.local`; do not assume the broker service is `nats.nats.svc.cluster.local`.

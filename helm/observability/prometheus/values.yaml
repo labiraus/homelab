@@ -21,6 +21,7 @@ ingress:
 stack:
   chartVersion: '*'
   targetNamespace: istio-system
+  nodeExporterExcludedNodes: [] # Explicitly offline burst hosts; remove when returned to service.
 
 worldbuilderObservability:
   enabled: false

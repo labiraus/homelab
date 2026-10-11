@@ -158,6 +158,8 @@ runs:
 
         yq -i ".version = \"${CHART_VER}\"" "${CHART_DIR}/Chart.yaml"
         yq -i ".appVersion = \"${APP_VERSION}\"" "${CHART_DIR}/Chart.yaml"
+        export HOMELAB_CHART_SOURCE_REVISION=$(git rev-parse HEAD)
+        yq -i '.annotations."homelab.labiraus.com/source-revision" = strenv(HOMELAB_CHART_SOURCE_REVISION)' "${CHART_DIR}/Chart.yaml"
 
     - name: Verify values merge and packaged chart parity
       shell: bash

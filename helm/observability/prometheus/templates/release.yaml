@@ -42,6 +42,17 @@ spec:
         kind: HelmRepository
         name: prometheus
   values:
+    {{- with .Values.stack.nodeExporterExcludedNodes }}
+    prometheus-node-exporter:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values: {{ toJson . }}
+    {{- end }}
     grafana:
       {{- toYaml $grafana | nindent 6 }}
 

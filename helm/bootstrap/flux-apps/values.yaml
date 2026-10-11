@@ -66,6 +66,7 @@ ui:
 mcp:
   type: oci
   namespace: homelab
+  chartVersion: "" # Optional exact OCI tag during verified recovery.
 
 orchestrator:
   type: oci

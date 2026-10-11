@@ -42,6 +42,7 @@ The UI reads `/api/auth/providers` and uses the configured Google provider metad
 - `external` publishes the browser login URL from `OIDC_LOGIN_URL`.
 - In the current repo setup, that login URL should be the local `oauth2-proxy` start endpoint on the shared hostname.
 - In the current reverse-proxy flow, `external` prefers the proxied identity from `X-Forwarded-Email` and falls back to related trusted proxy user/email headers or Basic Auth username if the proxy uses a different header shape.
+- The proxy preserves the incoming Host header so Worldbuilder can compare the browser Origin with the actual public host. Replacing it with the internal upstream hostname causes legitimate writes to fail; do not weaken the application's origin check to compensate.
 - See [Google OIDC Setup](/workspaces/homelab/docs/GoogleOIDCSetup.md) for the Google Cloud and redirect-URI configuration needed to make that flow work.
 - See [oauth2-proxy + Google](/workspaces/homelab/docs/OAuth2ProxyGoogle.md) for the exact current hostnames, callback URL, DNS expectations, and Helm changes.
 

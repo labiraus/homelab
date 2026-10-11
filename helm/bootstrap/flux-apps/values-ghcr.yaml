@@ -6,3 +6,8 @@ imagePullSecret:
   sourceSecret:
     namespace: flux-system
     name: ghcr-creds
+
+mcp:
+  # Verified auth fix; a late workflow dispatched older source with a higher tag.
+  # Advance/remove only after observing the replacement artifact's auth checks.
+  chartVersion: 0.0.0-uat.38164253531
