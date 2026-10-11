@@ -12,7 +12,7 @@ generatedSecrets:
     NATS_CONSUMER:
       value: processor
     MINIO_ENDPOINT:
-      value: svartalfheim:8333
+      value: 192.168.8.177:8333
     MINIO_USE_SSL:
       value: 'false'
     MINIO_BUCKET:

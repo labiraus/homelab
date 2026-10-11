@@ -36,6 +36,14 @@ f=/etc/pve/priv/authorized_keys; test -e /root/authorized_keys.before-ca-2026101
 
 Verify fresh certificate authentication afterward; no workload restart is required. Never copy the CA private key or passphrase to a host.
 
+## S3 startup fails despite a healthy storage host
+
+On 2026-10-11, `svartalfheim` resolved inside the new orchestrator to Wi-Fi `192.168.8.202`, but the workload's egress policy permits the verified wired address `192.168.8.177/32`. Both host listeners were healthy; the application timed out/reset on the disallowed address. Published application, CNPG and prepared Velero endpoints now use the wired address explicitly. Source MinIO stays on port 9000; SeaweedFS cutover remains a separate port-8333/credential migration. Keep endpoints and egress rules aligned rather than broadening access to the LAN.
+
+## OpenSearch cannot downgrade after an interrupted upgrade
+
+The October recovery exposed a failed 3.9.0 upgrade followed by an automatic rollback to 3.7.0. The ML node refused its already-upgraded metadata with `cannot downgrade a node`. Preserve the PVCs and retry forward to the observed newer version. The OpenSearch HelmRelease now uses Flux `RetryOnFailure` for upgrades, avoiding automatic binary downgrade. Istiod also retries failed upgrades so a temporary unavailable worker does not permanently stall gateway dependencies. Check the actual installed Flux CRD/controller supports the strategy before publication.
+
 ## Published Helm chart loses defaults with an empty overlay
 
 On 2026-10-11, Flux fetched Prometheus `0.0.0-uat.38152999164`, but install failed at `.Values.worldbuilderObservability.enabled`. `helm show values` on that exact OCI artifact returned no defaults, although source rendering passed. The publication action's old yq expression returned empty output for the zero-byte `values-ghcr.yaml`, then replaced `values.yaml` successfully.

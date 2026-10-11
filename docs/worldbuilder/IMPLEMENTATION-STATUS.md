@@ -4,11 +4,15 @@
 
 The control plane is reachable again. Existing `helheim` VM 3103 booted after a scoped corosync restart on its Proxmox host released abnormal memory usage; quorum and replacement SSH certificate authentication were verified. Five Kubernetes nodes are Ready; `midgard` remains cordoned/offline. All seven Longhorn volumes are attached/healthy and three NATS members Ready. Local read-only psql confirms the legacy schemas, no Worldbuilder schema, and current successful WAL archiving with zero failures since PostgreSQL restarted. These checks do not establish a production restore or application acceptance.
 
-Live Flux exposed a publication defect: the Prometheus OCI archive has an empty default-values file because its GHCR overlay is empty. The shared publication merger now preserves empty/comment-only/null overlays and rejects invalid/multi-document inputs before replacement. A real packaged-chart/source-render parity regression passes locally. Publication and live reconciliation remain pending.
+Live Flux exposed a publication defect: the Prometheus OCI archive has an empty default-values file because its GHCR overlay is empty. The shared publication merger now preserves empty/comment-only/null overlays and rejects invalid/multi-document inputs before replacement. A real packaged-chart/source-render parity regression passes locally. Repair `d4cecf9` is pushed to main; CI and live reconciliation remain pending.
 
 External now rejects wildcard browser principals before rendering the canon DENY policy; exact-principal activation remains opt-in. Missing, wildcard-only and partial-wildcard negative renders are included. This closes the source input-validation gap; actual mesh/header-isolation acceptance remains required.
 
-The user reports updating public DNS after the WAN address was observed as `31.50.185.136`; observed resolvers still return the prior address during propagation. Certificate issuance, verified public MCP, storage migration, production restore and staged Worldbuilder activation remain outstanding. See the [recovery runbook](../../runbooks/troubleshooting.md).
+After the user's DNS update, `mcp.labiraus.com` resolves to the observed WAN `31.50.185.136`, its certificate is Ready, and the credential-free public probe passes TLS, both discovery routes (MCP `0.0.0-uat.38140702302`) and anonymous authentication refusal. The certificate is valid through 2027-01-09. Authenticated browser/MCP functionality is still unverified.
+
+Further live findings: the new orchestrator resolves `svartalfheim` to Wi-Fi `.202`, outside its permitted wired `.177/32` egress. Application/backup endpoints and cutover overlays now explicitly use `.177`, preserving source/target ports and credentials; 20 storage renders and both Velero configurations pass. OpenSearch's automatic rollback from observed 3.9.0 to 3.7.0 is refused by upgraded node metadata. The chart dependencies are pinned to the already-observed 3.9.0 and its Flux upgrade strategy retries forward; Istiod also retries upgrades after transient worker loss. Installed API dry-runs accept both strategy configurations. Source publication and resulting runtime recovery are still pending.
+
+Exact read-only SQL counts show one registered user, 55 documents and seven assistant conversations. Production restore, actual independent-human identity acceptance, storage migration and staged Worldbuilder activation remain outstanding. See the [recovery runbook](../../runbooks/troubleshooting.md).
 
 ## Increment 32 — Persistent Prometheus history and snapshot recovery
 

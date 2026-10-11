@@ -25,12 +25,12 @@ for name in ("external", "orchestrator", "processor", "postgres"):
             if name == "postgres":
                 cluster = next(r for r in resources if r["kind"] == "Cluster")
                 backup = cluster["spec"]["backup"]["barmanObjectStore"]
-                assert backup["endpointURL"] == f"http://svartalfheim:{port}"
+                assert backup["endpointURL"] == f"http://192.168.8.177:{port}"
                 credential = "cnpg-seaweedfs-s3" if target else "cnpg-backup-s3"
                 assert backup["s3Credentials"]["accessKeyId"]["name"] == credential
             else:
                 secret = next(r for r in resources if r["kind"] == "Secret" and "MINIO_ENDPOINT" in r.get("stringData", {}))
-                assert secret["stringData"]["MINIO_ENDPOINT"] == f"svartalfheim:{port}"
+                assert secret["stringData"]["MINIO_ENDPOINT"] == f"192.168.8.177:{port}"
                 credential = "documents-s3-credentials" if target else "documents-minio-credentials"
                 for key in ("MINIO_ACCESS_KEY", "MINIO_SECRET_KEY"):
                     assert credential in secret["stringData"][key]
@@ -41,6 +41,6 @@ for name in ("external", "orchestrator", "processor", "postgres"):
 for filename, port, secret in (("velero-values.yaml", 9000, "velero-minio-credentials"),
                                ("velero-seaweedfs-values.yaml", 8333, "velero-s3-credentials")):
     values = yaml.safe_load((ROOT / "values" / filename).read_text())
-    assert values["configuration"]["backupStorageLocation"][0]["config"]["s3Url"] == f"http://svartalfheim:{port}"
+    assert values["configuration"]["backupStorageLocation"][0]["config"]["s3Url"] == f"http://192.168.8.177:{port}"
     assert values["credentials"]["existingSecret"] == secret
 print(f"PASS: {count} storage chart combinations and both Velero configurations")

@@ -1,4 +1,4 @@
 # Prepared backup cutover; require restored base backups and WAL first.
 backup:
-  endpointURL: http://svartalfheim:8333
+  endpointURL: http://192.168.8.177:8333
   credentialsSecret: cnpg-seaweedfs-s3

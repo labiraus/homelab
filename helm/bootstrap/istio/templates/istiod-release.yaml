@@ -5,12 +5,16 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1h
+  timeout: 10m
   targetNamespace: istio-system
   releaseName: istiod
   install:
     crds: CreateReplace
   upgrade:
     crds: CreateReplace
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
   chart:
     spec:
       chart: istiod

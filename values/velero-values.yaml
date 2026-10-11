@@ -6,7 +6,7 @@ configuration:
       default: true
       config:
         region: us-east-1
-        s3Url: http://svartalfheim:9000
+        s3Url: http://192.168.8.177:9000
         s3ForcePathStyle: "true"
         insecureSkipTLSVerify: "false"
 credentials:

@@ -32,10 +32,9 @@ spec:
       remediateLastFailure: true
       retries: 3
   upgrade:
-    cleanupOnFail: {{ $component.cleanupOnFail | default true }}
-    remediation:
-      remediateLastFailure: true
-      retries: 3
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
   dependsOn:
     {{- range $dependency := $component.dependsOn }}
     - name: {{ $dependency }}

@@ -3,15 +3,15 @@ name: opensearch
 description: Internal OpenSearch cluster for Labiraus RAG retrieval and indexing
 type: application
 version: 0.1.0
-appVersion: "2.x"
+appVersion: "3.9.0"
 dependencies:
   - name: opensearch
     alias: opensearch-data
-    version: ">=2.0.0 <4.0.0"
+    version: "3.9.0"
     repository: https://opensearch-project.github.io/helm-charts/
     condition: opensearch-data.enabled
   - name: opensearch
     alias: opensearch-ml
-    version: ">=2.0.0 <4.0.0"
+    version: "3.9.0"
     repository: https://opensearch-project.github.io/helm-charts/
     condition: opensearch-ml.enabled

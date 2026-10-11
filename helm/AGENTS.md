@@ -57,6 +57,8 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 
 - Do not commit live secret material in values or templates.
 - Be careful with generated secret behavior and lookup-based templates so upgrades remain understandable and repeatable.
+- OpenSearch upgrades must retry forward rather than automatically roll back: a newer process can persist node metadata that an older binary refuses. Keep its Flux upgrade strategy `RetryOnFailure`; preserve PVCs and recover with the already-observed newer version.
+- Storage clients and egress policy must use the same verified private address. `svartalfheim` has wired `192.168.8.177` and Wi-Fi `192.168.8.202`; LAN DNS can return Wi-Fi while policy permits only wired. Published S3 endpoints use `192.168.8.177` with the existing source/target port and credential separation.
 
 ## Flux Troubleshooting
 

@@ -96,7 +96,7 @@ generatedSecrets:
       OIDC_ISSUER_URL:
         value: "https://accounts.google.com"
       MINIO_ENDPOINT:
-        value: "svartalfheim:9000"
+        value: "192.168.8.177:9000"
       MINIO_USE_SSL:
         value: "false"
       MINIO_BUCKET:

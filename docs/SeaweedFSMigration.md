@@ -1,6 +1,6 @@
 # SeaweedFS migration
 
-SeaweedFS replaces MinIO as the external S3 storage target. Explicit cutover overlays are prepared for `svartalfheim:8333`; routine CI/CD publication retains the port-9000 source settings until migration is verified. No live deployment, object migration or backup restore is implied. The existing service and its files remain the migration source until validation and cutover are complete.
+SeaweedFS replaces MinIO as the external S3 storage target. Explicit cutover overlays are prepared for `192.168.8.177:8333` on `svartalfheim`; routine CI/CD publication retains the port-9000 source settings until migration is verified. The wired address is explicit because the host also has Wi-Fi `192.168.8.202`, which LAN DNS can return but workload egress does not permit. No live deployment, object migration or backup restore is implied. The existing service and its files remain the migration source until validation and cutover are complete.
 
 ## Target and source boundaries
 
@@ -8,7 +8,7 @@ SeaweedFS replaces MinIO as the external S3 storage target. Explicit cutover ove
 | --- | --- |
 | Host/service | `svartalfheim` (`192.168.8.177`), Ansible-managed `seaweedfs.service` |
 | Release | SeaweedFS 4.48; amd64/arm64 downloads pinned by SHA-256 |
-| S3 | Private `http://svartalfheim:8333`, authenticated identities |
+| S3 | Private `http://192.168.8.177:8333` on `svartalfheim`, authenticated identities |
 | Internal interfaces | All SeaweedFS listeners on `127.0.0.1`; systemd socket proxy exposes only S3 HTTP on the private address; administration over SSH |
 | Volume data | `/srv/minio/seaweedfs/volumes` on the existing external disk |
 | Metadata | `/var/lib/seaweedfs/master` and `/var/lib/seaweedfs/filer` on the host's native filesystem |

@@ -7,7 +7,7 @@ configuration:
       default: true
       config:
         region: us-east-1
-        s3Url: http://svartalfheim:8333
+        s3Url: http://192.168.8.177:8333
         s3ForcePathStyle: "true"
         insecureSkipTLSVerify: "false"
 credentials:
