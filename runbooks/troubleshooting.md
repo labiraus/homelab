@@ -358,6 +358,10 @@ service with changed configuration starts once, while an unchanged stopped servi
 
 Worldbuilder implementation and offline checks are tracked in [implementation status](../docs/worldbuilder/IMPLEMENTATION-STATUS.md). Use the [LAN runbook](../docs/worldbuilder/LAN-RUNBOOK.md) for discovery and controlled activation. Code publication on main is authorised; production migrations and feature activation require the separate LAN gate. Do not use the unfinished `scripts/pg-update.sh` placeholder for this migration.
 
+## Worldbuilder pending canon events
+
+If relay logs report `nats: context and timeout can not both be set`, the client rejected the publish before sending it. Keep pending PostgreSQL events intact and deploy the shared context-deadline publisher fix; do not mark events delivered manually. Verify the dedicated relay can reach OpenSearch through both ingress and egress policies, then compare outbox delivery, three-replica stream/consumer acknowledgements and the indexed revision with PostgreSQL.
+
 ## Worldbuilder generation broker configuration
 
 An `incompatible generation stream` startup error now includes durability drift: inspect subjects, file storage, three replicas and seven-day limits retention. A consumer replica mismatch also stops startup. Do not delete or silently recreate existing streams/consumers to bypass the error; inspect and back up their pending work before controlled repair. The [disposable broker drill](../docs/worldbuilder/BROKER-RECOVERY.md) verifies leader loss, quorum loss and restart locally; installed topology and storage remain LAN checks.

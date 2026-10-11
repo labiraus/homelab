@@ -61,6 +61,7 @@ jobs:
             ${{ runner.temp }}/platform-acceptance/renders/*.template
             ${{ runner.temp }}/platform-acceptance/renders/*-enabled.yaml
             ${{ runner.temp }}/platform-acceptance/renders/*.stderr
+            ${{ runner.temp }}/platform-acceptance/renders/*.lint
             ${{ runner.temp }}/platform-acceptance/renders/observability/*.json
             ${{ runner.temp }}/platform-acceptance/renders/observability/*.yaml
             ${{ runner.temp }}/platform-acceptance/renders/observability/*.upstream

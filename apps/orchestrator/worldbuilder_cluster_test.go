@@ -179,7 +179,12 @@ func TestGenerationThreeNodeRecovery(t *testing.T) {
 	msg := nats.NewMsg(generationSubject)
 	msg.Data = body
 	msg.Header.Set("Nats-Msg-Id", event.EventID)
-	first, err := js.PublishMsg(msg)
+	cancelCtx, cancelPublish := context.WithCancel(context.Background())
+	cancelPublish()
+	if _, err := publishWorldbuilderEvent(cancelCtx, js, msg); err == nil {
+		t.Fatal("cancelled publish accepted")
+	}
+	first, err := publishWorldbuilderEvent(context.Background(), js, msg)
 	if err != nil || first.Duplicate {
 		t.Fatalf("initial publish: %+v %v", first, err)
 	}
@@ -228,7 +233,7 @@ func TestGenerationThreeNodeRecovery(t *testing.T) {
 		return e
 	})
 	var duplicate *nats.PubAck
-	wait("stable dispatch ID survives failover", func() (e error) { duplicate, e = js.PublishMsg(msg); return e })
+	wait("stable dispatch ID survives failover", func() (e error) { duplicate, e = publishWorldbuilderEvent(context.Background(), js, msg); return e })
 	if !duplicate.Duplicate || duplicate.Sequence != first.Sequence {
 		t.Fatalf("dispatch duplicated after leader failure: %+v", duplicate)
 	}
@@ -250,7 +255,9 @@ func TestGenerationThreeNodeRecovery(t *testing.T) {
 	uncertain := nats.NewMsg(generationSubject)
 	uncertain.Data = []byte(`{"fixture":"quorum-loss"}`)
 	uncertain.Header.Set("Nats-Msg-Id", uuid.NewString())
-	if ack, e := js.PublishMsg(uncertain, nats.AckWait(2*time.Second)); e == nil {
+	noQuorumCtx, cancelNoQuorum := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancelNoQuorum()
+	if ack, e := publishWorldbuilderEvent(noQuorumCtx, js, uncertain); e == nil {
 		t.Fatalf("minority acknowledged publication: %+v", ack)
 	}
 	// A timed-out publish can still commit during recovery. Retry the SAME ID,
@@ -259,7 +266,10 @@ func TestGenerationThreeNodeRecovery(t *testing.T) {
 	start(leader)
 	wait("three nodes restored", func() error { return healthy(3) })
 	var recovered *nats.PubAck
-	wait("uncertain publish reconciled by stable ID", func() (e error) { recovered, e = js.PublishMsg(uncertain); return e })
+	wait("uncertain publish reconciled by stable ID", func() (e error) {
+		recovered, e = publishWorldbuilderEvent(context.Background(), js, uncertain)
+		return e
+	})
 	if recovered.Sequence != first.Sequence+1 {
 		t.Fatalf("uncertain publish changed sequence: %+v", recovered)
 	}
@@ -304,7 +314,7 @@ func TestGenerationThreeNodeRecovery(t *testing.T) {
 	if _, err = sub.Fetch(1, nats.MaxWait(time.Second)); err != nats.ErrTimeout {
 		t.Fatalf("acknowledged work redelivered after restart: %v", err)
 	}
-	ack, err := js.PublishMsg(msg)
+	ack, err := publishWorldbuilderEvent(context.Background(), js, msg)
 	if err != nil || !ack.Duplicate || ack.Sequence != first.Sequence {
 		t.Fatalf("restart lost deduplication identity: %+v %v", ack, err)
 	}

@@ -96,7 +96,7 @@ func startGenerationJobs(ctx context.Context, pool *pgxpool.Pool, js nats.JetStr
 				msg := nats.NewMsg(generationSubject)
 				msg.Data = body
 				msg.Header.Set("Nats-Msg-Id", id)
-				_, err := js.PublishMsg(msg, nats.Context(ctx), nats.AckWait(5*time.Second))
+				_, err := publishWorldbuilderEvent(ctx, js, msg)
 				return err
 			})
 			if err != nil {

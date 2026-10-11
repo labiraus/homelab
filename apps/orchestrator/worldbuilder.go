@@ -58,6 +58,15 @@ func relayWorldbuilderOutboxOnce(ctx context.Context, pool *pgxpool.Pool, table 
 	}
 	return true, tx.Commit(ctx)
 }
+
+// One deadline-bearing context handles both shutdown and the acknowledgement bound.
+// JetStream rejects combining a per-call Context with AckWait.
+func publishWorldbuilderEvent(ctx context.Context, js nats.JetStreamContext, msg *nats.Msg) (*nats.PubAck, error) {
+	publishCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	return js.PublishMsg(msg, nats.Context(publishCtx))
+}
+
 func startWorldbuilder(ctx context.Context) error {
 	if !strings.EqualFold(os.Getenv("WORLDBUILDER_RELAY_ENABLED"), "true") {
 		if strings.EqualFold(os.Getenv("WORLDBUILDER_JOBS_ENABLED"), "true") {
@@ -127,7 +136,7 @@ func startWorldbuilder(ctx context.Context) error {
 				msg := nats.NewMsg("worldbuilder.canon.published")
 				msg.Data = body
 				msg.Header.Set("Nats-Msg-Id", id)
-				_, err := js.PublishMsg(msg, nats.Context(ctx), nats.AckWait(5*time.Second))
+				_, err := publishWorldbuilderEvent(ctx, js, msg)
 				return err
 			})
 			if err != nil {

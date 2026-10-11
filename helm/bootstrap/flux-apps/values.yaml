@@ -78,6 +78,12 @@ orchestrator:
   namespace: homelab
   dependsOn:
     - nats
+  values:
+    worldbuilder:
+      enabled: true
+      databaseSecret: worldbuilder-relay
+      openSearchURL: http://labiraus-rag-data.data.svc.cluster.local:9200
+      rebuildOnStart: false
 
 processor:
   type: oci

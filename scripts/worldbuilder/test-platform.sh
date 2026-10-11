@@ -14,8 +14,8 @@ export GOCACHE=${GOCACHE:-$artifacts/go-build}
 export GOWORK=off
 python3 "$root/scripts/worldbuilder/install-control-plane.py" "$artifacts/assets"
 export PATH="$artifacts/assets:$PATH"
-for app in external orchestrator processor mcp; do
-  helm dependency build "$root/helm/apps/$app"
+for chart in apps/external apps/orchestrator apps/processor apps/mcp infra/oauth2-proxy; do
+  helm dependency build "$root/helm/$chart"
 done
 bash "$root/scripts/worldbuilder/export-crd-schemas.sh" "$artifacts/schemas"
 python3 "$root/scripts/worldbuilder/check-manifests.py" --output "$artifacts/renders"

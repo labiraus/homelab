@@ -162,10 +162,10 @@ func TestCanonLiveTransportAndIndex(t *testing.T) {
 	msg := nats.NewMsg(subject)
 	msg.Data = payload
 	msg.Header.Set("Nats-Msg-Id", eventID)
-	if _, err = js.PublishMsg(msg); err != nil {
+	if _, err = publishWorldbuilderEvent(context.Background(), js, msg); err != nil {
 		t.Fatal(err)
 	}
-	ack, err := js.PublishMsg(msg)
+	ack, err := publishWorldbuilderEvent(context.Background(), js, msg)
 	if err != nil || !ack.Duplicate {
 		t.Fatalf("duplicate acknowledgement: %v %v", ack, err)
 	}

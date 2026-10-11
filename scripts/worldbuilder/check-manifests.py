@@ -30,7 +30,9 @@ for chart in charts:
             result=subprocess.run(cmd,capture_output=True,text=True)
             if action=='template':save_render(out/(name+'.'+action),result)
             else:(out/(name+'.'+action)).write_text(result.stdout+result.stderr)
-            if result.returncode: failures.append(name+' '+action)
+            if result.returncode:
+                failures.append(name+' '+action)
+                print(name+' '+action+': '+result.stdout+result.stderr, file=sys.stderr)
             elif action=='template':
                 build=out/name;build.mkdir();(build/'resources.yaml').write_text(result.stdout)
                 (build/'kustomization.yaml').write_text('resources:\n  - resources.yaml\n')

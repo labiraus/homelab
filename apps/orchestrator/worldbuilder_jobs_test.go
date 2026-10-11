@@ -163,10 +163,10 @@ func TestGenerationLiveTransportCheckpointAcknowledgements(t *testing.T) {
 	msg := nats.NewMsg(subject)
 	msg.Data = body
 	msg.Header.Set("Nats-Msg-Id", event.EventID)
-	if _, err = js.PublishMsg(msg); err != nil {
+	if _, err = publishWorldbuilderEvent(context.Background(), js, msg); err != nil {
 		t.Fatal(err)
 	}
-	ack, err := js.PublishMsg(msg)
+	ack, err := publishWorldbuilderEvent(context.Background(), js, msg)
 	if err != nil || !ack.Duplicate {
 		t.Fatal("stable event did not deduplicate")
 	}
