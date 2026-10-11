@@ -159,6 +159,7 @@ def capture(client, bucket, directory, label, max_keys, dialect="s3"):
     base = Path(directory) / "order" / label
     base.mkdir(parents=True, mode=0o700)
     marker, records, pages, seen = ("", ""), [], [], set()
+    identities = set()
     event_name, unique_id = "after-call.s3.ListObjectVersions", "archive-order-" + uuid.uuid4().hex
     captured = []
 
@@ -180,19 +181,30 @@ def capture(client, bucket, directory, label, max_keys, dialect="s3"):
                 raise ValueError("Expected exactly one raw listing response")
             body = captured[0]
             current, next_marker = parse_page(body, bucket, max_keys, marker, dialect)
+            append_page(records, current, identities)
             path = base / f"{len(pages):08d}.xml"
             with path.open("xb") as output:
                 output.write(body)
                 output.flush()
                 os.fsync(output.fileno())
             pages.append(dict(file=path.relative_to(directory).as_posix(), size=len(body), sha256=hashlib.sha256(body).hexdigest()))
-            records.extend(current)
             if next_marker is None:
                 break
             marker = next_marker
     finally:
         client.meta.events.unregister(event_name, unique_id=unique_id)
     return chronological(records), dict(maxKeys=max_keys, pages=pages, dialect=dialect)
+
+
+def append_page(records, current, identities):
+    # Cache tokens can change while repeating the same logical page. Refuse
+    # immediately instead of requesting up to MAX_PAGES before final validation.
+    for record in current:
+        identity = record["key"], record["sourceVersion"]
+        if identity in identities:
+            raise ValueError("Duplicate version across listing pages")
+        identities.add(identity)
+    records.extend(current)
 
 
 def verify(directory, bucket, evidence):
@@ -208,6 +220,7 @@ def verify(directory, bucket, evidence):
         if type(max_keys) is not int or not 1 <= max_keys <= 1000 or not isinstance(pages, list) or not 1 <= len(pages) <= MAX_PAGES:
             raise ValueError("Invalid listing evidence bounds")
         marker, records, seen = ("", ""), [], set()
+        identities = set()
         for number, page in enumerate(pages):
             if marker is None or marker in seen:
                 raise ValueError("Unexpected/repeated listing page")
@@ -221,7 +234,7 @@ def verify(directory, bucket, evidence):
             if len(body) > MAX_PAGE_BYTES or len(body) != page["size"] or hashlib.sha256(body).hexdigest() != page["sha256"]:
                 raise ValueError("Listing evidence checksum/size mismatch")
             current, marker = parse_page(body, bucket, max_keys, marker, scan.get("dialect", "s3"))
-            records.extend(current)
+            append_page(records, current, identities)
         if marker is not None:
             raise ValueError("Listing evidence is missing final pages")
         scans.append(chronological(records))

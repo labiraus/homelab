@@ -249,7 +249,10 @@ class VersionOrderTests(unittest.TestCase):
     def test_real_sdk_minio_export_preserves_names_bytes_and_replayable_evidence(self):
         self.real_sdk_listing("minio-v2", export=True)
 
-    def real_sdk_listing(self, dialect, export=False):
+    def test_real_sdk_minio_changed_cache_token_cannot_repeat_a_page(self):
+        self.real_sdk_listing("minio-v2", repeat=True)
+
+    def real_sdk_listing(self, dialect, export=False, repeat=False):
         records, requests = self.records, []
         suffix = "[minio_cache:v2,return:]" if dialect == "minio-v2" else ""
 
@@ -280,9 +283,13 @@ class VersionOrderTests(unittest.TestCase):
                 requests.append(query)
                 size = int(query["max-keys"][0])
                 marker = query.get("key-marker", [""])[0], query.get("version-id-marker", [""])[0]
-                start = 0 if marker == ("", "") else next(i + 1 for i, r in enumerate(records)
+                start = 0 if marker == ("", "") or repeat else next(i + 1 for i, r in enumerate(records)
                          if (r["key"] + suffix, r["sourceVersion"]) == marker)
-                body = wire(records[start:start+size], size, marker, start + size < len(records), dialect=dialect)
+                batch = records[:1] if repeat else records[start:start+size]
+                body = wire(batch, size, marker, repeat or start + size < len(records), dialect=dialect)
+                if repeat:
+                    token = f"[minio_cache:v2,id:00000000-0000-0000-0000-{len(requests):012d},p:0,s:0]"
+                    body = body.replace(quote_plus(suffix, safe="").encode(), quote_plus(token, safe="").encode())
                 self.send_response(200)
                 self.send_header("Content-Type", "application/xml")
                 self.send_header("Content-Length", str(len(body)))
@@ -299,6 +306,11 @@ class VersionOrderTests(unittest.TestCase):
             client = boto3.client("s3", endpoint_url=f"http://127.0.0.1:{server.server_port}", region_name="us-east-1",
                                   aws_access_key_id="synthetic", aws_secret_access_key="synthetic-secret",
                                   config=Config(retries={"max_attempts": 0}, proxies={}, s3={"addressing_style": "path"}))
+            if repeat:
+                with patch.object(order, "MAX_PAGES", 3), self.assertRaisesRegex(ValueError, "Duplicate"):
+                    order.capture(client, "documents", self.directory, "before", 2, dialect)
+                self.assertEqual(len(requests), 2)
+                return
             scans = []
             for label, size in (("before", 2), ("after", 3)):
                 values, scan = order.capture(client, "documents", self.directory, label, size, dialect)
