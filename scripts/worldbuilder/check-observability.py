@@ -62,6 +62,9 @@ def main(output, stack_chart):
         # The OCI wrapper already occupies flux-system/prometheus.
         assert default_release['metadata']['name'] == 'prometheus-stack'
         assert default_release['spec']['releaseName'] == 'prometheus'
+        assert default_release['spec']['timeout'] == '15m'
+        assert default_release['spec']['install']['strategy']['name'] == 'RetryOnFailure'
+        assert default_release['spec']['upgrade']['strategy']['name'] == 'RetryOnFailure'
         assert default_release['spec']['chart']['spec']['version'] == '*'
         assert set(default_release['spec']['values']['grafana']) == {'grafana.ini'}
         assert 'prometheus' not in default_release['spec']['values']

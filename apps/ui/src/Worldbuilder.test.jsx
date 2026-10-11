@@ -62,6 +62,18 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("Worldbuilder", () => {
+  it("allows an editor with superuser status to review their own proposal", async () => {
+    world.superuser = true;
+    try {
+      const calls = mockApi({ id: "c", reason: "Own proposal", status: "ready_for_review", author: "editor@test", operations: [], reviews: [] });
+      render(<Worldbuilder email="editor@test" />);
+      fireEvent.change(await screen.findByLabelText("Open world"), { target: { value: "w" } });
+      fireEvent.change(await screen.findByLabelText("Review reason"), { target: { value: "Explicit self review" } });
+      fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
+      await waitFor(() => expect(calls.some(([url]) => url.endsWith("/changes/c/review"))).toBe(true));
+    } finally { delete world.superuser; }
+  });
+
   it("displays proposal quorum, prevents duplicate approvals and blocks publication after revocation", async () => {
     world.role = "reviewer";
     const change = {

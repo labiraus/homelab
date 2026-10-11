@@ -22,7 +22,7 @@ CHART_VERSION = '0.23.2'
 PORTS = {'offline-source': 30432, 'offline-latest': 30433, 'offline-pitr': 30434}
 TABLES = ('world', 'member', 'revision', 'record', 'record_identity', 'change_set',
           'change_review', 'audit', 'outbox', 'story_session', 'story_turn', 'story_outcome',
-          'story_definition', 'generation_job', 'generation_outbox', 'inference_attempt', 'schema_version')
+          'story_definition', 'generation_job', 'generation_outbox', 'inference_attempt', 'schema_version', 'superuser', 'account_audit')
 
 
 def module(name):
@@ -98,6 +98,7 @@ class Database:
         names = self.sql("SELECT tablename FROM pg_tables WHERE schemaname='worldbuilder' ORDER BY tablename").splitlines()
         assert set(names) == set(TABLES), names
         queries = ["SELECT '" + table + "',count(*),md5(string_agg(row_to_json(t)::text,E'\\n' ORDER BY row_to_json(t)::text)) FROM worldbuilder." + table + ' t' for table in TABLES]
+        queries.append("SELECT 'auth.users',count(*),md5(string_agg(row_to_json(t)::text,E'\\n' ORDER BY row_to_json(t)::text)) FROM auth.users t")
         rows = self.sql(' UNION ALL '.join(queries)).splitlines()
         result = {}
         for row in rows:
@@ -120,16 +121,16 @@ class Database:
           'roles',(SELECT json_agg(r ORDER BY rolname) FROM
             (SELECT rolname,rolsuper,rolinherit,rolcreaterole,rolcreatedb,rolcanlogin,rolreplication,rolbypassrls
              FROM pg_roles WHERE rolname IN ('worldbuilder_external','worldbuilder_relay')) r),
-          'schema',(SELECT json_build_object('owner',pg_get_userbyid(nspowner),'acl',nspacl::text)
-             FROM pg_namespace WHERE nspname='worldbuilder'),
+          'schema',(SELECT json_agg(json_build_object('name',nspname,'owner',pg_get_userbyid(nspowner),'acl',nspacl::text) ORDER BY nspname)
+             FROM pg_namespace WHERE nspname IN ('worldbuilder','auth')),
           'relations',(SELECT json_agg(r ORDER BY relname) FROM
             (SELECT c.relname,c.relkind,pg_get_userbyid(c.relowner) AS owner,c.relacl::text,c.relrowsecurity,c.relforcerowsecurity
              FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-             WHERE n.nspname='worldbuilder' AND c.relkind IN ('r','S')) r),
+             WHERE n.nspname IN ('worldbuilder','auth') AND c.relkind IN ('r','S')) r),
           'columns',(SELECT json_agg(r ORDER BY relname,attnum) FROM
             (SELECT c.relname,a.attnum,a.attname,a.attacl::text FROM pg_attribute a
              JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace
-             WHERE n.nspname='worldbuilder' AND c.relkind='r' AND a.attnum>0 AND NOT a.attisdropped) r),
+             WHERE n.nspname IN ('worldbuilder','auth') AND c.relkind='r' AND a.attnum>0 AND NOT a.attisdropped) r),
           'functions',(SELECT json_agg(r ORDER BY name) FROM
             (SELECT p.oid::regprocedure::text AS name,pg_get_userbyid(p.proowner) AS owner,
                     p.proacl::text,pg_get_functiondef(p.oid) AS definition
@@ -218,10 +219,13 @@ def recovery(f, source, password):
     for migration in migrations: db.sql(migration.read_text())
     db.sql('CREATE ROLE worldbuilder_external NOINHERIT; CREATE ROLE worldbuilder_relay NOINHERIT;')
     db.sql((ROOT / 'sql/worldbuilder/grants.sql').read_text())
+    db.sql((ROOT / 'sql/worldbuilder/auth-grants.sql').read_text())
     db.sql((HERE / 'backup-seed.sql').read_text())
     initial = db.fingerprint()
     security = db.security()
-    assert len(security['roles']) == 2 and security['schema']['acl'] and security['triggers']
+    assert len(security['roles']) == 2 and security['triggers']
+    assert {s['name'] for s in security['schema']} == {'worldbuilder', 'auth'}
+    assert all(s['acl'] for s in security['schema'])
     f.apply([{'apiVersion': 'postgresql.cnpg.io/v1', 'kind': 'Backup',
         'metadata': {'name': 'offline-base', 'namespace': NAMESPACE},
         'spec': {'method': 'barmanObjectStore', 'cluster': {'name': 'offline-source'}}}])
@@ -268,11 +272,15 @@ def recovery(f, source, password):
         code, _, error = restored.sql("SET ROLE worldbuilder_relay; UPDATE worldbuilder.world SET name='forbidden'", check=False)
         assert code and 'permission denied' in error
         assert restored.sql("SELECT has_table_privilege('worldbuilder_external','worldbuilder.world','SELECT')") == 't'
+        code, _, error = restored.sql("SET ROLE worldbuilder_external; INSERT INTO worldbuilder.superuser(principal,granted_by) VALUES('forbidden@example.test','runtime')", check=False)
+        assert code != 0 and 'permission denied' in error.lower(), error
+        code, _, error = restored.sql("SET ROLE worldbuilder_external; UPDATE auth.users SET display_name='forbidden'", check=False)
+        assert code != 0 and 'permission denied' in error.lower(), error
         previous = int(restored.sql('SELECT max(id) FROM worldbuilder.audit'))
         current = int(restored.sql("INSERT INTO worldbuilder.audit(world_id,actor,action,resource) SELECT id,'fixture','after-restore','fixture' FROM worldbuilder.world RETURNING id"))
         assert current > previous
         results[name] = {'tables': actual, 'transport': 'local-psql' if restored.local else 'owned-node-exec'}
-        print('PASS: ' + name + ' restores all 17 populated tables, grants, immutable triggers and a non-reusing audit sequence', flush=True)
+        print('PASS: ' + name + ' restores all 19 populated Worldbuilder tables and auth users, grants, immutable triggers and a non-reusing audit sequence', flush=True)
     pods = json.loads(f.kubectl('get', 'pods', '-A', '-o', 'json'))['items']
     images = sorted({c['imageID'] for p in pods for c in p.get('status', {}).get('containerStatuses', []) if c.get('imageID')})
     (f.output / 'backup-result.json').write_text(json.dumps({'status': 'passed', 'cnpgChart': CHART_VERSION,

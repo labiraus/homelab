@@ -54,6 +54,8 @@ Use PostgreSQL relational constraints and transactions for integrity, with JSONB
 7. A citation references resolvable canonical/source IDs and relevant revision, not invented text-only citations.
 8. Prompt injection in retrieved content must never expand tool permissions or mutate data.
 
+Human-review policy now includes the explicit user-requested superuser exception: an operator-granted superuser may register users and review their own proposals while retaining world membership, ordinary validation, immutable audit and the configured distinct-human count. Other users require independent reviewers; AI gains no publication authority. See [review policy](REVIEW-POLICY.md).
+
 ## Change-set lifecycle
 
 `draft -> submitted -> validating -> ready_for_review -> approved -> published` with branches to `needs_changes` or `rejected`. Validation checks types, references, cardinality, exclusivity, chronology and explicit world rules. AI contradictions are advisory findings with evidence, severity and uncertainty; do not silently treat model output as deterministic verification. Preserve author, reviewers, timestamps, before/after operations, rules and model metadata.

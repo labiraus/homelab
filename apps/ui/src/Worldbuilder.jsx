@@ -8,6 +8,7 @@ import WorldStorySetup from "./WorldStorySetup.jsx";
 import WorldGenerations from "./WorldGenerations.jsx";
 import WorldConnections from "./WorldConnections.jsx";
 import WorldViews from "./WorldViews.jsx";
+import WorldUsers from "./WorldUsers.jsx";
 import ProposalFindings, { Findings } from "./WorldFindings.jsx";
 
 const base = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -48,11 +49,13 @@ export default function Worldbuilder({ email }) {
   const [moreWorlds, setMoreWorlds] = useState(false);
   const [worldOffset, setWorldOffset] = useState(0);
   const [worldsBusy, setWorldsBusy] = useState(false);
+  const [available, setAvailable] = useState(false);
   useEffect(() => {
     let active = true;
     api("")
       .then((rows) => {
         if (active) {
+          setAvailable(true);
           setWorlds(rows);
           setWorldOffset(rows.length);
           setMoreWorlds(rows.length === 100);
@@ -87,6 +90,7 @@ export default function Worldbuilder({ email }) {
         <h1>Your worlds</h1>
         <p>Build shared canon, review changes and explore stories.</p>
       </header>
+      {available && <WorldUsers api={api} />}
       {error && <p role="alert">{error}</p>}
       <form onSubmit={create}>
         <label>
@@ -386,6 +390,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
     canon &&
     !canon.world.archived &&
     ["owner", "admin", "reviewer"].includes(canon.world.role);
+  const canSelfReview = canon && !canon.world.archived && canon.world.superuser;
   const records = canon?.records ?? [];
   const formatTick = useMemo(
     () => createCalendarFormatter(canon?.calendar),
@@ -753,7 +758,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
               Displayed revision policy:{" "}
               {canon.reviewPolicy?.requiredApprovals ?? 1} distinct human
               approval(s), from owners, admins or reviewers other than the
-              author. Each proposal retains its required count; policy changes
+              author. Superusers may approve their own proposals. Each proposal retains its required count; policy changes
               use the stricter count. Publication rechecks current membership
               authority, canon revision and deterministic rules; AI cannot
               approve.
@@ -789,6 +794,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                     {c.reviews.map((review, i) => (
                       <li key={i}>
                         {review.reviewer}: {review.decision} — {review.reason}.
+                        {review.superuserSelfReview && " Superuser self-approval."}
                         {review.createdAt
                           ? ` Reviewed ${review.createdAt}.`
                           : " Legacy review; original time unavailable."}
@@ -825,8 +831,8 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                   </button>
                 )}
                 {["ready_for_review", "approved"].includes(c.status) &&
-                  canReview &&
-                  c.author !== email &&
+                  (canReview || (canSelfReview && c.author === email)) &&
+                  (c.author !== email || canSelfReview) &&
                   !c.reviews?.some((r) => r.reviewer === email && r.eligible) &&
                   ["approved", "rejected"].map((decision) => (
                     <button
@@ -845,7 +851,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                       {decision === "approved" ? "Approve" : "Reject"}
                     </button>
                   ))}
-                {c.status === "approved" && canReview && (
+                {c.status === "approved" && (canReview || (canSelfReview && c.author === email)) && (
                   <button
                     disabled={
                       (c.approvals?.length ?? 1) < (c.requiredApprovals ?? 1)

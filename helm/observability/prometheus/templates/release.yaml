@@ -22,6 +22,15 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1h
+  timeout: 15m
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
   targetNamespace: {{ .Values.stack.targetNamespace }}
   releaseName: prometheus
   chart:

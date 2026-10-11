@@ -23,6 +23,7 @@ type scope struct {
 	world       World
 	actor       string
 	role        string
+	superuser   bool
 	discover    Discover
 	jobsEnabled bool
 }
@@ -53,6 +54,14 @@ func (s *Store) inWorld(ctx context.Context, world, actor string, fn func(*scope
 		return nil, err
 	}
 	sc.world.Role = sc.role
+	// Hold grant rows through the operation so revocation cannot race publication.
+	var authority *string
+	err = tx.QueryRow(ctx, `SELECT worldbuilder.lock_superuser($1)::text`, actor).Scan(&authority)
+	if err != nil {
+		return nil, err
+	}
+	sc.superuser = authority != nil
+	sc.world.Superuser = sc.superuser
 	result, err := fn(sc)
 	if err != nil {
 		return nil, err
@@ -278,7 +287,7 @@ func (sc *scope) review(ctx context.Context, id, decision, reason string) (Chang
 	if err != nil {
 		return c, err
 	}
-	if !sc.can("owner", "admin", "reviewer") || c.Author == sc.actor {
+	if (!sc.can("owner", "admin", "reviewer") && !(sc.superuser && c.Author == sc.actor)) || (c.Author == sc.actor && !sc.superuser) {
 		return c, forbidden
 	}
 	if decision != "approved" && decision != "rejected" {
@@ -319,7 +328,7 @@ func (sc *scope) review(ctx context.Context, id, decision, reason string) (Chang
 	if err != nil {
 		return c, err
 	}
-	if err = sc.audit(ctx, "change.review", id, map[string]any{"decision": decision, "reason": reason, "requiredApprovals": c.RequiredApprovals}); err != nil {
+	if err = sc.audit(ctx, "change.review", id, map[string]any{"decision": decision, "reason": reason, "requiredApprovals": c.RequiredApprovals, "superuserSelfReview": c.Author == sc.actor}); err != nil {
 		return c, err
 	}
 	return sc.change(ctx, id)
@@ -329,17 +338,17 @@ func (sc *scope) publish(ctx context.Context, id string) (Change, error) {
 	if err != nil {
 		return c, err
 	}
-	if !sc.can("owner", "admin", "reviewer") {
+	if !sc.can("owner", "admin", "reviewer") && !(sc.superuser && c.Author == sc.actor) {
 		return c, forbidden
 	}
 	if c.Status == "published" {
 		return c, nil
 	}
 	if c.Status != "approved" {
-		return c, conflict("publication requires independent human approval")
+		return c, conflict("publication requires human approval")
 	}
 	if len(c.Approvals) < c.RequiredApprovals {
-		return c, conflict("independent approval quorum is no longer satisfied; obtain fresh reviews")
+		return c, conflict("approval quorum is no longer satisfied; obtain fresh reviews")
 	}
 	if err = sc.validateChange(ctx, c); err != nil {
 		return c, err

@@ -3,7 +3,12 @@
 set -euo pipefail
 repo_dir=$(cd "$(dirname "$0")/../.." && pwd)
 container_name="worldbuilder-test-${RANDOM}-$$"
-docker run -d --name "$container_name" -e POSTGRES_PASSWORD=offline-test-only -e POSTGRES_DB=worldbuilder_test -p "127.0.0.1:${WORLDBUILDER_TEST_PORT:-}:5432" postgres:16.13 >/dev/null
+export WORLDBUILDER_DOCKER_CLI=$(command -v docker)
+export WORLDBUILDER_POSTGRES_CONTAINER="$container_name"
+# The streaming database bridge still uses the original CLI. Finite fixture
+# commands require authoritative completion even when attach returns early.
+docker() { python3 "$repo_dir/scripts/worldbuilder/docker-exec.py" "$@"; }
+docker run -d --name "$container_name" --label "homelab.worldbuilder.postgres-fixture=$container_name" -e POSTGRES_PASSWORD=offline-test-only -e POSTGRES_DB=worldbuilder_test -p "127.0.0.1:${WORLDBUILDER_TEST_PORT:-}:5432" postgres:16.13 >/dev/null
 relay_pid=""
 cleanup() {
   if [[ -n "$relay_pid" ]]; then kill "$relay_pid" 2>/dev/null || true; fi
@@ -31,6 +36,9 @@ sql < "$repo_dir/sql/worldbuilder/006_up.sql"
 sql < "$repo_dir/sql/worldbuilder/006_up.sql"
 sql < "$repo_dir/sql/worldbuilder/007_up.sql"
 sql < "$repo_dir/sql/worldbuilder/007_up.sql"
+sql < "$repo_dir/sql/worldbuilder/008_up.sql"
+sql < "$repo_dir/sql/worldbuilder/008_up.sql"
+sql < "$repo_dir/sql/worldbuilder/008_down.sql"
 sql < "$repo_dir/sql/worldbuilder/007_down.sql"
 sql < "$repo_dir/sql/worldbuilder/006_down.sql"
 sql < "$repo_dir/sql/worldbuilder/005_down.sql"
@@ -45,8 +53,10 @@ sql < "$repo_dir/sql/worldbuilder/004_up.sql"
 sql < "$repo_dir/sql/worldbuilder/005_up.sql"
 sql < "$repo_dir/sql/worldbuilder/006_up.sql"
 sql < "$repo_dir/sql/worldbuilder/007_up.sql"
+sql < "$repo_dir/sql/worldbuilder/008_up.sql"
 sql -c 'CREATE ROLE worldbuilder_external NOINHERIT LOGIN; CREATE ROLE worldbuilder_relay NOINHERIT LOGIN; CREATE ROLE legacy_app NOINHERIT LOGIN;'
 sql < "$repo_dir/sql/worldbuilder/grants.sql"
+sql < "$repo_dir/sql/worldbuilder/auth-grants.sql"
 # Upgrade a populated version-1 database independently of the empty up/down tests.
 docker exec "$container_name" createdb -U postgres worldbuilder_upgrade
 upgrade_sql() { docker exec -i "$container_name" psql -X -U postgres -d worldbuilder_upgrade -v ON_ERROR_STOP=1 "$@"; }
@@ -102,6 +112,8 @@ review_upgrade_checksum="SELECT md5(string_agg(item, ',' ORDER BY item)) FROM (S
 review_before=$(upgrade_sql -Atc "$review_upgrade_checksum")
 upgrade_sql < "$repo_dir/sql/worldbuilder/007_up.sql"
 upgrade_sql < "$repo_dir/sql/worldbuilder/007_up.sql"
+upgrade_sql < "$repo_dir/sql/worldbuilder/008_up.sql"
+upgrade_sql < "$repo_dir/sql/worldbuilder/008_up.sql"
 [[ "$review_before" == "$(upgrade_sql -Atc "$review_upgrade_checksum")" ]] || { echo 'FAIL: review migration changed existing history/decisions'; exit 1; }
 upgrade_sql <<'SQL'
 DO $$ BEGIN
@@ -182,18 +194,20 @@ if sql < "$repo_dir/sql/worldbuilder/004_down.sql" >/dev/null 2>&1; then echo 'F
 if sql < "$repo_dir/sql/worldbuilder/005_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated generation down migration succeeded'; exit 1; fi
 if sql < "$repo_dir/sql/worldbuilder/006_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated calendar down migration succeeded'; exit 1; fi
 if sql < "$repo_dir/sql/worldbuilder/007_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated review-policy down migration succeeded'; exit 1; fi
+if sql < "$repo_dir/sql/worldbuilder/008_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated superuser down migration succeeded'; exit 1; fi
 sql < "$repo_dir/sql/worldbuilder/ops_dashboard_queries.pgsql"
 docker exec "$container_name" createdb -U postgres worldbuilder_restore
 docker exec "$container_name" pg_dump -U postgres -d worldbuilder_test -Fc -f /tmp/worldbuilder.dump
 docker exec "$container_name" pg_restore -U postgres -d worldbuilder_restore --exit-on-error /tmp/worldbuilder.dump
 checksum_parts=()
-for canon_table in world member revision record record_identity change_set change_review audit outbox story_session story_turn story_outcome story_definition generation_job generation_outbox inference_attempt schema_version; do
+for canon_table in world member revision record record_identity change_set change_review audit outbox story_session story_turn story_outcome story_definition generation_job generation_outbox inference_attempt schema_version superuser account_audit; do
   checksum_parts+=("SELECT '${canon_table}:' || row_to_json(t)::text AS item FROM worldbuilder.${canon_table} t")
 done
+checksum_parts+=("SELECT 'auth.users:' || md5(coalesce(string_agg(row_to_json(t)::text, E'\\n' ORDER BY row_to_json(t)::text), '')) AS item FROM auth.users t")
 checksum_union=${checksum_parts[0]}
 for part in "${checksum_parts[@]:1}"; do checksum_union+=" UNION ALL $part"; done
 checksum_query="SELECT md5(string_agg(item, ',' ORDER BY item)) FROM ($checksum_union) rows"
 original=$(sql -Atc "$checksum_query")
 restored=$(docker exec "$container_name" psql -X -U postgres -d worldbuilder_restore -Atc "$checksum_query")
 [[ "$original" == "$restored" ]] || { echo 'FAIL: restored canon/lifecycle/story data differs'; exit 1; }
-echo 'PASS: migrations 001–007 rerun/rollback, populated upgrade/conflict gates, role isolation, canon/lifecycle/story/outbox integration and all-table restore checksum'
+echo 'PASS: migrations 001–008 rerun/rollback, populated upgrade/conflict gates, role isolation, canon/lifecycle/story/outbox integration and all-table restore checksum'

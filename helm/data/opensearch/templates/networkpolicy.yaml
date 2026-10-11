@@ -6,6 +6,8 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name | quote }}
     matchExpressions:
       - key: app.kubernetes.io/name
         operator: In
@@ -15,6 +17,17 @@ spec:
   policyTypes:
     - Ingress
   ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name | quote }}
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [opensearch-data, opensearch-ml]
+      ports:
+        - protocol: TCP
+          port: 9300
     - from:
 {{- range .Values.networkPolicy.allowedClients }}
         - namespaceSelector:

@@ -69,6 +69,7 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 - If Flux fetches the chart but the workload does not update, inspect the `HelmRelease` next for values/rendering errors or Kubernetes apply failures.
 - When troubleshooting app deployments, verify that the app workflow published both the image and the chart with the expected matching version.
 - When troubleshooting values issues, reason from base plus overlay: `values.yaml` + `values-ghcr.yaml` for GHCR, or `values.yaml` + `values-ecr.yaml` for EKS.
+- Include explicit parent HelmRelease values in that calculation. `bootstrap/flux-bootstrap` supplies Istio's auth provider again and overrides the child chart defaults; keep both rendered provider configurations aligned in the publication regression.
 - Check the bootstrap charts under `helm/bootstrap/` when the problem looks systemic across many releases, since those charts define shared Flux repository and release behavior.
 - Be cautious about assuming a local chart edit is live in-cluster. If the chart was not published and reconciled through Flux, the cluster may still be running the previous OCI artifact.
 

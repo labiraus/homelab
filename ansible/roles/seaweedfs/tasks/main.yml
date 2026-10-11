@@ -166,6 +166,8 @@
   when: not ansible_check_mode
 
 - name: Create the local generated-secret directory
+  vars:
+    ansible_remote_tmp: "{{ lookup('ansible.builtin.env', 'ANSIBLE_LOCAL_TEMP') }}"
   ansible.builtin.file:
     path: "{{ playbook_dir }}/../out/seaweedfs"
     state: directory
@@ -174,6 +176,8 @@
   become: false
 
 - name: Render new cluster credentials without applying them
+  vars:
+    ansible_remote_tmp: "{{ lookup('ansible.builtin.env', 'ANSIBLE_LOCAL_TEMP') }}"
   ansible.builtin.template:
     src: k8s-secrets.yaml.j2
     dest: "{{ playbook_dir }}/../out/seaweedfs/k8s-secrets.yaml"

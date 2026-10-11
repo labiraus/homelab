@@ -12,6 +12,13 @@ backup:
   destinationPath: s3://cnpg-backups/app-db
   endpointURL: http://192.168.8.177:9000
   credentialsSecret: cnpg-backup-s3
+worldbuilderRoles:
+  enabled: false
+  # Open only for the explicit operator migration session, then close again.
+  migrationLogin: false
+  ownerSecret: worldbuilder-owner-credentials
+  externalSecret: worldbuilder-external-credentials
+  relaySecret: worldbuilder-relay-credentials
 scheduledBackup:
   enabled: true
   name: app-db-daily

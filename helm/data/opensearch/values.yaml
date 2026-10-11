@@ -16,7 +16,8 @@ opensearch-data:
     - data
     - ingest
     - remote_cluster_client
-  singleNode: true
+  # The dedicated ML node must join this existing cluster.
+  singleNode: false
   persistence:
     enabled: true
     storageClass: longhorn

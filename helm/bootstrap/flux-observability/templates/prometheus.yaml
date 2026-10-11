@@ -23,19 +23,19 @@ metadata:
   namespace: flux-system
 spec:
   interval: {{ $component.interval | default "1m" }}
-  timeout: {{ $component.timeout | default "10m" }}
+  timeout: {{ $component.timeout | default "20m" }}
   targetNamespace: {{ $component.targetNamespace | default "prometheus" }}
   install:
     createNamespace: true
     replace: true
-    remediation:
-      remediateLastFailure: true
-      retries: 3
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
   upgrade:
     cleanupOnFail: {{ $component.cleanupOnFail | default true }}
-    remediation:
-      remediateLastFailure: true
-      retries: 3
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
   chartRef:
     kind: OCIRepository
     name: prometheus

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Local render/build checks. Never invokes cluster discovery, apply or reconciliation."""
 import argparse, pathlib, subprocess, tempfile, sys
+import yaml
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--output',type=pathlib.Path,help='New directory for render artifacts')
 options=parser.parse_args()
@@ -8,7 +9,7 @@ root=pathlib.Path(__file__).resolve().parents[2]
 out=options.output or pathlib.Path(tempfile.mkdtemp(prefix='worldbuilder-manifests-'))
 if options.output:out.mkdir(parents=True)
 (out/'dockerconfig.json').write_text('{"auths":{}}')
-charts=['apps/external','apps/orchestrator','apps/processor','apps/mcp','apps/ui','data/postgres','bootstrap/flux-apps','bootstrap/flux-data','bootstrap/flux-infra','infra/vllm','infra/envoy-ai-gateway','observability/prometheus']
+charts=['apps/external','apps/orchestrator','apps/processor','apps/mcp','apps/ui','data/postgres','bootstrap/flux-apps','bootstrap/flux-data','bootstrap/flux-infra','bootstrap/flux-observability','infra/vllm','infra/envoy-ai-gateway','observability/prometheus']
 failures=[]; checked=[]
 def save_render(path,result):
     path.write_text(result.stdout)
@@ -92,6 +93,25 @@ for chart in ['external','orchestrator']:
     save_render(out/(chart+'-jobs-enabled.yaml'),result)
     if result.returncode:failures.append(chart+' jobs enabled template')
     if subprocess.run(base+['--set','worldbuilder.enabled=false'],capture_output=True).returncode==0:failures.append(chart+' jobs accepted disabled Worldbuilder')
+# Dedicated database identities must remain unprivileged and the owner closed
+# outside an explicit migration session. Exercise the opt-in CRD fields too.
+roles=['helm','template','homelab-postgres',str(root/'helm/data/postgres'),'--set','worldbuilderRoles.enabled=true']
+result=subprocess.run(roles,capture_output=True,text=True)
+save_render(out/'postgres-managed-roles.yaml',result)
+if result.returncode:failures.append('PostgreSQL managed roles template')
+else:
+    cluster=next(r for r in yaml.safe_load_all(result.stdout) if r and r.get('kind')=='Cluster')
+    managed=cluster['spec']['managed']['roles']
+    if {r['name'] for r in managed}!={'worldbuilder_owner','worldbuilder_external','worldbuilder_relay'}:
+        failures.append('PostgreSQL dedicated identity names')
+    for role in managed:
+        if any(role[p] for p in ['inherit','superuser','createdb','createrole','replication','bypassrls']) or role['inRoles']:
+            failures.append('PostgreSQL runtime privileges: '+role['name'])
+        if role['login'] != (role['name']!='worldbuilder_owner'):
+            failures.append('PostgreSQL default login: '+role['name'])
+for key in ['ownerSecret','externalSecret','relaySecret']:
+    if subprocess.run(roles+['--set','worldbuilderRoles.'+key+'='],capture_output=True).returncode==0:
+        failures.append('PostgreSQL accepted missing '+key)
 print(f'{len(checked)} base/overlay combinations checked; local artifacts: {out}')
 print('Failures: '+(', '.join(failures) if failures else 'none'))
 sys.exit(bool(failures))

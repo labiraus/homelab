@@ -84,6 +84,11 @@ postgres:
     - longhorn-system
     - cnpg-system
   values:
+    # Dedicated Secrets are provisioned out of band; schema installation remains
+    # an explicit operator step and the migration login stays closed by default.
+    worldbuilderRoles:
+      enabled: true
+      migrationLogin: false
     networkPolicy:
       allowedClients:
         - namespace: homelab

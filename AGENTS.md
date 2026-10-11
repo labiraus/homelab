@@ -86,6 +86,8 @@ On Windows-backed workspaces, local executable permissions do not prove Git stor
 
 Docker-outside-Docker published ports can become unreachable despite a healthy container. Use the Worldbuilder harness with `WORLDBUILDER_TEST_TRANSPORT=exec` for its loopback-only Docker-exec bridge when needed; do not switch these offline tests to a LAN/production DSN. A failed transport preflight is not a passing integration test.
 
+Finite commands in the disposable PostgreSQL fixture also require the labelled, fixture-scoped exec-ID transport in `scripts/worldbuilder/docker-exec.py`; plain Docker attach may return success before `createdb`, migrations or restores finish. Preserve the original streaming CLI only for the loopback database bridge.
+
 ## Disposable controller transport
 
 For disposable kind work, set the generated `KUBECONFIG` for creation and deletion; cleanup must not lock or edit the operator's home configuration. The controller harness supplies both explicit arguments and environment settings.

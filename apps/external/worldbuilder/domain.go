@@ -40,6 +40,7 @@ type World struct {
 	Name            string `json:"name"`
 	Revision        int64  `json:"revision"`
 	Role            string `json:"role,omitempty"`
+	Superuser       bool   `json:"superuser"`
 	DefaultTimeline string `json:"defaultTimeline"`
 	Archived        bool   `json:"archived"`
 	AdminVersion    int64  `json:"adminVersion"`

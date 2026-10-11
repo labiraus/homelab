@@ -1,4 +1,4 @@
-# Configurable independent human review
+# Configurable human review
 
 World settings may contain `"reviewPolicy": {"requiredApprovals": 2}`. The integer range is 1–5; missing policy means one independent approval, preserving existing worlds. Change it through the structured settings editor and ordinary proposal/review/publication. It is versioned canon, not an owner-only shortcut or model-controlled permission.
 
@@ -6,7 +6,7 @@ Each proposal stores the greater of the policy in its base snapshot and its prop
 
 ## Decisions and publication
 
-- Reviewers must currently be owners, admins or reviewers, and must differ from the proposal author. Distinct authenticated principals count once. AI/MCP/processor still have no approval or publication capability.
+- Reviewers must currently be owners, admins or reviewers, and must differ from the proposal author, except an operator-granted superuser may review their own proposal while still a world member. Distinct authenticated principals count once. AI/MCP/processor still have no approval or publication capability.
 - The existing review route accepts `{decision: "approved" | "rejected", reason}`. Decisions and reasons are immutable. Exact retries under the same membership authority return the current proposal without adding a vote, including after publication. A conflicting decision/reason requires a new proposal; there is no in-place approval withdrawal.
 - A partial set of approvals remains `ready_for_review`. Reaching quorum marks it `approved`. A new eligible reviewer may still reject an unpublished approved proposal; any rejection is terminal. An existing reviewer cannot change their recorded decision.
 - Membership changes and publication share the world transaction lock. Every role change rotates that membership's authority identity; removal/recreation creates another identity. Old votes never become eligible again just because a role is restored. An eligible human must explicitly review again under the new authority. Setting an unchanged role does not invalidate votes.
@@ -18,8 +18,12 @@ Responses add `requiredApprovals`, `approvals` and `reviews`. Before publication
 
 ## Migration and verification
 
-Explicit migration 007 adds immutable `change_review`, membership authority identities, required/published approval fields, and settings projection. External and the generation worker require schema 7. Refresh dedicated grants: external can read/insert reviews, while relay cannot access them. No startup hook installs the migration. Populated rollback disables the feature and retains all 17 tables.
+Explicit migration 007 adds immutable `change_review`, membership authority identities, required/published approval fields, and settings projection. Current external and the generation worker require schema 8. Refresh dedicated grants: external can read/insert reviews, while relay cannot access them. No startup hook installs the migration. Populated rollback disables the feature and retains all 19 Worldbuilder tables and the shared identity registry.
 
 Legacy proposals retain threshold one. Existing decisions are copied into the review ledger without rewriting operations, statuses, snapshots or audit. Existing eligible reviewers retain approval authority at migration time; removed/ineligible reviewers receive unmatched authority identities. This cannot retroactively reconstruct membership tenures before schema 7. Published legacy decisions retain their recorded reviewer even if that person has left. Review time comes from the matching old audit when available; otherwise it stays null and the UI says it is unavailable. Migration reruns do not duplicate reviews.
 
 Disposable acceptance covers raising/lowering policy, duplicate/concurrent reviews, author exclusion, stale canon, rejection, immutable decisions, role revocation/restoration and removal/recreation, historical policy reads, legacy backfill/checksums and full restore. Real Chromium uses three separate human identities to edit a two-reviewer policy, demonstrate that one approval cannot publish, then obtain the second review and publish. Actual OAuth principals, proxy sanitisation, mesh identities and production migration/activation remain [LAN gates](LAN-RUNBOOK.md).
+
+## Explicit superuser exception
+
+At the user's request on 2026-10-11, schema 008 adds a global, operator-granted superuser class that can register users and approve its own proposals. It does not bypass world membership, archive restrictions, reason requirements, deterministic validation or quorum: one superuser still contributes only one distinct human approval. Registration cannot grant the class. The UI labels self-approval, and immutable review/audit rows preserve that fact. Revoking the grant invalidates unpublished self-votes; regranting creates a new authority and requires a fresh decision. Publication locks the relevant grant rows so revocation and publication cannot race. See [account API](API.md#superuser-accounts-schema-8) and [operator SQL](../../sql/worldbuilder/README.md#superuser-class-008).

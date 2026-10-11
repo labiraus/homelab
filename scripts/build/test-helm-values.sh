@@ -37,3 +37,10 @@ helm template packaged "$package" > "$fixture/packaged.yaml"
 helm template packaged "$repo_root/helm/observability/prometheus" -f "$repo_root/helm/observability/prometheus/values-ghcr.yaml" > "$fixture/source.yaml"
 diff "$fixture/source.yaml" "$fixture/packaged.yaml"
 echo 'PASS: empty/null overlays preserve defaults; map/array merge, refusal and packaged Prometheus parity'
+helm template bootstrap "$repo_root/helm/bootstrap/flux-bootstrap" --set image.repository=ghcr.io/labiraus/homelab --show-only templates/istio.yaml > "$fixture/parent.yaml"
+helm template istio "$repo_root/helm/bootstrap/istio" --show-only templates/istiod-release.yaml > "$fixture/child.yaml"
+yq 'select(.kind == "HelmRelease") | .spec.values.meshConfig.extensionProviders' "$fixture/parent.yaml" > "$fixture/parent-auth.yaml"
+yq '.spec.values.meshConfig.extensionProviders' "$fixture/child.yaml" > "$fixture/child-auth.yaml"
+diff "$fixture/parent-auth.yaml" "$fixture/child-auth.yaml"
+yq -e '.[0].envoyExtAuthzHttp.pathPrefix == "/oauth2/auth?"' "$fixture/parent-auth.yaml" >/dev/null
+echo 'PASS: bootstrap overrides preserve the child auth-only provider configuration'

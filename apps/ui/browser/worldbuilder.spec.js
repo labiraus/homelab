@@ -328,3 +328,36 @@ test("independent browser users propose, review, publish and keep private storie
   await reviewerContext.close();
   await secondContext.close();
 });
+
+test("superuser registers a user and explicitly reviews their own proposal", async ({ browser }) => {
+  const baseURL = process.env.WORLDBUILDER_BROWSER_URL;
+  if (!baseURL) throw new Error("Disposable browser harness required");
+  const context = await browser.newContext({ baseURL, extraHTTPHeaders: { "Test-Actor": "browser-superuser@example.test" } });
+  await context.route("**/*", (route) => new URL(route.request().url()).origin === new URL(baseURL).origin ? route.continue() : route.abort());
+  try {
+    const page = await context.newPage();
+    await page.goto("/");
+    await page.getByRole("button", { name: "Worlds", exact: true }).click();
+    await page.getByText("Superuser · Manage users", { exact: true }).click();
+    await page.getByLabel("Google account email", { exact: true }).fill("browser-new@example.test");
+    await page.getByLabel("Display name", { exact: true }).fill("New browser user");
+    await page.getByRole("button", { name: "Add user", exact: true }).click();
+    await expect(page.getByRole("list", { name: "Registered users" })).toContainText("New browser user · browser-new@example.test");
+    await page.getByLabel("World name", { exact: true }).fill("Superuser world");
+    await page.getByRole("button", { name: "Create world", exact: true }).click();
+    await page.getByRole("combobox", { name: "Record kind", exact: true }).selectOption("source");
+    await page.getByLabel("Stable ID", { exact: true }).fill("self-reviewed-source");
+    await page.getByLabel("Label", { exact: true }).fill("Self reviewed source");
+    await page.getByRole("button", { name: "Stage record", exact: true }).click();
+    await page.getByLabel("Reason for change", { exact: true }).fill("Superuser authored proposal");
+    await page.getByRole("button", { name: "Save draft proposal", exact: true }).click();
+    const proposal = page.locator("article").filter({ has: page.getByRole("heading", { name: "Superuser authored proposal", exact: true }) });
+    await proposal.getByRole("button", { name: "Submit for review", exact: true }).click();
+    await page.getByLabel("Review reason", { exact: true }).fill("I explicitly approve my own proposal");
+    await proposal.getByRole("button", { name: "Approve", exact: true }).click();
+    await expect(proposal).toContainText("Superuser self-approval");
+    await proposal.getByRole("button", { name: "Publish approved change", exact: true }).click();
+    await expect(page.getByText(/canon revision 1/)).toBeVisible();
+    await expect(proposal).toContainText("published");
+  } finally { await context.close(); }
+});

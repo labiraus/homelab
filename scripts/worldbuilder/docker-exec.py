@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Complete Docker execs by inspecting their IDs, not a truncated attach stream.
 
-Used only by the disposable kind fixture. Non-exec commands pass to the original
-Docker CLI. Execs are restricted to nodes of WORLDBUILDER_KIND_NAME on a local
-Unix socket; output/input files stay inside the owned node and are removed.
+Used only by disposable kind/PostgreSQL fixtures. Non-exec commands pass to the
+original Docker CLI. Execs require the exact generated name and ownership label
+on a local Unix socket; input/output files stay inside the fixture and are removed.
 """
 import base64
 import http.client
@@ -152,6 +152,22 @@ class FixtureDocker:
                     raise RuntimeError('Could not remove private fixture exec files')
 
 
+class PostgresFixtureDocker(FixtureDocker):
+    """The same completion transport, restricted to one labelled test database."""
+    def __init__(self, container, socket_path='/var/run/docker.sock'):
+        if not re.fullmatch(r'worldbuilder-test-[0-9]+-[0-9]+', container):
+            raise ValueError('Expected a generated disposable PostgreSQL name')
+        self.container, self.socket_path = container, socket_path
+
+    def owned_node(self, container):
+        if container != self.container:
+            raise ValueError('Refusing exec outside the owned PostgreSQL fixture')
+        info = self.api('GET', '/containers/' + quote(container, safe='') + '/json')
+        if (info['Config'].get('Labels') or {}).get('homelab.worldbuilder.postgres-fixture') != self.container:
+            raise ValueError('Container does not have the expected PostgreSQL ownership label')
+        return info['Id']
+
+
 def main(arguments):
     original = os.environ['WORLDBUILDER_DOCKER_CLI']
     if not arguments or arguments[0] != 'exec':
@@ -171,7 +187,10 @@ def main(arguments):
         index += 1
     container, command = arguments[index], arguments[index + 1:]
     if not command: raise ValueError('Missing exec command')
-    docker = FixtureDocker(os.environ['WORLDBUILDER_KIND_NAME'], socket_url.removeprefix('unix://'))
+    if os.environ.get('WORLDBUILDER_POSTGRES_CONTAINER'):
+        docker = PostgresFixtureDocker(os.environ['WORLDBUILDER_POSTGRES_CONTAINER'], socket_url.removeprefix('unix://'))
+    else:
+        docker = FixtureDocker(os.environ['WORLDBUILDER_KIND_NAME'], socket_url.removeprefix('unix://'))
     return docker.execute(container, command, stdin=sys.stdin.buffer if interactive else None,
                           privileged=privileged, env=env)
 

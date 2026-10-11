@@ -8,6 +8,8 @@ Supply the ten `SEAWEED_*` credential inputs in local `ansible/.env`; see [boots
 
 If Samba is configured, bootstrap requires `/seaweedfs/` in the `storage` share's `veto files` before creating volume data. The Samba role preserves both `/minio-data/` and `/seaweedfs/` exclusions. For an existing host, update and validate the share configuration and reload it before running SeaweedFS; do not reapply the legacy storage role merely to change this exclusion.
 
+Delegated local secret-rendering tasks use the wrapper's private `ANSIBLE_LOCAL_TEMP`, including Ansible's remote-temp setting for those tasks, so bootstrap works when the devcontainer home is read-only.
+
 Follow [the migration plan](../docs/SeaweedFSMigration.md) before publishing the application/backup chart changes. A file copy is insufficient for document history: source version markers and backup chains need explicit migration and restore validation.
 
 ## Legacy MinIO reference and other services

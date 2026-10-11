@@ -83,7 +83,7 @@ istio:
           envoyExtAuthzHttp:
             service: homelab-oauth2-proxy.homelab.svc.cluster.local
             port: "80"
-            pathPrefix: /oauth2/auth
+            pathPrefix: /oauth2/auth?
             includeRequestHeadersInCheck:
               - authorization
               - cookie
@@ -103,6 +103,7 @@ istio:
             headersToDownstreamOnDeny:
               - content-type
               - set-cookie
+              - www-authenticate
     defaultConfig:
       gatewayTopology:
         forwardClientCertDetails: SANITIZE_SET

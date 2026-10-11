@@ -1,6 +1,6 @@
 # Worldbuilder — controlled LAN validation and activation
 
-**No live checks or mutations were executed during implementation.** The user subsequently authorised CI publication from `main`. The default-disabled code can be delivered through existing CI/Flux before LAN return; schema installation, secret provisioning, feature activation and data cutover remain separate controlled steps. Do not treat `dev` as an isolated environment: both `main` and `dev` publish the watched `uat` OCI series.
+The initial implementation was offline. The user subsequently authorised CI publication from `main` and continued LAN recovery; live checks, restore rehearsal and staged progress are recorded in [implementation status](IMPLEMENTATION-STATUS.md). The default-disabled code can be delivered through existing CI/Flux before LAN return; schema installation, secret provisioning, feature activation and data cutover remain separate controlled steps. Do not treat `dev` as an isolated environment: both `main` and `dev` publish the watched `uat` OCI series.
 
 ## 1. Read-only discovery when LAN access returns
 
@@ -49,7 +49,7 @@ Before production, run the offline harness again and validate the same changes o
 
 ## 3. Separately authorised staged changes
 
-These commands are **prepared, not executed**. Use a private `PGPASSFILE` and verified local psql connection variables populated from the approved operator workflow. `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER` below must describe the intended isolated validation database first, and the independent migration owner. Do not source or paste credentials into this document.
+These commands describe the controlled migration procedure; consult implementation status for the environment in which each stage has been verified. Use a private `PGPASSFILE` and verified local psql connection variables populated from the approved operator workflow. `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER` below must describe the intended isolated validation database first, and the independent migration owner. Do not source or paste credentials into this document.
 
 ```bash
 # Capture a restore-capable logical backup to ignored local storage; also require healthy CNPG WAL/base backups.
@@ -63,6 +63,7 @@ psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/004_up.sql
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/005_up.sql
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/006_up.sql
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/007_up.sql
+psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/008_up.sql
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/grants.sql
 psql -X -v ON_ERROR_STOP=1 -c 'TABLE worldbuilder.schema_version;'
 psql -X -v ON_ERROR_STOP=1 -c "SELECT has_schema_privilege('app','worldbuilder','USAGE');"
@@ -155,7 +156,7 @@ The external chart rejects missing or wildcard browser principals, including wil
 
 - If identity/header isolation, schema grants, backup health or storage differ from the plan, stop before activation.
 - App rollback: disable the Worldbuilder flags through reviewed Flux values and publish that change; keep schema/data/secrets for recovery. Older enabled binaries reject newer schema versions; keep their feature flag off.
-- Canon rollback: create a compensating proposal from a historical snapshot, obtain a different reviewer and publish a new revision. Never UPDATE/DELETE revision history.
+- Canon rollback: create a compensating proposal from a historical snapshot, satisfy the current review policy (including the explicit superuser exception) and publish a new revision. Never UPDATE/DELETE revision history.
 - Projection rollback: restore the previous image if needed; recreate only the derived test index under approval and rebuild from PostgreSQL. Never use search as recovery authority.
 - Database restore: restore to a new isolated database, compare revisions/audit/story/turn counts and checksums, then make an explicitly approved connection cutover. Do not run `001_down.sql` on populated production canon; it intentionally refuses.
 - Cassandra/manifests/PVs/credentials are untouched. Removal requires a separate inventory/export/recovery/reconciliation approval even after Worldbuilder acceptance.
@@ -164,15 +165,15 @@ No irreversible cleanup, live schema change or resource deletion is bundled with
 
 ## Schema-v4 compatibility and lifecycle validation
 
-Before enabling current external, verify max schema version 7 and dedicated grants including `record_identity` and restricted inference-ledger writes. Migration 002 must refuse historical same-ID/different-kind conflicts; inventory them and obtain a reviewed reconciliation plan rather than changing immutable history. Validate reviewed name/default-timeline settings, membership removal, owner transfer (exactly one owner), archive write refusal and retained history. Repeat an administration request and confirm its original version/result without another change. Old v1 snapshots remain intact; introduce their first settings record through review.
+Before enabling current external, verify max schema version 8 and dedicated grants including `record_identity` and restricted inference-ledger writes. Migration 002 must refuse historical same-ID/different-kind conflicts; inventory them and obtain a reviewed reconciliation plan rather than changing immutable history. Validate reviewed name/default-timeline settings, membership removal, owner transfer (exactly one owner), archive write refusal and retained history. Repeat an administration request and confirm its original version/result without another change. Old v1 snapshots remain intact; introduce their first settings record through review.
 
-Rollback keeps Worldbuilder disabled and data intact. Previous v1/v2/v3/v4/v5/v6 binaries reject schema v7 when enabled; do not roll back to them with the feature enabled. All seven down migrations refuse populated worlds; 003 also refuses any inference attempts. Restore drills include all 17 tables.
+Rollback keeps Worldbuilder disabled and data intact. Earlier binaries reject schema 8 when enabled; do not roll back to them with the feature enabled. All eight down migrations refuse populated worlds; 003 also refuses any inference attempts and 008 retains populated account authority/audit. Restore drills include all 19 Worldbuilder tables and the shared auth registry.
 
 Validate private definition reuse at a historical pin after canon advances, owner isolation (including world administrators), saved summary/choice reload and exact turn retries after later turns. Check that generated candidates retain sessionVersion and stale generation is rejected before inference. Exercise narrative-to-premise creation and verify its original timeline/revision are preserved. Compare summaries against full stored turn history; summaries are provisional, not canonical evidence. Existing sessions must retain pre-migration narration/state with empty initial memory.
 
 ## Durable generation activation and recovery gate
 
-Apply explicit migrations `005_up.sql`, `006_up.sql` and `007_up.sql` after 001–004, refresh dedicated grants and verify max version 7 before current external activation. Back up and restore all 17 Worldbuilder tables, including generation jobs/outbox and inference ledger; rollback disables flags and preserves populated data. Previous schema-4/5/6 binaries cannot run enabled against schema 7.
+Apply explicit migrations `005_up.sql`, `006_up.sql`, `007_up.sql` and `008_up.sql` after 001–004, refresh dedicated grants and verify max version 8 before current external activation. Back up and restore all 19 Worldbuilder tables plus the shared auth registry, including generation jobs/outbox and inference ledger; rollback disables flags and preserves populated data. Previous schema-4/5/6 binaries cannot run enabled against schema 8.
 
 Keep `worldbuilder.jobs.enabled=false` on both charts until synchronous AI, identity and budget checks above pass. Provision one dedicated worker secret through the existing secret workflow (key `WORLDBUILDER_JOB_TOKEN`, at least 32 bytes); reference it as `worldbuilder.jobs.workerSecret` on external and orchestrator. Verify external `worldbuilder.jobs.principal` is the actual orchestrator mesh identity, distinct from browser and MCP. Inspect the conditional ingress/egress policies for orchestrator→external TCP 8080 and test forged/missing token, human browser principal and wrong service principal denial. The configurable orchestrator `worldbuilder.jobs.externalAPIURL` must be the private external service root. Activate these flags only as a separately reviewed main-branch values change.
 
@@ -186,4 +187,14 @@ For read-only acceptance and incident baselines, follow [observability](OBSERVAB
 
 The initial remote baseline was verified through increment 15; the continuing [offline work audit](OFFLINE-WORK.md) tracks remaining source-only features and deeper recovery checks. The processor S3 adapter has removed the old MinIO transitive findings. Before activation, reproduce [offline acceptance](OFFLINE-ACCEPTANCE.md), compare exact installed CRD versions with the recorded schema snapshots, and retain the read-only discovery evidence above. The real-browser fixture does not replace validation of actual OAuth identities, forwarded-header sanitisation or mesh principals.
 
-For schema 7, refresh grants and include `change_review` in the 17-table restore drill. Validate a two-reviewer proposal with real distinct human principals: one vote must not publish; removing/recreating or changing a reviewer’s role must require a fresh review. Lowering a policy must satisfy the previous higher count. Preserve old review/audit records and published approval identities. See [review-policy acceptance](REVIEW-POLICY.md).
+For current schema 8, refresh both canon and separate auth grants and include reviews, superuser grants and account audit in the full restore drill. Validate a two-reviewer proposal with real distinct human principals: one vote must not publish; removing/recreating or changing a reviewer’s role must require a fresh review. Lowering a policy must satisfy the previous higher count. Preserve old review/audit records and published approval identities. See [review-policy acceptance](REVIEW-POLICY.md).
+
+## Superuser activation
+
+The user explicitly requested superuser registration and self-approval. After rehearsing migrations 001–008 and restoring all 19 canon tables plus `auth.users`, apply `auth-grants.sql` separately as the existing auth owner/operator. Grant the verified registered operator account through a parameterised insert into `worldbuilder.superuser`; keep account-specific provisioning out of migrations. Verify ordinary-user denial, one-vote quorum behavior, self-approval provenance and revocation/regrant refusal. Superuser activation replaces the two-person requirement for that account's default single-vote workflow; ordinary independent-review acceptance remains separate. AI/MCP identities receive no new capability.
+
+The independent migration owner needs CREATE on the intended database for the explicit migration session, even when the owned schema already exists (`CREATE SCHEMA IF NOT EXISTS` checks that privilege). Grant it as the database operator, run the migration session, and revoke database CREATE afterward. Do not give the migration owner the legacy app role.
+
+Provisioning on CNPG uses its [declarative role manager](https://cloudnative-pg.io/docs/1.25/declarative_role_management/), keeping PostgreSQL superuser login disabled. The PostgreSQL chart has opt-in `worldbuilderRoles.enabled` and three dedicated basic-auth Secret references. All roles are NOINHERIT, non-superuser, without database/role creation or inherited memberships. `migrationLogin` opens only the independent owner login for the explicit migration session; close it after grants and verify new owner connections are refused. External and relay retain their separate scoped logins. Schema installation and account-class assignment are still explicit operator SQL, never startup hooks.
+
+The LAN bootstrap enables the three CNPG-managed role identities after their private Secrets are provisioned. This does not install schema or enable applications. The owner remains NOLOGIN until the explicit migration session.

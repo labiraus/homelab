@@ -1,6 +1,7 @@
 package worldbuilder
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,9 @@ func TestBrowserAcceptance(t *testing.T) {
 		t.Skip("opt-in disposable Chromium acceptance")
 	}
 	h := setup(t)
+	if _, err := h.pool.Exec(context.Background(), `INSERT INTO worldbuilder.superuser(principal,granted_by) VALUES('browser-superuser@example.test','offline browser fixture')`); err != nil {
+		t.Fatal(err)
+	}
 	world := h.world()
 	h.call("owner@example.test", "POST", "/"+world+"/members", map[string]string{"principal": "second@example.test", "role": "reviewer"}, 200)
 	ops := append(fixture(),
@@ -36,7 +40,7 @@ func TestBrowserAcceptance(t *testing.T) {
 	mux.Handle("/api/worlds/", h.handler)
 	mux.HandleFunc("/api/auth/status", func(w http.ResponseWriter, r *http.Request) {
 		actor := r.Header.Get("Test-Actor")
-		json.NewEncoder(w).Encode(map[string]any{"valid": actor == "editor@example.test" || actor == "reviewer@example.test" || actor == "second@example.test", "email": actor, "mode": "offline-test"})
+		json.NewEncoder(w).Encode(map[string]any{"valid": actor == "editor@example.test" || actor == "reviewer@example.test" || actor == "second@example.test" || actor == "browser-superuser@example.test", "email": actor, "mode": "offline-test"})
 	})
 	mux.HandleFunc("/api/auth/providers", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{"providers": []any{}})

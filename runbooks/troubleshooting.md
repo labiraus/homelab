@@ -42,6 +42,8 @@ The October LAN check read the registered-user count anonymously through `/mcp`:
 
 Envoy prefixes rather than replaces the auth-check path. `/oauth2/auth/mcp` reaches the proxy's ordinary login/upstream flow; `/oauth2/auth?/mcp` reaches its exact auth-only endpoint. Keep the provider's query delimiter and verify actual 401/202 responses rather than treating a redirect as authenticated-path acceptance.
 
+The provider is also supplied explicitly by `bootstrap/flux-bootstrap`, so updating only the Istio child defaults leaves the effective prefix unchanged. The publication regression now compares both rendered provider configurations. MCP `0.0.0-uat.38164253531` and its permanent edge policy are live; anonymous/forged-header probes passed before removing the temporary recovery policy. Browser login is user-confirmed; authenticated native MCP still needs acceptance.
+
 ## S3 startup fails despite a healthy storage host
 
 On 2026-10-11, `svartalfheim` resolved inside the new orchestrator to Wi-Fi `192.168.8.202`, but the workload's egress policy permits the verified wired address `192.168.8.177/32`. Both host listeners were healthy; the application timed out/reset on the disallowed address. Published application, CNPG and prepared Velero endpoints now use the wired address explicitly. Source MinIO stays on port 9000; SeaweedFS cutover remains a separate port-8333/credential migration. Keep endpoints and egress rules aligned rather than broadening access to the LAN.
@@ -49,6 +51,8 @@ On 2026-10-11, `svartalfheim` resolved inside the new orchestrator to Wi-Fi `192
 ## OpenSearch cannot downgrade after an interrupted upgrade
 
 The October recovery exposed a failed 3.9.0 upgrade followed by an automatic rollback to 3.7.0. The ML node refused its already-upgraded metadata with `cannot downgrade a node`. Preserve the PVCs and retry forward to the observed newer version. The OpenSearch HelmRelease now uses Flux `RetryOnFailure` for upgrades, avoiding automatic binary downgrade. Istiod also retries failed upgrades so a temporary unavailable worker does not permanently stall gateway dependencies. Check the actual installed Flux CRD/controller supports the strategy before publication.
+
+After both OpenSearch 3.9.0 Pods became Ready, `_cluster/health` still reported one node: data had `discovery.type=single-node`, and the ingress policy allowed no port-9300 peer transport. The data chart now enables normal discovery and permits transport only between this release's data/ML Pods in the same namespace. Preserve both PVCs and verify two actual cluster members after reconciliation; Pod readiness alone does not establish ML membership. One data node can still leave replica shards unassigned.
 
 ## Prometheus wrapper conflicts with its own HelmRelease
 
@@ -396,7 +400,7 @@ Grafana file provisioning does not resolve manual-import `__inputs`. The chart b
 
 ## Worldbuilder disposable PostgreSQL host forwarding
 
-If the test container is healthy but the devcontainer cannot reach its published port, use `WORLDBUILDER_TEST_TRANSPORT=exec bash scripts/worldbuilder/test-postgres.sh`. The local loopback socat bridge uses only the harness's generated test container and cleans up on exit. See [Worldbuilder troubleshooting](../docs/worldbuilder/TROUBLESHOOTING.md). This does not require cluster access or a production database connection.
+If the test container is healthy but the devcontainer cannot reach its published port, use `WORLDBUILDER_TEST_TRANSPORT=exec bash scripts/worldbuilder/test-postgres.sh`. The local loopback socat bridge uses only the harness's generated test container and cleans up on exit. Finite commands use labelled exec-ID completion because Docker attach may return before database creation or restore finishes. See [Worldbuilder troubleshooting](../docs/worldbuilder/TROUBLESHOOTING.md). This does not require cluster access or a production database connection.
 
 ## Storage publication and historical reverts during migration
 
@@ -433,3 +437,5 @@ A Worldbuilder proposal can remain labelled `approved` after membership changes 
 ## Worldbuilder persistent TSDB acceptance
 
 Use the [TSDB recovery gate](../docs/worldbuilder/TSDB-RECOVERY.md) to distinguish scrape recovery from history recovery. Require stopped producers, quiescent fixed-time raw samples, WAL replay and a distinct restored volume after source deletion. The operator mounts its PVC through `prometheus-db`; derive and check the actual mount/subPath before reading a snapshot. Inspect file hashes before startup and require a causal corrupt-index failure, not an unrelated Pod error. Production storage and admin snapshot access remain separate controlled changes.
+
+Prometheus recovery uses forward retries with a 15-minute child install/upgrade timeout and a 20-minute wrapper timeout. Slow first image pulls must not trigger repeated uninstall/recreate cycles; inspect Pod events and actual image progress before changing the underlying resources.

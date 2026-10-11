@@ -28,6 +28,16 @@ class TransportTests(unittest.TestCase):
         self.docker.api = Mock(return_value={'Id': 'immutable-id', 'Config': {'Labels': {'io.x-k8s.kind.cluster': 'wbctrl-1234abcd'}}})
         self.assertEqual(self.docker.owned_node('wbctrl-1234abcd-control-plane'), 'immutable-id')
 
+    def test_postgres_requires_exact_name_and_ownership_label(self):
+        with self.assertRaises(ValueError): transport.PostgresFixtureDocker('production')
+        docker = transport.PostgresFixtureDocker('worldbuilder-test-123-456')
+        docker.api = Mock(return_value={'Id': 'database-id', 'Config': {'Labels': {}}})
+        with self.assertRaises(ValueError): docker.owned_node('another-container')
+        docker.api.assert_not_called()
+        with self.assertRaises(ValueError): docker.owned_node('worldbuilder-test-123-456')
+        docker.api.return_value['Config']['Labels']['homelab.worldbuilder.postgres-fixture'] = 'worldbuilder-test-123-456'
+        self.assertEqual(docker.owned_node('worldbuilder-test-123-456'), 'database-id')
+
     def test_waits_until_actual_failure_even_after_early_client_exit(self):
         self.docker.api = Mock(side_effect=[{'Running': True, 'ExitCode': None}, {'Running': False, 'ExitCode': 7}])
         with patch.object(transport.time, 'sleep'):

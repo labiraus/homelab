@@ -37,4 +37,6 @@ INSERT INTO worldbuilder.generation_outbox(id,world_id,job_id,payload) VALUES
  ('00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000009','{"fixture":"pending generation relay"}');
 INSERT INTO worldbuilder.inference_attempt(id,world_id,actor,workflow,revision,timeline,request_hash,lease_until,status,allocated_micros,currency,gateway_route,generation_job_id,generation_part) VALUES
  ('00000000-0000-4000-8000-000000000011','00000000-0000-4000-8000-000000000001','owner@example.test','fixture',1,'main','fixture-hash',now()+interval '1 hour','reserved',1000,'USD','fixture-route','00000000-0000-4000-8000-000000000009',2);
+INSERT INTO auth.users(email,display_name) VALUES('owner@example.test','Fixture owner');
+INSERT INTO worldbuilder.superuser(principal,granted_by) VALUES('owner@example.test','offline fixture operator');
 COMMIT;

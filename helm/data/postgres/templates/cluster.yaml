@@ -11,6 +11,24 @@ metadata:
 spec:
   instances: {{ .Values.cluster.instances }}
   imageName: {{ .Values.cluster.image }}
+  {{- if .Values.worldbuilderRoles.enabled }}
+  managed:
+    roles:
+      {{- range $role := list (dict "name" "worldbuilder_owner" "secret" .Values.worldbuilderRoles.ownerSecret "login" .Values.worldbuilderRoles.migrationLogin) (dict "name" "worldbuilder_external" "secret" .Values.worldbuilderRoles.externalSecret "login" true) (dict "name" "worldbuilder_relay" "secret" .Values.worldbuilderRoles.relaySecret "login" true) }}
+      - name: {{ $role.name }}
+        ensure: present
+        login: {{ $role.login }}
+        inherit: false
+        superuser: false
+        createdb: false
+        createrole: false
+        replication: false
+        bypassrls: false
+        inRoles: []
+        passwordSecret:
+          name: {{ required "Worldbuilder managed roles require dedicated password Secrets" $role.secret }}
+      {{- end }}
+  {{- end }}
   storage:
     size: {{ .Values.cluster.storageSize }}
     storageClass: {{ .Values.cluster.storageClass }}

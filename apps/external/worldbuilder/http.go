@@ -39,7 +39,28 @@ func Handler(store *Store, identity Identity) http.Handler {
 		parts := strings.Split(strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/worlds"), "/"), "/")
 		var result any
 		var err error
-		if parts[0] == "" {
+		if len(parts) == 1 && parts[0] == "account" && r.Method == "GET" {
+			result, err = store.Account(r.Context(), actor)
+		} else if len(parts) == 1 && parts[0] == "users" {
+			switch r.Method {
+			case "GET":
+				var limit, offset int64
+				limit, offset, err = page(r)
+				if err == nil {
+					result, err = store.accounts(r.Context(), actor, limit, offset)
+				}
+			case "POST":
+				var body struct {
+					Email       string `json:"email"`
+					DisplayName string `json:"displayName"`
+				}
+				if err = decode(w, r, &body); err == nil {
+					result, err = store.registerAccount(r.Context(), actor, body.Email, body.DisplayName)
+				}
+			default:
+				err = &Problem{405, "method", "unsupported method"}
+			}
+		} else if parts[0] == "" {
 			switch r.Method {
 			case "GET":
 				var limit, offset int64

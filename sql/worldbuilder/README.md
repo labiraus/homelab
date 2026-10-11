@@ -1,4 +1,4 @@
-# Worldbuilder schema version 7
+# Worldbuilder schema version 8
 
 An additive schema alongside retained `auth`, `rag` and `assistant`. Never install as the shared legacy app user: use an independent migration owner. No application or Helm startup hook runs migrations.
 
@@ -10,7 +10,7 @@ An additive schema alongside retained `auth`, `rag` and `assistant`. Never insta
 - `006_down.sql`: empty database only; removes calendar projection and restores the previous fact constraint. Disable Worldbuilder instead of downgrading populated production data.
 - `007_up.sql`: immutable per-authority human reviews, bounded quorum, settings projection and preserved publication principals. Legacy decisions backfill without changing history; unknown review times remain null. Role changes rotate authority so re-granting a role cannot revive old votes.
 - `007_down.sql`: empty database only. Refresh dedicated grants after applying 007; runtime can insert/read reviews but cannot rewrite them, and relay cannot read them.
-- `005_down.sql`: empty database only; rollback order is 007, 006, 005, 004, 003, 002, 001.
+- `005_down.sql`: empty database only; rollback order is 008, 007, 006, 005, 004, 003, 002, 001.
 - `004_up.sql`: immutable private story definitions and atomic session/turn memory. Legacy sessions retain their original pin/state/narration with empty memory defaults.
 - `004_down.sql`: empty database only; apply after 005 rollback.
 - `003_up.sql`: durable inference attempt/allowance ledger; deliberately separate from world-row locking so failed canon transactions cannot erase usage reservations. No world/history rewrite.
@@ -18,7 +18,7 @@ An additive schema alongside retained `auth`, `rag` and `assistant`. Never insta
 - `002_down.sql`: removes version-2 additions only from an empty database; refuses populated data.
 - `grants.sql`: grants only the dedicated nonprivileged external and relay logins. Provision passwords through existing operator secret workflows; no passwords are stored here.
 
-Future schema evolution adds numbered migrations and compatibility tests. Do not revise an applied production migration to change its meaning. Versions 1 through 7 remain pre-deployment preparation. Current external requires version 7; run 001 then 002 then 003 then 004 then 005 then 006 then 007 before grants/activation. Existing v1 snapshots are unchanged and do not gain synthetic settings records; propose the first world settings record through ordinary review. A v1 application cannot start enabled against v2; rollback by disabling Worldbuilder while preserving data, not by downgrading a populated schema.
+Future schema evolution adds numbered migrations and compatibility tests. Do not revise an applied production migration to change its meaning. Versions 1 through 8 remain pre-deployment preparation. Current external requires version 8; run 001 then 002 then 003 then 004 then 005 then 006 then 007 then 008 before grants/activation. Existing v1 snapshots are unchanged and do not gain synthetic settings records; propose the first world settings record through ordinary review. A v1 application cannot start enabled against v2; rollback by disabling Worldbuilder while preserving data, not by downgrading a populated schema.
 
 Run `scripts/worldbuilder/test-postgres.sh` from repo root. It starts a disposable PostgreSQL 16.13 container, tests all seven migration reruns/empty rollback, populated v1 upgrade with deleted-ID backfill, conflicting legacy-ID refusal, role denial, Go integration/race tests and dump/restore checksums across all 17 canon/lifecycle/story/inference/generation tables, then removes only that container. It never sources `.devcontainer/.env`, touches cluster credentials or connects to a production database. Docker-outside-Docker uses `host.docker.internal` when the host-published loopback port is not visible inside the devcontainer. If Docker-assigned high ports are unreachable, set `WORLDBUILDER_TEST_PORT=25433`; the harness preflights connectivity and fails promptly.
 
@@ -26,6 +26,14 @@ See [API and invariants](../../docs/worldbuilder/API.md) and [controlled LAN ste
 
 If published ports remain unreachable, `WORLDBUILDER_TEST_TRANSPORT=exec bash scripts/worldbuilder/test-postgres.sh` uses a local loopback socat bridge through Docker exec into the disposable container. The harness also attempts this fallback automatically after TCP preflight fails when socat is installed. The relay and container are removed on exit; no database or cluster credential files are loaded.
 
-Current enabled binaries require v7; older v1/v2/v3/v4/v5/v6 binaries fail their startup version check against v7. Production rollback disables the feature and retains every populated table, including unresolved inference reservations. Ledger runtime grants permit insert/read and completion fields only, not allocation/identity/time rewrites or deletion.
+Current enabled binaries require v8; older v1/v2/v3/v4/v5/v6/v7 binaries fail their startup version check against v8. Production rollback disables the feature and retains every populated table, including unresolved inference reservations. Ledger runtime grants permit insert/read and completion fields only, not allocation/identity/time rewrites or deletion.
 
 `ops_dashboard_queries.pgsql` is an operator-only read-only aggregate diagnostic script, tested against disposable data by the migration harness. It reports backlogs, job/lease states, allowance and governance counts without prompts, narrative output, emails or world names. See [observability](../../docs/worldbuilder/OBSERVABILITY.md).
+
+## Superuser class (008)
+
+Migration 008 adds operator-owned superuser grants and immutable account audit history, and permits explicitly audited self-review. Run ordinary `grants.sql` as the canon migration owner. Separately run `auth-grants.sql` as the existing auth table owner/database operator; it preserves the registry and creates its empty shape only in a fresh database. External gets column-scoped identity reads/inserts, never identity updates/deletes. The migration owner does not inherit the legacy app login.
+
+Grant an already registered human using a parameterised operator SQL insert into `worldbuilder.superuser(principal,granted_by)`; do not embed an account in the migration. The grant and any deletion are automatically audited with database operator identity. Revoke by deleting the grant; grant rows cannot be updated, and regrant creates a fresh authority UUID. External cannot insert/update/delete grants. Its fixed-search-path `lock_superuser(text)` function only reads/locks an existing row and prevents revocation racing registration or publication. The global class does not bypass world membership, world archival, deterministic validation or the configured count of distinct human approvals. A superuser contributes one vote.
+
+Self-review rows retain the grant authority alongside membership authority. Either revocation invalidates an unpublished vote, and restoration cannot revive it. Published identities remain immutable. 008 rollback refuses populated worlds/grants/audits and preserves the shared auth registry. Current backup acceptance covers 19 Worldbuilder tables plus `auth.users`.

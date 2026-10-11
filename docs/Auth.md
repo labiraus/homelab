@@ -15,11 +15,12 @@ In all three cases, the Go middleware exposes the same auth status object to han
 
 ## Identity Model
 
-The database-backed identity model lives in `sql/auth.pgsql`.
+The database-backed identity model is the shared `auth.users` table. The historical `sql/auth.pgsql` seed truncates the registry and must not be rerun on a populated deployment.
 
 - Email address is the primary identity key.
 - The only seeded valid user is `oliver@labiraus.com`.
-- Any other email is reported as invalid and unrecognized by the middleware and `/api/auth/status`.
+- Unregistered emails are reported as invalid by the middleware and `/api/auth/status`.
+- With Worldbuilder schema 8 enabled, an operator-granted superuser can register ordinary users in **Worlds → Superuser · Manage users**. Registration preserves existing users and records an immutable account audit. Global superuser grants remain operator-owned; the application cannot grant them. See [account API](worldbuilder/API.md#superuser-accounts-schema-8).
 
 ## Runtime Flow
 
