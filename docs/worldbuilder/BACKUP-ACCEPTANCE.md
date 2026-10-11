@@ -28,7 +28,7 @@ The restore configuration follows the [CNPG 1.25 recovery contract](https://clou
 
 ## Transport and evidence
 
-Local `psql` first probes only the owned Docker loopback mapping, using synthetic credentials and TLS. It excludes inherited PostgreSQL configuration, client certificates and GSS authentication. Repeated connection refusal/timeout can select the owned-node Unix-socket exec fallback; authentication, SQL and certificate errors cannot be hidden by that fallback. The local Docker-outside-Docker environment required exec; CI's actual transport is recorded per recovered database.
+Local `psql` first probes only the owned Docker loopback mapping, using synthetic credentials and TLS. It excludes inherited PostgreSQL configuration, client certificates and GSS authentication. A newly created NodePort may close the first connection while its route propagates; bounded retries allow readiness to settle, but persistent closure fails. Repeated connection refusal/timeout can select the owned-node Unix-socket exec fallback; authentication, SQL and certificate errors cannot be hidden by that fallback. The local Docker-outside-Docker environment required exec; CI's actual transport is recorded per recovered database.
 
 `backup-result.json` records source removal, backup ID, seed hash, observed image IDs, PostgreSQL version, transport and per-table checksums. `operator.yaml`, `cluster.yaml` and `postgres-inputs.yaml` contain public/synthetic configuration references. Pod/event/operator/storage logs support diagnosis. Generated kubeconfig and Secrets remain under excluded private state or inside the disposable containers. A result file records assertions; final process/workflow success additionally requires teardown.
 

@@ -92,6 +92,8 @@ Docker exec attach can terminate early with exit 0 while its command is still ru
 
 Use `scripts/worldbuilder/kind-fixture.py` for shared controller/backup lifecycle and loopback mappings. CNPG webhook refusals can appear as ordinary `Cluster is invalid` messages without the words `admission webhook`; prove invalid-input rejection and unavailable-webhook refusal/recovery rather than requiring that prefix. Database fixture fallback is for unavailable local transport, never authentication or SQL failures.
 
+NodePort creation does not mean kube-proxy has installed its route: Docker can accept and close an initial connection. Retry bounded preflight connection closure before evaluating database readiness; persistent closure must still fail rather than switch to peer authentication.
+
 ## Storage chronology evidence
 
 Treat S3 version IDs as opaque. Retain mixed listing/pagination evidence for timestamp ties, and use `IsLatest` when it proves a unique position: a latest null version is not ambiguous merely because its timestamp ties another version. Refuse null ties only when multiple chronological positions remain possible; never infer order from the provider's placement of null last.

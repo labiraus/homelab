@@ -121,15 +121,24 @@ class Database:
         if shutil.which('psql') and len(bindings) == 1:
             assert bindings[0]['HostIp'] == '127.0.0.1'
             self.args += ['-h', '127.0.0.1', '-p', bindings[0]['HostPort']]
-            for _ in range(5):
+            for attempt in range(10):
                 probe = subprocess.run(self.args + ['-c', 'SELECT 1'], env=self.env,
                                        capture_output=True, text=True, timeout=5)
                 if probe.returncode == 0:
                     assert probe.stdout.strip() == '1'
                     self.local = True
                     break
+                # Docker's listener can accept before kube-proxy installs a new
+                # NodePort route. Retry a preflight EOF, but never hide a
+                # persistent closed connection behind peer authentication.
+                if 'server closed the connection unexpectedly' in probe.stderr:
+                    if attempt == 9:
+                        raise RuntimeError('Local psql connection kept closing: ' + probe.stderr[-1000:])
+                    time.sleep(1)
+                    continue
                 if not re.search('connection refused|timeout expired|connection timed out|no route to host', probe.stderr, re.I):
                     raise RuntimeError('Local psql failed beyond a transport error: ' + probe.stderr[-1000:])
+                if attempt >= 4: break
                 time.sleep(0.5)
         print('Database transport for ' + cluster + ': ' +
               ('local psql over owned loopback port' if self.local else 'owned-node exec after unavailable local transport'), flush=True)

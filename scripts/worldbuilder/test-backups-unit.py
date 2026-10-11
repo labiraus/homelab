@@ -42,6 +42,20 @@ class BackupTests(unittest.TestCase):
         with patch.object(backups.shutil, 'which', return_value='/usr/bin/psql'):
             with self.assertRaises(AssertionError): backups.Database(f, 'offline-source', 'synthetic')
 
+    def test_new_nodeport_can_close_before_its_route_is_ready(self):
+        with patch.object(backups.shutil, 'which', return_value='/usr/bin/psql'), patch.object(backups.time, 'sleep'), patch.object(backups.subprocess, 'run',
+                side_effect=[SimpleNamespace(returncode=2, stdout='', stderr='server closed the connection unexpectedly'),
+                             SimpleNamespace(returncode=0, stdout='1\n', stderr='')]) as run:
+            self.assertTrue(backups.Database(self.fixture(), 'offline-source', 'synthetic').local)
+            self.assertEqual(run.call_count, 2)
+
+    def test_persistent_closed_connection_cannot_use_peer_authentication(self):
+        with patch.object(backups.shutil, 'which', return_value='/usr/bin/psql'), patch.object(backups.time, 'sleep'), patch.object(backups.subprocess, 'run',
+                return_value=SimpleNamespace(returncode=2, stdout='', stderr='server closed the connection unexpectedly')) as run:
+            with self.assertRaisesRegex(RuntimeError, 'kept closing'):
+                backups.Database(self.fixture(), 'offline-source', 'synthetic')
+            self.assertEqual(run.call_count, 10)
+
     def test_missing_or_empty_tables_cannot_pass_fingerprinting(self):
         db = object.__new__(backups.Database)
         db.sql = Mock(return_value='world')

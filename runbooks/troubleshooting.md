@@ -314,6 +314,8 @@ The [CNPG backup fixture](../docs/worldbuilder/BACKUP-ACCEPTANCE.md) verifies ba
 
 CNPG webhook errors may print `Cluster ... is invalid` without an `admission webhook` prefix. The acceptance harness checks the CNPG rejection and separately stops/restarts its own operator to prove fail-closed admission and recovery. Local database fallback only follows a transport failure; password, SQL and certificate errors must not be bypassed by switching to peer authentication.
 
+A newly created NodePort can briefly accept and close a connection before kube-proxy installs its route. The local `psql` preflight retries this startup condition for a bounded interval; a persistent closed connection still fails, and does not select peer authentication. Hosted CI exposed this race after successful CNPG admission checks; test both recovery on a later connection and persistent-failure refusal.
+
 ## Worldbuilder metrics and dashboard provisioning
 
 For disposable controller failures, use [controller acceptance](../docs/worldbuilder/CONTROLLER-ACCEPTANCE.md) and retain `kind.log`, `pods.log`, `events.log` and the workflow conclusion. A kind bootstrap that appears to finish kubeadm early can be a Docker exec transport failure: this environment returned exit 0 before a delayed command actually exited 7. The fixture now inspects exec IDs to completion and verifies bounded output transfers. A failed/partial copy or timed-out exec must not become a passing gate. Creation and teardown both use generated kubeconfig; do not allow kind cleanup to edit the operator's home config.
