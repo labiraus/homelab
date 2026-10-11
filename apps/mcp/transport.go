@@ -622,9 +622,9 @@ func executeToolOperation(ctx context.Context, r *http.Request, resolution toolR
 			return operationResponse{}, rpcErr
 		}
 
-		text, rpcErr := requiredStringArgument(bodyMap, "text")
-		if rpcErr != nil {
-			return operationResponse{}, rpcErr
+		text, ok := bodyMap["text"].(string)
+		if !ok || strings.TrimSpace(text) == "" {
+			return operationResponse{}, &jsonRPCError{Code: -32602, Message: "body.text must be a non-blank string"}
 		}
 
 		contentType := optionalStringArgument(bodyMap, "contentType", "text/plain; charset=utf-8")
@@ -731,10 +731,10 @@ func proxyAPIRequest(ctx context.Context, r *http.Request, method string, path s
 	}
 
 	contentType := strings.TrimSpace(strings.Split(resp.Header.Get("Content-Type"), ";")[0])
-	responseBody := strings.TrimSpace(string(responseBytes))
+	responseBody := string(responseBytes)
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		if responseBody == "" {
+		if strings.TrimSpace(responseBody) == "" {
 			responseBody = fmt.Sprintf("upstream API returned %d", resp.StatusCode)
 		}
 

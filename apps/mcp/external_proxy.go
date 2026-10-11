@@ -132,9 +132,9 @@ func proxyExternal(ctx context.Context, method string, path string, body any) (o
 	}
 
 	contentType := strings.TrimSpace(strings.Split(resp.Header.Get("Content-Type"), ";")[0])
-	response := operationResponse{ContentType: defaultContentType(contentType), Body: strings.TrimSpace(string(responseBytes))}
+	response := operationResponse{ContentType: defaultContentType(contentType), Body: string(responseBytes)}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		if response.Body == "" {
+		if strings.TrimSpace(response.Body) == "" {
 			response.Body = fmt.Sprintf(`{"error":"external API returned %d"}`, resp.StatusCode)
 		}
 		return response, &jsonRPCError{

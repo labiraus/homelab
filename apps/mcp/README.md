@@ -66,6 +66,8 @@ The live external-proxied document shape now supports:
 - `minio.documents.deleteObject` for deletes
 - `minio.documents.moveObject` for object rename and move workflows within the documents bucket
 
+Text uploads preserve leading/trailing whitespace, indentation, line endings and Unicode. The existing non-blank text requirement remains; resource reads preserve every source byte, including empty or whitespace-only text and binary content. Proxy responses are not trimmed before producing MCP text/blob content.
+
 The live Postgres shape also supports `homelab://mcp/postgres/auth/users/{email}` for auth-user lookups.
 
 `documents.inventory.list`, `documents.search`, and `documents.context` accept optional `documentId`, folder-like `prefix`, and exact-match `metadata` filters. Metadata filters are applied to `rag.documents.metadata`, so curated fields from `documents.curation.update` can narrow inventory and retrieval without introducing a separate graph or index service.
