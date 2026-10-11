@@ -2,6 +2,8 @@
 
 ## Increment 22 — three-node broker recovery and startup durability
 
+Source `74c3154` passed [orchestrator CI/CD 38135943901](https://github.com/labiraus/homelab/actions/runs/38135943901), including the new three-node drill, database/startup checks, actual-client storage gate and image/chart publication. [External CI/CD 38135943694](https://github.com/labiraus/homelab/actions/runs/38135943694) and [evaluation adapters 38135943783](https://github.com/labiraus/homelab/actions/runs/38135943783) also succeeded. The offline multi-node broker item is complete; no installed topology or rollout was observed.
+
 The orchestrator publication gate now runs `test-jetstream.sh`: three loopback NATS Server 2.11.9 processes with separate file stores, built from pinned Go modules verified by the public checksum database. The real generation stream/consumer helpers and worker HTTP adapter exercise leader loss, unacknowledged redelivery, stable-ID deduplication, minority publish refusal, uncertain-publish retry and complete process restart with preserved payloads and acknowledgement state. A deterministic HTTP job fixture complements the separate PostgreSQL checkpoint/allowance tests; no live provider is called. See [broker recovery coverage](BROKER-RECOVERY.md).
 
 The audit found startup accepted an existing stream based only on its subject. It now also requires file storage, three replicas and seven-day limits retention; the durable consumer explicitly requires three replicas. Incompatible resources are refused without automatic recreation. Feature flags and production configuration remain unchanged.

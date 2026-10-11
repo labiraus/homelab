@@ -29,6 +29,7 @@ Directory-level `AGENTS.md` files currently exist for:
 - The Worldbuilder target initially assumed separate engine/infra repositories, Cassandra and Fastify. This checkout is a monorepo with existing PostgreSQL and Node HTTP; audit actual code before acting on illustrative paths. No Cassandra resource removal is authorised by its absence from this checkout.
 - When evaluating the deployed project, prefer using the Labiraus MCP server together with other repo-native tools such as local `psql`, Helm/Flux inspection, and app logs so MCP-discovered behavior is checked against the rest of the deployed system.
 - Prefer small, targeted changes that fit the current structure of the repo.
+- Discover existing file paths with `rg --files` before targeted reads; do not infer app, chart or migration-document paths from naming conventions.
 - When changing behavior, config, workflows, or layout, update the relevant human docs in the same task.
 - Do not commit real secrets, kubeconfig material, private keys, or local-only environment files.
 - Prefer repo-native workflows before inventing new ones.
