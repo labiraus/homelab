@@ -312,6 +312,10 @@ If an old audit marker cannot be reverted after copying objects, compare the exa
 
 The disposable storage test needs `systemd-socket-activate` and `systemd-socket-proxyd`, plus the role-pinned `weed` binary. Minimal devcontainers may lack the systemd tools even when production hosts have them. CI uses an Ubuntu runner with these tools. SeaweedFS interprets environment variables as flags: an inherited `debug=release` caused startup failure on 2026-10-11. The harness now starts it with a minimal environment and prints the beginning as well as the end of failed startup logs.
 
+## Storage reference coverage refuses completion
+
+Use the [reference coverage procedure](../docs/StorageReferenceCoverage.md) to interpret explicit missing-version/context/delete-marker outcomes. A failed PostgreSQL export has no sealed `manifest.json`; inspect its private `psql.log` for permissions, RLS or schema errors. Do not enable filtered row visibility or substitute a current object to obtain a green result. Resolve verified missing context through an export-bound reviewed file, preserving original database/history values. S3 delete-marker map entries have no body size/hash, and literal `null` is a valid source version ID; neither is a processing-generation number.
+
 ## Git push selects the wrong GitHub account
 
 On 2026-10-11, the forwarded IDE credential helper selected a different GitHub account for a documentation push and GitHub returned HTTP 403, despite an earlier successful implementation push. For this repository, `git -c credential.username=labiraus -c credential.useHttpPath=true push origin main` selected the existing authorised repository account and succeeded. These are per-command hints, not new credentials or a permission bypass. Check the account named in the rejection before assuming repository access was revoked; do not print tokens, change global account selection or force-push to work around authentication.

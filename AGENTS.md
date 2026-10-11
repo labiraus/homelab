@@ -72,7 +72,7 @@ Before adding a Dockerfile tool installer, check whether a configured devcontain
 
 ## Patch application
 
-For multi-file patches, read exact current headings/anchors first and omit placeholder or no-op updates; one stale anchor rejects the entire patch.
+For multi-file patches, read exact current headings/anchors first and omit placeholder or no-op updates; one stale anchor rejects the entire patch. When inserting a section before a heading, replace the anchor once rather than retaining it above the new section and duplicating it below. Check changed documents for duplicate headings.
 
 ## CI script execution
 

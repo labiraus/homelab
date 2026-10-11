@@ -14,6 +14,7 @@ The [storage workflow](../.github/workflows/storage-acceptance.yml) runs without
 - export/copy/reconciliation of history, delete markers, tags, empty files and source preservation;
 - recovery into a fresh store with original/intermediate version aliases and post-cutover writes preserved;
 - archive corruption/path/order checks before any destination write;
+- read-only PostgreSQL reference inventory and offline map coverage, including deleted inventory, saved tool results, aliases and unresolved identities;
 - Go application helpers and the orchestrator's pinned-map revert reader;
 - the processor's actual Node SDK reading Go-created UTF-8 content and refusing cross-bucket access;
 - 20 source/target chart combinations and both Velero configurations.
@@ -55,7 +56,7 @@ python3 scripts/storage/migrate_versions.py verify /private-backups/documents-fi
 
 Use the exact same endpoint origin and bucket name as the application configuration. The general copier can target another bucket for isolated tests; the runtime resolver intentionally requires the original and destination bucket names to match. It rejects a hostname/IP alias mismatch instead of silently applying a map to the wrong store.
 
-`version-map.json` is the verified result; `import-journal.jsonl` records acknowledged writes and is not an activation map. Reconcile every actual historical reference against the map and prove an isolated database/application restore. Upload the reviewed map to a reserved key such as `.migration/version-map.json` in the versioned destination documents bucket, with `application/json` content type. Record the immutable version ID returned by that upload, then set both values in the reviewed orchestrator chart/Flux configuration:
+`version-map.json` is the verified result; `import-journal.jsonl` records acknowledged writes and is not an activation map. Use the [read-only reference exporter and coverage checker](StorageReferenceCoverage.md) to reconcile structured historical references against the map. Resolve every reported gap and audit the recorded scope, then prove an isolated database/application restore. Upload the reviewed map to a reserved key such as `.migration/version-map.json` in the versioned destination documents bucket, with `application/json` content type. Record the immutable version ID returned by that upload, then set both values in the reviewed orchestrator chart/Flux configuration:
 
 ```yaml
 env:
