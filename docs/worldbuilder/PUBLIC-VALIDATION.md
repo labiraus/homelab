@@ -1,4 +1,4 @@
-# Public endpoint validation — 2026-10-10
+# Public endpoint validation — October 2026
 
 Read-only checks from the development container completed at approximately 19:54 UTC. **Public application functionality remains unverified: this network's Zscaler filter prevented a verified connection to the application.** No credentials were sent, application data changed, cluster commands executed, or feature flags activated.
 
@@ -66,3 +66,15 @@ The user confirmed they are on a different LAN and cannot connect. The configure
 The final failed probe now also records the public certificate presented to OpenSSL with SNI, hostname verification and `-verify_return_error` retained. A separate anonymous GET to a nonexistent HTTP-01 challenge path records only status, server type and redacted redirect destination; no response body, token, cookie or identity is sent or retained. This distinguishes public certificate/routing evidence from application success and may identify whether the configured public destination is an unrelated server. It cannot make a failed smoke check pass. Eight checker tests pass, including verification flags and redirect/cookie redaction.
 
 Checker-only pushes run one immediate diagnostic attempt because they publish no application deployment to await. Post-publication and manual checks retain the ten-attempt retry window.
+
+### Independent origin certificate evidence — 2026-10-11
+
+Commit `027921b` reached main after the existing push resumed through VS Code's credential broker. [Hosted run 38125438853](https://github.com/labiraus/homelab/actions/runs/38125438853) completed at approximately 08:37 UTC: all eight checker tests passed, public validation failed, and the diagnostic artifact uploaded successfully. Retrieved artifact evidence:
+
+- Public DNS still resolves `mcp.labiraus.com` to `87.117.64.111`.
+- Verified TLS fails at hostname validation (code 62); OpenSSL also exits 1 with verification enabled.
+- The presented public leaf has CN `bath.bprj.co.uk`, issuer `Let's Encrypt / YE2`, validity September 18–December 17, 2026, and SANs `bath.bprj.co.uk`, `home.bprj.co.uk`, `imap.bprj.co.uk`, `smtp.bprj.co.uk`. It does not cover `mcp.labiraus.com`.
+- Anonymous port-80 GET to the nonexistent HTTP-01 challenge path times out. This does not establish ACME controller state, but it does not demonstrate the public reachability required by the configured HTTP-01 solver.
+- No HTTP application response, deployed MCP version or Flux status was obtained.
+
+This independently identifies a public certificate/destination problem beyond local Zscaler interception. The observed certificate is currently date-valid for other names; disabling expiry checks, rotating application credentials or changing Worldbuilder code cannot correct its hostname. Installed routing/certificate state and the intended current WAN address remain necessary to distinguish wrong DNS/NAT from wrong gateway/reverse-proxy TLS selection. No matching private/public ingress mapping or remotely usable cluster-observation path was found in the audited configuration. The user confirmed LAN access is unavailable. Keep the goal incomplete; do not claim that Flux has stopped or that the application deployment is verified.
