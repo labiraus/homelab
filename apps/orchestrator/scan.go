@@ -217,10 +217,36 @@ func countInventoryMutation(response *scanBucketResponse, found bool) {
 }
 
 func listMinIOObjectsForScan(ctx context.Context, bucket string, prefix string, maxKeys int) ([]minio.ObjectInfo, error) {
-	return minioutil.ListObjectInfoInBucket(ctx, bucket, minio.ListObjectsOptions{
-		Prefix:    prefix,
-		Recursive: true,
-	}, maxKeys)
+	listCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	objects, err := minioutil.ListObjectsInBucket(listCtx, bucket, minio.ListObjectsOptions{
+		Prefix: prefix, Recursive: true, WithVersions: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	current := []minio.ObjectInfo{}
+	for object := range objects {
+		if object.Err != nil {
+			return nil, object.Err
+		}
+		// Ordinary listings omit version IDs; even HEAD can omit a literal null
+		// version. Use the provider's current-version identity, never infer it.
+		if !object.IsLatest || object.IsDeleteMarker {
+			continue
+		}
+		if strings.TrimSpace(object.VersionID) == "" {
+			return nil, fmt.Errorf("current object version is missing")
+		}
+		current = append(current, object)
+		if maxKeys > 0 && len(current) >= maxKeys {
+			break
+		}
+	}
+	if err := listCtx.Err(); err != nil {
+		return nil, err
+	}
+	return current, nil
 }
 
 func eventFromObject(bucket string, object minio.ObjectInfo, processingVersion int) documentEvent {

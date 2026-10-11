@@ -93,7 +93,7 @@ func TestSeaweedFSClients(t *testing.T) {
 		return result
 	}
 	first := put("sdk/history.txt", "original")
-	put("sdk/history.txt", "current")
+	currentVersion := put("sdk/history.txt", "current")
 	m := mapFixture()
 	m.Entries[0].DestinationVersion = first.VersionID
 	body, _ := json.Marshal(m)
@@ -140,6 +140,17 @@ func TestSeaweedFSClients(t *testing.T) {
 	versions, err := minioutil.ListObjectInfoInBucket(ctx, "documents", minio.ListObjectsOptions{Recursive: true, WithVersions: true, Prefix: "sdk/"}, 0)
 	if err != nil || len(versions) < 5 {
 		t.Fatalf("list versions: %d %v", len(versions), err)
+	}
+	currentObjects, err := listMinIOObjectsForScan(ctx, "documents", "sdk/", 2)
+	if err != nil || len(currentObjects) != 2 {
+		t.Fatalf("scan current versions: %d %v", len(currentObjects), err)
+	}
+	currentIDs := map[string]string{}
+	for _, object := range currentObjects {
+		currentIDs[object.Key] = object.VersionID
+	}
+	if currentIDs["sdk/history.txt"] != currentVersion.VersionID || currentIDs["sdk/moved.txt"] == "" || currentIDs["sdk/move.txt"] != "" {
+		t.Fatal("scan selected historical or deleted identity")
 	}
 	if _, err := minioutil.StatObjectInBucket(ctx, "cnpg-backups", "probe", minio.StatObjectOptions{}); err == nil {
 		t.Fatal("cross-bucket access allowed")

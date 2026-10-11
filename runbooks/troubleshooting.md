@@ -430,6 +430,8 @@ For the disposable large-object round trip, use `--large-migration` with 12 GiB 
 
 ## Storage reference coverage refuses completion
 
+For current inventory rows with missing version markers, inspect the actual S3 version listing. Ordinary object listings omit version IDs; an observed MinIO literal-null object also had no version header on HEAD. The corrected orchestrator scanner selects current live entries from version listings and preserves the exact marker. After publishing it, use normal inventory reconciliation, verify processing, then repeat the frozen reference export. Do not fill historical audit markers from current objects or interpret SQL NULL as proven S3 version `null`.
+
 Use the [reference coverage procedure](../docs/StorageReferenceCoverage.md) to interpret explicit missing-version/context/delete-marker outcomes. A failed PostgreSQL export has no sealed `manifest.json`; inspect its private `psql.log` for permissions, RLS or schema errors. Do not enable filtered row visibility or substitute a current object to obtain a green result. Resolve verified missing context through an export-bound reviewed file, preserving original database/history values. S3 delete-marker map entries have no body size/hash, and literal `null` is a valid source version ID; neither is a processing-generation number.
 
 ## Git push selects the wrong GitHub account

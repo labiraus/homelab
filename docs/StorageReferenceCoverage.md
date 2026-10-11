@@ -66,6 +66,14 @@ unversioned-reference failure. Versioned URIs and malformed JSON-looking saved
 results are reported for review rather than guessed from URL encoding or
 current inventory.
 
+LAN discovery found legacy inventory rows without markers because ordinary S3
+listings omit version IDs. MinIO HEAD also omitted the version header for an
+observed literal-null object. The orchestrator scan now uses version listings
+and `IsLatest`, excluding deleted/history entries and refusing missing IDs.
+After deployment, reconcile current inventory through that normal workflow,
+verify derived processing, and take a fresh frozen reference export. This is
+not permission to rewrite immutable audit markers or claim cutover complete.
+
 ## Check against the verified migration map
 
 Finish the [archive/copy verification](StorageVersionMigration.md) first. The

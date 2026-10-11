@@ -69,6 +69,7 @@ Optional fields:
 The scan:
 
 - inventories each object with bucket, object key, source URI, ETag or version marker, size, last modified timestamp, content type, and desired processing version
+- uses version listings to retain the exact current version, including literal `null`; ordinary listings and legacy HEAD responses can omit it. Historical versions and current delete markers are excluded, and `maxKeys` counts current live objects. Missing version identities and listing refusal fail the scan rather than silently creating unversioned rows.
 - marks non-`text/*` objects as `unsupported`
 - preserves status for unchanged known objects while refreshing `last_reconciled_at`
 - queues new or changed `text/*` objects through the same Postgres plus JetStream path as `POST /documents`
