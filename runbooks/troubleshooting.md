@@ -4,6 +4,22 @@ This runbook is for day-two document-platform and assistant operations.
 
 Postgres-backed state is authoritative. NATS, SSE, and MCP notifications are delivery paths; do not treat notification absence as proof that the durable state is missing.
 
+## Devcontainer build fails while installing TFLint
+
+If the build reports `bash: line 1: 404:: command not found` at the TFLint step, check for the obsolete `terraform-linters/tflint/master/install_linux.sh` download in `.devcontainer/Dockerfile`. That upstream URL returns HTTP 404. TFLint is already installed by the pinned Terraform feature in `.devcontainer/devcontainer.json`; keep that feature as the single installation source.
+
+After removing the duplicate Dockerfile installer, run **Dev Containers: Rebuild Container** in VS Code. Verify `terraform version` and `tflint --version` inside the rebuilt container.
+
+## Devcontainer storage tooling and download failures
+
+On 2026-10-11, `https://dl.min.io/client/mc/release/linux-amd64/mc` returned HTTP 410. The devcontainer now installs the SeaweedFS `weed` CLI instead of `mc`, following the storage pivot. It downloads the official [4.48 release](https://github.com/seaweedfs/seaweedfs/releases/tag/4.48) and checks the architecture-specific SHA-256 before extraction. When updating it, update the release and both amd64/arm64 checksums together. Rebuild and verify `weed version`. Existing MinIO-specific Ansible state playbooks still require `mc` and must be replaced as part of the service migration; installing `weed` alone does not migrate storage or backups.
+
+For command-line Dev Containers builds on a Zscaler-inspected Windows host, set `NODE_EXTRA_CA_CERTS` to the absolute path of the existing `.devcontainer/zscaler-ca.crt` before running the CLI. The Dockerfile CA installation covers build steps inside the image; the host Node process needs its own CA configuration for feature downloads.
+
+## SeaweedFS returns read errors immediately after restart
+
+The S3 listener and bucket listing can become ready before volume servers register with the master. The disposable storage smoke test observed transient `InternalError` / `volume not found` responses during that interval. Check a known object's contents as well as listener/list readiness, using bounded retries; persistent failures require checking volume files, the disk mount and filer/master metadata. Never treat a successful bucket listing alone as proof that object data is available. See [migration gates](../docs/SeaweedFSMigration.md).
+
 ## Public HTTPS fails before application authentication
 
 Check the **Public Endpoint Validation** workflow after app/Helm publication. It retries verified HTTPS and records sanitized DNS/TLS/discovery/auth results from GitHub's runner; compare that independent observation with the local network failure. A successful build only establishes artifact publication, and even a passing public probe does not establish the installed revision. Inspect Flux source/release status when an approved cluster connection is available.

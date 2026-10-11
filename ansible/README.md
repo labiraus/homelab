@@ -1,5 +1,17 @@
 # Ansible External Service Management
 
+## SeaweedFS storage target
+
+Use `make ansible-seaweedfs-host` (or `make bootstrap-svartalfheim-storage`) for the new target on `svartalfheim`. `playbooks/seaweedfs-external-pi-host.yml` uses the `seaweedfs_external_pi_host` inventory group and the `seaweedfs` role. It provisions the pinned release, authenticated private S3 service, persistent metadata, four buckets and document versioning, then renders new Kubernetes credentials to ignored `out/seaweedfs/k8s-secrets.yaml` without applying them.
+
+Supply the ten `SEAWEED_*` credential inputs in local `ansible/.env`; see [bootstrap](../docs/StorageBootstrap.md). MinIO credential refresh is disabled for this path and defaults off in the generic wrapper. The external mount is required before volume-directory creation and by the systemd unit. Filer/master metadata lives on the native filesystem rather than the NTFS volume disk. The role preserves the existing source service, data and Samba configuration.
+
+Follow [the migration plan](../docs/SeaweedFSMigration.md) before publishing the application/backup chart changes. A file copy is insufficient for document history: source version markers and backup chains need explicit migration and restore validation.
+
+## Legacy MinIO reference and other services
+
+The MinIO commands below describe the source system retained for migration and rollback. Their `mc` dependency is no longer included in the devcontainer, and only explicit MinIO Make targets request the old credential-refresh behavior. SeaweedFS bootstrap replaces the old generic storage bootstrap command.
+
 This directory manages external services out-of-band from Kubernetes:
 
 - MinIO server bootstrap on `svartalfheim`
@@ -102,18 +114,15 @@ For local interactive runs in this repo, prefer `ansible/.env` plus the wrapper 
 
 ## Run playbooks
 
-Bootstrap the external Raspberry Pi host services:
+Reapply the legacy MinIO/Samba host services only when needed for migration or rollback:
 
 ```bash
-make bootstrap-svartalfheim-storage
+make ansible-minio-host
 ```
 
 This installs the MinIO binary from `https://dl.min.io/server/minio/release/linux-arm64/minio`, creates a `systemd` service, stores objects under `/srv/minio/minio-data` by default, installs Samba, and exposes the attached drive as the `storage` share backed by `/srv/minio`.
 
-The bootstrap wrapper automatically handles first install versus reapply:
-
-- first install: if `/etc/default/minio` is absent on `svartalfheim`, it uses the bootstrap values already present in `ansible/.env`
-- later runs: if `/etc/default/minio` exists, it refreshes `MINIO_EXTERNAL_ADMIN_ACCESS_KEY` and `MINIO_EXTERNAL_ADMIN_SECRET_KEY` from the host before running the playbook
+This explicit legacy target refreshes existing MinIO root credentials from `/etc/default/minio`. New storage setup uses the SeaweedFS target above.
 
 On `svartalfheim`, both MinIO and the Samba share currently run through user `oliver` because the attached NTFS disk is mounted with ownership mapped to that account. If the disk is later migrated to a Linux-native filesystem, consider switching MinIO and file-sharing ownership to dedicated service users.
 
@@ -303,7 +312,7 @@ Use `docker exec minecraft rcon-cli ...` for Minecraft server commands such as `
 The make targets call `scripts/ansible-run-playbook.sh`, which sources:
 
 1. `.devcontainer/.env` for shared repo-level operator env
-2. `scripts/ansible-fetch-secrets.sh` to refresh MinIO admin credentials from `svartalfheim` unless `ANSIBLE_FETCH_MINIO_SECRETS=0`
+2. `scripts/ansible-fetch-secrets.sh` only when `ANSIBLE_FETCH_MINIO_SECRETS=1` explicitly requests legacy MinIO credential refresh
 3. `ansible/.env` for Ansible-only local secret overrides or cached values
 
 You can also run the wrapper directly for other playbooks:

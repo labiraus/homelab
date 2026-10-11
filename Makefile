@@ -94,7 +94,7 @@ refresh-ansible-secrets:
 	@./scripts/ansible-fetch-secrets.sh
 
 bootstrap-svartalfheim-storage:
-	@./scripts/bootstrap-svartalfheim-storage.sh
+	@bash ./scripts/bootstrap-svartalfheim-storage.sh
 
 postgres:
 	@set -e; \
@@ -148,10 +148,14 @@ vllm-gateway-smoke:
 	@bash ./scripts/vllm-gateway-smoke.sh
 
 ansible-minio-host:
-	@./scripts/ansible-run-playbook.sh -i ansible/inventory/hosts.ini ansible/playbooks/minio-external-pi-host.yml
+	@ANSIBLE_FETCH_MINIO_SECRETS=1 bash ./scripts/ansible-run-playbook.sh -i ansible/inventory/hosts.ini ansible/playbooks/minio-external-pi-host.yml
 
 ansible-minio-state:
-	@./scripts/ansible-run-playbook.sh -i ansible/inventory/hosts.ini ansible/playbooks/minio-external-pi.yml
+	@ANSIBLE_FETCH_MINIO_SECRETS=1 bash ./scripts/ansible-run-playbook.sh -i ansible/inventory/hosts.ini ansible/playbooks/minio-external-pi.yml
+
+.PHONY: ansible-seaweedfs-host
+ansible-seaweedfs-host:
+	@ANSIBLE_FETCH_MINIO_SECRETS=0 bash ./scripts/ansible-run-playbook.sh -i ansible/inventory/hosts.ini ansible/playbooks/seaweedfs-external-pi-host.yml
 
 ansible-minecraft-vm:
 	@ANSIBLE_FETCH_MINIO_SECRETS=0 ./scripts/ansible-run-playbook.sh -i ansible/inventory/hosts.ini ansible/playbooks/minecraft-vm.yml

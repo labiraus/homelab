@@ -1,0 +1,9 @@
+[Unit]
+Description=Private SeaweedFS S3 listener
+
+[Socket]
+ListenStream={{ seaweedfs_s3_bind }}:{{ seaweedfs_s3_port }}
+NoDelay=true
+
+[Install]
+WantedBy=sockets.target

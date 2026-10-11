@@ -1,0 +1,12 @@
+[Unit]
+Description=Forward private S3 traffic to loopback SeaweedFS
+Requires=seaweedfs.service
+After=seaweedfs.service
+
+[Service]
+ExecStart=/lib/systemd/systemd-socket-proxyd 127.0.0.1:{{ seaweedfs_s3_port }}
+DynamicUser=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true

@@ -1,0 +1,6 @@
+---
+- name: Configure the external SeaweedFS S3 service
+  hosts: seaweedfs_external_pi_host
+  gather_facts: true
+  roles:
+    - role: seaweedfs

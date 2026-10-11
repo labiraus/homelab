@@ -29,7 +29,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
 - `docs/`
   - `Setup.md`: Kubernetes setup path for local machine, Proxmox worker prep, SSH, kubeconfig, and worker network stability
   - `Secrets.md`: generated local secrets and Ansible-only secret handling
-  - `StorageBootstrap.md`: external MinIO and Samba bootstrap on `svartalfheim`
+  - `StorageBootstrap.md`: external SeaweedFS bootstrap and legacy mount recovery on `svartalfheim`
   - `EnvoyAIGateway.md`: Flux infra path and scope for Envoy Gateway plus Envoy AI Gateway
   - `MinecraftVM.md`: dedicated Minecraft VM provisioning and operations
   - `NodeClassification.md`: Kubernetes worker label policy and GPU/LLM classification
@@ -183,7 +183,10 @@ Current behavior note:
 - approved assistant proposals use `orchestrator` create/edit endpoints so file changes are written to MinIO and reingested through the existing processor path.
 - the current design does not use a separate RAG API app or standalone assistant service; retrieval and context flow through `external`, `mcp`, and processor-owned assistant workflows.
 
-### MinIO and Ansible
+### External storage and Ansible
+
+- Target: SeaweedFS, managed by `ansible/playbooks/seaweedfs-external-pi-host.yml` and `ansible/roles/seaweedfs/`; `make ansible-seaweedfs-host` provisions the destination.
+- See `docs/SeaweedFSMigration.md` for cutover gates before publishing application/backup endpoint changes. MinIO details below describe the legacy migration source.
 
 - Start with `ansible/README.md`
 - Supporting operator docs: `docs/Secrets.md` and `docs/StorageBootstrap.md`

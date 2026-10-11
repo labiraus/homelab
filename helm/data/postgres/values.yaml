@@ -10,8 +10,8 @@ cluster:
   owner: app
 backup:
   destinationPath: s3://cnpg-backups/app-db
-  endpointURL: http://svartalfheim:9000
-  credentialsSecret: cnpg-backup-s3
+  endpointURL: http://svartalfheim:8333
+  credentialsSecret: cnpg-seaweedfs-s3
 scheduledBackup:
   enabled: true
   name: app-db-daily

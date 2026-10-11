@@ -32,8 +32,8 @@ Directory-level `AGENTS.md` files currently exist for:
 - When changing behavior, config, workflows, or layout, update the relevant human docs in the same task.
 - Do not commit real secrets, kubeconfig material, private keys, or local-only environment files.
 - Prefer repo-native workflows before inventing new ones.
-- Treat MinIO as an external service hosted on the Raspberry Pi `svartalfheim`; do not reintroduce an in-cluster MinIO deployment unless repo guidance is explicitly updated.
-- Do not assume the external MinIO host should be publicly reachable from the internet. Cluster workloads should talk to MinIO directly on the private/repo-managed network path, and any browser-facing or pre-signed-style document delivery should be brokered through an authenticated `mcp.labiraus.com` endpoint rather than exposing MinIO itself.
+- SeaweedFS is the target external S3 service on `svartalfheim`; follow `docs/SeaweedFSMigration.md`. Existing MinIO automation and data are migration/rollback sources, not the target architecture. Do not remove source data or treat source configuration changes as a completed migration.
+- Keep SeaweedFS on the private network. Cluster workloads use its private S3 endpoint; browser-facing document delivery remains brokered through authenticated `mcp.labiraus.com` routes. Master, filer and volume interfaces stay on loopback for this single-host deployment.
 - When a session reveals durable setup facts about Raspberry Pi hosts that do not yet have dedicated repo code, record them in `.codex/PI_NOTES.md`.
 
 For Postgres troubleshooting in this repo, prefer the devcontainer `psql` workflow over `kubectl exec` into the database pod:
@@ -64,6 +64,10 @@ When a problem is fixed, capture the learning close to where it matters:
 If the same issue or class of issue happens more than once, add a permanent rule to the nearest relevant `AGENTS.md` rather than relying on memory.
 
 If Codex makes an incorrect assumption about this repo, correct that assumption in the nearest relevant `AGENTS.md` so future sessions start from the updated rule.
+
+## Devcontainer tool installation
+
+Before adding a Dockerfile tool installer, check whether a configured devcontainer feature already installs it (the Terraform feature includes TFLint). Prefer that single source. For direct binary downloads, use pinned official release assets with architecture-specific checksum verification; avoid floating installer URLs piped into a shell. Validate changes with a complete feature-enabled Dev Containers build, since fixing one expired download can expose another.
 
 ## CI script execution
 

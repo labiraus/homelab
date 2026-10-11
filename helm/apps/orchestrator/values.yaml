@@ -82,7 +82,7 @@ generatedSecrets:
           name: app-db-bootstrap
           key: password
       MINIO_ENDPOINT:
-        value: "svartalfheim:9000"
+        value: "svartalfheim:8333"
       MINIO_USE_SSL:
         value: "false"
       MINIO_BUCKET:
@@ -90,12 +90,12 @@ generatedSecrets:
       MINIO_ACCESS_KEY:
         fromSecretRef:
           namespace: homelab
-          name: documents-minio-credentials
+          name: documents-s3-credentials
           key: accessKey
       MINIO_SECRET_KEY:
         fromSecretRef:
           namespace: homelab
-          name: documents-minio-credentials
+          name: documents-s3-credentials
           key: secretKey
 
 security:
@@ -160,7 +160,7 @@ security:
               cidr: 192.168.8.177/32
         ports:
           - protocol: TCP
-            port: 9000
+            port: 8333
 
 podAnnotations: {}
 podLabels:
