@@ -81,3 +81,7 @@ On Windows-backed workspaces, local executable permissions do not prove Git stor
 ## Disposable database test transport
 
 Docker-outside-Docker published ports can become unreachable despite a healthy container. Use the Worldbuilder harness with `WORLDBUILDER_TEST_TRANSPORT=exec` for its loopback-only Docker-exec bridge when needed; do not switch these offline tests to a LAN/production DSN. A failed transport preflight is not a passing integration test.
+
+## Storage chronology evidence
+
+Treat S3 version IDs as opaque. Retain mixed listing/pagination evidence for timestamp ties, and use `IsLatest` when it proves a unique position: a latest null version is not ambiguous merely because its timestamp ties another version. Refuse null ties only when multiple chronological positions remain possible; never infer order from the provider's placement of null last.

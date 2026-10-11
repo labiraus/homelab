@@ -100,7 +100,7 @@ def chronological(records):
     """Check provider order, then return oldest first per key.
 
     SeaweedFS puts null versions last regardless of their modification time.
-    Place that one version only if its timestamp is distinct from every peer.
+    Place that version only when timestamps/latest flags prove one position.
     Non-null ties retain their mixed Version/DeleteMarker wire order.
     """
     groups, seen, previous_key = defaultdict(list), set(), None
@@ -120,10 +120,19 @@ def chronological(records):
             raise ValueError("Provider listing chronology is inconsistent; inspect legacy pagination")
         if null is not None:
             moment = datetime.fromisoformat(null["modified"])
-            if any(datetime.fromisoformat(r["modified"]) == moment for r in ordered):
-                raise ValueError("Null version shares a timestamp; chronology needs independent evidence")
-            position = next((i for i, r in enumerate(ordered) if datetime.fromisoformat(r["modified"]) < moment), len(ordered))
+            tied = [r for r in ordered if datetime.fromisoformat(r["modified"]) == moment]
+            if not tied:
+                position = next((i for i, r in enumerate(ordered) if datetime.fromisoformat(r["modified"]) < moment), len(ordered))
+            elif null["latest"]:
+                position = 0  # IsLatest independently proves the newest position.
+            elif len(tied) == 1 and tied[0]["latest"]:
+                position = ordered.index(tied[0]) + 1  # The only tied peer is newer.
+            else:
+                raise ValueError("Null version tie has multiple possible positions; independent evidence required")
             ordered.insert(position, null)
+        if any(datetime.fromisoformat(a["modified"]) < datetime.fromisoformat(b["modified"])
+               for a, b in zip(ordered, ordered[1:])):
+            raise ValueError("Null latest flag contradicts timestamp chronology")
         if sum(r["latest"] for r in ordered) != 1 or not ordered[0]["latest"]:
             raise ValueError("Latest version disagrees with listing chronology; inspect source/pagination")
         result.extend(reversed(ordered))

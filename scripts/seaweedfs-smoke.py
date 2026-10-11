@@ -87,6 +87,11 @@ def main():
         command = command.replace("/usr/local/bin/weed", shlex.quote(binary), 1)
         assert "BindsTo=test.mount" in unit and "AssertPathIsMountPoint=/srv/minio" in unit
         assert "-s3.ip.bind=127.0.0.1" in command
+        # Each synthetic bucket allocates seven mostly empty volumes. Auto
+        # capacity (free disk / 1 GiB) exhausts slots on hosted runners long
+        # before data space. Bound test slots explicitly; never preallocate.
+        assert "-volume.max=0" in command
+        command = command.replace("-volume.max=0", "-volume.max=256", 1)
         proxy_unit = template_env.get_template("seaweedfs-s3-proxy.service.j2").render(values)
         proxy_command = next(line.removeprefix("ExecStart=") for line in proxy_unit.splitlines()
                              if line.startswith("ExecStart="))

@@ -80,9 +80,18 @@ class VersionOrderTests(unittest.TestCase):
             self.assertEqual([r["sourceVersion"] for r in order.chronological([newer, older, null])], expected)
         self.assertEqual(order.chronological([record("null", True)]), [record("null", True)])
 
-    def test_null_tie_remains_unprovable(self):
-        with self.assertRaisesRegex(ValueError, "Null version shares"):
-            order.chronological([record("new", True), record("null")])
+    def test_latest_flag_proves_a_unique_null_tie_position(self):
+        self.assertEqual([r["sourceVersion"] for r in order.chronological([record("peer"), record("null", True)])],
+                         ["peer", "null"])
+        self.assertEqual([r["sourceVersion"] for r in order.chronological([record("peer", True), record("null")])],
+                         ["null", "peer"])
+        with self.assertRaisesRegex(ValueError, "contradicts"):
+            order.chronological([record("newer", modified="2026-10-11T00:00:01+00:00"),
+                                 record("peer"), record("null", True)])
+
+    def test_nonlatest_null_tie_remains_unprovable(self):
+        with self.assertRaisesRegex(ValueError, "multiple possible positions"):
+            order.chronological([record("new", True), record("middle"), record("null")])
 
     def test_legacy_pagination_latest_duplicates_and_key_order_refused(self):
         for values in ([record("old"), record("new", True, modified="2026-10-11T00:00:01+00:00")],

@@ -3,7 +3,8 @@ import time
 
 
 def run(client, base, migration):
-    for bucket in ("order-source", "order-target", "order-null-source", "order-null-target", "order-null-tied"):
+    for bucket in ("order-source", "order-target", "order-null-source", "order-null-target",
+                   "order-null-latest", "order-null-latest-target", "order-null-tied"):
         client.create_bucket(Bucket=bucket)
         client.put_bucket_versioning(Bucket=bucket, VersioningConfiguration={"Status": "Enabled"})
     key, writes = "folder/café + %2F.bin", []
@@ -52,8 +53,28 @@ def run(client, base, migration):
     migration.import_archive(client, "order-null-target", null_archive)
     print("PASS: latest null version positioned by distinct timestamp, paginated and copied with native destination IDs", flush=True)
 
-    # Find a real tied null/non-null pair without relying on fixture timing at
-    # one particular second boundary. All writes remain in this test bucket.
+    # Find real ties without relying on one particular second boundary.
+    # IsLatest proves the newest null position even when timestamps tie.
+    tied = False
+    for attempt in range(6):
+        request = dict(Bucket="order-null-latest", Key=f"tie-{attempt}")
+        client.put_bucket_versioning(Bucket=request["Bucket"], VersioningConfiguration={"Status": "Enabled"})
+        client.put_object(**request, Body=b"version")
+        client.put_bucket_versioning(Bucket=request["Bucket"], VersioningConfiguration={"Status": "Suspended"})
+        client.put_object(**request, Body=b"null-latest")
+        values = [r for r in migration.inventory(client, request["Bucket"], validate_order=False) if r["key"] == request["Key"]]
+        if len(values) == 2 and len({r["modified"] for r in values}) == 1:
+            tied = True
+            break
+    assert tied, "Fixture could not establish a latest-null timestamp tie"
+    latest_archive = base / "order-null-latest-archive"
+    manifest = migration.export_archive(client, "order-null-latest", latest_archive, page_sizes=(1, 2))
+    assert all(r["latest"] == (r["sourceVersion"] == "null") for r in manifest["entries"])
+    migration.import_archive(client, "order-null-latest-target", latest_archive)
+    print("PASS: real latest-null timestamp tie resolved by IsLatest, paginated and copied", flush=True)
+
+    # With two non-null peers at the same timestamp, a non-latest null has
+    # multiple possible positions. The provider's null-last placement is not proof.
     tied = False
     for attempt in range(6):
         request = dict(Bucket="order-null-tied", Key=f"tie-{attempt}")
@@ -61,8 +82,10 @@ def run(client, base, migration):
         client.put_object(**request, Body=b"version")
         client.put_bucket_versioning(Bucket=request["Bucket"], VersioningConfiguration={"Status": "Suspended"})
         client.put_object(**request, Body=b"null")
+        client.put_bucket_versioning(Bucket=request["Bucket"], VersioningConfiguration={"Status": "Enabled"})
+        client.put_object(**request, Body=b"latest")
         values = [r for r in migration.inventory(client, request["Bucket"], validate_order=False) if r["key"] == request["Key"]]
-        if len(values) == 2 and values[0]["modified"] == values[1]["modified"]:
+        if len(values) == 3 and len({r["modified"] for r in values}) == 1:
             tied = True
             break
     assert tied, "Fixture could not establish a real null-version timestamp tie"
@@ -70,8 +93,8 @@ def run(client, base, migration):
     try:
         migration.export_archive(client, "order-null-tied", refused, page_sizes=(1, 2))
     except ValueError as error:
-        assert "Null version shares" in str(error), str(error)
+        assert "multiple possible positions" in str(error), str(error)
     else:
         raise AssertionError("Unprovable null tie produced an archive")
     assert not (refused / "manifest.json").exists()
-    print("PASS: real tied null history refused without a completed archive or source mutation", flush=True)
+    print("PASS: real ambiguous non-latest null history refused without a completed archive or source mutation", flush=True)
