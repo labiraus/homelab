@@ -134,6 +134,13 @@ func scanBucket(ctx context.Context, request scanBucketRequest) (scanBucketRespo
 		}
 		if found {
 			event.DocumentID = record.DocumentID
+			// A changed source needs a new derived generation. Reusing the scan's
+			// default (1) makes processor deduplication acknowledge it without work.
+			highest := maxInt(record.DesiredProcessingVersion, record.CurrentProcessingVersion)
+			if documentSourceChanged(record, event) || (record.Status == "unsupported" && supportedTextContentType(event.ContentType)) {
+				highest++
+			}
+			event.ProcessingVersion = maxInt(event.ProcessingVersion, highest)
 		}
 
 		if !supportedTextContentType(event.ContentType) {
@@ -295,7 +302,7 @@ func documentSourceChanged(record documentInventoryRecord, event documentEvent) 
 	if event.ETag != "" && event.ETag != record.ETag {
 		return true
 	}
-	if event.SizeBytes > 0 && event.SizeBytes != record.SizeBytes {
+	if event.SizeBytes != record.SizeBytes {
 		return true
 	}
 

@@ -257,7 +257,7 @@ func upsertReconciledDocument(ctx context.Context, event documentEvent, status s
 			last_modified = EXCLUDED.last_modified,
 			status = CASE WHEN $13 THEN rag.documents.status ELSE EXCLUDED.status END,
 			metadata = EXCLUDED.metadata,
-			desired_processing_version = EXCLUDED.desired_processing_version,
+			desired_processing_version = GREATEST(rag.documents.desired_processing_version, rag.documents.current_processing_version, EXCLUDED.desired_processing_version),
 			last_reconciled_at = NOW(),
 			updated_at = NOW()`,
 		event.DocumentID,

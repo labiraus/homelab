@@ -186,7 +186,7 @@ export WORLDBUILDER_TEST_DATABASE_URL="postgres://postgres:offline-test-only@${t
 export GOCACHE="${GOCACHE:-/tmp/worldbuilder-go-cache}"
 export GOMODCACHE="${GOMODCACHE:-/tmp/worldbuilder-go-mod}"
 (cd "$repo_dir/apps/external" && go test -timeout=120s -race -count=1 ./worldbuilder)
-(cd "$repo_dir/apps/orchestrator" && go test -timeout=120s -race -count=1 -run '^Test(Canon|Generation)' .)
+(cd "$repo_dir/apps/orchestrator" && go test -timeout=120s -race -count=1 -run '^Test(Canon|Generation|DocumentReconciliation)' .)
 # Native MCP OAuth uses an independent database and a non-owner identity. Never
 # grant the MCP authorization service canon privileges or use a production DSN.
 docker exec "$container_name" createdb -U postgres mcp_oauth_test
