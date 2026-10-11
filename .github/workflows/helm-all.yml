@@ -6,7 +6,7 @@ on:
     paths:
       - helm/**/*
       - ".github/actions/helm/**"
-      - "scripts/build/build_helm_matrix.py"
+      - "scripts/build/**"
       - ".github/workflows/helm-all.yml"
 
 permissions:

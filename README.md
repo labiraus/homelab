@@ -272,6 +272,8 @@ GitHub Actions currently handle:
 - `helm/infra/vllm` chart packaging for the pinned upstream vLLM runtime image
 - Helm chart discovery, templating tests, and GHCR packaging
 
+GHCR publication uses `scripts/build/merge-helm-values.sh` so empty overlays retain chart defaults. `bash scripts/build/test-helm-values.sh` checks merge/refusal cases and compares a packaged Prometheus chart with its source render (requires Helm and Mike Farah's yq v4).
+
 After the vLLM and Envoy AI Gateway releases deploy, use `make vllm-gateway-smoke` to validate the live OpenAI-compatible route used by processor-owned assistant workflows.
 
 Important note: some workflow files may lag behind the runtime choices in the repo. For example, the React app is Vite-based and the devcontainer uses Node 24, so treat workflow definitions as something to verify rather than assume are fully current.

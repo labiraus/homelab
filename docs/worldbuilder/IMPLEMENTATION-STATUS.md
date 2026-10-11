@@ -1,5 +1,15 @@
 # Worldbuilder implementation status
 
+## LAN recovery and chart publication repair — 2026-10-11
+
+The control plane is reachable again. Existing `helheim` VM 3103 booted after a scoped corosync restart on its Proxmox host released abnormal memory usage; quorum and replacement SSH certificate authentication were verified. Five Kubernetes nodes are Ready; `midgard` remains cordoned/offline. All seven Longhorn volumes are attached/healthy and three NATS members Ready. Local read-only psql confirms the legacy schemas, no Worldbuilder schema, and current successful WAL archiving with zero failures since PostgreSQL restarted. These checks do not establish a production restore or application acceptance.
+
+Live Flux exposed a publication defect: the Prometheus OCI archive has an empty default-values file because its GHCR overlay is empty. The shared publication merger now preserves empty/comment-only/null overlays and rejects invalid/multi-document inputs before replacement. A real packaged-chart/source-render parity regression passes locally. Publication and live reconciliation remain pending.
+
+External now rejects wildcard browser principals before rendering the canon DENY policy; exact-principal activation remains opt-in. Missing, wildcard-only and partial-wildcard negative renders are included. This closes the source input-validation gap; actual mesh/header-isolation acceptance remains required.
+
+The user reports updating public DNS after the WAN address was observed as `31.50.185.136`; observed resolvers still return the prior address during propagation. Certificate issuance, verified public MCP, storage migration, production restore and staged Worldbuilder activation remain outstanding. See the [recovery runbook](../../runbooks/troubleshooting.md).
+
 ## Increment 32 — Persistent Prometheus history and snapshot recovery
 
 Added explicit, default-disabled Prometheus PVC/retention inputs with exact stack version and observed-storage requirements. Base/GHCR/ECR render checks preserve defaults and dashboard composition and reject 19 incomplete/invalid storage settings. The new [TSDB recovery gate](TSDB-RECOVERY.md) exercises actual Go metric history, same-PVC WAL replay, snapshot hashes, source-volume loss, exact sample restoration, later-sample exclusion and corrupt-index refusal/recovery in an owned cluster. Snapshot path/layout/checksum/bounds refusal cases run before the drill.

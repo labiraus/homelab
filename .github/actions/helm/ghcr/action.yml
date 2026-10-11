@@ -142,11 +142,7 @@ runs:
             chmod +x /usr/local/bin/yq
           fi
 
-          TMP="$(mktemp)"
-          # Deep-merge maps; arrays replaced (Helm-like)
-          yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' "$BASE" "$OVER" > "$TMP"
-          yq eval '.' "$TMP" >/dev/null
-          mv "$TMP" "$BASE"
+          bash "${{ github.workspace }}/scripts/build/merge-helm-values.sh" "$BASE" "$OVER" "$BASE"
         fi
 
     - name: Stamp Chart.yaml version + appVersion
@@ -162,6 +158,10 @@ runs:
 
         yq -i ".version = \"${CHART_VER}\"" "${CHART_DIR}/Chart.yaml"
         yq -i ".appVersion = \"${APP_VERSION}\"" "${CHART_DIR}/Chart.yaml"
+
+    - name: Verify values merge and packaged chart parity
+      shell: bash
+      run: bash "${{ github.workspace }}/scripts/build/test-helm-values.sh"
 
     - name: Report latest published app version for this series
       shell: bash

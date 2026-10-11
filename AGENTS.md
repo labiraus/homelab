@@ -43,6 +43,8 @@ For Postgres troubleshooting in this repo, prefer the devcontainer `psql` workfl
 - use the connection details populated by `make refresh-postgres-env` / `.devcontainer/.env` for scripted `psql` checks
 - only fall back to in-cluster execution if the local `psql` path is unavailable or explicitly requested
 
+For SSH recovery, check certificate validity and available authorized-key or console access before changing infrastructure. The SSH user CA is separate from Kubernetes PKI: a lost signing passphrase calls for a staged trust rotation, not a VM rebuild or kubeadm reset. Verify the effective `sshd` trust paths and actual authorized-key symlink before prescribing a Proxmox shared-file change; API access or a successful file edit does not prove SSH recovery. An `authorized_keys` CA entry requires the `cert-authority` option and appropriate principals; a bare CA public key does not authorize its signed certificates. Provide console commands as a single shell line when the question interface flattens line breaks. Verify new certificate authentication before retiring old trust, and independently verify changed host keys before editing `known_hosts`. Update public CA provisioning inputs without applying Terraform solely to rotate live trust. Follow `docs/Setup.md` and keep CA private keys, passphrases, and rollback copies local-only.
+
 ## Documentation Upkeep
 
 When Codex changes code, config, workflows, or repository structure, consider whether any of these need updates:

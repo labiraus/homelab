@@ -149,6 +149,8 @@ SELECT count(*) AS unresolved_expired_attempts FROM worldbuilder.inference_attem
 WHERE status='reserved' AND lease_until<now();
 ```
 
+The external chart rejects missing or wildcard browser principals, including wildcard service accounts and trust domains. Run `python3 scripts/worldbuilder/check-manifests.py` before publication; a successful exact-principal render still requires the live identity and denial checks above.
+
 ## 4. Reversibility and stop conditions
 
 - If identity/header isolation, schema grants, backup health or storage differ from the plan, stop before activation.

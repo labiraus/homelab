@@ -24,24 +24,12 @@ if [[ ! -f "$OVERLAY_VALUES" ]]; then
   exit 1
 fi
 
-TMP_FILE="$(mktemp)"
-
 echo "Merging:"
 echo "  Base:    ${BASE_VALUES}"
 echo "  Overlay: ${OVERLAY_VALUES}"
 echo
 
-# Helm-like merge:
-# - Deep merge maps
-# - Replace arrays entirely
-yq eval-all '
-  select(fileIndex == 0) * select(fileIndex == 1)
-' "$BASE_VALUES" "$OVERLAY_VALUES" > "$TMP_FILE"
-
-# Validate output is valid YAML
-yq eval '.' "$TMP_FILE" > /dev/null
-
-# Replace base values.yaml
-mv "$TMP_FILE" "$MERGED_OUTPUT"
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+bash "$repo_root/scripts/build/merge-helm-values.sh" "$BASE_VALUES" "$OVERLAY_VALUES" "$MERGED_OUTPUT"
 
 echo "Successfully merged values-${SUFFIX}.yaml into values.yaml"

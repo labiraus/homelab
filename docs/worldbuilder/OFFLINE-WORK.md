@@ -60,4 +60,4 @@ Source-only or synthetic evidence must not be used to mark these live gates comp
 
 ## Mesh preparation findings
 
-Disposable Cilium and Istio prototypes pass basic network-policy and real service-account identity checks; the repository-policy/gateway CI gate remains unfinished. A source render currently accepts `worldbuilder.browserPrincipal: "*"`, yielding `notPrincipals: ["*"]` in the browser DENY policy. Add refusal for wildcard browser identities and test the actual source policy before treating mesh preparation as complete. This is a source-configuration gap; no installed value or live exposure is inferred.
+Disposable Cilium and Istio prototypes pass basic network-policy and real service-account identity checks; the repository-policy/gateway CI gate remains unfinished. The external chart now rejects wildcard browser principals, including partial service-account and trust-domain wildcards, with negative render checks. Test the actual source policy before treating mesh preparation as complete; input validation alone does not establish live isolation.

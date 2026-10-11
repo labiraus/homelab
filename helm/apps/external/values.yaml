@@ -308,7 +308,7 @@ worldbuilderMonitoring:
 worldbuilder:
   enabled: false
   databaseSecret: worldbuilder-external
-  browserPrincipal: ""
+  browserPrincipal: "" # Exact observed browser mTLS identity; wildcards are forbidden.
   aiSecret: ""
   jobs:
     enabled: false

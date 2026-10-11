@@ -41,7 +41,7 @@ ssh-add .devcontainer/ssh/id_ed25519
 
 `ssh-add` only needs the private key. OpenSSH will use the matching certificate (`.devcontainer/ssh/id_ed25519-cert.pub`) automatically.
 
-You will need to re-sign the key every 30 days, or remove the timeout. In this example `root` is the user for Proxmox, `oliver` is the user set up for `yggdrasil`, and `ubuntu` is the default username used on the Ubuntu machines.
+You will need to re-sign the key every 30 days. Keep the CA passphrase in a password manager and retain a protected backup of the CA private key. In this example `root` is the user for Proxmox, `oliver` is the user set up for `yggdrasil`, and `ubuntu` is the default username used on the Ubuntu machines.
 
 The repo Makefile now includes a helper for that refresh step:
 
@@ -68,6 +68,25 @@ If the `Valid` window is in the past, re-sign the existing login key with the sa
 ```bash
 make refresh-ssh
 ```
+
+### Recovering a lost SSH CA passphrase
+
+The SSH user CA is separate from Kubernetes PKI. A lost SSH CA passphrase does not require recreating VMs, resetting kubeadm, or erasing cluster storage.
+
+1. Preserve the old CA files and login certificate before generating an encrypted replacement CA. Store its new passphrase separately in a password manager.
+2. Establish recovery access through an existing authorized login key, a physical/web console, or the Proxmox QEMU guest agent. A working Proxmox API token does not by itself prove host-shell access. With guest-agent execution, poll `exec-status` for terminal success and verify the resulting files.
+3. Add the new **public** CA alongside existing trust. Terraform-managed Ubuntu guests use a `cert-authority,principals="ubuntu"` entry in `/home/ubuntu/.ssh/authorized_keys`. Manually configured hosts may instead use `TrustedUserCAKeys`; inspect the effective `sshd -T` configuration. Never copy the private CA key or its passphrase to a host.
+4. Sign the existing login public key, then verify a fresh connection actually accepts the new `ED25519-CERT` identity and that required sudo access works. Keep existing trust until every intended host has been verified.
+5. Install the replacement workstation CA at `~/.ssh/ssh_user_ca` (the devcontainer mounts `.devcontainer/ssh/` there), its public key beside it, and the new login certificate at `.devcontainer/ssh/id_ed25519-cert.pub`. Update the public CA entries in `etc/nodes/*.tfvars` for future provisioning. Do not apply Terraform merely to rotate live SSH trust: cloud-init changes can have VM lifecycle consequences.
+6. After all hosts and recovery paths work, retire the old public CA trust explicitly. A changed SSH **host** key is a separate identity check; verify it through a trusted console or guest agent before changing `known_hosts`.
+
+For Proxmox, inspect `/root/.ssh/authorized_keys` and its link to the cluster-managed `/etc/pve/priv/authorized_keys`. Adding a root-scoped CA entry to the shared file can restore all cluster hosts without restarting their workloads. Preserve unrelated entries and back up the file before editing it.
+
+In `authorized_keys`, the line must begin with `cert-authority,principals="root"` (or the intended guest user). A bare `ssh-ed25519 ...` CA key is only a direct login-key entry and does not authorize certificates signed by that CA. This differs from a `TrustedUserCAKeys` file, which contains bare CA public keys. If a console command is copied through a UI that removes line breaks, use a single shell line with explicit separators and verify the installed entry afterward.
+
+For a console where commands must be typed by hand, a temporary private-LAN HTTP endpoint can transfer the **public CA only**. Before installing it, compare `ssh-keygen -lf` against the exact fingerprint supplied through the trusted operator session; HTTP transport alone does not authenticate the key. Preserve the existing trust file and append the verified public key. Never serve private keys, passphrases, scripts to execute, or a directory listing. Time-limit the endpoint and stop it after verified SSH recovery.
+
+Current recovery progress is recorded in the [troubleshooting runbook](../runbooks/troubleshooting.md#ssh-ca-recovery-2026-10-11).
 
 ## Chromebook
 

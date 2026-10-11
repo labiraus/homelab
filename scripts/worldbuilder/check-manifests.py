@@ -37,13 +37,17 @@ for chart in charts:
                 (out/(name+'.kustomize')).write_text(result.stdout+result.stderr)
                 if result.returncode:failures.append(name+' kustomize')
         checked.append(name)
-# Explicit activation render and missing-principal refusal. No secret values used.
+# Explicit activation render and missing/wildcard principal refusal. No secret values used.
 for chart in ['external','orchestrator']:
     directory=root/'helm/apps'/chart
     cmd=['helm','template','homelab-'+chart,str(directory),'--kube-version','1.35.0','-f',str(directory/'values-ghcr.yaml'),'--set','global.allowMissingGeneratedSecretRefs=true','--set','worldbuilder.enabled=true']
     if chart=='external':
         missing=subprocess.run(cmd,capture_output=True,text=True)
         if missing.returncode==0:failures.append('external activation accepted missing browserPrincipal')
+        for invalid in ['*', 'cluster.local/ns/homelab/sa/*', '*/ns/homelab/sa/browser']:
+            rejected=subprocess.run(cmd+['--set-string','worldbuilder.browserPrincipal='+invalid],capture_output=True,text=True)
+            if rejected.returncode==0 or 'Worldbuilder browser principal must be exact' not in rejected.stderr:
+                failures.append('external activation failed wildcard browserPrincipal refusal: '+invalid)
         cmd+=['--set','worldbuilder.browserPrincipal=cluster.local/ns/homelab/sa/homelab-oauth2-proxy']
     result=subprocess.run(cmd,capture_output=True,text=True)
     save_render(out/(chart+'-enabled.yaml'),result)

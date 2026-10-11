@@ -3,6 +3,9 @@
 {{- end }}
 {{- if .Values.worldbuilder.enabled }}
 {{- $principal := required "worldbuilder.browserPrincipal must be verified before enabling canon" .Values.worldbuilder.browserPrincipal }}
+{{- if contains "*" $principal }}
+{{- fail "Worldbuilder browser principal must be exact; wildcards are forbidden" }}
+{{- end }}
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:

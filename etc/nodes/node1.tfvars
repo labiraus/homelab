@@ -9,7 +9,7 @@ proxmox = {
 }
 
 vm = {
-  cpu_cores    = 12
+  cpu_cores = 12
   # proxmox-node1 has 32 GiB installed RAM, but it also runs the dedicated
   # Minecraft VM `nidavellir` at 14336 MiB and needs host headroom for Proxmox,
   # QEMU, and Intel iGPU passthrough overhead. Keep `jotunheim` within the
@@ -41,7 +41,7 @@ network = {
 }
 
 ssh_authorized_keys = [
-  "cert-authority,principals=\"ubuntu\" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAD/I8jzz4PjePbJRSS/Wh4ID1rfLUSgG7lkPN4H2E10 homelab-user-ca",
+  "cert-authority,principals=\"ubuntu\" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ/khxdQQQI9UpA1WoPwUbH0bikOq9A3malUSS0IIRbf homelab-user-ca-20261011",
   "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINkxqdUSQl+Nx1NBr1+YDXeXDnzzNQAD7CTrcTJX/PB9 homelab-login",
 ]
 

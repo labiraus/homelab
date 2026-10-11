@@ -35,6 +35,7 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 - Use `helm/workloads/` for miscellaneous or optional workloads that are not part of the core platform/system footprint.
 - OCI charts are published under the repo naming pattern `oci://ghcr.io/labiraus/homelab/charts/<chart-name>`.
 - For GHCR-backed deployment, effective values are a combination of `values.yaml` and `values-ghcr.yaml`.
+- Empty/comment-only/null overlays must preserve base defaults during packaging. Use `scripts/build/merge-helm-values.sh` and run `bash scripts/build/test-helm-values.sh`; source `helm template -f` checks alone do not prove the published archive retains defaults. Reject non-map and multi-document values before replacing an output file.
 - For EKS-style deployment, effective values are a combination of `values.yaml` and `values-ecr.yaml`.
 - `values.yaml` is the base/default layer. Environment-specific files such as `values-ghcr.yaml` and `values-ecr.yaml` provide the registry or platform-specific overrides.
 - If a chart changes image registry assumptions, secret references, or environment-specific config values, check all values variants, not only `values.yaml`.
@@ -75,6 +76,7 @@ If a charting convention or Flux integration rule proves durable, record it here
 If a lesson is specific to one chart family, add a more local `AGENTS.md` under that subtree later.
 
 - Helm `required` does not reject an empty list in the locally verified Helm version. Security-sensitive principal lists must explicitly test `empty` and reject wildcard entries; include negative render tests.
+- Worldbuilder's browser principal must be exact too: reject any `*` before rendering its `notPrincipals` DENY boundary, with missing, wildcard-only and partial-wildcard refusal checks.
 
 - Offline CRD checks must fail on missing schemas. Some upstream charts render CRDs from templates, so `helm show crds` can be empty; use `helm template --include-crds`. Set `HELM_CACHE_HOME` for temporary writable caches. `scripts/worldbuilder/test-platform.sh` validates the Worldbuilder render matrix against a disposable pinned API server, including built-ins/CEL/strict fields. Keep source CRDs unchanged and operator kubeconfig unused; source validation does not establish installed versions, external webhooks or controller reconciliation. CI gates app and Helm publication on this check.
 

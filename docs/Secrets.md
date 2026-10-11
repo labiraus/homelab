@@ -30,6 +30,8 @@ Operator access to Postgres is intentionally local-only now. Use `make postgres`
 
 Treat those generated entries as cacheable local state, not hand-maintained secrets.
 
+The SSH CA private key is different: it cannot be regenerated from a host's public trust. Keep its passphrase in a password manager and back up the encrypted key securely. During the 2026-10-11 rotation, the replacement encrypted key was installed in `.devcontainer/ssh/ssh_user_ca`; the generated passphrase and rollback copies were retained under ignored `.local/ssh-ca-recovery-20261011/` (directory mode `0700`, secret files `0600`). The passphrase file is `ca-passphrase`. Move that passphrase into the password manager and verify the key backup before removing recovery copies. Never paste their contents into logs, chat, or Git. The local recovery directory is temporary custody, not an independent backup.
+
 ## Ansible secret handling
 
 Use `ansible/.env` for external-host secrets that Ansible needs but the rest of the repo does not.
