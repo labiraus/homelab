@@ -6,6 +6,8 @@ Read-only checks from the development container completed at approximately 19:54
 
 ## Observations
 
+Latest hosted recheck: [post-publication run 38140729481](https://github.com/labiraus/homelab/actions/runs/38140729481) failed all ten attempts through 12:53 UTC on 2026-10-11. DNS, hostname mismatch code 62, the unrelated Let's Encrypt/YE2 `bath.bprj.co.uk` certificate and HTTP-01 timeout are unchanged. Source `7a64075` passed offline acceptance and app/Helm publication; no verified application response or installed reconciliation state was obtained.
+
 | Check | Observed result |
 |---|---|
 | Configured Labiraus MCP | Both local Codex configurations point `homelab-mcp` at `https://mcp.labiraus.com/mcp`; no callable Labiraus connector was exposed in this session. HTTP diagnostics were used. |
