@@ -24,7 +24,7 @@ func TestRedirectBoundary(t *testing.T) {
 			t.Fatal(v)
 		}
 	}
-	for _, v := range []string{"http://evil.example/callback", "http://localhost/callback", "https://user:pass@client.example/callback", "https://client.example/callback#fragment", "javascript:alert(1)", "//client.example/callback"} {
+	for _, v := range []string{"http://evil.example/callback", "http://localhost/callback", "https://user:pass@client.example/callback", "https://client.example/callback#fragment", "javascript:alert(1)", "//client.example/callback", "https://*.example/callback", "https://client.example;evil/callback", "https://client'.example/callback"} {
 		if validRedirect(v) {
 			t.Fatal(v)
 		}

@@ -96,7 +96,7 @@ func validRedirect(raw string) bool {
 		return false
 	}
 	u, err := url.Parse(raw)
-	if err != nil || u.Host == "" || u.User != nil || u.Fragment != "" || u.Opaque != "" {
+	if err != nil || u.Host == "" || strings.ContainsAny(u.Host, " ;*'\"\t\r\n") || u.User != nil || u.Fragment != "" || u.Opaque != "" {
 		return false
 	}
 	if u.Scheme == "https" {
@@ -229,6 +229,14 @@ func (s *Server) authorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.SetCookie(w, &http.Cookie{Name: cookieName, Value: csrf, Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: 600})
+	// no-referrer makes browser form POSTs send Origin: null. Preserve the
+	// same-origin CSRF check without sending the authorization URL off-site.
+	w.Header().Set("Referrer-Policy", "same-origin")
+	// Chromium applies form-action to the subsequent redirect as well. The
+	// return origin is allowed only after exact registered-redirect validation;
+	// consent still posts here and the code remains bound to the full URI.
+	redirect, _ := url.Parse(auth.Redirect)
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; form-action 'self' "+redirect.Scheme+"://"+redirect.Host+"; frame-ancestors 'none'; base-uri 'none'")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = consentPage.Execute(w, struct{ Email, Name, Redirect, Request string }{email, client.Name, auth.Redirect, handle})
 }

@@ -68,6 +68,21 @@ jobs:
         run: go test ./...
         working-directory: apps/pkg/api
 
+      - name: Set up Node for native consent browser acceptance
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Install existing browser test dependencies
+        run: npm ci && npx playwright install --with-deps chromium
+        working-directory: apps/ui
+
+      - name: Native OAuth browser consent and client return
+        run: go test -timeout=90s -race -count=1 -run TestBrowserConsent ./mcpauth
+        working-directory: apps/external
+        env:
+          MCP_OAUTH_BROWSER_TEST: '1'
+
       - name: Worldbuilder PostgreSQL migration and integrity checks
         run: bash scripts/worldbuilder/test-postgres.sh
 
