@@ -70,6 +70,8 @@ The [CNPG backup drill](worldbuilder/BACKUP-ACCEPTANCE.md) verifies physical bas
 
 The separate [Velero drill](worldbuilder/VELERO-ACCEPTANCE.md) restores synthetic files, mounted Secrets/configuration, workload resources and mapped RBAC after deleting its source namespace and volume. It exercises actual controller/node-agent replacement and S3 credential refusal. Production backup inventory, repository-password custody, all real Secrets and historical backup compatibility remain required.
 
+The separate [Prometheus TSDB drill](worldbuilder/TSDB-RECOVERY.md) verifies synthetic WAL/history and snapshot recovery after source-volume loss. Its opt-in PVC settings do not establish production backup scheduling, external retention or hardware durability. Observe the installed storage and prepare restricted snapshot access and backup custody before adopting a live procedure.
+
 ## Verification
 
 After recovery:

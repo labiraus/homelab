@@ -20,6 +20,9 @@ MONITOR = {'worldbuilderMonitoring': {'enabled': True, 'labels': {'release': 'pr
 DASHBOARD = {'stack': {'chartVersion': STACK_VERSION}, 'worldbuilderObservability': {
     'enabled': True, 'datasourceUID': 'fixture-prom', 'externalNamespace': NAMESPACE}}
 
+PERSISTENCE = {'stack': {'chartVersion': STACK_VERSION}, 'prometheusStorage': {
+    'enabled': True, 'storageClassName': 'standard', 'size': '1Gi', 'retention': '1h'}}
+
 
 def only(documents, kind, name=None):
     matches = [d for d in documents if d.get('kind') == kind and
@@ -58,6 +61,17 @@ def main(output, stack_chart):
         default_release = only(default_stack, 'HelmRelease')
         assert default_release['spec']['chart']['spec']['version'] == '*'
         assert set(default_release['spec']['values']['grafana']) == {'grafana.ini'}
+        assert 'prometheus' not in default_release['spec']['values']
+        persistent = render('observability/prometheus', PERSISTENCE, 'persistent-stack-' + suffix, overlay)
+        storage_values = only(persistent, 'HelmRelease')['spec']['values']['prometheus']
+        assert storage_values['prometheusSpec'] == {'enableAdminAPI': False, 'retention': '1h',
+            'storageSpec': {'volumeClaimTemplate': {'spec': {'accessModes': ['ReadWriteOnce'],
+                'storageClassName': 'standard', 'resources': {'requests': {'storage': '1Gi'}}}}}}
+        assert not any(d['kind'] == 'ConfigMap' for d in persistent)
+        combined = copy.deepcopy(DASHBOARD); combined['prometheusStorage'] = PERSISTENCE['prometheusStorage']
+        combined_docs = render('observability/prometheus', combined, 'persistent-dashboard-' + suffix, overlay)
+        assert only(combined_docs, 'HelmRelease')['spec']['values']['prometheus'] == storage_values
+        assert only(combined_docs, 'ConfigMap')['data']['worldbuilder.json']
         external = render('apps/external', MONITOR, 'external-monitor-' + suffix, overlay)
         monitor = only(external, 'ServiceMonitor')
         service = only(external, 'Service')
@@ -119,6 +133,33 @@ def main(output, stack_chart):
         {'worldbuilderObservability': {'enabled': True, 'datasourceUID': 'fixture-prom', 'externalNamespace': ''}}]):
         values = copy.deepcopy(DASHBOARD); values.update(changes)
         render('observability/prometheus', values, f'reject-dashboard-{n}', reject=True)
+
+    storage_invalid = []
+    for key, value in [('enabled', 'false'), ('storageClassName', ''), ('storageClassName', '*'), ('storageClassName', 'bad/class'),
+                       ('storageClassName', 'bad..class'), ('storageClassName', 'a' * 254),
+                       ('size', ''), ('size', '0Gi'), ('size', '-1Gi'), ('size', '1GB'),
+                       ('retention', ''), ('retention', '0h'), ('retention', '-1d'), ('retention', 'forever')]:
+        values = copy.deepcopy(PERSISTENCE); values['prometheusStorage'][key] = value
+        storage_invalid.append(values)
+    for value in ('*', '', '92.x'):
+        values = copy.deepcopy(PERSISTENCE); values['stack']['chartVersion'] = value
+        storage_invalid.append(values)
+    for value in ('', 'BAD'):
+        values = copy.deepcopy(PERSISTENCE); values['stack']['targetNamespace'] = value
+        storage_invalid.append(values)
+    for n, values in enumerate(storage_invalid):
+        render('observability/prometheus', values, f'reject-storage-{n}', reject=True)
+    storage_input = fixtures / 'storage-upstream-values.yaml'
+    storage_input.write_text(yaml.safe_dump({'prometheus': storage_values}))
+    result = subprocess.run(['helm', 'template', 'prometheus', str(stack_chart), '-n', SCRAPER_NAMESPACE,
+        '--kube-version', '1.35.0', '-f', str(storage_input)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    persistent_prom = only([d for d in yaml.safe_load_all(result.stdout) if d], 'Prometheus')
+    assert persistent_prom['spec']['storage'] == storage_values['prometheusSpec']['storageSpec']
+    assert persistent_prom['spec']['retention'] == '1h' and persistent_prom['spec']['enableAdminAPI'] is False
+    (output / 'tsdb-storage-upstream.template').write_text(yaml.safe_dump(persistent_prom))
+    (fixtures / 'storage-inputs.json').write_text(json.dumps(PERSISTENCE, indent=2) + '\n')
+    print(f'PASS: opt-in persistent storage, unchanged defaults, dashboard composition and {len(storage_invalid)} refusal cases')
 
     # The actual upstream chart must mount this ConfigMap and provider together.
     release = only(dashboards, 'HelmRelease')

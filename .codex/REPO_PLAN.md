@@ -28,4 +28,6 @@ Increment 30 is CI verified: source `1076dea` passes all five platform jobs (381
 
 Increment 31 implements actual Prometheus TLS admission in the existing controller gate: certificate Jobs, annotation mutation, semantic refusal, both webhook trust failures and unavailable-operator recovery. Source `020c4f0` passes all five platform jobs (38151131241), complete external/orchestrator image and chart publication (38151131565 / 38151131421), and evaluation adapters (38151131236). Hosted and local admission/discovery/replacement checks and teardown pass. Persistent TSDB and mesh checks remain subsequent offline work.
 
+Increment 32 implements explicit opt-in Prometheus PVC/retention settings and a dedicated owned-kind TSDB gate: actual Go history, WAL replay, verified snapshots, source-volume loss, distinct-volume recovery and corrupt-index refusal. Full local and CI/publication evidence are pending. Routine publication retains existing storage defaults and keeps the admin API disabled.
+
 No live readiness or deployment success has been observed in this remote session. Source publication is authorised; production activation remains LAN-gated.

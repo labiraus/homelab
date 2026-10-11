@@ -26,3 +26,10 @@ worldbuilderObservability:
   enabled: false
   datasourceUID: '' # Existing Prometheus datasource UID; never a URL or credential.
   externalNamespace: ''
+
+# Enable only after observing the installed stack and storage class/capacity.
+prometheusStorage:
+  enabled: false
+  storageClassName: ''
+  size: '' # Positive whole Mi, Gi or Ti, e.g. 20Gi; choose from measured capacity.
+  retention: '' # Positive whole h, d or w, e.g. 15d; choose from measured ingestion.

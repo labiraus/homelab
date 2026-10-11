@@ -1,5 +1,11 @@
 # Worldbuilder implementation status
 
+## Increment 32 — Persistent Prometheus history and snapshot recovery
+
+Added explicit, default-disabled Prometheus PVC/retention inputs with exact stack version and observed-storage requirements. Base/GHCR/ECR render checks preserve defaults and dashboard composition and reject 19 incomplete/invalid storage settings. The new [TSDB recovery gate](TSDB-RECOVERY.md) exercises actual Go metric history, same-PVC WAL replay, snapshot hashes, source-volume loss, exact sample restoration, later-sample exclusion and corrupt-index refusal/recovery in an owned cluster. Snapshot path/layout/checksum/bounds refusal cases run before the drill.
+
+LOCAL_VERIFIED (2026-10-11): the complete drill restores 61 actual metric series / 2,135 exact samples, replays WAL, removes source storage, rejects a corrupt index, recovers again and tears down its fixture (`/tmp/homelab-tsdb-acceptance.log`). The API-server wrapper accepts 75 CRDs and 359 renders; 19 storage-setting refusal cases and six snapshot-refusal tests pass. Final fresh-PVC identity checks are under a new full local run; exact-source CI/publication evidence is pending. No production storage settings, admin endpoint, feature activation or backup schedule is enabled. Mesh, timeline inheritance, vector discovery and the final offline audit remain open.
+
 ## Increment 31 — Prometheus admission and certificate refusal
 
 The [controller acceptance](CONTROLLER-ACCEPTANCE.md) gate now enables the pinned stack’s actual TLS admission webhooks and executes its certificate-generation and CA-patching Jobs. It verifies numeric annotation mutation, invalid PromQL and Alertmanager receiver refusal, wrong-CA refusal/recovery for both webhook kinds, and fail-closed behavior while the operator is unavailable. A fresh operator Pod must restore real successful admission before the existing discovery/filtering/replacement drill proceeds. Hook Pod selection, null Helm annotations and Service-routing readiness follow the lessons captured in root agent guidance.

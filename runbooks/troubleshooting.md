@@ -314,6 +314,8 @@ Use `bash scripts/worldbuilder/test-platform.sh` with the dependencies in [offli
 
 New CRDs can initially have absent/null status conditions; the harness waits for `Established` with a deadline. It refuses remote conversion-webhook configurations rather than rewriting their source or connecting outside the fixture. External operators/webhooks need separate disposable fixtures; do not bypass an acceptance failure by selecting a real cluster. No test success proves live admission or workload readiness.
 
+If a local Go cache reports `missing ziphash`, use a fresh task-specific `GOPATH`/`GOMODCACHE` and rerun the existing gate with module verification intact; do not reuse incomplete unpacked modules or disable checksum verification.
+
 For a structural parser error on a bare `=` in a public CRD enum, use the repository's Kubernetes-aware safe loader. It preserves this legal string while rejecting unsafe YAML tags; do not rewrite the upstream CRD or skip its validation. The disposable API-server gate must also pass the original source.
 
 ## Worldbuilder Prometheus admission acceptance
@@ -377,3 +379,7 @@ On 2026-10-11, the forwarded IDE credential helper selected a different GitHub a
 If disposable PostgreSQL migrations encounter “the database system is shutting down” immediately after container startup, wait for `pg_isready -h 127.0.0.1` inside that container. The official image starts a temporary socket-only server during initdb; socket readiness can race its shutdown. The Worldbuilder harness now waits for the final TCP server before running migrations.
 
 A Worldbuilder proposal can remain labelled `approved` after membership changes while its eligible approval count falls below quorum. Publication correctly returns 409. Inspect review history/current count and obtain fresh independent reviews; restoring an old role does not resurrect its old approval. Published approval counts remain historical and do not change when members leave. See [review policy](../docs/worldbuilder/REVIEW-POLICY.md).
+
+## Worldbuilder persistent TSDB acceptance
+
+Use the [TSDB recovery gate](../docs/worldbuilder/TSDB-RECOVERY.md) to distinguish scrape recovery from history recovery. Require stopped producers, quiescent fixed-time raw samples, WAL replay and a distinct restored volume after source deletion. The operator mounts its PVC through `prometheus-db`; derive and check the actual mount/subPath before reading a snapshot. Inspect file hashes before startup and require a causal corrupt-index failure, not an unrelated Pod error. Production storage and admin snapshot access remain separate controlled changes.

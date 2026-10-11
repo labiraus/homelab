@@ -105,3 +105,7 @@ For disposable Velero file recovery, assert the actual PV is supported `local` s
 ## Storage chronology evidence
 
 Treat S3 version IDs as opaque. Retain mixed listing/pagination evidence for timestamp ties, and use `IsLatest` when it proves a unique position: a latest null version is not ambiguous merely because its timestamp ties another version. Refuse null ties only when multiple chronological positions remain possible; never infer order from the provider's placement of null last.
+
+## Disposable TSDB history
+
+A healthy scrape or replacement Pod does not prove historical recovery. Stop producers, wait for quiescent raw samples, pin the comparison time, verify PVC identity and the actual `prometheus-db` mount, and compare exact sample labels/timestamps/values after WAL replay and snapshot restore. Delete only owned fixture volumes, prove the old paths are gone and use a fresh PVC after a corrupt-data refusal. Keep the admin API confined to the disposable source and disabled in published storage settings.

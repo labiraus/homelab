@@ -69,3 +69,7 @@ Initial investigation signals, to baseline under actual load:
 - An index lag or outage must retain PostgreSQL-backed search results. Use the existing rebuild drill; OpenSearch is disposable derived state.
 
 Actual scrape discovery, Grafana availability, alert thresholds, installed broker topology/storage, production restore and representative concurrent load remain `BLOCKED_CLUSTER_ACCESS`. The [three-node disposable broker drill](BROKER-RECOVERY.md) verifies leader/quorum/process recovery locally and in CI. Offline database fixtures also exercise injected publication/outbox failures, redelivery, process restarts between generation checkpoints, lost acknowledgements, expired reservations and all-table restore. The [LAN runbook](LAN-RUNBOOK.md) separates read-only investigation from controlled replay/activation. The [offline audit](OFFLINE-WORK.md) tracks provisioning publication evidence and remaining disposable controller/backup checks.
+
+## Persistent metric history
+
+[TSDB recovery](TSDB-RECOVERY.md) documents the default-disabled PVC/retention inputs and the separate WAL/snapshot recovery gate. Dashboard provisioning and successful scrape rediscovery do not demonstrate preserved history. Production storage, capacity, backup transport and installed recovery still require LAN validation.

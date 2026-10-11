@@ -1,4 +1,5 @@
 {{- include "prometheus.worldbuilder.validate" . -}}
+{{- include "prometheus.storage.validate" . -}}
 {{- $ingress := .Values.ingress | default dict -}}
 {{- $hosts := get $ingress "hosts" | default list -}}
 {{- $ingressTLS := get $ingress "tls" | default list -}}
@@ -34,3 +35,18 @@ spec:
   values:
     grafana:
       {{- toYaml $grafana | nindent 6 }}
+
+    {{- if .Values.prometheusStorage.enabled }}
+    prometheus:
+      prometheusSpec:
+        enableAdminAPI: false
+        retention: {{ .Values.prometheusStorage.retention | quote }}
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              accessModes: [ReadWriteOnce]
+              storageClassName: {{ .Values.prometheusStorage.storageClassName | quote }}
+              resources:
+                requests:
+                  storage: {{ .Values.prometheusStorage.size | quote }}
+    {{- end }}

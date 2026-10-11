@@ -140,17 +140,7 @@ def admission_drill(f):
     dry(alert)
 
 
-def monitor_drill(f, fixture_directory, metrics):
-    directory = Path(fixture_directory)
-    monitor = json.loads((directory / 'monitor.json').read_text())
-    namespace = monitor['metadata']['namespace']
-    endpoint = monitor['spec']['endpoints'][0]
-    # Only the disposable scrape cadence changes; selectors/filtering/limits are source renders.
-    endpoint['interval'] = '2s'; endpoint['scrapeTimeout'] = '1s'
-    chartdir = f.output / 'chart'
-    subprocess.run(['helm', 'pull', 'kube-prometheus-stack', '--version', STACK_VERSION,
-        '--repo', 'https://prometheus-community.github.io/helm-charts', '--untar',
-        '--untardir', str(chartdir)], env=f.helm_env, check=True, timeout=120)
+def stack_values():
     values = {key: {'enabled': False} for key in ('alertmanager', 'grafana', 'nodeExporter',
         'kubeStateMetrics', 'kubeApiServer', 'kubelet', 'kubeControllerManager', 'coreDns',
         'kubeDns', 'kubeEtcd', 'kubeScheduler', 'kubeProxy')}
@@ -162,6 +152,14 @@ def monitor_drill(f, fixture_directory, metrics):
             'retention': '1h', 'resources': {'requests': {'memory': '128Mi', 'cpu': '50m'},
                                           'limits': {'memory': '512Mi'}},
             'scrapeInterval': '2s', 'evaluationInterval': '2s'}})
+    return values
+
+
+def render_stack(f, values):
+    chartdir = f.output / 'chart'
+    subprocess.run(['helm', 'pull', 'kube-prometheus-stack', '--version', STACK_VERSION,
+        '--repo', 'https://prometheus-community.github.io/helm-charts', '--untar',
+        '--untardir', str(chartdir)], env=f.helm_env, check=True, timeout=120)
     valuefile = f.output / 'stack-values.yaml'; valuefile.write_text(yaml.safe_dump(values))
     rendered = subprocess.check_output(['helm', 'template', 'prometheus',
         str(chartdir / 'kube-prometheus-stack'), '-n', STACK_NAMESPACE,
@@ -170,6 +168,17 @@ def monitor_drill(f, fixture_directory, metrics):
     # The upstream CRD enums can contain an unquoted '='. Use the repository safe loader.
     loader = module('validate-custom-resources').KubernetesLoader
     documents = [d for d in yaml.load_all(rendered, Loader=loader) if d]
+    return documents
+
+
+def monitor_drill(f, fixture_directory, metrics):
+    directory = Path(fixture_directory)
+    monitor = json.loads((directory / 'monitor.json').read_text())
+    namespace = monitor['metadata']['namespace']
+    endpoint = monitor['spec']['endpoints'][0]
+    # Only the disposable scrape cadence changes; selectors/filtering/limits are source renders.
+    endpoint['interval'] = '2s'; endpoint['scrapeTimeout'] = '1s'
+    documents = render_stack(f, stack_values())
     f.apply([{'apiVersion': 'v1', 'kind': 'Namespace', 'metadata': {'name': n}}
              for n in (namespace, STACK_NAMESPACE, 'wrong-namespace')])
     install_stack(f, documents)

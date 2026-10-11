@@ -13,3 +13,26 @@
 {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "prometheus.storage.validate" -}}
+{{- if not (kindIs "bool" .Values.prometheusStorage.enabled) -}}
+{{- fail "prometheusStorage.enabled must be a boolean" -}}
+{{- end -}}
+{{- if .Values.prometheusStorage.enabled -}}
+{{- if not (regexMatch "^[0-9]+\\.[0-9]+\\.[0-9]+$" .Values.stack.chartVersion) -}}
+{{- fail "Persistent Prometheus requires an explicitly verified exact stack.chartVersion" -}}
+{{- end -}}
+{{- if or (gt (len .Values.stack.targetNamespace) 63) (not (regexMatch "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$" .Values.stack.targetNamespace)) -}}
+{{- fail "Persistent Prometheus requires an exact targetNamespace" -}}
+{{- end -}}
+{{- if or (gt (len .Values.prometheusStorage.storageClassName) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" .Values.prometheusStorage.storageClassName)) -}}
+{{- fail "Persistent Prometheus requires an explicit storageClassName" -}}
+{{- end -}}
+{{- if not (regexMatch "^[1-9][0-9]*(Mi|Gi|Ti)$" .Values.prometheusStorage.size) -}}
+{{- fail "Persistent Prometheus size must be a positive whole Mi, Gi or Ti quantity" -}}
+{{- end -}}
+{{- if not (regexMatch "^[1-9][0-9]*(h|d|w)$" .Values.prometheusStorage.retention) -}}
+{{- fail "Persistent Prometheus retention must be a positive whole h, d or w duration" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}

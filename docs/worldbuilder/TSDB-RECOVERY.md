@@ -1,0 +1,49 @@
+# Persistent Prometheus recovery
+
+The repository's Prometheus wrapper previously supplied only Grafana settings; it did not configure a Prometheus PVC. Existing Pod replacement checks demonstrated discovery recovery, not preserved history. Persistent storage is now an explicit opt-in, and a separate disposable CI gate tests WAL replay and snapshot restoration after source-volume loss.
+
+## Prepared storage settings
+
+Select these inputs only after observing the installed stack, storage class, available capacity, ingestion rate and intended retention:
+
+```yaml
+stack:
+  chartVersion: '92.3.0' # Tested source baseline; verify the installed target before selecting.
+prometheusStorage:
+  enabled: true
+  storageClassName: REPLACE_WITH_OBSERVED_CLASS
+  size: REPLACE_WITH_CAPACITY
+  retention: REPLACE_WITH_RETENTION
+```
+
+`size` accepts positive whole `Mi`, `Gi` or `Ti` quantities; `retention` accepts positive whole `h`, `d` or `w` durations. The example deliberately fails validation until actual inputs replace its placeholders. The wrapper requires an exact chart version and an explicit storage class. It renders a ReadWriteOnce claim and keeps the admin API disabled. Base, GHCR and ECR values retain their existing defaults while disabled; enabling dashboard provisioning and storage together preserves both configurations.
+
+The [Prometheus storage guidance](https://prometheus.io/docs/prometheus/latest/storage/) describes local durability and consistent snapshots. Size for ingestion, WAL/head data and compaction headroom; a retention duration is not a disk-space guarantee. The [operator storage contract](https://prometheus-operator.dev/docs/platform/storage/) explains PVC provisioning. Changing storage for an existing installation needs a reviewed migration and backup; publishing this opt-in does not move existing data or select a real storage class.
+
+## Disposable acceptance
+
+Use the Linux/Docker/Helm/Python prerequisites and source-render commands in [controller acceptance](CONTROLLER-ACCEPTANCE.md) and [observability acceptance](OBSERVABILITY.md#disposable-acceptance). The API-server render pass now emits `storage-upstream-values.yaml` under its `renders/observability` directory. Run with a new output directory:
+
+```bash
+python3 scripts/worldbuilder/test-tsdb-unit.py
+python3 scripts/worldbuilder/test-tsdb.py \
+  "$artifacts/tsdb" "$artifacts/renders/observability" "$artifacts/metrics.txt"
+```
+
+The mandatory `tsdb-restore` platform job runs alongside the existing controller, CNPG, Velero and runtime-observability jobs before callers publish images/charts. It uses the same pinned kind/Kubernetes and kube-prometheus-stack inputs and the same fixture ownership, exec-status transport and teardown checks. Only synthetic metrics, public renders, hashes and logs are uploaded; kubeconfig and private certificates stay outside artifacts.
+
+The fixture uses the source-rendered claim and retention settings with kind's `standard` storage class. It adds the local-volume annotation and enables the admin API only inside its owned cluster. It then requires:
+
+- Actual Go counter and histogram samples plus a phase marker, followed by stopped producers and a quiescent, fixed-time raw sample matrix.
+- A bound PVC/PV with verified claim identity, live WAL files and no pre-existing compacted blocks. A new Prometheus Pod UID on the same PVC must replay WAL and return the exact original labels, timestamps and values.
+- A real [snapshot including head samples](https://prometheus.io/docs/prometheus/latest/querying/api/#snapshot), with complete block metadata, indexes, chunks and SHA-256 file hashes. Unsafe paths, links, missing data, unexpected live-WAL layout, changed content and oversized archives are refused before extraction.
+- Positive evidence of samples written after the snapshot, then removal of the source workload, PVC, PV and its actual data path.
+- Restore to a different volume, byte/hash comparison before startup, the exact same Prometheus image digest, no scrape jobs and no admin API. Restored history must match exactly and omit later samples.
+- An intentionally corrupted index rejected by Prometheus itself, followed by recovery from the verified snapshot on a fresh PVC.
+- Successful owned-cluster teardown after all assertions. A failed check or failed cleanup cannot pass acceptance.
+
+Read `tsdb-result.json`, `snapshot-manifest.json`, `source-wal.log`, `corrupt-index.log`, runtime/cleanup logs and the final process/workflow conclusion together. The archive parser's 32 MiB compressed / 64 MiB expanded limits are deliberate bounds for synthetic fixtures, not production backup limits or a general restore utility.
+
+## Remaining live gates
+
+This verifies the prepared storage contract and recovery mechanism with synthetic data. It does not prove installed versions, Longhorn replication, physical node/disk failure, realistic ingestion/capacity, backup scheduling/transport/custody, production inventory or cross-version compatibility. Admin snapshot access remains disabled in published settings; any production backup procedure needs its own authenticated, restricted access and external backup retention plan. The [LAN runbook](LAN-RUNBOOK.md) remains authoritative for discovery and controlled activation.
