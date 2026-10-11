@@ -4,7 +4,6 @@ package worldbuilder
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 	"regexp"
 	"sort"
 	"strings"
@@ -27,6 +26,7 @@ type Record struct {
 	Attributes map[string]string `json:"attributes,omitempty"`
 	Fields     map[string]string `json:"fields,omitempty"`
 	Relations  map[string]string `json:"relations,omitempty"`
+	Calendar   *Calendar         `json:"calendar,omitempty"`
 }
 type Snapshot map[string]Record
 type Operation struct {
@@ -124,6 +124,14 @@ func Validate(s Snapshot) error {
 		}
 		if r.From != nil && r.Until != nil && *r.From >= *r.Until {
 			return bad("fictional intervals are half-open and must increase")
+		}
+		if r.Calendar != nil {
+			if r.Kind != "world_settings" {
+				return bad("calendar belongs only to reviewed world settings")
+			}
+			if err := validateCalendar(r.Calendar); err != nil {
+				return err
+			}
 		}
 		switch r.Kind {
 		case "world_settings":
@@ -227,11 +235,11 @@ func Validate(s Snapshot) error {
 				if fact.Predicate != birth && fact.Predicate != death {
 					continue
 				}
-				tick, ok := fact.Value.(float64)
-				if !ok || math.Trunc(tick) != tick || math.Abs(tick) > 9007199254740991 {
-					return bad("life-bound date facts must be exact safe-integer fictional ticks")
+				tick, ok := lifeTick(fact)
+				if !ok {
+					return bad("life-bound dates require exact tick strings or legacy safe-integer number facts")
 				}
-				if (fact.Predicate == birth && *event.From < int64(tick)) || (fact.Predicate == death && *event.From >= int64(tick)) {
+				if (fact.Predicate == birth && *event.From < tick) || (fact.Predicate == death && *event.From >= tick) {
 					return bad("event falls outside its participant's canonical life bounds")
 				}
 			}
@@ -253,7 +261,7 @@ func Validate(s Snapshot) error {
 	return nil
 }
 func valueType(t string) bool {
-	return t == "string" || t == "number" || t == "boolean" || t == "entity"
+	return t == "string" || t == "number" || t == "boolean" || t == "entity" || t == "tick"
 }
 func typedValue(t string, v any, s Snapshot) bool {
 	switch t {
@@ -262,6 +270,9 @@ func typedValue(t string, v any, s Snapshot) bool {
 		return ok
 	case "number":
 		_, ok := v.(float64)
+		return ok
+	case "tick":
+		_, ok := dateFact(v)
 		return ok
 	case "boolean":
 		_, ok := v.(bool)

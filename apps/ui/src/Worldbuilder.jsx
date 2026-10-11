@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { parseWorldJSON } from "./worldTicks.js";
+import { createCalendarFormatter } from "./worldCalendar.js";
 import { HistoryPanel, ReconciliationPanel } from "./WorldHistory.jsx";
 import WorldRecordEditor from "./WorldRecordEditor.jsx";
 import WorldAdministration from "./WorldAdministration.jsx";
@@ -386,6 +387,10 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
     !canon.world.archived &&
     ["owner", "admin", "reviewer"].includes(canon.world.role);
   const records = canon?.records ?? [];
+  const formatTick = useMemo(
+    () => createCalendarFormatter(canon?.calendar),
+    [canon?.calendar],
+  );
   const staged = new Map([...catalog, ...records].map((r) => [r.id, r]));
   for (const op of operations) {
     if (op.action === "delete") staged.delete(op.id);
@@ -484,6 +489,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
             <WorldViews
               records={records}
               total={canon.total}
+              calendar={canon.calendar}
               scope={{
                 revision: canon.revision,
                 timeline:
@@ -505,7 +511,10 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                     )}{" "}
                     {r.predicate}{" "}
                     {r.target && <a href={`#canon-${r.target}`}>{r.target}</a>}{" "}
-                    {r.value !== undefined && String(r.value)}
+                    {r.value !== undefined &&
+                      (r.valueType === "tick"
+                        ? formatTick(r.value)
+                        : String(r.value))}
                   </p>
                   {r.source && (
                     <p>
@@ -514,8 +523,10 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                   )}
                   {r.from !== undefined && (
                     <p>
-                      From {r.from}
-                      {r.until !== undefined ? ` until ${r.until}` : " onwards"}
+                      From {formatTick(r.from)}
+                      {r.until !== undefined
+                        ? ` until ${formatTick(r.until)} (exclusive)`
+                        : " onwards"}
                     </p>
                   )}
                   {r.fields && (
@@ -524,6 +535,24 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                       {Object.entries(r.fields)
                         .map(([k, v]) => `${k} (${v})`)
                         .join(", ")}
+                    </p>
+                  )}
+                  {r.calendar && (
+                    <p>
+                      Calendar: {r.calendar.name}. Epoch tick{" "}
+                      {r.calendar.epochTick}, year {r.calendar.epochYear};{" "}
+                      {r.calendar.ticksPerDay} ticks per day;{" "}
+                      {r.calendar.cycleYears}-year cycle. Months:{" "}
+                      {r.calendar.months
+                        .map(
+                          (m) =>
+                            `${m.name}: ${m.days} days${m.leapDays ? ` + ${m.leapDays} in leap years` : ""}`,
+                        )
+                        .join("; ")}
+                      . Leap positions:{" "}
+                      {r.calendar.leapYears?.join(", ") || "none"}. Weekdays:{" "}
+                      {r.calendar.weekdays?.join(", ") || "none"}; epoch
+                      position {r.calendar.weekdayAtEpoch}.
                     </p>
                   )}
                   {r.attributes && (
@@ -551,7 +580,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                   >
                     Explore connections of {r.label || r.id}
                   </button>
-                  {canEdit && r.kind !== "world_settings" && (
+                  {canEdit && (
                     <button
                       type="button"
                       onClick={() => {
@@ -561,7 +590,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                       Edit {r.label || r.id}
                     </button>
                   )}
-                  {canEdit && (
+                  {canEdit && r.kind !== "world_settings" && (
                     <button
                       type="button"
                       onClick={() => stage({ action: "delete", id: r.id })}

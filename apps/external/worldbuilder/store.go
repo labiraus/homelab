@@ -370,7 +370,11 @@ func (sc *scope) project(ctx context.Context, s Snapshot) error {
 		attrs, _ := json.Marshal(r.Attributes)
 		fields, _ := json.Marshal(r.Fields)
 		relations, _ := json.Marshal(r.Relations)
-		_, err := sc.tx.Exec(ctx, `INSERT INTO worldbuilder.record(world_id,id,kind,label,type_id,subject_id,target_id,timeline_id,source_id,predicate,value_type,value,valid_from,valid_until,attributes,fields,relations) VALUES($1,$2,$3,$4,nullif($5,''),nullif($6,''),nullif($7,''),nullif($8,''),nullif($9,''),$10,$11,$12,$13,$14,$15,$16,$17)`, sc.world.ID, r.ID, r.Kind, r.Label, r.Type, r.Subject, r.Target, r.Timeline, r.Source, r.Predicate, r.ValueType, value, r.From, r.Until, attrs, fields, relations)
+		var calendar []byte
+		if r.Calendar != nil {
+			calendar, _ = json.Marshal(r.Calendar)
+		}
+		_, err := sc.tx.Exec(ctx, `INSERT INTO worldbuilder.record(world_id,id,kind,label,type_id,subject_id,target_id,timeline_id,source_id,predicate,value_type,value,valid_from,valid_until,attributes,fields,relations,calendar) VALUES($1,$2,$3,$4,nullif($5,''),nullif($6,''),nullif($7,''),nullif($8,''),nullif($9,''),$10,$11,$12,$13,$14,$15,$16,$17,$18)`, sc.world.ID, r.ID, r.Kind, r.Label, r.Type, r.Subject, r.Target, r.Timeline, r.Source, r.Predicate, r.ValueType, value, r.From, r.Until, attrs, fields, relations, calendar)
 		if err != nil {
 			return err
 		}

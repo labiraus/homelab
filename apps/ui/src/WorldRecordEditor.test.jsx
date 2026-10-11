@@ -17,6 +17,93 @@ const records = [
 ];
 
 describe("structured canon editing", () => {
+  it("stages reviewed calendar settings while retaining other complete-record fields", () => {
+    const onStage = vi.fn();
+    render(
+      <WorldRecordEditor
+        records={[{ id: "main", kind: "timeline", label: "Main" }]}
+        timeline="main"
+        record={{
+          id: "world_settings",
+          kind: "world_settings",
+          label: "World",
+          timeline: "main",
+          attributes: { tone: "gentle" },
+        }}
+        onStage={onStage}
+        onNew={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("Use a fictional calendar"));
+    fireEvent.change(screen.getByLabelText("Epoch tick"), {
+      target: { value: "-9223372036854775808" },
+    });
+    fireEvent.change(screen.getByLabelText("Calendar name"), {
+      target: { value: "Tides" },
+    });
+    fireEvent.change(screen.getByLabelText("Years per cycle"), {
+      target: { value: "4" },
+    });
+    fireEvent.change(
+      screen.getByLabelText(
+        "Leap year positions (comma separated, starting at 1)",
+      ),
+      { target: { value: "4" } },
+    );
+    fireEvent.change(screen.getByLabelText("Extra days in leap years 1"), {
+      target: { value: "1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Stage record" }));
+    expect(onStage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        attributes: { tone: "gentle" },
+        timeline: "main",
+        calendar: expect.objectContaining({
+          name: "Tides",
+          epochTick: "-9223372036854775808",
+          cycleYears: 4,
+          leapYears: [4],
+        }),
+      }),
+    );
+    fireEvent.click(screen.getByLabelText("Use a fictional calendar"));
+    fireEvent.click(screen.getByRole("button", { name: "Stage record" }));
+    expect(onStage.mock.lastCall[0].calendar).toBeUndefined();
+  });
+  it("keeps typed date facts as canonical strings across the entire signed range", () => {
+    const onStage = vi.fn();
+    render(
+      <WorldRecordEditor
+        records={[...records, { ...type, fields: { birth: "tick" } }]}
+        timeline="main"
+        record={{
+          id: "born",
+          kind: "fact",
+          subject: "hero",
+          predicate: "birth",
+          valueType: "tick",
+          value: "-9223372036854775808",
+          source: "source",
+          timeline: "main",
+        }}
+        onStage={onStage}
+        onNew={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Stage record" }));
+    expect(onStage.mock.lastCall[0].value).toBe("-9223372036854775808");
+    fireEvent.change(screen.getByLabelText("Value"), {
+      target: { value: "9223372036854775807" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Stage record" }));
+    expect(onStage.mock.lastCall[0].value).toBe("9223372036854775807");
+    fireEvent.change(screen.getByLabelText("Value"), {
+      target: { value: "9223372036854775808" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Stage record" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("64-bit");
+    expect(onStage).toHaveBeenCalledTimes(2);
+  });
   it("stages and re-edits exact signed boundaries without Number conversion", () => {
     const onStage = vi.fn();
     const record = {

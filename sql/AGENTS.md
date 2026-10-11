@@ -26,4 +26,4 @@ If a query, migration, or bootstrap step repeatedly causes confusion, document t
 
 ## Worldbuilder schema evolution
 
-Use numbered additive migrations; never rewrite immutable revision history or silently change record kinds during upgrades. Current external requires schema version 5. Apply migrations and dedicated grants explicitly before activation; no startup hook may install them. Production rollback disables the feature and preserves populated schemas. Validate populated upgrade/backfill as well as empty rollback in the disposable harness.
+Use numbered additive migrations; never rewrite immutable revision history or silently change record kinds during upgrades. Current external requires schema version 6. Apply migrations and dedicated grants explicitly before activation; no startup hook may install them. Production rollback disables the feature and preserves populated schemas. Validate populated upgrade/backfill as well as empty rollback in the disposable harness.

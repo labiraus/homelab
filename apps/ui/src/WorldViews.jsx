@@ -1,5 +1,6 @@
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { exactTick } from "./worldTicks.js";
+import { createCalendarFormatter } from "./worldCalendar.js";
 
 const tick = (value) => BigInt(exactTick(value));
 const link = (id, label = id) => <a href={`#canon-${id}`}>{label}</a>;
@@ -19,8 +20,12 @@ function inScope(record, scope) {
   );
 }
 
-export default function WorldViews({ records, total, scope }) {
+export default function WorldViews({ records, total, scope, calendar }) {
   const marker = useId();
+  const formatTick = useMemo(
+    () => createCalendarFormatter(calendar),
+    [calendar],
+  );
   const [focus, setFocus] = useState("");
   // Only published records returned for this inspected scope enter a view.
   // In particular, editor drafts and its separately fetched reference catalog do not.
@@ -75,6 +80,8 @@ export default function WorldViews({ records, total, scope }) {
         {records.length} of {total} matching canon records.
         {records.length < total &&
           " Load more canon records to extend these views."}
+        {calendar &&
+          ` Dates use ${calendar.name} from revision ${scope.revision}; original ticks are shown alongside.`}
       </p>
       <details>
         <summary>Relationship graph</summary>
@@ -225,8 +232,12 @@ export default function WorldViews({ records, total, scope }) {
                         <td>{link(r.subject, label(r.subject))}</td>
                         <td>{link(r.id, r.predicate)}</td>
                         <td>{link(r.target, label(r.target))}</td>
-                        <td>{r.from ?? "Unbounded"}</td>
-                        <td>{r.until ?? "Unbounded"}</td>
+                        <td>
+                          {r.from == null ? "Unbounded" : formatTick(r.from)}
+                        </td>
+                        <td>
+                          {r.until == null ? "Unbounded" : formatTick(r.until)}
+                        </td>
                         <td>{r.source && link(r.source, label(r.source))}</td>
                       </tr>
                     ))}
@@ -251,14 +262,16 @@ export default function WorldViews({ records, total, scope }) {
             <ol className="world-chronology">
               {events.map((event) => (
                 <li key={event.id}>
-                  <span className="world-chronology-tick">{event.from}</span>
+                  <span className="world-chronology-tick">
+                    {formatTick(event.from)}
+                  </span>
                   <div>
                     {link(event.id, label(event.id))}
                     <p>
                       Until{" "}
                       {event.until == null
                         ? "unbounded"
-                        : `${event.until} (exclusive)`}
+                        : `${formatTick(event.until)} (exclusive)`}
                       {event.subject && (
                         <>
                           {" "}

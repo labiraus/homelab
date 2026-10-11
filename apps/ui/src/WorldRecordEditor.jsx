@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { exactTick } from "./worldTicks.js";
+import { calendarFromDraft } from "./worldCalendar.js";
+import WorldCalendarEditor from "./WorldCalendarEditor.jsx";
 
 const kinds = [
   "entity",
@@ -26,7 +28,7 @@ const ruleFields = {
     predicates: "Exclusive boolean predicates (comma separated)",
   },
 };
-const valueTypes = ["string", "number", "boolean", "entity"];
+const valueTypes = ["string", "number", "boolean", "entity", "tick"];
 const entries = (value) =>
   Object.entries(value ?? {}).map(([name, value]) => ({ name, value }));
 
@@ -216,7 +218,9 @@ export default function WorldRecordEditor({
             ? Number(draft.value)
             : type === "boolean"
               ? String(draft.value) === "true"
-              : draft.value;
+              : type === "tick"
+                ? String(exactTick(draft.value))
+                : draft.value;
         if (
           type === "number" &&
           (draft.value === "" ||
@@ -228,6 +232,9 @@ export default function WorldRecordEditor({
       if (draft.kind === "type") {
         candidate.fields = mapFromRows(fields, "Fields");
         candidate.relations = mapFromRows(relations, "Relationships");
+      }
+      if (draft.kind === "world_settings") {
+        candidate.calendar = calendarFromDraft(draft.calendar);
       }
       if (draft.kind === "rule" && draft.attributes?.check) {
         candidate.attributes.check = draft.attributes.check;
@@ -399,7 +406,10 @@ export default function WorldRecordEditor({
             identifier
             rows={fields}
             setRows={setFields}
-            options={valueTypes.map((id) => ({ id }))}
+            options={valueTypes.map((id) => ({
+              id,
+              label: id === "tick" ? "Fictional date (tick)" : id,
+            }))}
           />
           <MapEditor
             title="Relationships"
@@ -495,6 +505,12 @@ export default function WorldRecordEditor({
             </>
           )}
         </fieldset>
+      )}
+      {draft.kind === "world_settings" && (
+        <WorldCalendarEditor
+          value={draft.calendar}
+          onChange={(value) => set("calendar", value)}
+        />
       )}
       <MapEditor
         title="Attributes"

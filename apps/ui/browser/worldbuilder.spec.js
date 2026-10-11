@@ -94,6 +94,23 @@ test("independent browser users propose, review, publish and keep private storie
     .getByLabel("Reason for change", { exact: true })
     .fill("Browser acceptance pilgrim");
   await editor
+    .getByRole("button", { name: "Edit Test world", exact: true })
+    .click();
+  await editor.getByLabel("Use a fictional calendar", { exact: true }).check();
+  await editor
+    .getByLabel("Calendar name", { exact: true })
+    .fill("Harbour calendar");
+  await editor
+    .getByLabel("Epoch tick", { exact: true })
+    .fill("-9223372036854775808");
+  await editor.getByLabel("Name 1", { exact: true }).fill("Tide");
+  await editor
+    .getByRole("button", { name: "Stage record", exact: true })
+    .click();
+  await expect(
+    editor.getByRole("region", { name: "Canon visualisations", exact: true }),
+  ).not.toContainText("Dates use Harbour calendar");
+  await editor
     .getByRole("button", { name: "Save draft proposal", exact: true })
     .click();
   const proposal = editor.locator("article").filter({
@@ -140,6 +157,20 @@ test("independent browser users propose, review, publish and keep private storie
   await expect(
     reviewer.getByRole("complementary", { name: "Canon connections" }),
   ).toContainText("Revision 2, timeline main");
+  // Match the event's end tick, not the calendar's epoch field names.
+  await reviewer
+    .getByLabel("Search canon", { exact: true })
+    .fill("9223372036854775807");
+  await reviewer
+    .getByRole("button", { name: "Load canon", exact: true })
+    .click();
+  await reviewer.getByText("Chronology", { exact: true }).click();
+  await expect(reviewer.locator("#canon-world_settings")).toHaveCount(0);
+  await expect(
+    reviewer.getByRole("region", { name: "Chronology", exact: true }),
+  ).toContainText(
+    "1 Tide, year 1 (Harbour calendar; tick -9223372036854775808)",
+  );
   await editor.getByRole("button", { name: "Load canon", exact: true }).click();
   await editor.getByRole("button", { name: "Edit Epoch", exact: true }).click();
   await editor.getByText("Chronology", { exact: true }).click();
@@ -178,6 +209,17 @@ test("independent browser users propose, review, publish and keep private storie
   // Staging a candidate cannot move the published chronology.
   await expect(chronology).toContainText("-9223372036854775808");
   await expect(chronology).not.toContainText("9223372036854775806");
+  await editor
+    .getByRole("button", { name: "Edit Test world", exact: true })
+    .click();
+  await editor
+    .getByLabel("Calendar name", { exact: true })
+    .fill("Unpublished calendar");
+  await editor
+    .getByRole("button", { name: "Stage record", exact: true })
+    .click();
+  await expect(chronology).toContainText("Harbour calendar");
+  await expect(chronology).not.toContainText("Unpublished calendar");
   await editor
     .getByRole("region", { name: "Canon visualisations", exact: true })
     .screenshot({ path: test.info().outputPath("canon-views.png") });
@@ -224,6 +266,9 @@ test("independent browser users propose, review, publish and keep private storie
   await expect(
     editor.getByRole("region", { name: "Canon visualisations", exact: true }),
   ).toContainText("Revision 1, timeline main");
+  await expect(
+    editor.getByRole("region", { name: "Canon visualisations", exact: true }),
+  ).not.toContainText("Dates use Harbour calendar");
   await expect(chronology).toContainText("No events in the loaded scope.");
   await editor.getByLabel("Historical revision", { exact: true }).fill("2");
   await editor.getByLabel("Timeline", { exact: true }).fill("alternate");
@@ -234,6 +279,7 @@ test("independent browser users propose, review, publish and keep private storie
   await expect(
     chronology.getByRole("link", { name: "Epoch", exact: true }),
   ).toHaveCount(0);
+  await expect(chronology).toContainText("Harbour calendar");
   await editorContext.close();
   await reviewerContext.close();
 });

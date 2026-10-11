@@ -11,7 +11,9 @@ cleanup() {
 }
 trap cleanup EXIT
 for attempt in {1..30}; do
-  if docker exec "$container_name" pg_isready -U postgres -d worldbuilder_test >/dev/null 2>&1; then break; fi
+  # The image first starts a socket-only server for initdb, then shuts it down.
+  # Wait for the final TCP server so migrations cannot race that handover.
+  if docker exec "$container_name" pg_isready -h 127.0.0.1 -U postgres -d worldbuilder_test >/dev/null 2>&1; then break; fi
   sleep 1
 done
 sql() { docker exec -i "$container_name" psql -X -U postgres -d worldbuilder_test -v ON_ERROR_STOP=1 "$@"; }
@@ -25,6 +27,9 @@ sql < "$repo_dir/sql/worldbuilder/004_up.sql"
 sql < "$repo_dir/sql/worldbuilder/004_up.sql"
 sql < "$repo_dir/sql/worldbuilder/005_up.sql"
 sql < "$repo_dir/sql/worldbuilder/005_up.sql"
+sql < "$repo_dir/sql/worldbuilder/006_up.sql"
+sql < "$repo_dir/sql/worldbuilder/006_up.sql"
+sql < "$repo_dir/sql/worldbuilder/006_down.sql"
 sql < "$repo_dir/sql/worldbuilder/005_down.sql"
 sql < "$repo_dir/sql/worldbuilder/004_down.sql"
 sql < "$repo_dir/sql/worldbuilder/003_down.sql"
@@ -35,6 +40,7 @@ sql < "$repo_dir/sql/worldbuilder/002_up.sql"
 sql < "$repo_dir/sql/worldbuilder/003_up.sql"
 sql < "$repo_dir/sql/worldbuilder/004_up.sql"
 sql < "$repo_dir/sql/worldbuilder/005_up.sql"
+sql < "$repo_dir/sql/worldbuilder/006_up.sql"
 sql -c 'CREATE ROLE worldbuilder_external NOINHERIT LOGIN; CREATE ROLE worldbuilder_relay NOINHERIT LOGIN; CREATE ROLE legacy_app NOINHERIT LOGIN;'
 sql < "$repo_dir/sql/worldbuilder/grants.sql"
 # Upgrade a populated version-1 database independently of the empty up/down tests.
@@ -59,9 +65,30 @@ upgrade_sql < "$repo_dir/sql/worldbuilder/004_up.sql"
 upgrade_sql < "$repo_dir/sql/worldbuilder/005_up.sql"
 upgrade_sql < "$repo_dir/sql/worldbuilder/005_up.sql"
 upgrade_sql <<'SQL'
+BEGIN;
+INSERT INTO worldbuilder.world(id,name) VALUES('00000000-0000-4000-8000-000000000020','Numeric dates');
+INSERT INTO worldbuilder.revision(world_id,revision,snapshot,actor,reason) VALUES
+ ('00000000-0000-4000-8000-000000000020',0,'{"main":{"id":"main","kind":"timeline","label":"Main"},"person":{"id":"person","kind":"type","fields":{"birth":"number"}},"hero":{"id":"hero","kind":"entity","type":"person","label":"Hero"},"source":{"id":"source","kind":"source","label":"Notes"},"birth":{"id":"birth","kind":"fact","subject":"hero","predicate":"birth","valueType":"number","value":-9007199254740991,"timeline":"main","source":"source"}}','owner@example.test','Legacy numeric date');
+INSERT INTO worldbuilder.record(world_id,id,kind,label,type_id,subject_id,source_id,timeline_id,predicate,value_type,value,fields)
+ SELECT r.world_id,e.key,e.value->>'kind',coalesce(e.value->>'label',''),e.value->>'type',e.value->>'subject',e.value->>'source',e.value->>'timeline',coalesce(e.value->>'predicate',''),coalesce(e.value->>'valueType',''),e.value->'value',coalesce(e.value->'fields','{}')
+ FROM worldbuilder.revision r CROSS JOIN LATERAL jsonb_each(r.snapshot) e WHERE r.world_id='00000000-0000-4000-8000-000000000020';
+COMMIT;
+SQL
+calendar_upgrade_checksum="SELECT md5(string_agg(item, ',' ORDER BY item)) FROM (SELECT to_jsonb(r)::text AS item FROM worldbuilder.revision r UNION ALL SELECT (to_jsonb(r)-'calendar')::text FROM worldbuilder.record r) data"
+calendar_before=$(upgrade_sql -Atc "$calendar_upgrade_checksum")
+# Additional value constraints are schema drift, not permission to drop them.
+docker exec "$container_name" createdb -U postgres -T worldbuilder_upgrade worldbuilder_calendar_drift
+calendar_drift_sql() { docker exec -i "$container_name" psql -X -U postgres -d worldbuilder_calendar_drift -v ON_ERROR_STOP=1 "$@"; }
+calendar_drift_sql -c "ALTER TABLE worldbuilder.record ADD CONSTRAINT custom_value_policy CHECK(length(value_type)<20);"
+if calendar_drift_sql < "$repo_dir/sql/worldbuilder/006_up.sql" >/dev/null 2>&1; then echo 'FAIL: unexpected calendar schema drift accepted'; exit 1; fi
+calendar_drift_sql -c "DO \$\$ BEGIN IF (SELECT max(version) FROM worldbuilder.schema_version)<>5 OR EXISTS(SELECT FROM information_schema.columns WHERE table_schema='worldbuilder' AND table_name='record' AND column_name='calendar') THEN RAISE EXCEPTION 'failed calendar migration changed schema'; END IF; END \$\$;"
+upgrade_sql < "$repo_dir/sql/worldbuilder/006_up.sql"
+upgrade_sql < "$repo_dir/sql/worldbuilder/006_up.sql"
+[[ "$calendar_before" == "$(upgrade_sql -Atc "$calendar_upgrade_checksum")" ]] || { echo 'FAIL: calendar migration changed legacy records/history'; exit 1; }
+upgrade_sql <<'SQL'
 DO $$ BEGIN
  IF (SELECT kind FROM worldbuilder.record_identity WHERE id='deleted') IS DISTINCT FROM 'source' THEN RAISE EXCEPTION 'deleted identity missing after upgrade'; END IF;
- IF (SELECT count(*) FROM worldbuilder.revision)<>2 THEN RAISE EXCEPTION 'upgrade changed history'; END IF;
+ IF (SELECT count(*) FROM worldbuilder.revision)<>3 THEN RAISE EXCEPTION 'upgrade changed history'; END IF;
  IF (SELECT memory->>'throughVersion' FROM worldbuilder.story_session) IS DISTINCT FROM '0' OR (SELECT narration FROM worldbuilder.story_turn) IS DISTINCT FROM 'Legacy narration' THEN RAISE EXCEPTION 'upgrade changed legacy story content'; END IF;
 END $$;
 SQL
@@ -126,6 +153,7 @@ if sql < "$repo_dir/sql/worldbuilder/002_down.sql" >/dev/null 2>&1; then echo 'F
 if sql < "$repo_dir/sql/worldbuilder/003_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated inference down migration succeeded'; exit 1; fi
 if sql < "$repo_dir/sql/worldbuilder/004_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated story-definition down migration succeeded'; exit 1; fi
 if sql < "$repo_dir/sql/worldbuilder/005_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated generation down migration succeeded'; exit 1; fi
+if sql < "$repo_dir/sql/worldbuilder/006_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated calendar down migration succeeded'; exit 1; fi
 sql < "$repo_dir/sql/worldbuilder/ops_dashboard_queries.pgsql"
 docker exec "$container_name" createdb -U postgres worldbuilder_restore
 docker exec "$container_name" pg_dump -U postgres -d worldbuilder_test -Fc -f /tmp/worldbuilder.dump
@@ -140,4 +168,4 @@ checksum_query="SELECT md5(string_agg(item, ',' ORDER BY item)) FROM ($checksum_
 original=$(sql -Atc "$checksum_query")
 restored=$(docker exec "$container_name" psql -X -U postgres -d worldbuilder_restore -Atc "$checksum_query")
 [[ "$original" == "$restored" ]] || { echo 'FAIL: restored canon/lifecycle/story data differs'; exit 1; }
-echo 'PASS: migrations 001/002/003/004/005 rerun/rollback, populated upgrade/conflict gates, role isolation, canon/lifecycle/story/outbox integration and all-table restore checksum'
+echo 'PASS: migrations 001–006 rerun/rollback, populated upgrade/conflict gates, role isolation, canon/lifecycle/story/outbox integration and all-table restore checksum'
