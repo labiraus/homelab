@@ -6,14 +6,14 @@ Worldbuilder LangGraph workflows live in `src/worldbuilder.ts`: canon query/prop
 
 For synchronous browser assistant requests, it exposes internal `/assistant/...` routes called by `external`. It owns conversation state, explicit memories, proposal state, prompt construction, RAG context lookup through `external`, LangGraph-based chat orchestration, model calls through Envoy AI Gateway, and tool-call logging in Postgres.
 
-For asynchronous document jobs, it consumes NATS JetStream events, claims pending document work from Postgres, fetches MinIO-backed text documents, extracts text, and indexes derived retrieval state into OpenSearch.
+For asynchronous document jobs, it consumes NATS JetStream events, claims pending document work from Postgres, fetches S3-backed text documents, extracts text, and indexes derived retrieval state into OpenSearch.
 
 `processor` is part of the AI/data plane. It should not own global document lifecycle state; that remains the job of `orchestrator` and Postgres-backed control-plane records.
 
 The current lifecycle for a claimed job is:
 
 1. claim `pending -> processing`
-2. load the referenced supported object from MinIO
+2. load the referenced supported object through the S3 storage adapter
 3. extract chunkable text from the raw object, including HTML-specific visible-text extraction for `text/html`
 4. index the extracted text into OpenSearch through the configured ingest pipeline
 5. finalize the owning `rag.documents` row as `processed`
@@ -28,7 +28,9 @@ The current ingestion baseline is UTF-8 `text/*`, with HTML-aware extraction for
 
 Future file-type expansion must still follow `docs/FileTypeExpansion.md`: document extraction rules, failure handling, citation policy, tests, and runtime dependencies before changing the worker container.
 
-Dependency versions and security checks are recorded in [Worldbuilder dependency validation](../../docs/worldbuilder/DEPENDENCIES.md). CI runs build/tests and rejects high/critical npm advisories before publishing.
+Dependency versions and security checks are recorded in [Worldbuilder dependency validation](../../docs/worldbuilder/DEPENDENCIES.md). CI runs build/tests and rejects moderate/high/critical npm advisories before publishing.
+
+The storage adapter uses the pinned AWS SDK v3 S3 client with path-style requests and explicit application credentials. Existing `MINIO_*` configuration names and the `DocumentStorage` interface remain compatible. `MINIO_REGION` defaults to `us-east-1`; configure it explicitly for stores using another signing region. `MINIO_ENDPOINT` accepts a bare host/port or an HTTP(S) origin matching `MINIO_USE_SSL`; embedded credentials, paths, queries and conflicting TLS settings are rejected. Reads preserve binary/empty content and S3 error codes; redirects do not forward credentials and truncated streams fail instead of indexing partial content. This adapter supports both the retained MinIO source and the SeaweedFS target; no public endpoint or environment-key rename accompanies the SDK change.
 
 Worldbuilder requests can mark `contextScope=selected_records`. The graph explicitly treats this as partial canon, cannot claim global absence/consistency, and still accepts only supplied canonical citation IDs. External owns selection and validates returned scope/operations.
 

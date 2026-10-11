@@ -1,6 +1,6 @@
 # Worldbuilder AI — Migration documentation index
 
-Status: **approved target architecture; required remote implementation and offline acceptance complete; LAN activation/cutover pending, no observed deployment**.
+Status: **approved target architecture; initial remote baseline verified; broader [offline follow-ups](OFFLINE-WORK.md) in progress; LAN activation/cutover pending, no observed deployment**.
 
 This documentation supersedes Evolve's previous document-first product direction for **application behaviour**. It does not automatically supersede infrastructure, security, development, or operations documents.
 

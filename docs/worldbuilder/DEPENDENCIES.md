@@ -1,4 +1,16 @@
-# Dependency validation — 2026-10-10
+# Dependency validation — 2026-10-11
+
+Current UI and processor npm audits both report **zero vulnerabilities**. The processor now uses exact `@aws-sdk/client-s3` 3.1149.0 behind `DocumentStorage.readDocument`, removing the MinIO Node SDK and its four moderate transitive findings. Build and 50 unit/HTTP-contract tests pass; the integration-only test runs separately through the disposable storage harness. Processor CI now rejects moderate/high/critical advisories before publication, alongside its required real-client storage gate.
+
+The [official GetObject API](https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/s3/command/GetObjectCommand/) provides the streaming byte conversion used by this adapter. Source audit found MinIO's only runtime operation was `getObject`; replacing this isolated adapter preserves existing `MINIO_*` configuration, explicit credentials, path-style private endpoints, byte content and S3 error codes. No Go SDK, MCP tool name, event subject or endpoint changes accompany it. This is the separately tested adapter option identified below, not an incompatible transitive override.
+
+HTTP fixtures verify SigV4 credential/region scope, encoded object keys, binary/empty content, missing/access-denied errors, redirect refusal and truncated-stream failure. Endpoint origins must agree with `MINIO_USE_SSL`; credentials, paths and queries inside endpoints are rejected. Signing region defaults to `us-east-1`, with the existing `MINIO_REGION` override for other stores. Production endpoint/region acceptance remains a live gate.
+
+Reproduce from `apps/processor` with `npm ci`, `npm run build`, `npm test` and `npm audit --audit-level=moderate` (use a writable `/tmp` npm cache if needed). Run the actual Go/Node fixture through [storage acceptance](../StorageVersionMigration.md). A clean audit is an observation, not a guarantee against future advisories. Source/checkpoint publication evidence belongs in [implementation status](IMPLEMENTATION-STATUS.md).
+
+## Historical baseline and remediation
+
+The following records the earlier baseline before the isolated adapter replacement above.
 
 The migration's UI and processor retain their existing React/Vite and Node/LangGraph frameworks. This increment updates vulnerable dependencies and adds `npm audit --audit-level=high` after build/tests in both publishing workflows. High/critical reports now prevent image/chart publication; moderate reports remain visible.
 
@@ -26,7 +38,7 @@ npm audit --json --cache /tmp/worldbuilder-npm-cache
 
 Processor's remaining findings involve `minio -> query-string -> decode-uri-component` and `minio -> stream-json`. npm proposes a forced MinIO downgrade to 7.1.3. That downgrade was not performed. Registry/source inspection shows the patched decoder 0.5.0 and stream-json 3.7.0 use ES modules, while the installed MinIO/query-string code expects CommonJS callable exports and legacy parser paths. Blind overrides would change those APIs. No compatible patch was fabricated or vendored.
 
-Current processor source (`src/storage.ts`) calls MinIO `getObject`; it does not call bucket notifications or SelectObjectContent. This narrows the observed use, without claiming comprehensive exploitability analysis. Track an upstream-compatible SDK fix or a separately tested adapter. Actual external MinIO behaviour remains part of LAN acceptance. Retain the existing private host and authenticated delivery boundary.
+At that checkpoint processor source (`src/storage.ts`) called MinIO `getObject`, without bucket notifications or SelectObjectContent. That narrow use motivated the separately tested adapter above. Actual external storage behaviour remains part of LAN acceptance. Retain the existing private host and authenticated delivery boundary.
 
 Audit counts are observations at this checkpoint and can change as advisories are published. Local JSON diagnostics are in `/tmp/worldbuilder-{ui,processor}-audit-final.json` and may disappear; this document records the durable results.
 

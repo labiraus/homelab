@@ -48,3 +48,5 @@ If a lesson applies only to one app, add a more specific `AGENTS.md` under that 
 - Generated story candidates must retain their inspected sessionVersion when saved; do not substitute a refreshed session version. Definitions and narrative premises retain their original revision/timeline pin. Compare persisted JSONB semantically in tests, since PostgreSQL may reorder object keys without changing content.
 
 - Browser acceptance may use fixture identities only in Go `_test.go` code serving loopback/disposable data. Never add a runtime authentication bypass; restrict fixture browser requests to the local origin. For native selects, prefer their accessible combobox role when exact label matching includes option text.
+
+- Storage SDK replacements must preserve application interfaces, `MINIO_*` compatibility keys, private endpoint/credential scope and error propagation. Use signed HTTP boundary tests plus the disposable actual-client SeaweedFS gate; do not mask vulnerable transitive packages with incompatible module/API overrides or treat a client replacement as storage cutover.

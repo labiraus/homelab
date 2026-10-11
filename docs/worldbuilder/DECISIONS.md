@@ -111,3 +111,7 @@ Use the production UI build and canon HTTP/database engine in Chromium with test
 ## D023 — observe public delivery through CI with explicit evidence limits
 
 Run credential-free, certificate-verified public probes after artifact publication using hosted CI, preserving bounded sanitized artifacts and failing on connectivity/contract errors. Stamp MCP's immutable image tag into its existing discovery version and require the expected version after MCP publication; an older healthy response is not deployment confirmation. Keep Flux reconciliation and authenticated integration state explicitly unknown without their own observations. Do not change DNS/NAT, disable TLS verification or activate Worldbuilder based on a network filter page or a successful artifact build.
+
+## 2026-10-11 — Replace the isolated processor storage adapter to close dependency findings
+
+MinIO 8.0.7 remains the latest Node SDK and its vulnerable CommonJS dependency paths cannot be safely repaired by blind ES-module overrides. The processor uses only object reads, so replace that private adapter with pinned AWS SDK v3 S3. Retain `DocumentStorage`, `MINIO_*`, explicit credentials, path-style private endpoints and S3 error codes. Prove signed HTTP boundaries plus the actual Go/Node SeaweedFS path before publication; reject moderate advisories in processor CI now that its audit is clear. Default signing region is `us-east-1`, with an explicit existing region override. No public API/tool/event rename, endpoint cutover, Go SDK replacement or runtime activation accompanies this change.

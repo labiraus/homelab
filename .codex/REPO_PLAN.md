@@ -14,7 +14,7 @@ The authoritative product target is [Worldbuilder architecture](../docs/worldbui
 
 ## LAN validation and remaining priorities
 
-Required remote source implementation and feasible offline acceptance are complete through increment 15; tested changes are published on main with Worldbuilder flags off. Current external requires explicit schema migrations 001–005 and dedicated grants. The [status log](../docs/worldbuilder/IMPLEMENTATION-STATUS.md) preserves all implementation/test/publication checkpoints; the [acceptance matrix](../docs/worldbuilder/ACCEPTANCE-MATRIX.md) distinguishes local evidence from LAN gates.
+The initial remote baseline was verified through increment 15 and published with Worldbuilder flags off. The user's continuing goal now includes every feasible offline follow-up: [offline work audit](../docs/worldbuilder/OFFLINE-WORK.md) tracks remaining features, migration limitations and recovery checks instead of treating the earlier baseline as blanket completion. Current external requires explicit schema migrations 001–005 and dedicated grants. The [status log](../docs/worldbuilder/IMPLEMENTATION-STATUS.md) preserves implementation/test/publication checkpoints; the [acceptance matrix](../docs/worldbuilder/ACCEPTANCE-MATRIX.md) distinguishes local evidence from LAN gates.
 
 1. Run ordered read-only discovery in the LAN runbook; verify actual contexts, installed CRDs, identities, storage and GitOps artifact/pod readiness.
 2. Verify production backup/restore, independent migration ownership, dedicated role secrets, then apply explicit migrations/grants only through controlled deployment.
@@ -22,6 +22,6 @@ Required remote source implementation and feasible offline acceptance are comple
 4. Observe provider JSON/semantic quality, embeddings support, verified pricing/allowances and realistic concurrent latency/cancellation. Local structural fixtures and domain benchmarks are not live quality/capacity evidence.
 5. Exercise real broker quorum/redelivery, uncertain-work recovery, all-table restore and derived-index rebuild; verify operational scrapes/dashboard baselines.
 6. Inventory external Cassandra consumers/data and obtain separate export/checksum/restore/removal approval before cutover.
-7. Follow compatible upstream remediation for four moderate MinIO transitive advisories. Optional graph/calendar visualisations and configurable review quorum are future extensions; fixed independent review and typed-reference traversal are implemented.
+7. Complete the source-only follow-ups in the offline audit, including graph/calendar views, configurable review policies and deeper recovery tests. The isolated processor S3 adapter removes the four moderate MinIO transitive findings; retain clean audits and actual-client CI coverage.
 
 No live readiness or deployment success has been observed in this remote session. Source publication is authorised; production activation remains LAN-gated.

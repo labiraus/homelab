@@ -55,7 +55,7 @@ jobs:
         working-directory: apps/processor
 
       - name: Check dependency advisories
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=moderate
         working-directory: apps/processor
 
   ghcr:

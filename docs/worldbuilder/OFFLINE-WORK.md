@@ -1,0 +1,26 @@
+# Remaining offline work audit
+
+The ongoing user goal is to complete and publish everything in the project plan that can be implemented and verified without LAN access. Earlier `LOCAL_VERIFIED` checkpoints remain evidence for their tested scope; they are not proof that every optional feature, migration edge case or recovery scenario is finished. This audit expands those checkpoints against the current architecture, migration plan and storage runbooks.
+
+## Work that can advance without LAN access
+
+| Requirement / gap | Current authoritative evidence | Remaining work / completion evidence |
+| --- | --- | --- |
+| Dependency remediation | Processor `src/storage.ts` now uses pinned AWS SDK S3 behind its existing interface; UI/processor audits report zero findings | LOCAL_VERIFIED: build, 50 unit/HTTP-contract tests, real Go/Node SeaweedFS acceptance; CI publication evidence pending |
+| M7 graph and chronology views | Typed-reference traversal exists; acceptance matrix still marks visual views optional/unimplemented | Implement revision/timeline/time-scoped graph and chronology presentation with accessible record navigation; component and real-browser acceptance |
+| Fictional calendar presentation | Canon stores signed fictional ticks; architecture requires non-Gregorian time and status notes presentation is missing | Add explicit, bounded calendar formatting/configuration tied to reviewed world settings; prove negative ticks, interval boundaries and unchanged canonical ordering |
+| Configurable human review policy | Fixed independent reviewer is implemented; configurable quorum remains a documented extension | Audit publication/review implementation, define a reviewed bounded policy preserving independent human decisions, then test concurrent/stale/revoked approvals and UI policy display |
+| Optional timeline divergence/inheritance | Current timelines are isolated; optional inheritance is documented but unimplemented | Define and verify explicit branch semantics without cross-timeline leakage, including historical reads, edits and citations; do not infer inheritance from labels |
+| Multi-node broker recovery | Single-node disposable JetStream and worker recovery exist; deployed quorum is LAN-gated | Add a disposable three-node quorum/failover drill; distinguish protocol/recovery evidence from installed mesh and storage behavior |
+| Storage migration ordering and large objects | `scripts/storage/migrate_versions.py` refuses ambiguous timestamps and objects over 5 GiB | Remove avoidable source-order ambiguity using verifiable version-order evidence; add bounded multipart migration and failure cleanup/recovery tests |
+| Production reference coverage tooling | Version maps preserve old markers, but coverage against actual database/history references is a manual gate | Prepare read-only reference export/coverage checks against audited schema, exercise synthetic missing/deleted/colliding references, retain immutable history |
+| Backup/platform acceptance preparation | Production CNPG/Velero restores and Pi mount failure remain unobserved | Audit which restore/failure mechanics can run on disposable local/CI services; implement feasible drills and identify precisely which observations still require the actual estate |
+| Offline schema/observability coverage | Existing source CRD structural checks and importable Grafana dashboard are present | Audit built-in schema/admission validation and repo-native dashboard/scrape provisioning; prepare and test missing source integration without assuming installed versions or identities |
+
+Each row needs source changes, relevant documentation, meaningful acceptance and CI publication evidence before completion. The list is an audit starting point, not permission to discard unlisted requirements: compare the full M1–M8 contracts and acceptance scenarios before declaring the goal complete. Features remain default-disabled until their existing live gates pass.
+
+## Observations that still require the real estate
+
+Actual source data/reference inventory; Pi disks/mounts/Samba restrictions; CNPG/Velero production restore coverage; installed CRDs/admission; actual OAuth users and mesh/forwarded-header identity; Flux/pod readiness; live provider quality, pricing and embeddings; representative hardware capacity; external Cassandra consumer inventory and explicitly approved retirement. Public certificate/routing remains an observed failure and cannot be corrected by guessing the intended WAN/Gateway state.
+
+Source-only or synthetic evidence must not be used to mark these live gates complete. No source data deletion, schema installation, secret provisioning, feature activation or storage cutover is implied by CI publication.

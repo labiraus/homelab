@@ -1,6 +1,6 @@
 # Worldbuilder implementation status
 
-Execution started 2026-10-10. **Required remote implementation and feasible offline acceptance completed through increment 15; tested main-branch publication authorised; no live cluster observations. Deployment activation and M8 cutover remain LAN-gated.**
+Execution started 2026-10-10. **The initial remote baseline was verified through increment 15. The continuing goal includes the broader [offline work audit](OFFLINE-WORK.md), which remains open. Tested main-branch publication is authorised; no live cluster observations. Deployment activation and M8 cutover remain LAN-gated.**
 
 Public read-only probing on 2026-10-10 reached DNS/TLS but was blocked by Zscaler with a hostname-mismatched certificate and HTTP 403 diagnostic page. No verified application response or cluster state was obtained; see [public validation evidence and remaining checks](PUBLIC-VALIDATION.md).
 
@@ -291,3 +291,11 @@ Required remote implementation and feasible offline acceptance are complete. Rem
 Implementation checkpoint `cf48b66` is published on `origin/main`. All relevant workflows completed successfully: [external tests/image/chart 38074975298](https://github.com/labiraus/homelab/actions/runs/38074975298), [UI component/browser/database tests and image/chart 38074975295](https://github.com/labiraus/homelab/actions/runs/38074975295), [evaluation/schema adapter checks 38074975296](https://github.com/labiraus/homelab/actions/runs/38074975296), and [Helm workflow 38074975312](https://github.com/labiraus/homelab/actions/runs/38074975312). The final documentation-only checkpoint records this evidence and reconciles the original execution prompt with the user's explicit main-publication override.
 
 All migration changes are on main; temporary database/NATS/OpenSearch services were removed and the pre-existing unrelated container was retained. No cluster mutations or live readiness observations were performed. Source/artifact publication is complete; Worldbuilder flags remain disabled. Begin with the ordered read-only commands in [LAN-RUNBOOK.md](LAN-RUNBOOK.md), then execute its separately controlled backup, migrations 001–005/grants, identity and staged activation gates. Preserve populated data on rollback. No Cassandra removal is authorised by its absence from this checkout.
+
+## Increment 16 — processor storage dependency remediation and broader offline audit
+
+The continuing user goal covers every feasible offline follow-up. [OFFLINE-WORK.md](OFFLINE-WORK.md) records remaining visualisation/calendar, governance/timeline, migration and recovery work; prior baseline verification does not close those items.
+
+Replaced the processor's read-only MinIO Node adapter with exact AWS SDK S3 3.1149.0. Public configuration/interface/error contracts and private endpoints remain; endpoint schemes must agree with the TLS flag. Added signed HTTP fixtures for credential/region/path scope, encoded keys, binary/empty reads, S3 errors, redirect refusal and incomplete streams. Processor publication now rejects moderate or worse dependency findings and still requires actual-client storage acceptance.
+
+LOCAL_VERIFIED (2026-10-11): processor build and 50 unit/HTTP-contract tests passed; fresh processor and UI audits report zero vulnerabilities. The full disposable SeaweedFS harness passed migration/recovery, Go reads/reverts and the actual new Node adapter with no integration skips (`/tmp/homelab-aws-sdk-storage.log`). No production storage endpoint, schema, credentials or Worldbuilder activation changed. CI publication outcome is recorded after observation.
