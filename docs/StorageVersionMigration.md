@@ -82,3 +82,17 @@ These offline checks do not establish Pi disk/mount health, production source co
 Local archive/refusal tests: 9 passed. Orchestrator `go test -race ./...` passed; processor build and 44 unit tests passed (the integration-only test is deliberately skipped in that command). The full disposable storage harness then passed both actual-client tests with no skips, version copy/reconciliation and recovery with composed aliases. Local log: `/tmp/homelab-storage-acceptance.log` (ephemeral). The run used the checksum-verified SeaweedFS 4.48 binary and temporary extracted Debian systemd libraries; no host installation or LAN access was required.
 
 All 20 storage chart combinations, both Velero configurations and the existing 26 Worldbuilder chart combinations passed. Actionlint 1.7.7 passed the changed workflows with shellcheck disabled. No production data, Secrets, schemas or feature flags were changed directly. CI publication results are recorded separately from these local observations.
+
+Source checkpoint `8ca05dd` is published on `main`. Hosted checks and publication passed:
+
+| Workflow | Evidence |
+| --- | --- |
+| Storage Migration Acceptance | [38130220596](https://github.com/labiraus/homelab/actions/runs/38130220596): full disposable migration/recovery and actual Go/Node clients, archive refusal tests and storage chart combinations |
+| Orchestrator CI/CD | [38130220730](https://github.com/labiraus/homelab/actions/runs/38130220730): unit tests, required storage gate, image and matching chart publication |
+| Processor CI/CD | [38130220746](https://github.com/labiraus/homelab/actions/runs/38130220746): build/tests/audit, required storage gate, image and matching chart publication |
+| External CI/CD | [38130232254](https://github.com/labiraus/homelab/actions/runs/38130232254): tests, image and matching chart publication |
+| Helm CI/CD | [38130220634](https://github.com/labiraus/homelab/actions/runs/38130220634): PostgreSQL chart publication and external pipeline dispatch |
+
+These results establish publication through the requested CI/CD path. They do not establish installed values, Flux reconciliation, production object migration or Worldbuilder activation.
+
+The first post-publication [public endpoint check 38130239942](https://github.com/labiraus/homelab/actions/runs/38130239942) failed. Additional automatic app-publication probes were still running at this documentation checkpoint. No authenticated application acceptance or installed-state observation was obtained. Earlier certificate/routing evidence remains in [public validation](worldbuilder/PUBLIC-VALIDATION.md); the fresh failure alone does not identify a new cause or prove Flux is stalled. Production cutover and activation remain gated.
