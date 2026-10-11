@@ -8,7 +8,26 @@ import {
 	buildOpenSearchDocument,
 	buildSearchPipelinePayload,
 	ensureOpenSearchResources,
+	indexDocumentInOpenSearch,
 } from "../src/opensearch.js";
+
+test("index writes fence older generations and propagate cancellation", async () => {
+	const originalFetch = globalThis.fetch;
+	const controller = new AbortController();
+	globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+		const url = new URL(String(input));
+		assert.equal(url.searchParams.get("version"), "12");
+		assert.equal(url.searchParams.get("version_type"), "external_gte");
+		assert.equal(init?.signal, controller.signal);
+		return new Response("version conflict", { status: 409 });
+	}) as typeof fetch;
+	try {
+		await assert.rejects(indexDocumentInOpenSearch(testConfig(), {
+			documentId: "owned", bucket: "documents", objectKey: "owned.txt", sourceUri: "s3://documents/owned.txt",
+			contentType: "text/plain", requestedAt: "2026-01-01T00:00:00Z", processingVersion: 12,
+		}, [{ text: "owned" }], controller.signal), /409/);
+	} finally { globalThis.fetch = originalFetch; }
+});
 
 test("builds an OpenSearch index with nested vector chunks", () => {
 	const payload = buildIndexPayload(testConfig());

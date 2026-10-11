@@ -2,7 +2,11 @@
 
 The authoritative product target is [Worldbuilder architecture](../docs/worldbuilder/01-WORLDBUILDER-ARCHITECTURE.md). The [migration](../docs/worldbuilder/02-WORLDBUILDER-MIGRATION.md) defines M1–M8; [implementation status](../docs/worldbuilder/IMPLEMENTATION-STATUS.md) records actual source readiness, tests and gaps. The [prior document-platform plan](../docs/worldbuilder/archive/PRE-WORLDBUILDER-PLAN.md) is historical.
 
-## Active continuation — 2026-10-11, 22:45 UTC
+## Active continuation — 2026-10-11, 23:00 UTC
+
+Source document recovery passes: 114 text documents, two unsupported images, 373 normalized 1,024-dimensional chunks, 133,230 source bytes and matching current version/ETag/generation pins. Coverage explicitly accounts for 54 boundary whitespace characters trimmed by the existing indexer. Original lifecycle fingerprint is unchanged. Scanner source `6419730` fixes generation regression; nine cases and full disposable PostgreSQL/restore tests pass. A terminated document worker exposed an abandoned claim; its normal reprocess recovered generation 3. Worker session-lock recovery and dual index/checkpoint fencing now pass local unit, real PostgreSQL owner termination and live synthetic OpenSearch gates. The empty document consumer is paused for its first protocol rollout, bounded to one hour; resume it after the new build is observed on every worker. S3 uploads and synchronous AI remain available.
+
+MCP `38179885575` is live and passes both real transports, scoped reads/draft retries and exact-version public check rerun `38180915907`. Parent `38181781184` enabled durable jobs; actual generation stream/consumer have three replicas, file storage and seven-day retention, with no pending work. Worker-route denial and functional/recovery acceptance remain pending. Fresh source CNPG backup `20261011T225138` completed. The earlier checkpoint below is superseded; broader storage, monitoring and remaining source gates stay open.
 
 Latest: gateway `38179718740`, processor `38179885531`, external `38179885497` and orchestrator `38179885546` are deployed and Ready. Full gateway and actual conversation MCP document round-trip gates pass, including scoped search/context and reprocessing. Normal reconciliation scanned 116 current objects, queued 113 text documents and marked two images unsupported; processing is still draining. All current inventory rows have source versions and the original 2,199 lifecycle events retain their fingerprint. MinIO remains production storage.
 

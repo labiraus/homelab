@@ -63,6 +63,12 @@ jobs:
         run: npm audit --audit-level=moderate
         working-directory: apps/processor
 
+      - name: Verify document ownership and worker-loss recovery
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client socat
+          bash scripts/worldbuilder/test-document-claims.sh
+
   ghcr:
     needs: [test, storage-acceptance, platform-acceptance]
     name: "Processor Build to GHCR"

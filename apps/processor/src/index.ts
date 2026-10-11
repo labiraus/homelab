@@ -21,7 +21,7 @@ import {
 } from "./db.js";
 import { ensureOpenSearchResources, indexDocumentInOpenSearch } from "./opensearch.js";
 import { createDocumentStorage } from "./storage.js";
-import type { DocumentEvent, DocumentLifecycleEvent } from "./types.js";
+import type { DocumentClaimResult, DocumentEvent, DocumentLifecycleEvent } from "./types.js";
 
 async function main(): Promise<void> {
 	const config = loadConfig();
@@ -79,17 +79,23 @@ async function main(): Promise<void> {
 			ready = true;
 
 			for await (const message of messages) {
+				let claim: DocumentClaimResult | undefined;
+				let heartbeat: ReturnType<typeof setInterval> | undefined;
 				try {
 					const event = JSON.parse(message.string()) as DocumentEvent;
-					const claim = await claimDocumentForProcessing(pool, event);
+					claim = await claimDocumentForProcessing(pool, event);
 					if (claim.kind === "noop") {
 						message.ack();
 						continue;
 					}
 					if (claim.kind === "retry" || claim.documentPk == null) {
-						message.nak();
+						message.nak(1000);
 						continue;
 					}
+					heartbeat = setInterval(() => {
+						try { message.working(); } catch (error) { console.error(error); }
+					}, 10_000);
+					const signal = AbortSignal.any([claim.signal!, AbortSignal.timeout(600_000)]);
 
 					await emitLifecycleEventBestEffort(
 						pool,
@@ -98,10 +104,11 @@ async function main(): Promise<void> {
 					);
 
 					const raw = await storage.readDocument(event.bucket, event.objectKey, {
-						versionMarker: event.versionMarker, etag: event.etag,
+						versionMarker: event.versionMarker, etag: event.etag, signal,
 					});
 					const extracted = extractDocumentContent(raw, event.contentType);
-					await indexDocumentInOpenSearch(config, event, extracted.segments);
+					await indexDocumentInOpenSearch(config, event, extracted.segments, signal);
+					signal.throwIfAborted();
 					await markDocumentIndexed(pool, claim.documentPk, event);
 					await emitLifecycleEventBestEffort(
 						pool,
@@ -113,7 +120,7 @@ async function main(): Promise<void> {
 					message.ack();
 				} catch (error) {
 					const event = safeParseDocumentEvent(message.string());
-					if (event) {
+					if (event && !claim?.signal?.aborted) {
 						await markDocumentPendingWithError(pool, event, formatError(error)).catch((persistError) => {
 							console.error(persistError);
 						});
@@ -125,8 +132,11 @@ async function main(): Promise<void> {
 							}),
 						);
 					}
-					message.nak();
+					message.nak(5000);
 					console.error(error);
+				} finally {
+					if (heartbeat) clearInterval(heartbeat);
+					await claim?.release?.();
 				}
 			}
 

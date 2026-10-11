@@ -148,7 +148,18 @@ console.log(JSON.stringify({index:buildIndexPayload(config),ingest:buildIngestPi
         assert chunks[0][0]['text'] == expected and chunks[1][0]['text'] == expected, 'source text changed'
         assert len(chunks[2]) > 1 and 'FINAL_SENTINEL' in chunks[2][-1]['text'], 'long document lost its tail'
         for document in docs:
-            request('PUT', '/' + name + '/_doc/' + document['documentId'] + '?pipeline=' + name + '&refresh=true', document)
+            request('PUT', '/' + name + '/_doc/' + document['documentId'] + '?pipeline=' + name + '&refresh=true&version=2&version_type=external_gte', document)
+        target = '/' + name + '/_doc/fixture-target'
+        # A server-side write may outlive a disconnected worker. Fence it by
+        # generation while permitting an identical retry of the current source.
+        request('PUT', target + '?pipeline=' + name + '&version=2&version_type=external_gte', docs[0])
+        try:
+            request('PUT', target + '?version=1&version_type=external_gte', {'documentId': 'fixture-target', 'body': 'STALE'})
+            raise AssertionError('stale generation overwrote newer chunks')
+        except RuntimeError as error:
+            assert isinstance(error.__cause__, urllib.error.HTTPError) and error.__cause__.code == 409
+        retained = request('GET', target)
+        assert retained['_version'] == 2 and retained['_source']['passage_chunk'][0]['text'] == expected
         # Generate real application queries, rather than reimplementing its filters.
         queries = [{'Query': 'quoted', 'Limit': 5},
                    {'Query': 'quoted', 'DocumentID': 'fixture-target'},
@@ -173,7 +184,7 @@ func main(){var queries []opensearchrag.SearchRequest;if err:=json.NewDecoder(os
         assert found['_shards']['failed'] == 0 and len(found['hits']['hits']) == 3, 'semantic pipeline did not execute'
         report = {'status': 'PASS', 'dimensions': 1024, 'syntheticDocuments': len(docs),
                   'chunkCounts': [len(c) for c in chunks], 'textIntegrity': True,
-                  'applicationFilterCases': len(bodies), 'semanticPipeline': True}
+                  'applicationFilterCases': len(bodies), 'semanticPipeline': True, 'staleGenerationRefused': True}
     finally:
         for kind, path in reversed(created):
             value = request('GET', path)[name]

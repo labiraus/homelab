@@ -26,6 +26,10 @@ The current lifecycle for a claimed job is:
 
 If work fails after claim, the worker records `last_error`, returns the document to `pending`, and lets JetStream retry the message.
 
+Each claimed document holds a PostgreSQL session advisory lock until its checkpoint is saved. Worker death releases ownership, allowing another worker to recover a retained `processing` row; active owners still exclude duplicate work. Losing that database session aborts pinned storage reads and index requests. Reads/indexing have a ten-minute bound, active messages send progress acknowledgements, and retries use a delay. Completed or superseded generations cannot be reset by late success/error writes, and OpenSearch `external_gte` versions prevent an older generation overwriting newer chunks. Drain and pause the document consumer during the first transition from workers without these locks; resume only after every consumer uses the new build.
+
+`bash scripts/worldbuilder/test-document-claims.sh` proves concurrent exclusion, actual owning-session termination, abandoned-claim recovery, completed/superseded deduplication and late checkpoint refusal using an owned PostgreSQL fixture. CI requires this separately from ordinary unit tests. The live synthetic search gate also proves stale OpenSearch version refusal and an exact current-generation retry.
+
 The worker publishes `documents.events.processor.started`, `documents.events.processor.completed`, and `documents.events.processor.failed` lifecycle notifications on a best-effort basis. After a notification publish succeeds, it also appends the event payload to `rag.document_lifecycle_events` and updates the quick summary columns on `rag.documents`.
 
 OpenSearch stores nested chunk text and vectors. `OPENSEARCH_RAG_MODEL_ID` should identify an OpenSearch ML Commons model whose connector routes inference through Envoy AI Gateway.

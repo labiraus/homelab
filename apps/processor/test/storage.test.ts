@@ -21,6 +21,17 @@ function storage(endpoint: string) {
 		minioRegion: "eu-west-2", minioBucket: "documents" });
 }
 
+test("aborts a pinned read when its processing owner is lost", async (t) => {
+	let entered!: () => void;
+	const requested = new Promise<void>((resolve) => { entered = resolve; });
+	const endpoint = await fixture(t, () => entered());
+	const controller = new AbortController();
+	const reading = storage(endpoint).readDocument("documents", "owned.txt", { versionMarker: "null", etag: "pinned", signal: controller.signal });
+	await requested;
+	controller.abort();
+	await assert.rejects(reading, /abort/i);
+});
+
 test("parses MinIO host and port from a bare endpoint", () => {
 	assert.deepEqual(parseMinioEndpoint("svartalfheim:9000", false), {
 		endPoint: "svartalfheim",

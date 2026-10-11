@@ -113,6 +113,10 @@ Common readings:
 - `status=processing` with no recent started/completed/failed event: check processor pod health and NATS consumer lag.
 - `status=failed` or `lastError` populated: inspect processor logs and the lifecycle event payload.
 
+A pending row whose desired generation is no newer than its completed generation can be the old scanner bug: changed source identities were queued at default generation 1 and correctly deduplicated by the worker. Confirm source version/ETag, then use the normal document reprocess endpoint for those specific rows. The corrected scanner advances changed sources beyond both stored generations and preserves unchanged generations.
+
+Before the session-lock worker protocol, a killed or scaled-down worker could leave `processing` indefinitely, with one JetStream message repeatedly rejected by healthy workers. Check actual ingest activity and retained history; do not clear completed generations or audit rows. New workers retain a PostgreSQL session lock through checkpointing, recover after owner loss, and fence late index/database writes. The first upgrade requires draining and pausing document consumption until every worker uses the new protocol. A successful index write alone does not prove the SQL checkpoint completed.
+
 Recovery:
 
 ```bash

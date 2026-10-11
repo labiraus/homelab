@@ -46,12 +46,14 @@ export async function indexDocumentInOpenSearch(
 	config: ProcessorConfig,
 	event: DocumentEvent,
 	segments: ExtractedSegment[],
+	signal?: AbortSignal,
 ): Promise<void> {
 	const document = buildOpenSearchDocument(event, segments);
 	const path =
 		`/${encodeURIComponent(config.openSearchIndex)}/_doc/${encodeURIComponent(event.documentId)}` +
-		`?pipeline=${encodeURIComponent(config.openSearchIngestPipeline)}`;
-	await putOpenSearchJSON(config, path, document);
+		`?pipeline=${encodeURIComponent(config.openSearchIngestPipeline)}` +
+		`&version=${event.processingVersion ?? 1}&version_type=external_gte`;
+	await putOpenSearchJSON(config, path, document, signal);
 }
 
 export function buildOpenSearchDocument(event: DocumentEvent, segments: ExtractedSegment[]): OpenSearchDocument {
@@ -231,12 +233,13 @@ export function buildSearchPipelinePayload(config: ProcessorConfig): Record<stri
 	};
 }
 
-async function putOpenSearchJSON(config: ProcessorConfig, path: string, payload: unknown): Promise<void> {
+async function putOpenSearchJSON(config: ProcessorConfig, path: string, payload: unknown, signal?: AbortSignal): Promise<void> {
 	const baseUrl = config.openSearchBaseUrl.replace(/\/+$/, "");
 	const response = await fetch(baseUrl + path, {
 		method: "PUT",
 		headers: buildHeaders(config),
 		body: JSON.stringify(payload),
+		signal,
 	});
 	if (!response.ok) {
 		const body = await response.text();

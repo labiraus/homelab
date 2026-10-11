@@ -60,4 +60,7 @@ export interface DocumentClaimResult {
 	kind: "claimed" | "noop" | "retry";
 	documentPk?: number;
 	reason: string;
+	// Claimed work owns a PostgreSQL session lock until its final checkpoint.
+	release?: () => Promise<void>;
+	signal?: AbortSignal;
 }

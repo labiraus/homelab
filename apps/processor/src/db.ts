@@ -183,7 +183,29 @@ export async function claimDocumentForProcessing(
 ): Promise<DocumentClaimResult> {
 	const client = await pool.connect();
 	const processingVersion = event.processingVersion ?? 1;
+	const controller = new AbortController();
+	const lostConnection = () => controller.abort(new Error("document processing lock connection lost"));
+	client.on("error", lostConnection);
+	let locked = false;
+	let retained = false;
+	let released = false;
+	const release = async () => {
+		if (released) return;
+		released = true;
+		let destroy = controller.signal.aborted;
+		try {
+			if (locked && !destroy) await client.query("SELECT pg_advisory_unlock(hashtextextended($1, 0))", ["document-processing:" + event.documentId]);
+		} catch {
+			destroy = true;
+		} finally {
+			client.removeListener("error", lostConnection);
+			client.release(destroy);
+		}
+	};
 	try {
+		const lock = await client.query<{ locked: boolean }>("SELECT pg_try_advisory_lock(hashtextextended($1, 0)) AS locked", ["document-processing:" + event.documentId]);
+		locked = lock.rows[0]?.locked === true;
+		if (!locked) return { kind: "retry", reason: "document is already being processed" };
 		await client.query("BEGIN");
 		const result = await client.query<DocumentState>(
 			`SELECT
@@ -198,7 +220,9 @@ export async function claimDocumentForProcessing(
 		);
 
 		const state = result.rows[0];
-		const outcome = resolveClaimResult(state ?? null, processingVersion);
+		// A previous participating owner cannot survive this exclusive lock.
+		// Process death releases the lock even when processing status persists.
+		const outcome = resolveClaimResult(state ?? null, processingVersion, true);
 		if (outcome.kind !== "claimed") {
 			await client.query("ROLLBACK");
 			return outcome;
@@ -219,18 +243,20 @@ export async function claimDocumentForProcessing(
 		}
 
 		await client.query("COMMIT");
-		return outcome;
+		retained = true;
+		return { ...outcome, release, signal: controller.signal };
 	} catch (error) {
-		await client.query("ROLLBACK");
+		await client.query("ROLLBACK").catch(() => undefined);
 		throw error;
 	} finally {
-		client.release();
+		if (!retained) await release();
 	}
 }
 
 export function resolveClaimResult(
 	state: DocumentState | null,
 	processingVersion: number,
+	exclusiveOwner = false,
 ): DocumentClaimResult {
 	if (!state) {
 		return { kind: "retry", reason: "document row is not visible yet" };
@@ -248,7 +274,7 @@ export function resolveClaimResult(
 		return { kind: "noop", reason: "document version is already processed" };
 	}
 
-	if (state.status === "processing") {
+	if (state.status === "processing" && !exclusiveOwner) {
 		return { kind: "retry", reason: "document is already being processed" };
 	}
 
@@ -339,15 +365,12 @@ export async function markDocumentIndexed(pool: Pool, documentPk: number, event:
 	const processingVersion = event.processingVersion ?? 1;
 	await pool.query(
 		`UPDATE rag.documents
-		SET current_processing_version = GREATEST(current_processing_version, $2),
-			status = CASE
-				WHEN desired_processing_version > $2 THEN 'pending'
-				ELSE 'processed'
-			END,
+		SET current_processing_version = $2,
+			status = 'processed',
 			last_processed_at = NOW(),
 			updated_at = NOW(),
 			last_error = NULL
-		WHERE id = $1`,
+		WHERE id = $1 AND desired_processing_version = $2 AND current_processing_version <= $2`,
 		[documentPk, processingVersion],
 	);
 }
@@ -359,13 +382,10 @@ export async function markDocumentPendingWithError(
 ): Promise<void> {
 	await pool.query(
 		`UPDATE rag.documents
-		SET status = CASE
-			WHEN desired_processing_version > $2 THEN status
-			ELSE 'pending'
-		END,
+		SET status = 'pending',
 			last_error = $3,
 			updated_at = NOW()
-		WHERE document_id = $1`,
+		WHERE document_id = $1 AND desired_processing_version = $2 AND current_processing_version < $2`,
 		[event.documentId, event.processingVersion ?? 1, message],
 	);
 }
