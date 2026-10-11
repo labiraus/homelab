@@ -43,6 +43,7 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 ## Repo-Specific Notes
 
 - `libraries/commonapi/` is the shared chart template library
+- Its Istio resources are in `libraries/commonapi/templates/_istio.tpl`; discover template paths with `rg --files` before reading them rather than deriving filenames from Kubernetes kinds.
 - bootstrap charts define how Flux discovers and deploys workloads
 - `workloads/` is for miscellaneous user workloads that are deployed by Flux but are not considered core platform services
 - values files under `values/` complement this directory and should be checked when chart behavior changes
@@ -76,3 +77,6 @@ If a lesson is specific to one chart family, add a more local `AGENTS.md` under 
 - Helm `required` does not reject an empty list in the locally verified Helm version. Security-sensitive principal lists must explicitly test `empty` and reject wildcard entries; include negative render tests.
 
 - Offline CRD checks must fail on missing schemas. Some upstream charts render CRDs from templates, so `helm show crds` can be empty; use `helm template --include-crds`. Set `HELM_CACHE_HOME` for temporary writable caches. `scripts/worldbuilder/test-platform.sh` validates the Worldbuilder render matrix against a disposable pinned API server, including built-ins/CEL/strict fields. Keep source CRDs unchanged and operator kubeconfig unused; source validation does not establish installed versions, external webhooks or controller reconciliation. CI gates app and Helm publication on this check.
+
+- Worldbuilder observability stays opt-in until scraper namespace/Pod labels/mTLS principal, monitor discovery and datasource UID are observed. Keep STRICT mTLS, exact metric-only identity boundaries and existing dashboard providers. Grafana file provisioning does not substitute manual-import `__inputs`: bind the UID explicitly and package one dashboard JSON source in the Prometheus chart. Compare selected upstream chart mounts/CRDs and execute the disposable metric/dashboard gate before publication.
+- Public monitoring CRDs can contain a legal bare `=` enum. Use the repository's Kubernetes-aware safe structural loader; do not rewrite the source enum or bypass the API-server validation gate to accommodate a YAML parser error.

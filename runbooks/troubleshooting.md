@@ -306,6 +306,14 @@ Use `bash scripts/worldbuilder/test-platform.sh` with the dependencies in [offli
 
 New CRDs can initially have absent/null status conditions; the harness waits for `Established` with a deadline. It refuses remote conversion-webhook configurations rather than rewriting their source or connecting outside the fixture. External operators/webhooks need separate disposable fixtures; do not bypass an acceptance failure by selecting a real cluster. No test success proves live admission or workload readiness.
 
+For a structural parser error on a bare `=` in a public CRD enum, use the repository's Kubernetes-aware safe loader. It preserves this legal string while rejecting unsafe YAML tags; do not rewrite the upstream CRD or skip its validation. The disposable API-server gate must also pass the original source.
+
+## Worldbuilder metrics and dashboard provisioning
+
+Use the two acceptance commands in [observability](../docs/worldbuilder/OBSERVABILITY.md) before activation. Empty panels require separate checks of the configured datasource UID, application namespace, `worldbuilder-external` job, monitor/Service selection and actual scrape health. A rendered ServiceMonitor alone does not establish discovery or mTLS. Keep STRICT authentication and use the observed scraper identity; do not open the endpoint to all Pods to make a scrape pass. The disposable fixture uses an internal Docker network and needs no reachable published host ports.
+
+Grafana file provisioning does not resolve manual-import `__inputs`. The chart binds UIDs and namespace explicitly, supplies the provider and mounts its ConfigMap. Inspect both the selected upstream chart's volume/provider render and Grafana's provisioned dashboard API. Keep one dashboard JSON source under the Prometheus chart; avoid a separate docs copy drifting from the published artifact.
+
 ## Worldbuilder disposable PostgreSQL host forwarding
 
 If the test container is healthy but the devcontainer cannot reach its published port, use `WORLDBUILDER_TEST_TRANSPORT=exec bash scripts/worldbuilder/test-postgres.sh`. The local loopback socat bridge uses only the harness's generated test container and cleans up on exit. See [Worldbuilder troubleshooting](../docs/worldbuilder/TROUBLESHOOTING.md). This does not require cluster access or a production database connection.

@@ -296,6 +296,14 @@ affinity: {}
 env:
   configValue: "default"
 
+# Separate from canon activation. Populate from observed Prometheus/mesh state.
+worldbuilderMonitoring:
+  enabled: false
+  labels: {} # Must match the installed Prometheus serviceMonitorSelector.
+  scraperNamespace: ""
+  scraperPodLabels: {}
+  scraperPrincipal: "" # Exact mTLS identity; scraper must send authenticated mesh traffic.
+
 # Off until explicit migration, dedicated grants and browser mTLS identity validation.
 worldbuilder:
   enabled: false

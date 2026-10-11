@@ -14,7 +14,7 @@
     "worldbuilder"
   ],
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "time": {
     "from": "now-6h",
@@ -38,8 +38,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (method) (rate(external_ops_total{method=~\"worldbuilder.*\",state=\"call\"}[5m]))",
-          "legendFormat": "{{method}} {{state}}"
+          "expr": "sum by (method) (rate(external_ops_total{namespace=\"$namespace\",job=\"worldbuilder-external\",method=~\"worldbuilder.*\",state=\"call\"}[5m]))",
+          "legendFormat": "{{method}}"
         }
       ],
       "fieldConfig": {
@@ -66,8 +66,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (method) (rate(external_ops_total{method=~\"worldbuilder.*\",state=\"error\"}[5m]))",
-          "legendFormat": "{{method}} {{state}}"
+          "expr": "sum by (method) (rate(external_ops_total{namespace=\"$namespace\",job=\"worldbuilder-external\",method=~\"worldbuilder.*\",state=\"error\"}[5m]))",
+          "legendFormat": "{{method}}"
         }
       ],
       "fieldConfig": {
@@ -94,7 +94,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (method,state) (rate(external_ops_total{method=~\"worldbuilder.*\",state=~\"conflict|denied|budget|invalid\"}[5m]))",
+          "expr": "sum by (method,state) (rate(external_ops_total{namespace=\"$namespace\",job=\"worldbuilder-external\",method=~\"worldbuilder.*\",state=~\"conflict|denied|budget|invalid\"}[5m]))",
           "legendFormat": "{{method}} {{state}}"
         }
       ],
@@ -122,8 +122,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (method) (rate(external_processing_duration_seconds_sum{method=~\"worldbuilder.*\"}[5m])) / sum by (method) (rate(external_processing_duration_seconds_count{method=~\"worldbuilder.*\"}[5m]))",
-          "legendFormat": "{{method}} {{state}}"
+          "expr": "sum by (method) (rate(external_processing_duration_seconds_sum{namespace=\"$namespace\",job=\"worldbuilder-external\",method=~\"worldbuilder.*\"}[5m])) / sum by (method) (rate(external_processing_duration_seconds_count{namespace=\"$namespace\",job=\"worldbuilder-external\",method=~\"worldbuilder.*\"}[5m]))",
+          "legendFormat": "{{method}}"
         }
       ],
       "fieldConfig": {
@@ -133,5 +133,20 @@
         "overrides": []
       }
     }
-  ]
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "label": "Application namespace",
+        "type": "constant",
+        "query": "homelab",
+        "current": {
+          "text": "homelab",
+          "value": "homelab"
+        },
+        "hide": 2
+      }
+    ]
+  }
 }

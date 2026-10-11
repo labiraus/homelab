@@ -1,7 +1,19 @@
-{{- $root := . -}}
+{{- include "prometheus.worldbuilder.validate" . -}}
 {{- $ingress := .Values.ingress | default dict -}}
 {{- $hosts := get $ingress "hosts" | default list -}}
 {{- $ingressTLS := get $ingress "tls" | default list -}}
+{{- $grafana := dict -}}
+{{- with (first $hosts) -}}
+{{- $host := .host -}}
+{{- with (first .paths) -}}
+{{- $scheme := ternary "http" "https" (empty $ingressTLS) -}}
+{{- $_ := set $grafana "grafana.ini" (dict "server" (dict "root_url" (printf "%s://%s%s" $scheme $host .path) "serve_from_sub_path" true)) -}}
+{{- end -}}
+{{- end -}}
+{{- if .Values.worldbuilderObservability.enabled -}}
+{{- $_ := set $grafana "dashboardProviders" (dict "worldbuilder.yaml" (dict "apiVersion" 1 "providers" (list (dict "name" "worldbuilder" "orgId" 1 "folder" "Worldbuilder" "type" "file" "disableDeletion" false "allowUiUpdates" false "updateIntervalSeconds" 30 "options" (dict "path" "/var/lib/grafana/dashboards/worldbuilder"))))) -}}
+{{- $_ := set $grafana "dashboardsConfigMaps" (dict "worldbuilder" (printf "%s-worldbuilder" (include "prometheus.fullname" .))) -}}
+{{- end }}
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -9,24 +21,16 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1h
-  targetNamespace: istio-system
+  targetNamespace: {{ .Values.stack.targetNamespace }}
   releaseName: prometheus
   chart:
     spec:
       chart: kube-prometheus-stack
       reconcileStrategy: ChartVersion
-      version: '*'
+      version: {{ .Values.stack.chartVersion | quote }}
       sourceRef:
         kind: HelmRepository
         name: prometheus
   values:
-    {{- with (first $hosts) }}
-    {{- $host := .host -}}
-    {{- with (first .paths) }}
     grafana:
-      grafana.ini:
-        server:
-          root_url: "{{ if empty $ingressTLS }}http{{ else }}https{{ end }}://{{ $host }}{{ .path }}"
-          serve_from_sub_path: true 
-    {{- end }}
-    {{- end }}
+      {{- toYaml $grafana | nindent 6 }}

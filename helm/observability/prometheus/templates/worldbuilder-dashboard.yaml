@@ -1,0 +1,21 @@
+{{- include "prometheus.worldbuilder.validate" . -}}
+{{- if .Values.worldbuilderObservability.enabled }}
+{{- $dashboard := mustFromJson (.Files.Get "files/worldbuilder-dashboard.json") -}}
+{{- $_ := unset $dashboard "__inputs" -}}
+{{- range $panel := $dashboard.panels -}}
+{{- $_ := set $panel.datasource "uid" $.Values.worldbuilderObservability.datasourceUID -}}
+{{- end -}}
+{{- $namespace := index $dashboard.templating.list 0 -}}
+{{- $_ := set $namespace "query" .Values.worldbuilderObservability.externalNamespace -}}
+{{- $_ := set $namespace "current" (dict "text" .Values.worldbuilderObservability.externalNamespace "value" .Values.worldbuilderObservability.externalNamespace) -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "prometheus.fullname" . }}-worldbuilder
+  namespace: {{ .Values.stack.targetNamespace }}
+  labels:
+    {{- include "prometheus.labels" . | nindent 4 }}
+data:
+  worldbuilder.json: |
+    {{- mustToPrettyJson $dashboard | nindent 4 }}
+{{- end }}

@@ -19,6 +19,8 @@ for app in external orchestrator processor mcp; do
 done
 bash "$root/scripts/worldbuilder/export-crd-schemas.sh" "$artifacts/schemas"
 python3 "$root/scripts/worldbuilder/check-manifests.py" --output "$artifacts/renders"
+python3 "$root/scripts/worldbuilder/check-observability.py" "$artifacts/renders" "$artifacts/schemas/stack-chart/kube-prometheus-stack"
+python3 "$root/scripts/worldbuilder/test-custom-resources.py"
 python3 "$root/scripts/worldbuilder/validate-custom-resources.py" "$artifacts/schemas" "$artifacts/renders"
 (
   cd "$root/scripts/worldbuilder/platform"

@@ -10,6 +10,17 @@ import yaml
 import jsonschema
 
 
+class KubernetesLoader(yaml.SafeLoader):
+    """Keep the legal bare '=' string used by upstream CRD enum schemas."""
+
+
+KubernetesLoader.add_constructor('tag:yaml.org,2002:value', KubernetesLoader.construct_scalar)
+
+
+def documents(text):
+    return yaml.load_all(text, Loader=KubernetesLoader)
+
+
 def structural(schema):
     schema = copy.deepcopy(schema)
     if isinstance(schema, dict):
@@ -28,7 +39,7 @@ def structural(schema):
 def main(schema_dir, render_dir):
     schemas = {}
     for path in pathlib.Path(schema_dir).glob('*.yaml'):
-        for doc in yaml.safe_load_all(path.read_text()):
+        for doc in documents(path.read_text()):
             if isinstance(doc, dict) and doc.get('kind') == 'CustomResourceDefinition':
                 for version in doc['spec']['versions']:
                     schemas[(doc['spec']['group']+'/'+version['name'], doc['spec']['names']['kind'])] = structural(version['schema']['openAPIV3Schema'])
@@ -37,7 +48,7 @@ def main(schema_dir, render_dir):
     paths = list(pathlib.Path(render_dir).glob('*.template')) + list(pathlib.Path(render_dir).glob('*-enabled.yaml'))
     builtin = {'v1', 'apps/v1', 'batch/v1', 'networking.k8s.io/v1', 'rbac.authorization.k8s.io/v1', 'policy/v1', 'autoscaling/v2'}
     for path in paths:
-        for doc in yaml.safe_load_all(path.read_text()):
+        for doc in documents(path.read_text()):
             if not isinstance(doc, dict) or doc.get('apiVersion') in builtin:
                 continue
             key = (doc.get('apiVersion'), doc.get('kind'))

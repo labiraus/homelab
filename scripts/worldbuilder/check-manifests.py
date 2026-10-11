@@ -8,7 +8,7 @@ root=pathlib.Path(__file__).resolve().parents[2]
 out=options.output or pathlib.Path(tempfile.mkdtemp(prefix='worldbuilder-manifests-'))
 if options.output:out.mkdir(parents=True)
 (out/'dockerconfig.json').write_text('{"auths":{}}')
-charts=['apps/external','apps/orchestrator','apps/processor','apps/mcp','apps/ui','data/postgres','bootstrap/flux-apps','bootstrap/flux-data','bootstrap/flux-infra','infra/vllm','infra/envoy-ai-gateway']
+charts=['apps/external','apps/orchestrator','apps/processor','apps/mcp','apps/ui','data/postgres','bootstrap/flux-apps','bootstrap/flux-data','bootstrap/flux-infra','infra/vllm','infra/envoy-ai-gateway','observability/prometheus']
 failures=[]; checked=[]
 def save_render(path,result):
     path.write_text(result.stdout)

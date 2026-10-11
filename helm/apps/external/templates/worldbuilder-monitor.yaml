@@ -1,0 +1,101 @@
+{{- $monitor := .Values.worldbuilderMonitoring -}}
+{{- if $monitor.enabled }}
+{{- if or (empty $monitor.labels) (empty $monitor.scraperPodLabels) (empty $monitor.scraperNamespace) }}
+{{- fail "worldbuilderMonitoring requires observed monitor labels, scraperPodLabels and scraperNamespace" }}
+{{- end }}
+{{- $principal := required "worldbuilderMonitoring.scraperPrincipal is required" $monitor.scraperPrincipal -}}
+{{- if or (not (regexMatch "^[a-zA-Z0-9.-]+/ns/[a-z0-9-]+/sa/[a-z0-9-]+$" $principal)) (ne (index (splitList "/" $principal) 2) $monitor.scraperNamespace) }}
+{{- fail "worldbuilderMonitoring requires an exact principal in scraperNamespace" }}
+{{- end }}
+{{- if or (eq $principal .Values.worldbuilder.browserPrincipal) (eq $principal .Values.worldbuilder.mcp.principal) (eq $principal .Values.worldbuilder.jobs.principal) }}
+{{- fail "metrics scraper identity must be distinct from browser, MCP and worker identities" }}
+{{- end }}
+{{- if or (not .Values.security.istio.peerAuthentication.enabled) (ne .Values.security.istio.peerAuthentication.mode "STRICT") (not .Values.security.networkPolicy.enabled) }}
+{{- fail "worldbuilderMonitoring requires STRICT mesh authentication and network policy" }}
+{{- end }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "commonapi.fullname" . }}-worldbuilder
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- toYaml $monitor.labels | nindent 4 }}
+spec:
+  namespaceSelector:
+    matchNames: [{{ .Values.namespace | quote }}]
+  selector:
+    matchLabels:
+      {{- include "commonapi.selectorLabels" . | nindent 6 }}
+  sampleLimit: 10000
+  targetLimit: 100
+  labelLimit: 32
+  endpoints:
+    - port: http
+      path: /metrics
+      scheme: http
+      interval: 30s
+      scrapeTimeout: 10s
+      honorLabels: false
+      relabelings:
+        - targetLabel: job
+          replacement: worldbuilder-external
+      metricRelabelings:
+        - action: keep
+          sourceLabels: [__name__, method]
+          regex: '(external_ops_total|external_processing_duration_seconds_(bucket|sum|count));worldbuilder(_tools|_worker)?'
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "commonapi.fullname" . }}-worldbuilder-metrics
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "commonapi.selectorLabels" . | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $monitor.scraperNamespace | quote }}
+          podSelector:
+            matchLabels:
+              {{- toYaml $monitor.scraperPodLabels | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.service.port }}
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ include "commonapi.fullname" . }}-worldbuilder-metrics
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "commonapi.selectorLabels" . | nindent 6 }}
+  action: DENY
+  rules:
+    - from:
+        - source:
+            notPrincipals: [{{ $principal | quote }}]
+      to:
+        - operation:
+            ports: [{{ .Values.service.port | quote }}]
+            paths: ["/metrics", "/metrics/*"]
+    - from:
+        - source:
+            principals: [{{ $principal | quote }}]
+      to:
+        - operation:
+            ports: [{{ .Values.service.port | quote }}]
+            notPaths: ["/metrics"]
+    - from:
+        - source:
+            principals: [{{ $principal | quote }}]
+      to:
+        - operation:
+            ports: [{{ .Values.service.port | quote }}]
+            notMethods: ["GET"]
+{{- end }}
