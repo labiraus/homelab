@@ -8,6 +8,8 @@ LOCAL_VERIFIED (2026-10-11): UI build and 45 tests; processor build and 52 exist
 
 Calendar configuration/presentation and full-range life-bound fact semantics remain open in [the offline audit](OFFLINE-WORK.md); numeric fact semantics are unchanged by this transport correction.
 
+Follow-up audit found the orchestrator's derived index text also passed through `float64`. It now retains raw JSON field tokens, with a full-range projection regression and the complete orchestrator Go suite passing. This keeps date search terms exact while preserving canonical reconciliation; it changes neither index schema nor authority. Core source `a1e7c92` is published; application CI and projection publication are being observed.
+
 Execution started 2026-10-10. **The initial remote baseline was verified through increment 15. The continuing goal includes the broader [offline work audit](OFFLINE-WORK.md), which remains open. Tested main-branch publication is authorised; no live cluster observations. Deployment activation and M8 cutover remain LAN-gated.**
 
 Public read-only probing on 2026-10-10 reached DNS/TLS but was blocked by Zscaler with a hostname-mismatched certificate and HTTP 403 diagnostic page. No verified application response or cluster state was obtained; see [public validation evidence and remaining checks](PUBLIC-VALIDATION.md).

@@ -1,5 +1,7 @@
 # orchestrator
 
+Worldbuilder index projections retain original JSON number tokens in derived record text, including full-range signed fictional dates. The index remains rebuildable and external rechecks candidates against authorised canon; see the [date wire contract](../../docs/worldbuilder/API.md).
+
 Optional Worldbuilder outbox relay and canon projection live in `worldbuilder.go`. `WORLDBUILDER_RELAY_ENABLED=true` requires `WORLDBUILDER_RELAY_DATABASE_URL` (nonprivileged `worldbuilder_relay`), `WORLDBUILDER_OPENSEARCH_URL` and existing `NATS_URLS`. The relay acknowledges durable publish before marking delivered; projection uses external revision versions and can rebuild with `WORLDBUILDER_REBUILD_ON_START=true`. See [API/events](../../docs/worldbuilder/API.md). Disabled by default. Existing document queue semantics below are retained.
 
 `orchestrator` is the internal Go control-plane service.

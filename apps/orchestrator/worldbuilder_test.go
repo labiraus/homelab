@@ -30,6 +30,27 @@ func TestCanonProjectionRetainsScope(t *testing.T) {
 		t.Fatal(string(raw))
 	}
 }
+
+func TestCanonProjectionRetainsExactDates(t *testing.T) {
+	raw, err := projection("world", 3, []byte(`{"epoch":{"id":"epoch","kind":"event","timeline":"main","from":-9223372036854775808,"until":9223372036854775807}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Records []struct {
+			Kind     string `json:"kind"`
+			Timeline string `json:"timeline"`
+			Text     string `json:"text"`
+		} `json:"records"`
+	}
+	if err := json.Unmarshal(raw, &result); err != nil || len(result.Records) != 1 {
+		t.Fatalf("invalid projection: %s %v", raw, err)
+	}
+	record := result.Records[0]
+	if record.Kind != "event" || record.Timeline != "main" || !strings.Contains(record.Text, `"from":-9223372036854775808`) || !strings.Contains(record.Text, `"until":9223372036854775807`) {
+		t.Fatalf("rounded or incorrectly scoped index content: %s", raw)
+	}
+}
 func TestCanonOutboxRetryAndIndexRebuild(t *testing.T) {
 	dsn := os.Getenv("WORLDBUILDER_TEST_DATABASE_URL")
 	if dsn == "" {

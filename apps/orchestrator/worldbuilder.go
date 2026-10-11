@@ -227,7 +227,9 @@ func (i *canonIndex) ensure(ctx context.Context) error {
 	return nil
 }
 func projection(world string, revision int64, raw []byte) ([]byte, error) {
-	var snapshot map[string]map[string]any
+	// Projection text is derived evidence: retain original number tokens instead
+	// of rounding signed dates through generic float64 values.
+	var snapshot map[string]map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &snapshot); err != nil {
 		return nil, err
 	}
