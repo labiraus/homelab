@@ -90,9 +90,15 @@ For disposable kind work, set the generated `KUBECONFIG` for creation and deleti
 
 Docker exec attach can terminate early with exit 0 while its command is still running, and archive-copy acknowledgements can lack the expected files in a proxied kind environment. Do not infer command completion from that client status. Use the fixture-scoped exec-ID transport in `scripts/worldbuilder/docker-exec.py`, verify terminal status and output/postconditions, and keep ownership checks and timeout failure intact. Never redirect an offline fixture to production to bypass transport failures.
 
-Use `scripts/worldbuilder/kind-fixture.py` for shared controller/backup lifecycle and loopback mappings. CNPG webhook refusals can appear as ordinary `Cluster is invalid` messages without the words `admission webhook`; prove invalid-input rejection and unavailable-webhook refusal/recovery rather than requiring that prefix. Database fixture fallback is for unavailable local transport, never authentication or SQL failures.
+Use `scripts/worldbuilder/kind-fixture.py` for shared controller/backup lifecycle and loopback mappings. CNPG and Prometheus webhook refusals can appear as ordinary Kubernetes `Invalid` messages without a webhook name or `admission webhook` prefix. Check the tested semantic error (for example, conflicting bootstrap or an invalid PromQL expression) and separately prove unavailable-webhook refusal/recovery. Database fixture fallback is for unavailable local transport, never authentication or SQL failures.
+
+Rendered Helm metadata can contain explicit null annotations. Treat absent/null annotation maps as empty when classifying hook resources; execute certificate-generation and CA-patching Jobs in their intended order before claiming webhook acceptance.
+
+Select controller Pods using the Deployment's actual selector when testing replacement or shutdown. Prometheus admission hook Pods share the operator's `app.kubernetes.io/name`; that label alone includes completed certificate Jobs and makes deletion waits or single-Pod assertions incorrect.
 
 NodePort creation does not mean kube-proxy has installed its route: Docker can accept and close an initial connection. Retry bounded preflight connection closure before evaluating database readiness; persistent closure must still fail rather than switch to peer authentication.
+
+Webhook Service routing can also lag a Ready replacement Pod. After rollout, require a successful real admission request within a bounded readiness interval before continuing; never replace it with a Pod-ready-only assertion or bypass TLS verification.
 
 For disposable Velero file recovery, assert the actual PV is supported `local` storage rather than kind's default hostPath, require completed PodVolumeBackup/Restore evidence and remove the source data path before comparison. Exclude the source's generated namespace root-CA ConfigMap with the `velero.io/exclude-from-backup=true` **label**, not an annotation; keep fresh destination trust and fail unexplained restore warnings. Use `scripts/worldbuilder/s3-fixture.py` for owned external storage and the target's scoped identity actions.
 
