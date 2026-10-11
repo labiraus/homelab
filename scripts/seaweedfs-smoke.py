@@ -8,6 +8,7 @@ from pathlib import Path
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -19,6 +20,7 @@ import jinja2
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts/storage"))
 ROLE = ROOT / "ansible/roles/seaweedfs"
 ENDPOINT = "http://127.0.0.2:8333"
 
@@ -226,6 +228,8 @@ def main():
             assert admin.get_object(Bucket="migration-recovery", Key="new-after-cutover.txt")["Body"].read() == b"new work"
             print("PASS: version archive/copy, hashes, metadata/tags, delete markers, empty content and source preservation", flush=True)
             print("PASS: recovery to a fresh store preserves original aliases and post-cutover writes", flush=True)
+            import order_acceptance
+            order_acceptance.run(admin, base, migration)
             spec = importlib.util.spec_from_file_location("multipart_acceptance", ROOT / "scripts/storage/multipart_acceptance.py")
             multipart = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(multipart)

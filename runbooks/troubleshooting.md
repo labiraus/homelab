@@ -312,6 +312,10 @@ If an old audit marker cannot be reverted after copying objects, compare the exa
 
 The disposable storage test needs `systemd-socket-activate` and `systemd-socket-proxyd`, plus the role-pinned `weed` binary. Minimal devcontainers may lack the systemd tools even when production hosts have them. CI uses an Ubuntu runner with these tools. SeaweedFS interprets environment variables as flags: an inherited `debug=release` caused startup failure on 2026-10-11. The harness now starts it with a minimal environment and prints the beginning as well as the end of failed startup logs.
 
+## Storage archive ordering evidence refused
+
+Schema-2 archives require both `order/before/` and `order/after/` XML page sets plus their manifest hashes. Do not delete a page or reorder tied manifest entries. A missing page, corrupt checksum, mismatched marker/scope, changed inventory, duplicate version, inconsistent latest flag or non-monotonic provider history stops export/import. SeaweedFS can list a `null` version last regardless of its age; the tool repositions it only when its timestamp is distinct. A tied null timestamp needs independent source chronology and stays refused. Inspect the installed provider release and original history, preserving source data; changing timestamps or sorting opaque IDs does not establish order. See [retained source ordering](../docs/StorageVersionMigration.md).
+
 ## Interrupted multipart migration
 
 Retain `multipart-journal.jsonl` and `import-journal.jsonl`; neither authorises activation. Known upload IDs receive a best-effort abort, but a lost initiation reply can leave an unknown orphan and a lost completion reply can leave a committed version even after an acknowledged abort. Inspect versions and unfinished uploads for the recorded key, preserving evidence before controlled cleanup. A disk-full journal or hard stop can leave intent without an outcome. The importer refuses prior import evidence, populated destinations and pre-existing uploads; do not remove these safeguards to rerun it. Prepare a separately empty destination after reconciliation. See [multipart recovery boundaries](../docs/StorageVersionMigration.md).

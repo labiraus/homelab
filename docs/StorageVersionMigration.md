@@ -16,6 +16,7 @@ The [storage workflow](../.github/workflows/storage-acceptance.yml) runs without
 - lost initiation/part/completion replies against the real server, known-upload cleanup and refusal to activate or retry uncertain imports;
 - recovery into a fresh store with original/intermediate version aliases and post-cutover writes preserved;
 - archive corruption/path/order checks before any destination write;
+- retained mixed version/delete-marker listings, timestamp ties across different page sizes, every copied historical position and latest/null-version handling;
 - read-only PostgreSQL reference inventory and offline map coverage, including deleted inventory, saved tool results, aliases and unresolved identities;
 - Go application helpers and the orchestrator's pinned-map revert reader;
 - the processor's actual Node SDK reading Go-created UTF-8 content and refusing cross-bucket access;
@@ -36,6 +37,16 @@ GOPATH=/tmp/storage-go GOMODCACHE=/tmp/storage-go-mod GOCACHE=/tmp/storage-go-ca
 The harness has fixed loopback endpoints, synthetic credentials and temporary data. It never accepts a supplied production endpoint. Normal unit runs skip the integration-only tests; the explicit harness invocation is required as acceptance evidence. The test server inherits a minimal environment because SeaweedFS also interprets environment variables as command flags.
 
 The large-object round trip requires at least 12 GiB free temporary disk and fails rather than skipping when space is insufficient. Omitting `--large-migration` still exercises real multipart failures but does not establish large-object acceptance. The memory assertion covers the Linux Python client, not the server or deployment capacity.
+
+## Retained source ordering
+
+New exports use archive schema 2. `order/before/` and `order/after/` retain the original mixed `Version`/`DeleteMarker` XML responses, with per-page sizes and SHA-256 hashes in `orderEvidence`. The two frozen scans use different page sizes (1000 and 127) and must agree on every version, kind, latest flag, timestamp and chronological position. Import replays the recorded pagination chain entirely offline and compares it with the manifest before any destination request. Keep the XML pages with the archive; they contain private object identities.
+
+The checker validates full-bucket scope, marker echoes and continuation boundaries, complete termination, unique identities, ascending keys, newest-first non-null timestamps and exactly one consistent latest version per key. Keys are decoded only when the response declares URL encoding; version IDs and literal plus signs stay opaque. XML pages are bounded to 8 MiB, with no DTD/entities, and unexpected listing elements are refused. Hashes detect corruption, not malicious replacement of an entire archive: retain independently backed-up evidence and review the installed source/provider release before migration.
+
+Equal timestamps between non-null versions retain the provider's original mixed wire order. SeaweedFS 4.48 lists `null` last even when it is latest; the checker places that version only when its timestamp is distinct from every peer. A tied `null` timestamp, inconsistent latest/order, changing inventory or defective legacy pagination fails without a completed archive. Do not guess order from version IDs, rewrite timestamps or remove evidence to bypass refusal. Inspect the original provider/history and obtain independent chronology evidence for unsupported cases. Two agreeing scans validate observed listings; they cannot prove a defective provider exposed every stored version, so production source inventory/restore remains a separate gate.
+
+Archive schema 1 remains readable with its original unique-timestamp requirement. The application version map remains schema 1. New copies no longer sleep between versions: destination verification now checks every historical position using the mixed listing, in addition to hashes, headers, tags and latest/deleted state. A later re-export retains evidence even when copied versions share timestamps.
 
 ## Controlled production procedure — prepared, not executed
 
@@ -72,7 +83,7 @@ The map is bounded to 32 MiB, loaded once at startup through existing bucket-sco
 
 ## Refusal boundaries and recovery
 
-- This is a frozen export and fresh-destination copy, not a live incremental migration. Changed source inventory during export fails without a completed manifest. Equal timestamps within one key are rejected when original ordering cannot be proved. Copies of successive versions of the same key are spaced by just over one second so subsequent export/recovery remains unambiguous even with whole-second S3 timestamps; include that cost in the maintenance window estimate.
+- This is a frozen export and fresh-destination copy, not a live incremental migration. Changed source inventory during export fails without a completed manifest. Equal timestamps require the retained ordering evidence described above; ambiguous null versions and inconsistent provider listings remain refused.
 - Objects at least 64 MiB use sequential multipart upload with seekable file windows and reads bounded to 1 MiB. Parts default to 64 MiB and grow to stay within 10,000 parts, with a 5 GiB maximum part size. These are protocol bounds, not a claim of provider capacity; the real acceptance fixture is 5 GiB + 17 bytes. Object lock/legal hold, customer-key encryption and non-standard storage classes require a separately validated procedure. Source bucket policies, lifecycle rules, encryption configuration, ACLs and retention must be inventoried separately; they are not cloned by the data tool.
 - Interrupted imports stop. A version may have been written even if its acknowledgement or journal entry was lost. Do not rerun into the same populated target or delete source data. Inspect the journal and destination inventory, retain evidence, then recover using a separately prepared empty destination. No automatic source cleanup is implemented.
 - Verification requires the destination to contain exactly the archived versions. Upload the mapping object only after that verification; subsequent application writes intentionally invalidate an exact frozen-copy comparison.

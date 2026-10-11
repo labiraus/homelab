@@ -1,5 +1,13 @@
 # Worldbuilder implementation status
 
+## Increment 25 — retained source ordering and complete historical verification
+
+New schema-2 archives retain hashed raw mixed `Version`/`DeleteMarker` XML pages from two frozen scans with distinct pagination sizes. Import verifies scope, marker chains, termination, identities, chronological/latest consistency and exact manifest order before any destination request. Non-null timestamp ties preserve wire sequence, never opaque-ID sorting. A null version is positioned only by a distinct timestamp; tied nulls and inconsistent provider histories stay refused. Legacy schema-1 archives and the application schema-1 map remain supported.
+
+Destination verification now checks every historical position as well as content/metadata/tags/latest state. Copies no longer add one-second delays between versions; subsequent exports retain tie evidence. The fixed-loopback acceptance adds rapid mixed operations across two small page sizes, complete copied/re-exported order, original source reads, latest-null pagination/copy and real ambiguous-null refusal. Synthetic/SDK tests cover encoded/literal keys and markers, offset timestamps, altered/missing evidence, changed inventory and invalid legacy-style pagination/latest state.
+
+LOCAL_VERIFIED (2026-10-11): 46 unit cases pass, with six database cases reserved for the explicit harness. The full disposable SeaweedFS 4.48 run passes ordering/null cases, migration/recovery, multipart uncertainty, the 5 GiB + 17 byte import/re-export and actual Go/Node clients (`/tmp/homelab-version-order-acceptance.log`); Python peak RSS was 61,568 KiB. CI publication is pending. See [procedure and limits](../StorageVersionMigration.md). The installed MinIO release, completeness of its stored history and production restores remain LAN gates; agreeing S3 listings cannot establish that a defective provider exposed all data. No production configuration, schema or activation changes.
+
 ## Increment 24 — bounded multipart migration and uncertain-write recovery
 
 Source `904cc45` is published on main and passed [Storage Migration Acceptance 38138008247](https://github.com/labiraus/homelab/actions/runs/38138008247): 31 unit checks, six explicit database cases, 20 storage chart combinations/both Velero configurations, all real multipart failure scenarios, the 5 GiB + 17 byte import/re-export and actual Go/Node clients. Hosted Python peak RSS was 64,020 KiB. This closes the offline large-object item; version ordering and the broader offline audit remain open. No live rollout or migration is inferred.

@@ -11,12 +11,13 @@ import hashlib
 import io
 import json
 import os
-import time
+import tempfile
 from pathlib import Path
 from urllib.parse import urlencode, urlsplit
 
 import boto3
 from botocore.config import Config
+import version_order
 
 HEADERS = ("ContentType", "CacheControl", "ContentDisposition", "ContentEncoding", "ContentLanguage")
 MIB = 1024**2
@@ -191,11 +192,13 @@ def write_json(path, value):
         os.fsync(output.fileno())
 
 
-def export_archive(client, bucket, directory):
+def export_archive(client, bucket, directory, page_sizes=(1000, 127)):
     directory = Path(directory)
     directory.mkdir(mode=0o700)  # Never merge/overwrite an existing export.
     (directory / "objects").mkdir(mode=0o700)
-    records = inventory(client, bucket)
+    if len(page_sizes) != 2 or page_sizes[0] == page_sizes[1]:
+        raise ValueError("Export requires distinct listing page sizes")
+    records, before = version_order.capture(client, bucket, directory, "before", page_sizes[0])
     original = json.loads(json.dumps(records))
     for number, record in enumerate(records):
         if record["deleteMarker"]:
@@ -220,10 +223,12 @@ def export_archive(client, bucket, directory):
                 raise ValueError("Truncated source body")
         finally:
             response["Body"].close()
-    if inventory(client, bucket) != original:
+    final, after = version_order.capture(client, bucket, directory, "after", page_sizes[1])
+    if final != original:
         raise ValueError("Source changed during export; incomplete archive must not be imported")
-    manifest = dict(schemaVersion=1, sourceEndpoint=endpoint(client.meta.endpoint_url),
-                    sourceBucket=bucket, entries=records)
+    manifest = dict(schemaVersion=2, sourceEndpoint=endpoint(client.meta.endpoint_url),
+                    sourceBucket=bucket, entries=records,
+                    orderEvidence=dict(format=version_order.FORMAT, scans=[before, after]))
     write_json(directory / "manifest.json", manifest)
     return manifest
 
@@ -231,14 +236,20 @@ def export_archive(client, bucket, directory):
 def check_archive(directory):
     directory = Path(directory)
     manifest = json.loads((directory / "manifest.json").read_text())
-    if manifest.get("schemaVersion") != 1 or not isinstance(manifest.get("entries"), list):
+    if manifest.get("schemaVersion") not in (1, 2) or not isinstance(manifest.get("entries"), list):
         raise ValueError("Unsupported archive format")
     endpoint(manifest["sourceEndpoint"])
+    if manifest["schemaVersion"] == 2:
+        proven = version_order.verify(directory, manifest["sourceBucket"], manifest.get("orderEvidence"))
+        declared = [{field: record[field] for field in version_order.FIELDS} for record in manifest["entries"]]
+        if declared != proven:
+            raise ValueError("Archive versions/order differ from retained listing evidence")
     identities, timestamps, groups = set(), set(), defaultdict(list)
     for record in manifest["entries"]:
         identity = record["key"], record["sourceVersion"]
         stamp = record["key"], record["modified"]
-        if not all(isinstance(v, str) and v for v in identity) or identity in identities or stamp in timestamps:
+        if (not all(isinstance(v, str) and v for v in identity) or identity in identities
+                or (manifest["schemaVersion"] == 1 and stamp in timestamps)):
             raise ValueError("Invalid/duplicate source version or ambiguous ordering")
         identities.add(identity)
         timestamps.add(stamp)
@@ -257,7 +268,7 @@ def check_archive(directory):
             if set(record["headers"]) - set((*HEADERS, "Expires")):
                 raise ValueError("Unsupported object headers")
     for versions in groups.values():
-        if versions != sorted(versions, key=lambda r: r["modified"]):
+        if manifest["schemaVersion"] == 1 and versions != sorted(versions, key=lambda r: r["modified"]):
             raise ValueError("Versions must be oldest first")
         if sum(r["latest"] for r in versions) != 1 or not versions[-1]["latest"]:
             raise ValueError("Invalid latest version")
@@ -324,13 +335,7 @@ def import_archive(client, bucket, directory, prior_map=None):
     multipart_journal = directory / "multipart-journal.jsonl"
     with journal.open("x") as output, multipart_journal.open("x") as multipart_output:
         journal_event(multipart_output, state="import_started", destinationEndpoint=destination, destinationBucket=bucket)
-        previous_key = None
         for record in manifest["entries"]:
-            if record["key"] == previous_key:
-                # Some S3 listings expose only whole-second timestamps. Keep
-                # the copied ordering provable for a later export/recovery.
-                time.sleep(1.05)
-            previous_key = record["key"]
             request = dict(Bucket=bucket, Key=record["key"])
             if record["deleteMarker"]:
                 response = client.delete_object(**request)
@@ -361,12 +366,18 @@ def verify_copy(client, bucket, mapping):
     if (endpoint(client.meta.endpoint_url) != mapping["destinationEndpoint"]
             or bucket != mapping["destinationBucket"]):
         raise ValueError("Mapping destination does not match client")
-    listed = inventory(client, bucket, validate_order=False)
+    with tempfile.TemporaryDirectory(prefix="storage-order-verify-") as temporary:
+        listed, _ = version_order.capture(client, bucket, Path(temporary), "before", 1000)
     actual = {(r["key"], r["sourceVersion"], r["deleteMarker"], r["latest"]) for r in listed}
     expected = {(r["key"], r["destinationVersion"], r["deleteMarker"], r["latest"])
                 for r in mapping["entries"]}
     if len(actual) != len(mapping["entries"]) or actual != expected:
         raise ValueError("Destination versions/delete markers/latest state do not match")
+    ordered = [(r["key"], r["sourceVersion"]) for r in listed]
+    required = [(r["key"], r["destinationVersion"]) for r in
+                sorted(mapping["entries"], key=lambda r: r["key"].encode())]
+    if ordered != required:
+        raise ValueError("Destination historical version order differs from archive")
     sources = {(r["key"], version) for r in mapping["entries"]
                for version in (r["sourceVersion"], *r.get("aliases", []))}
     for record in mapping["entries"]:

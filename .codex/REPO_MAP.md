@@ -187,7 +187,7 @@ Current behavior note:
 ### External storage and Ansible
 
 - Target: SeaweedFS, managed by `ansible/playbooks/seaweedfs-external-pi-host.yml` and `ansible/roles/seaweedfs/`; `make ansible-seaweedfs-host` provisions the destination.
-- Offline migration tooling and actual-client CI acceptance: `scripts/storage/`, `scripts/seaweedfs-smoke.py`, `.github/workflows/storage-acceptance.yml`; procedure/limits in `docs/StorageVersionMigration.md`. Explicit `values-seaweedfs.yaml` overlays prepare cutover while routine publication retains source settings.
+- Offline migration tooling and actual-client CI acceptance: `scripts/storage/`, `scripts/seaweedfs-smoke.py`, `.github/workflows/storage-acceptance.yml`; `version_order.py` retains/verifies schema-2 mixed listing evidence and `order_acceptance.py` exercises real ties/null histories. Procedure/limits in `docs/StorageVersionMigration.md`. Explicit `values-seaweedfs.yaml` overlays prepare cutover while routine publication retains source settings.
 - See `docs/SeaweedFSMigration.md` for cutover gates before publishing application/backup endpoint changes. MinIO details below describe the legacy migration source.
 
 - Start with `ansible/README.md`
