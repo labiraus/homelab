@@ -55,3 +55,6 @@ Eight synthetic Worldbuilder evaluation cases run in `npm test` from `test/fixtu
 SeaweedFS compatibility is tested through the actual `createDocumentStorage` adapter in the disposable [storage acceptance harness](../../docs/StorageVersionMigration.md). Run `scripts/seaweedfs-smoke.py --application-clients` using the documented Python environment; it creates Go-written UTF-8 fixtures and checks Node reads, default-bucket selection, deleted objects and cross-bucket denial. The integration-only test is skipped by ordinary `npm test` and explicitly required by the CI storage gate before publication.
 
 Canon candidate guidance preserves declared `tick` date facts as exact signed int64 decimal strings. External validates these against the pinned schema and life-bound rules; processor receives no calendar publication authority. See [calendar/date contracts](../../docs/worldbuilder/CALENDARS.md).
+
+
+The default local chat model is Qwen2.5-3B-Instruct-AWQ through Envoy AI Gateway. Canon requests use a workflow-specific JSON schema and an explicit unknown response contract; independent validation still refuses unsupported citations, inconsistent grounding and forbidden operations. See [live gateway acceptance](../../docs/EnvoyAIGateway.md#live-model-acceptance--2026-10-11) for the measured scope and limits.

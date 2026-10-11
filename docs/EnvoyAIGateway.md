@@ -38,7 +38,7 @@ Local vLLM integration:
 
 - chart: `helm/infra/vllm`
 - default image: `vllm/vllm-openai:v0.20.2`
-- default model: `Qwen/Qwen2.5-0.5B-Instruct`
+- default model: `Qwen/Qwen2.5-3B-Instruct-AWQ`
 - default node path: `helheim` with `node-llm=gpu` and `nvidia.com/gpu: 1`
 - runtime flags enable OpenAI-compatible serving, tool-call parsing, automatic tool choice, prefix caching, and eager-mode execution for faster startup on the current consumer GPU path; quantization can be enabled by setting `model.quantization`
 - the startup probe allows roughly one hour for first-load model download, CUDA setup, and compilation on the lab GPU path before Kubernetes restarts the container
@@ -74,14 +74,14 @@ The target runs `scripts/vllm-gateway-smoke.sh`. It:
 Default smoke-test inputs:
 
 - `AI_GATEWAY_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`
-- `AI_CHAT_MODEL=Qwen/Qwen2.5-0.5B-Instruct`
+- `AI_CHAT_MODEL=Qwen/Qwen2.5-3B-Instruct-AWQ`
 - `VLLM_ROLLOUT_TIMEOUT=70m`
 - `VLLM_SMOKE_TIMEOUT=5m`
 
 Useful overrides:
 
 ```bash
-AI_CHAT_MODEL=Qwen/Qwen2.5-0.5B-Instruct make vllm-gateway-smoke
+AI_CHAT_MODEL=Qwen/Qwen2.5-3B-Instruct-AWQ make vllm-gateway-smoke
 VLLM_SMOKE_KEEP_JOB=1 make vllm-gateway-smoke
 VLLM_ROLLOUT_TIMEOUT=10m VLLM_SMOKE_TIMEOUT=2m make vllm-gateway-smoke
 ```
@@ -126,3 +126,10 @@ Upstream references used for this integration:
 
 - Envoy AI Gateway install guide: `https://aigateway.envoyproxy.io/docs/getting-started/installation/`
 - Envoy AI Gateway base Envoy Gateway values: `https://raw.githubusercontent.com/envoyproxy/ai-gateway/v1.0.0/manifests/envoy-gateway-values.yaml`
+
+
+## Live model acceptance — 2026-10-11
+
+Helheim's RTX 2070 (8 GiB, compute capability 7.5) runs vLLM 0.20.2 with `Qwen/Qwen2.5-3B-Instruct-AWQ`, explicit AWQ quantization and float16. The observed model revision is `3559b226e8ce77211e2c1bd7ddfb7686fec4d6dd`. The former 0.5B model invented an unsupported builder in the canon gate. The 3B model initially returned an inconsistent unknown flag; an explicit abstention contract and answer-first response schema corrected that without weakening output validation.
+
+All six synthetic live gateway cases pass through the production `runCanon` path: supported fact, unknown fact, unknown date, hostile embedded instruction, alternate timeline and historical revision. Observed warm latency was 0.93–1.52 seconds. These cases establish the initial read-only semantic gate, not blanket creative-workflow or concurrency quality. Run `scripts/worldbuilder/check-live-ai.mjs` with explicit gateway/model settings to reproduce it. Browser AI activation still requires the published processor, dedicated credential, explicit allowance and end-to-end feature checks. Model cache is ephemeral, so a replacement can require a fresh download; the observed cold load took about fourteen minutes.

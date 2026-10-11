@@ -217,7 +217,7 @@ function llmBaseURL(): string {
 }
 
 function llmModel(): string {
-	return process.env.AI_CHAT_MODEL?.trim() || process.env.LLM_MODEL?.trim() || "Qwen/Qwen2.5-0.5B-Instruct";
+	return process.env.AI_CHAT_MODEL?.trim() || process.env.LLM_MODEL?.trim() || "Qwen/Qwen2.5-3B-Instruct-AWQ";
 }
 
 function llmMaxTokens(): number {

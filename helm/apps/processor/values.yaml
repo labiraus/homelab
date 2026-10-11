@@ -122,7 +122,7 @@ generatedSecrets:
       AI_GATEWAY_BASE_URL:
         value: "http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1"
       AI_CHAT_MODEL:
-        value: "Qwen/Qwen2.5-0.5B-Instruct"
+        value: "Qwen/Qwen2.5-3B-Instruct-AWQ"
       AI_CHAT_MAX_TOKENS:
         value: "768"
 
