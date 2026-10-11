@@ -79,6 +79,10 @@ mcp:
   type: oci
   namespace: homelab
   chartVersion: "" # Optional exact OCI tag during verified recovery.
+  values:
+    nativeOAuth:
+      enabled: true
+      host: mcp.labiraus.com
 
 orchestrator:
   type: oci
