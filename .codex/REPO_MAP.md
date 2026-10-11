@@ -230,3 +230,5 @@ Current behavior note:
 Worldbuilder durable generation: `apps/external/worldbuilder/generation.go` owns private jobs/checkpoints, `apps/orchestrator/worldbuilder_jobs.go` relays metadata and dispatches one part, `apps/ui/src/WorldGenerations.jsx` exposes private progress/candidates; `sql/worldbuilder/005_up.sql` adds explicit schema-v5 storage.
 
 Offline acceptance and operations: `docs/worldbuilder/OFFLINE-ACCEPTANCE.md`, `OBSERVABILITY.md`, `apps/ui/browser/worldbuilder.spec.js`, test-only `apps/external/worldbuilder/browser_test.go`, `scripts/worldbuilder/export-crd-schemas.sh`, `validate-custom-resources.py`, and `sql/worldbuilder/ops_dashboard_queries.pgsql`. Typed-reference traversal is in `connections.go` / `WorldConnections.jsx`.
+
+Canonical graph/chronology presentation is in `apps/ui/src/WorldViews.jsx`, with shared UI styling in `styles.css`. It consumes the loaded published scope from `Worldbuilder.jsx`; `worldTicks.js` preserves exact date transport/ordering. Component and real-browser fixtures verify scope, precision, navigation and separation from editor drafts.

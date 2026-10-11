@@ -17,7 +17,12 @@ func TestBrowserAcceptance(t *testing.T) {
 	}
 	h := setup(t)
 	world := h.world()
-	h.publish(world, h.draft(world, 0, fixture()))
+	ops := append(fixture(),
+		Operation{Action: "put", ID: "alternate", Record: &Record{ID: "alternate", Kind: "timeline", Label: "Alternate"}},
+		Operation{Action: "put", ID: "alternate-era", Record: &Record{ID: "alternate-era", Kind: "event", Label: "Alternate era", Timeline: "alternate", Source: "source", From: ptr(0)}},
+		Operation{Action: "put", ID: "alternate-edge", Record: &Record{ID: "alternate-edge", Kind: "relationship", Subject: "friend", Target: "hero", Predicate: "friend", Timeline: "alternate", Source: "source"}},
+	)
+	h.publish(world, h.draft(world, 0, ops))
 	ui, err := filepath.Abs("../../ui")
 	if err != nil {
 		t.Fatal(err)

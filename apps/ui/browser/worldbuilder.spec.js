@@ -33,6 +33,32 @@ test("independent browser users propose, review, publish and keep private storie
     await expect(page.getByText(/canon revision 1/)).toBeVisible();
   }
   await open(editor);
+  await editor.getByText("Relationship graph", { exact: true }).click();
+  const graph = editor.getByRole("region", {
+    name: "Relationship graph",
+    exact: true,
+  });
+  await expect(
+    graph.getByRole("link", {
+      name: "Inspect friend: Hero to Friend",
+      exact: true,
+    }),
+  ).toHaveAttribute("href", "#canon-edge");
+  await expect(
+    graph.getByRole("link", {
+      name: "Inspect friend: Friend to Hero",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await graph
+    .getByRole("link", { name: "Inspect friend: Hero to Friend", exact: true })
+    .click();
+  await expect(editor.locator("#canon-edge")).toBeInViewport();
+  await graph.getByRole("link", { name: "Open Hero", exact: true }).focus();
+  await graph
+    .getByRole("link", { name: "Open Hero", exact: true })
+    .press("Enter");
+  await expect(editor.locator("#canon-hero")).toBeInViewport();
   await editor
     .getByRole("combobox", { name: "Record kind", exact: true })
     .selectOption("entity");
@@ -116,6 +142,16 @@ test("independent browser users propose, review, publish and keep private storie
   ).toContainText("Revision 2, timeline main");
   await editor.getByRole("button", { name: "Load canon", exact: true }).click();
   await editor.getByRole("button", { name: "Edit Epoch", exact: true }).click();
+  await editor.getByText("Chronology", { exact: true }).click();
+  const chronology = editor.getByRole("region", {
+    name: "Chronology",
+    exact: true,
+  });
+  await expect(
+    chronology.getByRole("link", { name: "Epoch", exact: true }),
+  ).toHaveAttribute("href", "#canon-epoch");
+  await expect(chronology).toContainText("-9223372036854775808");
+  await expect(chronology).not.toContainText("Alternate era");
   await expect(editor.getByLabel("Valid from", { exact: true })).toHaveValue(
     "-9223372036854775808",
   );
@@ -139,6 +175,12 @@ test("independent browser users propose, review, publish and keep private storie
     `/api/worlds/${world}/records/epoch?revision=2&timeline=main&at=9223372036854775807`,
   );
   expect(endResponse.status()).toBe(404);
+  // Staging a candidate cannot move the published chronology.
+  await expect(chronology).toContainText("-9223372036854775808");
+  await expect(chronology).not.toContainText("9223372036854775806");
+  await editor
+    .getByRole("region", { name: "Canon visualisations", exact: true })
+    .screenshot({ path: test.info().outputPath("canon-views.png") });
   await editor
     .getByLabel("Story title", { exact: true })
     .fill("Private bridge journey");
@@ -170,6 +212,28 @@ test("independent browser users propose, review, publish and keep private storie
   await expect(
     editor.getByText(/Pinned revision 2, timeline main, turn 0/),
   ).toBeVisible();
+  await editor.getByText("Chronology", { exact: true }).click();
+  await editor
+    .getByLabel("Fictional time", { exact: true })
+    .fill("09223372036854775807");
+  await editor.getByRole("button", { name: "Load canon", exact: true }).click();
+  await expect(chronology).toContainText("No events in the loaded scope.");
+  await editor.getByLabel("Fictional time", { exact: true }).fill("");
+  await editor.getByLabel("Historical revision", { exact: true }).fill("1");
+  await editor.getByRole("button", { name: "Load canon", exact: true }).click();
+  await expect(
+    editor.getByRole("region", { name: "Canon visualisations", exact: true }),
+  ).toContainText("Revision 1, timeline main");
+  await expect(chronology).toContainText("No events in the loaded scope.");
+  await editor.getByLabel("Historical revision", { exact: true }).fill("2");
+  await editor.getByLabel("Timeline", { exact: true }).fill("alternate");
+  await editor.getByRole("button", { name: "Load canon", exact: true }).click();
+  await expect(
+    chronology.getByRole("link", { name: "Alternate era", exact: true }),
+  ).toBeVisible();
+  await expect(
+    chronology.getByRole("link", { name: "Epoch", exact: true }),
+  ).toHaveCount(0);
   await editorContext.close();
   await reviewerContext.close();
 });

@@ -6,6 +6,7 @@ import WorldAdministration from "./WorldAdministration.jsx";
 import WorldStorySetup from "./WorldStorySetup.jsx";
 import WorldGenerations from "./WorldGenerations.jsx";
 import WorldConnections from "./WorldConnections.jsx";
+import WorldViews from "./WorldViews.jsx";
 import ProposalFindings, { Findings } from "./WorldFindings.jsx";
 
 const base = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -480,6 +481,18 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
               {canon.revision}. Fictional validity includes its start and
               excludes its end.
             </p>
+            <WorldViews
+              records={records}
+              total={canon.total}
+              scope={{
+                revision: canon.revision,
+                timeline:
+                  canon.timeline ||
+                  new URLSearchParams(canonFilters).get("timeline"),
+                at: new URLSearchParams(canonFilters).get("at") || "",
+                query: new URLSearchParams(canonFilters).get("q") || "",
+              }}
+            />
             <div className="world-records">
               {records.map((r) => (
                 <article id={`canon-${r.id}`} key={r.id}>

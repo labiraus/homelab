@@ -17,6 +17,8 @@ A minimal devcontainer may lack desktop libraries/fonts. Prefer the approved Pla
 
 Date acceptance in the browser/database gate includes both signed int64 extremes, editing a one-tick interval, numeric/string retry equivalence, half-open boundaries and historical reads after deletion. Processor tests additionally inspect exact dates across the real HTTP handler/provider prompt/model-candidate boundary; MCP tests check delegated signatures and structured evidence. These fixtures exercise no LAN services.
 
+The graph/chronology browser scenario includes mouse/keyboard SVG navigation, extreme-date chronology, exclusion of staged candidates, historical revision reads, half-open end filtering and alternate-timeline isolation. It saves a fixture-only `canon-views.png` in Playwright's test output directory for visual review. Component tests additionally exercise reverse/self edges, bounded diagrams with complete tables, focus on omitted nodes, exact adjacent large dates, ASCII ID ties and partial-page coverage.
+
 ## Custom-resource schemas
 
 ```bash

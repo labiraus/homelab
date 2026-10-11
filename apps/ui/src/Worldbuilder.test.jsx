@@ -1,4 +1,10 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import Worldbuilder from "./Worldbuilder.jsx";
 const world = { id: "w", name: "Novel", revision: 1, role: "editor" };
@@ -95,7 +101,7 @@ describe("Worldbuilder", () => {
     fireEvent.change(screen.getByLabelText("Open world"), {
       target: { value: "w" },
     });
-    await screen.findByRole("link", { name: "hidden" });
+    await screen.findByRole("heading", { name: "edge relationship" });
     fireEvent.change(screen.getByLabelText("Historical revision"), {
       target: { value: "2" },
     });
@@ -113,7 +119,15 @@ describe("Worldbuilder", () => {
     fireEvent.change(screen.getByLabelText("Fictional time"), {
       target: { value: "0" },
     });
-    fireEvent.click(screen.getByRole("link", { name: "hidden" }));
+    expect(
+      screen.getByRole("region", { name: "Canon visualisations" }),
+    ).toHaveTextContent(
+      "Revision 2, timeline main, fictional time -9223372036854775808",
+    );
+    const article = screen
+      .getByRole("heading", { name: "edge relationship" })
+      .closest("article");
+    fireEvent.click(within(article).getByRole("link", { name: "hidden" }));
     await screen.findByRole("complementary", { name: "Linked canon record" });
     const linked = calls.find((url) =>
       url.pathname.endsWith("/records/hidden"),

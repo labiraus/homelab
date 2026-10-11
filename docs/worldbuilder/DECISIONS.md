@@ -1,5 +1,9 @@
 # Worldbuilder decisions
 
+## Canon graph and chronology views
+
+Use the wiki's loaded published response and submitted revision/timeline/time/search filters as the single source for both views. Explicit relationship endpoints form the graph; chronology sorts event starts with BigInt and ASCII stable-ID ties. The diagram is bounded for readability, with entity focus and a complete loaded relationship table; coverage and existing pinned pagination remain visible. Follow node/edge/event/source links through the same scoped record resolver. Do not merge staged edits, private sessions or an independent editor reference catalog into canonical views. Real Chromium interaction tests must exercise actual SVG click targets and keyboard links as well as scope/history behavior.
+
 ## Exact fictional date transport
 
 Keep signed int64 ticks and existing numeric canon serialization. Accept decimal strings on record/date-filter input, normalize to int64 before validation/hashing, and preserve unknown-field rejection. JavaScript reads must recover original numeric tokens through JSON reviver source context; unsafe dates remain decimal strings in UI state, edits, evidence and model candidates. Unsupported browsers fail visibly on numeric dates. MCP re-decodes Worldbuilder arguments with `UseNumber` before signing and preserves exact structured replies. This is a transport correction, not a schema/history migration, calendar implementation or redefinition of ordinary number facts. Full-range life-bound fact semantics remain a separate reviewed extension.
