@@ -22,6 +22,7 @@ Use this file for durable setup notes about Raspberry Pi hosts when the repo doe
 
 ## LAN recovery observations (2026-10-11)
 
+- `yggdrasil` is the physical Raspberry Pi control plane, outside the Proxmox VM inventory. At 23:38 UTC its API and SSH banner exchange became unavailable while ping still worked; the cause is unconfirmed pending console diagnostics. Do not infer a CA failure, VM fault or need to rebuild from this symptom. Worker SSH and source Prometheus remained healthy.
 - `yggdrasil` booted after operator filesystem repair. Its ext4 root is `/dev/mmcblk1p2`, UUID `4503a76b-f0a0-4337-8c84-32ca0091e510`; boot is vfat `/dev/mmcblk1p1`. SSH, sudo, kubelet/containerd and the API are working; boot recovery alone is not application-data integrity evidence.
 - Both Pi hosts accept the replacement user CA via `/etc/ssh/trusted-user-ca-keys.pub`, preserving old trust and local rollback files. See the SSH recovery runbook for verified certificate fingerprints and custody.
 - `svartalfheim` currently reports a 9.1 TiB NTFS data filesystem on `/dev/sda2` mounted at `/srv/minio`, about 4 TiB used and 5.2 TiB available. MinIO and Samba remain active; SeaweedFS 4.48 was subsequently installed through the dedicated Ansible role. Earlier capacity/MinIO-target notes are historical. The target is now external private SeaweedFS managed by the dedicated Ansible code; follow `docs/SeaweedFSMigration.md` and retain source data until all copy/reference/restore gates pass.

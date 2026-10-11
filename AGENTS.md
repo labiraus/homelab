@@ -37,6 +37,7 @@ Directory-level `AGENTS.md` files currently exist for:
 - SeaweedFS is the target external S3 service on `svartalfheim`; follow `docs/SeaweedFSMigration.md`. Existing MinIO automation and data are migration/rollback sources, not the target architecture. Do not remove source data or treat source configuration changes as a completed migration.
 - Keep SeaweedFS on the private network. Cluster workloads use its private S3 endpoint; browser-facing document delivery remains brokered through authenticated `mcp.labiraus.com` routes. Master, filer and volume interfaces stay on loopback for this single-host deployment.
 - When a session reveals durable setup facts about Raspberry Pi hosts that do not yet have dedicated repo code, record them in `.codex/PI_NOTES.md`.
+- `yggdrasil` is a physical Raspberry Pi control plane, not a Proxmox VM. Read `.codex/PI_NOTES.md` before selecting its recovery path; ping or a TCP connection without an SSH banner does not establish userspace health.
 
 For Postgres troubleshooting in this repo, prefer the devcontainer `psql` workflow over `kubectl exec` into the database pod:
 

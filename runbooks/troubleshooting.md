@@ -12,6 +12,8 @@ Postgres-backed state is authoritative. NATS, SSE, and MCP notifications are del
 
 If an MCP document differs only at its boundaries, compare the original bytes, stored S3 bytes and MCP resource response separately. Recovery testing found text upload arguments and proxy responses both used identifier-style whitespace trimming; binary resource reads were affected too. The corrected MCP preserves payloads through the actual external HTTP boundary. An upload already trimmed by an older release requires recovery from the original text or retained version; do not rewrite unrelated source documents. This is separate from the indexer's intentional text-boundary trim.
 
+For an isolated MCP candidate, a public `Host` override can choose Envoy's `PassthroughCluster` rather than the intended mesh Service. The observed `503 UC`/`connection_termination` occurred before authentication because that route attempted plaintext against STRICT mTLS. Use the actual candidate Service authority with the unchanged public OAuth audience, then validate the public authority through the deployed Gateway. Do not relax mTLS or native credential validation to repair diagnostic routing.
+
 ## SSH CA recovery (2026-10-11)
 
 The workstation SSH login certificate expired on 2026-07-20 and the old signing CA passphrase was unavailable. Recovery used a staged SSH trust rotation, with no VM recreation, kubeadm reset, or storage deletion. See the [rotation procedure](../docs/Setup.md#recovering-a-lost-ssh-ca-passphrase) and [local secret custody](../docs/Secrets.md).
