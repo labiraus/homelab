@@ -57,3 +57,5 @@ If a lesson applies only to one app, add a more specific `AGENTS.md` under that 
 
 - Calendar presentation uses the requested canon/search snapshot metadata, including filtered pages. Never derive it from current world metadata or staged settings. Full-range date facts use the `tick` type and canonical int64 strings; legacy numeric date facts retain safe-integer semantics. Audit SQL projection constraints and columns when extending Record fields or value types; snapshots alone do not establish database compatibility.
 - When advancing the Worldbuilder schema, search every app's startup checks, including orchestrator generation workers, and exercise them against the migrated disposable database. External publication tests alone do not cover relay/worker activation compatibility.
+
+- Review policies are canon settings. Pin each proposal to the stricter base/proposed quorum, count distinct non-author humans, and bind decisions to the current membership authority. Never resurrect old approvals after role restoration or mutate published approval identities; reconcile into a fresh proposal when content/policy pins change.

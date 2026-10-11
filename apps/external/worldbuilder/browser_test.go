@@ -17,6 +17,7 @@ func TestBrowserAcceptance(t *testing.T) {
 	}
 	h := setup(t)
 	world := h.world()
+	h.call("owner@example.test", "POST", "/"+world+"/members", map[string]string{"principal": "second@example.test", "role": "reviewer"}, 200)
 	ops := append(fixture(),
 		Operation{Action: "put", ID: "alternate", Record: &Record{ID: "alternate", Kind: "timeline", Label: "Alternate"}},
 		Operation{Action: "put", ID: "alternate-era", Record: &Record{ID: "alternate-era", Kind: "event", Label: "Alternate era", Timeline: "alternate", Source: "source", From: ptr(0)}},
@@ -35,7 +36,7 @@ func TestBrowserAcceptance(t *testing.T) {
 	mux.Handle("/api/worlds/", h.handler)
 	mux.HandleFunc("/api/auth/status", func(w http.ResponseWriter, r *http.Request) {
 		actor := r.Header.Get("Test-Actor")
-		json.NewEncoder(w).Encode(map[string]any{"valid": actor == "editor@example.test" || actor == "reviewer@example.test", "email": actor, "mode": "offline-test"})
+		json.NewEncoder(w).Encode(map[string]any{"valid": actor == "editor@example.test" || actor == "reviewer@example.test" || actor == "second@example.test", "email": actor, "mode": "offline-test"})
 	})
 	mux.HandleFunc("/api/auth/providers", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{"providers": []any{}})

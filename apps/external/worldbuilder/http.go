@@ -303,7 +303,7 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 			end = total
 		}
 		records = records[offset:end]
-		return map[string]any{"world": sc.world, "revision": rev, "timeline": timeline, "records": records, "citations": Citations(sc.world.ID, rev, timeline, records), "total": total, "calendar": snapshotCalendar(snapshot)}, nil
+		return map[string]any{"world": sc.world, "revision": rev, "timeline": timeline, "records": records, "citations": Citations(sc.world.ID, rev, timeline, records), "total": total, "calendar": snapshotCalendar(snapshot), "reviewPolicy": snapshotReviewPolicy(snapshot)}, nil
 	}
 	if resource == "changes" {
 		if r.Method == "POST" {

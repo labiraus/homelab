@@ -235,6 +235,15 @@ export default function WorldRecordEditor({
       }
       if (draft.kind === "world_settings") {
         candidate.calendar = calendarFromDraft(draft.calendar);
+        if (draft.reviewPolicy) {
+          if (!/^[1-5]$/.test(String(draft.reviewPolicy.requiredApprovals)))
+            throw new Error(
+              "Review policy requires 1–5 independent human approvals.",
+            );
+          candidate.reviewPolicy = {
+            requiredApprovals: Number(draft.reviewPolicy.requiredApprovals),
+          };
+        }
       }
       if (draft.kind === "rule" && draft.attributes?.check) {
         candidate.attributes.check = draft.attributes.check;
@@ -507,10 +516,35 @@ export default function WorldRecordEditor({
         </fieldset>
       )}
       {draft.kind === "world_settings" && (
-        <WorldCalendarEditor
-          value={draft.calendar}
-          onChange={(value) => set("calendar", value)}
-        />
+        <>
+          <fieldset>
+            <legend>Human review policy</legend>
+            <label>
+              Required independent approvals
+              <input
+                required
+                type="number"
+                min="1"
+                max="5"
+                step="1"
+                value={draft.reviewPolicy?.requiredApprovals ?? 1}
+                onChange={(e) =>
+                  set("reviewPolicy", { requiredApprovals: e.target.value })
+                }
+              />
+            </label>
+            <p>
+              One to five distinct owners, admins or reviewers, excluding the
+              author. Changing this policy requires the stricter of the existing
+              and proposed counts. Role changes or membership removal require
+              fresh reviews.
+            </p>
+          </fieldset>
+          <WorldCalendarEditor
+            value={draft.calendar}
+            onChange={(value) => set("calendar", value)}
+          />
+        </>
       )}
       <MapEditor
         title="Attributes"

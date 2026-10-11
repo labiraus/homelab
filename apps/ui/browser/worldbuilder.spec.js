@@ -16,7 +16,11 @@ test("independent browser users propose, review, publish and keep private storie
     baseURL: process.env.WORLDBUILDER_BROWSER_URL,
     extraHTTPHeaders: { "Test-Actor": "reviewer@example.test" },
   });
-  for (const context of [editorContext, reviewerContext]) {
+  const secondContext = await browser.newContext({
+    baseURL: process.env.WORLDBUILDER_BROWSER_URL,
+    extraHTTPHeaders: { "Test-Actor": "second@example.test" },
+  });
+  for (const context of [editorContext, reviewerContext, secondContext]) {
     await context.route("**/*", (route) =>
       new URL(route.request().url()).origin ===
       new URL(process.env.WORLDBUILDER_BROWSER_URL).origin
@@ -25,7 +29,8 @@ test("independent browser users propose, review, publish and keep private storie
     );
   }
   const editor = await editorContext.newPage(),
-    reviewer = await reviewerContext.newPage();
+    reviewer = await reviewerContext.newPage(),
+    second = await secondContext.newPage();
   async function open(page) {
     await page.goto("/");
     await page.getByRole("button", { name: "Worlds", exact: true }).click();
@@ -101,6 +106,9 @@ test("independent browser users propose, review, publish and keep private storie
     .getByLabel("Calendar name", { exact: true })
     .fill("Harbour calendar");
   await editor
+    .getByLabel("Required independent approvals", { exact: true })
+    .fill("2");
+  await editor
     .getByLabel("Epoch tick", { exact: true })
     .fill("-9223372036854775808");
   await editor.getByLabel("Name 1", { exact: true }).fill("Tide");
@@ -137,8 +145,44 @@ test("independent browser users propose, review, publish and keep private storie
     .getByLabel("Review reason", { exact: true })
     .fill("Independently checked typed entity");
   await review.getByRole("button", { name: "Approve", exact: true }).click();
-  await review
+  await expect(review).toContainText(
+    "Currently eligible approvals: 1 / 2 required.",
+  );
+  await expect(
+    review.getByRole("button", {
+      name: "Publish approved change",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    review.getByRole("button", { name: "Approve", exact: true }),
+  ).toHaveCount(0);
+  await open(second);
+  const secondReview = second
+    .locator("article")
+    .filter({
+      has: second.getByRole("heading", {
+        name: "Browser acceptance pilgrim",
+        exact: true,
+      }),
+    });
+  await second
+    .getByLabel("Review reason", { exact: true })
+    .fill("Second independent review of settings and canon");
+  await secondReview
+    .getByRole("button", { name: "Approve", exact: true })
+    .click();
+  await expect(secondReview).toContainText(
+    "Currently eligible approvals: 2 / 2 required.",
+  );
+  await secondReview
     .getByRole("button", { name: "Publish approved change", exact: true })
+    .click();
+  await expect(secondReview).toContainText(
+    "Approvals at publication: 2 / 2 required.",
+  );
+  await reviewer
+    .getByRole("button", { name: "Load canon", exact: true })
     .click();
   await expect(reviewer.getByText(/canon revision 2/)).toBeVisible();
   await reviewer.getByLabel("Search canon", { exact: true }).fill("Pilgrim");
@@ -282,4 +326,5 @@ test("independent browser users propose, review, publish and keep private storie
   await expect(chronology).toContainText("Harbour calendar");
   await editorContext.close();
   await reviewerContext.close();
+  await secondContext.close();
 });

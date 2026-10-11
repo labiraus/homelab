@@ -79,8 +79,8 @@ func startGenerationJobs(ctx context.Context, pool *pgxpool.Pool, js nats.JetStr
 		return fmt.Errorf("generation jobs require an internal external API URL and dedicated token")
 	}
 	var version int
-	if err = pool.QueryRow(ctx, `SELECT max(version) FROM worldbuilder.schema_version`).Scan(&version); err != nil || version != 6 {
-		return fmt.Errorf("generation jobs require schema version 6")
+	if err = pool.QueryRow(ctx, `SELECT max(version) FROM worldbuilder.schema_version`).Scan(&version); err != nil || version != 7 {
+		return fmt.Errorf("generation jobs require schema version 7")
 	}
 	info, err := js.StreamInfo(generationStream)
 	if errors.Is(err, nats.ErrStreamNotFound) {

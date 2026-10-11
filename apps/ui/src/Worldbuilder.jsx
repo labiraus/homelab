@@ -555,6 +555,13 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                       position {r.calendar.weekdayAtEpoch}.
                     </p>
                   )}
+                  {r.kind === "world_settings" && (
+                    <p>
+                      Human review policy:{" "}
+                      {r.reviewPolicy?.requiredApprovals ?? 1} independent
+                      approval(s).
+                    </p>
+                  )}
                   {r.attributes && (
                     <dl>
                       {Object.entries(r.attributes).map(([key, value]) => (
@@ -743,9 +750,13 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
           <fieldset disabled={busy}>
             <legend>Review queue</legend>
             <p>
-              Policy: a different owner, admin or reviewer must approve.
-              Publication rechecks current roles, canon revision and
-              deterministic rules; AI cannot approve.
+              Displayed revision policy:{" "}
+              {canon.reviewPolicy?.requiredApprovals ?? 1} distinct human
+              approval(s), from owners, admins or reviewers other than the
+              author. Each proposal retains its required count; policy changes
+              use the stricter count. Publication rechecks current membership
+              authority, canon revision and deterministic rules; AI cannot
+              approve.
             </p>
             <label>
               Review reason
@@ -766,6 +777,27 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                   <summary>Inspect operations</summary>
                   <pre>{JSON.stringify(c.operations, null, 2)}</pre>
                 </details>
+                <p>
+                  {c.status === "published"
+                    ? "Approvals at publication"
+                    : "Currently eligible approvals"}
+                  : {c.approvals?.length ?? (c.status === "approved" ? 1 : 0)} /{" "}
+                  {c.requiredApprovals ?? 1} required.
+                </p>
+                {c.reviews?.length > 0 && (
+                  <ul aria-label={`Reviews for ${c.reason}`}>
+                    {c.reviews.map((review, i) => (
+                      <li key={i}>
+                        {review.reviewer}: {review.decision} — {review.reason}.
+                        {review.createdAt
+                          ? ` Reviewed ${review.createdAt}.`
+                          : " Legacy review; original time unavailable."}
+                        {!review.eligible &&
+                          " Membership authority changed; this review cannot support a new publication."}
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 <button
                   onClick={() =>
                     setReconcileTarget({ kind: "changes", id: c.id })
@@ -792,9 +824,10 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                     Submit for review
                   </button>
                 )}
-                {c.status === "ready_for_review" &&
+                {["ready_for_review", "approved"].includes(c.status) &&
                   canReview &&
                   c.author !== email &&
+                  !c.reviews?.some((r) => r.reviewer === email && r.eligible) &&
                   ["approved", "rejected"].map((decision) => (
                     <button
                       key={decision}
@@ -814,6 +847,9 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                   ))}
                 {c.status === "approved" && canReview && (
                   <button
+                    disabled={
+                      (c.approvals?.length ?? 1) < (c.requiredApprovals ?? 1)
+                    }
                     onClick={() =>
                       void run(async () => {
                         await api(`${path}/changes/${c.id}/publish`, {});
@@ -824,7 +860,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                     Publish approved change
                   </button>
                 )}
-                {c.reviewer && (
+                {c.reviewer && !c.reviews?.length && (
                   <p>
                     Reviewed by {c.reviewer}: {c.reviewReason}
                   </p>

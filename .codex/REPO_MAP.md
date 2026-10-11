@@ -231,6 +231,8 @@ Worldbuilder durable generation: `apps/external/worldbuilder/generation.go` owns
 
 Reviewed calendars/date facts: `docs/worldbuilder/CALENDARS.md`, `apps/external/worldbuilder/calendar.go`, `apps/ui/src/worldCalendar.js` and `WorldCalendarEditor.jsx`; additive `sql/worldbuilder/006_up.sql` stores calendar projection and permits exact `tick` facts. Canon/search metadata supplies the pinned calendar independently of record filters.
 
+Human review quorum: `docs/worldbuilder/REVIEW-POLICY.md`, `apps/external/worldbuilder/reviews.go`, `reviews_test.go`, `sql/worldbuilder/007_up.sql`; settings configure 1–5 approvals, immutable decisions bind to membership authority, and publication preserves its counted principals. UI settings/review queue and three-identity Chromium acceptance cover the human path.
+
 Offline acceptance and operations: `docs/worldbuilder/OFFLINE-ACCEPTANCE.md`, `OBSERVABILITY.md`, `apps/ui/browser/worldbuilder.spec.js`, test-only `apps/external/worldbuilder/browser_test.go`, `scripts/worldbuilder/export-crd-schemas.sh`, `validate-custom-resources.py`, and `sql/worldbuilder/ops_dashboard_queries.pgsql`. Typed-reference traversal is in `connections.go` / `WorldConnections.jsx`.
 
 Canonical graph/chronology presentation is in `apps/ui/src/WorldViews.jsx`, with shared UI styling in `styles.css`. It consumes the loaded published scope from `Worldbuilder.jsx`; `worldTicks.js` preserves exact date transport/ordering. Component and real-browser fixtures verify scope, precision, navigation and separation from editor drafts.

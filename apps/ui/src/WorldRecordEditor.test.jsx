@@ -17,6 +17,44 @@ const records = [
 ];
 
 describe("structured canon editing", () => {
+  it("stages a bounded review policy without changing calendar or attributes", () => {
+    const onStage = vi.fn();
+    const record = {
+      id: "world_settings",
+      kind: "world_settings",
+      label: "World",
+      timeline: "main",
+      attributes: { tone: "calm" },
+      reviewPolicy: { requiredApprovals: 2 },
+    };
+    render(
+      <WorldRecordEditor
+        record={record}
+        records={[{ id: "main", kind: "timeline", label: "Main" }]}
+        timeline="main"
+        onStage={onStage}
+        onNew={() => {}}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Required independent approvals"), {
+      target: { value: "3" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Stage record" }));
+    expect(onStage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ...record,
+        reviewPolicy: { requiredApprovals: 3 },
+      }),
+    );
+    fireEvent.change(screen.getByLabelText("Required independent approvals"), {
+      target: { value: "0" },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Record editor" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "1–5 independent human approvals",
+    );
+    expect(onStage).toHaveBeenCalledTimes(1);
+  });
   it("stages reviewed calendar settings while retaining other complete-record fields", () => {
     const onStage = vi.fn();
     render(

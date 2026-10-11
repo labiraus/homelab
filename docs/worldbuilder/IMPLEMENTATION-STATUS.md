@@ -1,5 +1,13 @@
 # Worldbuilder implementation status
 
+## Increment 21 — configurable independent human review
+
+Settings now configure 1–5 independent approvals (default one). Each immutable proposal stores the stricter base/proposed threshold, preventing policy reductions from bypassing review. Immutable decisions bind to membership authority identities, rotated on role change or recreated membership; old approvals cannot revive after re-grant. Publication counts distinct currently eligible non-author humans under the world lock and records its exact approval set permanently. Partial quorums, immutable retry semantics, terminal rejection and revoked-count display are covered in API/UI. The ledger caps review history at 100 entries per proposal.
+
+Explicit migration 007 preserves legacy proposal/history/audit checksums, backfills decisions without fabricating unknown timestamps and adds a 17th restored table. Dedicated grants exclude relay from the review ledger. External and generation-worker startup checks require schema 7; runtime flags remain disabled and production installation stays LAN-gated.
+
+LOCAL_VERIFIED (2026-10-11): UI build and 58 tests; disposable migration/integration suite and Chromium with an editor plus two independent reviewers pass policy increase, one-vote publication refusal, second review/publication, existing calendar/history/private-story paths and all 17-table restore checks (`/tmp/homelab-review-browser.log`). Quorum tests cover duplicate/concurrent decisions, stale canon, policy lowering, role revocation/restoration, removal/recreation, immutable history and pinned policy metadata. The final rejection/publication race permits exactly one terminal action; external and orchestrator full race suites and the final 17-table harness pass (`/tmp/homelab-review-final.log`). Runtime review deletion and relay review access are denied. CI publication evidence follows observation.
+
 ## Increment 20 — reviewed calendars and full-range date facts
 
 Source `566acf7` and worker compatibility follow-up `e28f134` are published on main. All gates and image/chart releases succeeded: [UI 38134341841](https://github.com/labiraus/homelab/actions/runs/38134341841), [external 38134341804](https://github.com/labiraus/homelab/actions/runs/38134341804), [processor 38134342154](https://github.com/labiraus/homelab/actions/runs/38134342154), and [orchestrator 38134432609](https://github.com/labiraus/homelab/actions/runs/38134432609). [Evaluation/schema adapters 38134341802](https://github.com/labiraus/homelab/actions/runs/38134341802) also passed. This completes the calendar/date-fact offline audit item. Production schema 6 installation, activation and rollout observation remain LAN-gated; broader offline requirements remain open.

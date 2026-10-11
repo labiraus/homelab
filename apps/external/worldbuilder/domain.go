@@ -10,23 +10,24 @@ import (
 )
 
 type Record struct {
-	ID         string            `json:"id"`
-	Kind       string            `json:"kind"`
-	Label      string            `json:"label,omitempty"`
-	Type       string            `json:"type,omitempty"`
-	Subject    string            `json:"subject,omitempty"`
-	Target     string            `json:"target,omitempty"`
-	Timeline   string            `json:"timeline,omitempty"`
-	Source     string            `json:"source,omitempty"`
-	Predicate  string            `json:"predicate,omitempty"`
-	ValueType  string            `json:"valueType,omitempty"`
-	Value      any               `json:"value,omitempty"`
-	From       *int64            `json:"from,omitempty"`
-	Until      *int64            `json:"until,omitempty"`
-	Attributes map[string]string `json:"attributes,omitempty"`
-	Fields     map[string]string `json:"fields,omitempty"`
-	Relations  map[string]string `json:"relations,omitempty"`
-	Calendar   *Calendar         `json:"calendar,omitempty"`
+	ID           string            `json:"id"`
+	Kind         string            `json:"kind"`
+	Label        string            `json:"label,omitempty"`
+	Type         string            `json:"type,omitempty"`
+	Subject      string            `json:"subject,omitempty"`
+	Target       string            `json:"target,omitempty"`
+	Timeline     string            `json:"timeline,omitempty"`
+	Source       string            `json:"source,omitempty"`
+	Predicate    string            `json:"predicate,omitempty"`
+	ValueType    string            `json:"valueType,omitempty"`
+	Value        any               `json:"value,omitempty"`
+	From         *int64            `json:"from,omitempty"`
+	Until        *int64            `json:"until,omitempty"`
+	Attributes   map[string]string `json:"attributes,omitempty"`
+	Fields       map[string]string `json:"fields,omitempty"`
+	Relations    map[string]string `json:"relations,omitempty"`
+	Calendar     *Calendar         `json:"calendar,omitempty"`
+	ReviewPolicy *ReviewPolicy     `json:"reviewPolicy,omitempty"`
 }
 type Snapshot map[string]Record
 type Operation struct {
@@ -53,6 +54,9 @@ type Change struct {
 	Reviewer          string      `json:"reviewer"`
 	ReviewReason      string      `json:"reviewReason"`
 	PublishedRevision *int64      `json:"publishedRevision,omitempty"`
+	RequiredApprovals int         `json:"requiredApprovals"`
+	Approvals         []string    `json:"approvals"`
+	Reviews           []Review    `json:"reviews"`
 }
 type Problem struct {
 	Status  int
@@ -132,6 +136,9 @@ func Validate(s Snapshot) error {
 			if err := validateCalendar(r.Calendar); err != nil {
 				return err
 			}
+		}
+		if r.ReviewPolicy != nil && (r.Kind != "world_settings" || r.ReviewPolicy.RequiredApprovals < 1 || r.ReviewPolicy.RequiredApprovals > 5) {
+			return bad("review policy belongs to world settings and requires 1–5 independent approvals")
 		}
 		switch r.Kind {
 		case "world_settings":

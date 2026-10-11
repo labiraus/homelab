@@ -29,6 +29,9 @@ sql < "$repo_dir/sql/worldbuilder/005_up.sql"
 sql < "$repo_dir/sql/worldbuilder/005_up.sql"
 sql < "$repo_dir/sql/worldbuilder/006_up.sql"
 sql < "$repo_dir/sql/worldbuilder/006_up.sql"
+sql < "$repo_dir/sql/worldbuilder/007_up.sql"
+sql < "$repo_dir/sql/worldbuilder/007_up.sql"
+sql < "$repo_dir/sql/worldbuilder/007_down.sql"
 sql < "$repo_dir/sql/worldbuilder/006_down.sql"
 sql < "$repo_dir/sql/worldbuilder/005_down.sql"
 sql < "$repo_dir/sql/worldbuilder/004_down.sql"
@@ -41,6 +44,7 @@ sql < "$repo_dir/sql/worldbuilder/003_up.sql"
 sql < "$repo_dir/sql/worldbuilder/004_up.sql"
 sql < "$repo_dir/sql/worldbuilder/005_up.sql"
 sql < "$repo_dir/sql/worldbuilder/006_up.sql"
+sql < "$repo_dir/sql/worldbuilder/007_up.sql"
 sql -c 'CREATE ROLE worldbuilder_external NOINHERIT LOGIN; CREATE ROLE worldbuilder_relay NOINHERIT LOGIN; CREATE ROLE legacy_app NOINHERIT LOGIN;'
 sql < "$repo_dir/sql/worldbuilder/grants.sql"
 # Upgrade a populated version-1 database independently of the empty up/down tests.
@@ -85,6 +89,29 @@ calendar_drift_sql -c "DO \$\$ BEGIN IF (SELECT max(version) FROM worldbuilder.s
 upgrade_sql < "$repo_dir/sql/worldbuilder/006_up.sql"
 upgrade_sql < "$repo_dir/sql/worldbuilder/006_up.sql"
 [[ "$calendar_before" == "$(upgrade_sql -Atc "$calendar_upgrade_checksum")" ]] || { echo 'FAIL: calendar migration changed legacy records/history'; exit 1; }
+upgrade_sql <<'SQL'
+INSERT INTO worldbuilder.member(world_id,principal,role) VALUES('00000000-0000-4000-8000-000000000020','reviewer@example.test','reviewer');
+INSERT INTO worldbuilder.change_set(world_id,id,author,base_revision,reason,operations,status,reviewer,review_reason,published_revision) VALUES
+ ('00000000-0000-4000-8000-000000000020','00000000-0000-4000-8000-000000000021','author@example.test',0,'Legacy approved','[]','approved','reviewer@example.test','Reviewed',NULL),
+ ('00000000-0000-4000-8000-000000000020','00000000-0000-4000-8000-000000000022','author@example.test',0,'Legacy published','[]','published','removed@example.test','Reviewed',0),
+ ('00000000-0000-4000-8000-000000000020','00000000-0000-4000-8000-000000000023','author@example.test',0,'Legacy rejected','[]','rejected','reviewer@example.test','Rejected',NULL);
+INSERT INTO worldbuilder.audit(world_id,actor,action,resource,detail,created_at) VALUES
+ ('00000000-0000-4000-8000-000000000020','reviewer@example.test','change.review','00000000-0000-4000-8000-000000000021','{"decision":"approved","reason":"Reviewed"}','2026-01-01T00:00:00Z');
+SQL
+review_upgrade_checksum="SELECT md5(string_agg(item, ',' ORDER BY item)) FROM (SELECT to_jsonb(r)::text AS item FROM worldbuilder.revision r UNION ALL SELECT (to_jsonb(r)-'required_approvals'-'published_approvals')::text FROM worldbuilder.change_set r UNION ALL SELECT to_jsonb(r)::text FROM worldbuilder.audit r) data"
+review_before=$(upgrade_sql -Atc "$review_upgrade_checksum")
+upgrade_sql < "$repo_dir/sql/worldbuilder/007_up.sql"
+upgrade_sql < "$repo_dir/sql/worldbuilder/007_up.sql"
+[[ "$review_before" == "$(upgrade_sql -Atc "$review_upgrade_checksum")" ]] || { echo 'FAIL: review migration changed existing history/decisions'; exit 1; }
+upgrade_sql <<'SQL'
+DO $$ BEGIN
+ IF (SELECT count(*) FROM worldbuilder.change_review)<>3 THEN RAISE EXCEPTION 'legacy reviews lost or duplicated'; END IF;
+ IF (SELECT created_at FROM worldbuilder.change_review WHERE change_id='00000000-0000-4000-8000-000000000021') IS DISTINCT FROM '2026-01-01T00:00:00Z'::timestamptz THEN RAISE EXCEPTION 'known review timestamp changed'; END IF;
+ IF (SELECT created_at FROM worldbuilder.change_review WHERE change_id='00000000-0000-4000-8000-000000000022') IS NOT NULL THEN RAISE EXCEPTION 'legacy review time fabricated'; END IF;
+ IF (SELECT published_approvals FROM worldbuilder.change_set WHERE id='00000000-0000-4000-8000-000000000022') IS DISTINCT FROM ARRAY['removed@example.test'] THEN RAISE EXCEPTION 'published approval lost'; END IF;
+ IF EXISTS(SELECT FROM worldbuilder.change_set WHERE required_approvals<>1) THEN RAISE EXCEPTION 'legacy policy changed'; END IF;
+END $$;
+SQL
 upgrade_sql <<'SQL'
 DO $$ BEGIN
  IF (SELECT kind FROM worldbuilder.record_identity WHERE id='deleted') IS DISTINCT FROM 'source' THEN RAISE EXCEPTION 'deleted identity missing after upgrade'; END IF;
@@ -154,12 +181,13 @@ if sql < "$repo_dir/sql/worldbuilder/003_down.sql" >/dev/null 2>&1; then echo 'F
 if sql < "$repo_dir/sql/worldbuilder/004_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated story-definition down migration succeeded'; exit 1; fi
 if sql < "$repo_dir/sql/worldbuilder/005_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated generation down migration succeeded'; exit 1; fi
 if sql < "$repo_dir/sql/worldbuilder/006_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated calendar down migration succeeded'; exit 1; fi
+if sql < "$repo_dir/sql/worldbuilder/007_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated review-policy down migration succeeded'; exit 1; fi
 sql < "$repo_dir/sql/worldbuilder/ops_dashboard_queries.pgsql"
 docker exec "$container_name" createdb -U postgres worldbuilder_restore
 docker exec "$container_name" pg_dump -U postgres -d worldbuilder_test -Fc -f /tmp/worldbuilder.dump
 docker exec "$container_name" pg_restore -U postgres -d worldbuilder_restore --exit-on-error /tmp/worldbuilder.dump
 checksum_parts=()
-for canon_table in world member revision record record_identity change_set audit outbox story_session story_turn story_outcome story_definition generation_job generation_outbox inference_attempt schema_version; do
+for canon_table in world member revision record record_identity change_set change_review audit outbox story_session story_turn story_outcome story_definition generation_job generation_outbox inference_attempt schema_version; do
   checksum_parts+=("SELECT '${canon_table}:' || row_to_json(t)::text AS item FROM worldbuilder.${canon_table} t")
 done
 checksum_union=${checksum_parts[0]}
@@ -168,4 +196,4 @@ checksum_query="SELECT md5(string_agg(item, ',' ORDER BY item)) FROM ($checksum_
 original=$(sql -Atc "$checksum_query")
 restored=$(docker exec "$container_name" psql -X -U postgres -d worldbuilder_restore -Atc "$checksum_query")
 [[ "$original" == "$restored" ]] || { echo 'FAIL: restored canon/lifecycle/story data differs'; exit 1; }
-echo 'PASS: migrations 001–006 rerun/rollback, populated upgrade/conflict gates, role isolation, canon/lifecycle/story/outbox integration and all-table restore checksum'
+echo 'PASS: migrations 001–007 rerun/rollback, populated upgrade/conflict gates, role isolation, canon/lifecycle/story/outbox integration and all-table restore checksum'

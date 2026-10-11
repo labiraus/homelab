@@ -62,6 +62,65 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("Worldbuilder", () => {
+  it("displays proposal quorum, prevents duplicate approvals and blocks publication after revocation", async () => {
+    world.role = "reviewer";
+    const change = {
+      id: "c",
+      status: "approved",
+      author: "other@test",
+      reason: "Quorum proposal",
+      baseRevision: 1,
+      operations: [],
+      requiredApprovals: 2,
+      approvals: ["editor@test"],
+      reviews: [
+        {
+          reviewer: "editor@test",
+          decision: "approved",
+          reason: "Checked",
+          eligible: true,
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+        {
+          reviewer: "revoked@test",
+          decision: "approved",
+          reason: "Old grant",
+          eligible: false,
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+      ],
+    };
+    try {
+      mockApi(change);
+      render(<Worldbuilder email="editor@test" />);
+      await screen.findByRole("option", { name: "Novel" });
+      fireEvent.change(screen.getByLabelText("Open world"), {
+        target: { value: "w" },
+      });
+      await screen.findByText("Quorum proposal");
+      expect(
+        screen.getByText(/Currently eligible approvals: 1 \/ 2/),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Publish approved change" }),
+      ).toBeDisabled();
+      expect(
+        screen.queryByRole("button", { name: "Approve", exact: true }),
+      ).toBeNull();
+      expect(
+        screen.getByRole("list", { name: "Reviews for Quorum proposal" }),
+      ).toHaveTextContent("Membership authority changed");
+      change.reviews[0].eligible = false;
+      change.approvals = [];
+      fireEvent.click(screen.getByRole("button", { name: "Load canon" }));
+      await screen.findByText(/Currently eligible approvals: 0 \/ 2/);
+      expect(
+        screen.getByRole("button", { name: "Approve", exact: true }),
+      ).toBeInTheDocument();
+    } finally {
+      world.role = "editor";
+    }
+  });
   it("keeps unloaded record navigation at the submitted revision, timeline and exact time", async () => {
     const currentWorld = { ...world, revision: 3 };
     const calls = [];

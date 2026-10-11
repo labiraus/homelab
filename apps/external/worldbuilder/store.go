@@ -169,15 +169,17 @@ func (sc *scope) change(ctx context.Context, id string) (Change, error) {
 	}
 	var c Change
 	var raw []byte
-	err := sc.tx.QueryRow(ctx, `SELECT id::text,author,base_revision,reason,operations,status,coalesce(reviewer,''),coalesce(review_reason,''),published_revision FROM worldbuilder.change_set WHERE world_id=$1 AND id=$2`, sc.world.ID, id).Scan(&c.ID, &c.Author, &c.BaseRevision, &c.Reason, &raw, &c.Status, &c.Reviewer, &c.ReviewReason, &c.PublishedRevision)
+	err := sc.tx.QueryRow(ctx, `SELECT id::text,author,base_revision,reason,operations,status,coalesce(reviewer,''),coalesce(review_reason,''),published_revision,required_approvals,published_approvals FROM worldbuilder.change_set WHERE world_id=$1 AND id=$2`, sc.world.ID, id).Scan(&c.ID, &c.Author, &c.BaseRevision, &c.Reason, &raw, &c.Status, &c.Reviewer, &c.ReviewReason, &c.PublishedRevision, &c.RequiredApprovals, &c.Approvals)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return c, missing
 	}
 	if err != nil {
 		return c, err
 	}
-	err = json.Unmarshal(raw, &c.Operations)
-	return c, err
+	if err = json.Unmarshal(raw, &c.Operations); err != nil {
+		return c, err
+	}
+	return c, sc.loadReviews(ctx, &c)
 }
 func (sc *scope) propose(ctx context.Context, c Change) (Change, error) {
 	if !sc.can("owner", "admin", "editor") {
@@ -216,7 +218,10 @@ func (sc *scope) propose(ctx context.Context, c Change) (Change, error) {
 	if err = sc.validateIdentity(ctx, c.Operations); err != nil {
 		return c, err
 	}
-	_, err = sc.tx.Exec(ctx, `INSERT INTO worldbuilder.change_set(world_id,id,author,base_revision,reason,operations) VALUES($1,$2,$3,$4,$5,$6)`, sc.world.ID, c.ID, sc.actor, c.BaseRevision, c.Reason, raw)
+	c.RequiredApprovals = requiredReviews(before, after)
+	c.Approvals = []string{}
+	c.Reviews = []Review{}
+	_, err = sc.tx.Exec(ctx, `INSERT INTO worldbuilder.change_set(world_id,id,author,base_revision,reason,operations,required_approvals) VALUES($1,$2,$3,$4,$5,$6,$7)`, sc.world.ID, c.ID, sc.actor, c.BaseRevision, c.Reason, raw, c.RequiredApprovals)
 	if err != nil {
 		return c, err
 	}
@@ -263,6 +268,9 @@ func (sc *scope) validateChange(ctx context.Context, c Change) error {
 	if err = sc.validateDefaultTimeline(after); err != nil {
 		return err
 	}
+	if c.RequiredApprovals != requiredReviews(s, after) {
+		return conflict("review policy changed; create a fresh proposal")
+	}
 	return sc.validateIdentity(ctx, c.Operations)
 }
 func (sc *scope) review(ctx context.Context, id, decision, reason string) (Change, error) {
@@ -279,25 +287,42 @@ func (sc *scope) review(ctx context.Context, id, decision, reason string) (Chang
 	if strings.TrimSpace(reason) == "" || len(reason) > 2000 {
 		return c, bad("review reason required (max 2000 characters)")
 	}
-	if c.Status == decision && c.Reviewer == sc.actor && c.ReviewReason == reason {
-		return c, nil
+	for _, r := range c.Reviews {
+		if r.Reviewer == sc.actor && r.Eligible {
+			if r.Decision == decision && r.Reason == reason {
+				return c, nil
+			}
+			return c, conflict("a review decision is immutable; reconcile into a fresh proposal")
+		}
 	}
-	if c.Status != "ready_for_review" {
+	if c.Status != "ready_for_review" && c.Status != "approved" {
 		return c, conflict("change is not awaiting review")
+	}
+	if len(c.Reviews) >= 100 {
+		return c, conflict("review history limit reached; create a fresh proposal")
 	}
 	if decision == "approved" {
 		if err = sc.validateChange(ctx, c); err != nil {
 			return c, err
 		}
 	}
-	_, err = sc.tx.Exec(ctx, `UPDATE worldbuilder.change_set SET status=$3,reviewer=$4,review_reason=$5 WHERE world_id=$1 AND id=$2`, sc.world.ID, id, decision, sc.actor, reason)
+	_, err = sc.tx.Exec(ctx, `INSERT INTO worldbuilder.change_review(world_id,change_id,reviewer,authority_id,decision,reason)
+ SELECT $1,$2,principal,authority_id,$4,$5 FROM worldbuilder.member WHERE world_id=$1 AND principal=$3`, sc.world.ID, id, sc.actor, decision, reason)
 	if err != nil {
 		return c, err
 	}
-	c.Status = decision
-	c.Reviewer = sc.actor
-	c.ReviewReason = reason
-	return c, sc.audit(ctx, "change.review", id, map[string]string{"decision": decision, "reason": reason})
+	status := decision
+	if decision == "approved" && len(c.Approvals)+1 < c.RequiredApprovals {
+		status = "ready_for_review"
+	}
+	_, err = sc.tx.Exec(ctx, `UPDATE worldbuilder.change_set SET status=$3,reviewer=$4,review_reason=$5 WHERE world_id=$1 AND id=$2`, sc.world.ID, id, status, sc.actor, reason)
+	if err != nil {
+		return c, err
+	}
+	if err = sc.audit(ctx, "change.review", id, map[string]any{"decision": decision, "reason": reason, "requiredApprovals": c.RequiredApprovals}); err != nil {
+		return c, err
+	}
+	return sc.change(ctx, id)
 }
 func (sc *scope) publish(ctx context.Context, id string) (Change, error) {
 	c, err := sc.change(ctx, id)
@@ -313,13 +338,8 @@ func (sc *scope) publish(ctx context.Context, id string) (Change, error) {
 	if c.Status != "approved" {
 		return c, conflict("publication requires independent human approval")
 	}
-	var reviewerRole string
-	err = sc.tx.QueryRow(ctx, `SELECT role FROM worldbuilder.member WHERE world_id=$1 AND principal=$2`, sc.world.ID, c.Reviewer).Scan(&reviewerRole)
-	if errors.Is(err, pgx.ErrNoRows) || (err == nil && reviewerRole != "owner" && reviewerRole != "admin" && reviewerRole != "reviewer") {
-		return c, conflict("reviewer no longer has approval authority")
-	}
-	if err != nil {
-		return c, err
+	if len(c.Approvals) < c.RequiredApprovals {
+		return c, conflict("independent approval quorum is no longer satisfied; obtain fresh reviews")
 	}
 	if err = sc.validateChange(ctx, c); err != nil {
 		return c, err
@@ -349,7 +369,7 @@ func (sc *scope) publish(ctx context.Context, id string) (Change, error) {
 	if _, err = sc.tx.Exec(ctx, `UPDATE worldbuilder.world SET revision=$2,name=$3,default_timeline=$4 WHERE id=$1`, sc.world.ID, next, name, timeline); err != nil {
 		return c, err
 	}
-	if _, err = sc.tx.Exec(ctx, `UPDATE worldbuilder.change_set SET status='published',published_revision=$3 WHERE world_id=$1 AND id=$2`, sc.world.ID, id, next); err != nil {
+	if _, err = sc.tx.Exec(ctx, `UPDATE worldbuilder.change_set SET status='published',published_revision=$3,published_approvals=$4 WHERE world_id=$1 AND id=$2`, sc.world.ID, id, next, c.Approvals); err != nil {
 		return c, err
 	}
 	eventID := uuid.NewString()
@@ -359,7 +379,7 @@ func (sc *scope) publish(ctx context.Context, id string) (Change, error) {
 	}
 	c.Status = "published"
 	c.PublishedRevision = &next
-	return c, sc.audit(ctx, "change.publish", id, map[string]any{"revision": next, "reviewer": c.Reviewer})
+	return c, sc.audit(ctx, "change.publish", id, map[string]any{"revision": next, "reviewer": c.Reviewer, "approvals": c.Approvals, "requiredApprovals": c.RequiredApprovals})
 }
 func (sc *scope) project(ctx context.Context, s Snapshot) error {
 	if _, err := sc.tx.Exec(ctx, `DELETE FROM worldbuilder.record WHERE world_id=$1`, sc.world.ID); err != nil {
@@ -370,11 +390,14 @@ func (sc *scope) project(ctx context.Context, s Snapshot) error {
 		attrs, _ := json.Marshal(r.Attributes)
 		fields, _ := json.Marshal(r.Fields)
 		relations, _ := json.Marshal(r.Relations)
-		var calendar []byte
+		var calendar, reviewPolicy []byte
 		if r.Calendar != nil {
 			calendar, _ = json.Marshal(r.Calendar)
 		}
-		_, err := sc.tx.Exec(ctx, `INSERT INTO worldbuilder.record(world_id,id,kind,label,type_id,subject_id,target_id,timeline_id,source_id,predicate,value_type,value,valid_from,valid_until,attributes,fields,relations,calendar) VALUES($1,$2,$3,$4,nullif($5,''),nullif($6,''),nullif($7,''),nullif($8,''),nullif($9,''),$10,$11,$12,$13,$14,$15,$16,$17,$18)`, sc.world.ID, r.ID, r.Kind, r.Label, r.Type, r.Subject, r.Target, r.Timeline, r.Source, r.Predicate, r.ValueType, value, r.From, r.Until, attrs, fields, relations, calendar)
+		if r.ReviewPolicy != nil {
+			reviewPolicy, _ = json.Marshal(r.ReviewPolicy)
+		}
+		_, err := sc.tx.Exec(ctx, `INSERT INTO worldbuilder.record(world_id,id,kind,label,type_id,subject_id,target_id,timeline_id,source_id,predicate,value_type,value,valid_from,valid_until,attributes,fields,relations,calendar,review_policy) VALUES($1,$2,$3,$4,nullif($5,''),nullif($6,''),nullif($7,''),nullif($8,''),nullif($9,''),$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`, sc.world.ID, r.ID, r.Kind, r.Label, r.Type, r.Subject, r.Target, r.Timeline, r.Source, r.Predicate, r.ValueType, value, r.From, r.Until, attrs, fields, relations, calendar, reviewPolicy)
 		if err != nil {
 			return err
 		}

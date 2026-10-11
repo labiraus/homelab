@@ -62,6 +62,7 @@ psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/003_up.sql
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/004_up.sql
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/005_up.sql
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/006_up.sql
+psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/007_up.sql
 psql -X -v ON_ERROR_STOP=1 -f sql/worldbuilder/grants.sql
 psql -X -v ON_ERROR_STOP=1 -c 'TABLE worldbuilder.schema_version;'
 psql -X -v ON_ERROR_STOP=1 -c "SELECT has_schema_privilege('app','worldbuilder','USAGE');"
@@ -161,15 +162,15 @@ No irreversible cleanup, live schema change or resource deletion is bundled with
 
 ## Schema-v4 compatibility and lifecycle validation
 
-Before enabling current external, verify max schema version 6 and dedicated grants including `record_identity` and restricted inference-ledger writes. Migration 002 must refuse historical same-ID/different-kind conflicts; inventory them and obtain a reviewed reconciliation plan rather than changing immutable history. Validate reviewed name/default-timeline settings, membership removal, owner transfer (exactly one owner), archive write refusal and retained history. Repeat an administration request and confirm its original version/result without another change. Old v1 snapshots remain intact; introduce their first settings record through review.
+Before enabling current external, verify max schema version 7 and dedicated grants including `record_identity` and restricted inference-ledger writes. Migration 002 must refuse historical same-ID/different-kind conflicts; inventory them and obtain a reviewed reconciliation plan rather than changing immutable history. Validate reviewed name/default-timeline settings, membership removal, owner transfer (exactly one owner), archive write refusal and retained history. Repeat an administration request and confirm its original version/result without another change. Old v1 snapshots remain intact; introduce their first settings record through review.
 
-Rollback keeps Worldbuilder disabled and data intact. Previous v1/v2/v3/v4/v5 binaries reject schema v6 when enabled; do not roll back to them with the feature enabled. All six down migrations refuse populated worlds; 003 also refuses any inference attempts. Restore drills include all 16 tables.
+Rollback keeps Worldbuilder disabled and data intact. Previous v1/v2/v3/v4/v5/v6 binaries reject schema v7 when enabled; do not roll back to them with the feature enabled. All seven down migrations refuse populated worlds; 003 also refuses any inference attempts. Restore drills include all 17 tables.
 
 Validate private definition reuse at a historical pin after canon advances, owner isolation (including world administrators), saved summary/choice reload and exact turn retries after later turns. Check that generated candidates retain sessionVersion and stale generation is rejected before inference. Exercise narrative-to-premise creation and verify its original timeline/revision are preserved. Compare summaries against full stored turn history; summaries are provisional, not canonical evidence. Existing sessions must retain pre-migration narration/state with empty initial memory.
 
 ## Durable generation activation and recovery gate
 
-Apply explicit migrations `005_up.sql` and `006_up.sql` after 001–004, refresh dedicated grants and verify max version 6 before current external activation. Back up and restore all 16 Worldbuilder tables, including generation jobs/outbox and inference ledger; rollback disables flags and preserves populated data. Previous schema-4/5 binaries cannot run enabled against schema 6.
+Apply explicit migrations `005_up.sql`, `006_up.sql` and `007_up.sql` after 001–004, refresh dedicated grants and verify max version 7 before current external activation. Back up and restore all 17 Worldbuilder tables, including generation jobs/outbox and inference ledger; rollback disables flags and preserves populated data. Previous schema-4/5/6 binaries cannot run enabled against schema 7.
 
 Keep `worldbuilder.jobs.enabled=false` on both charts until synchronous AI, identity and budget checks above pass. Provision one dedicated worker secret through the existing secret workflow (key `WORLDBUILDER_JOB_TOKEN`, at least 32 bytes); reference it as `worldbuilder.jobs.workerSecret` on external and orchestrator. Verify external `worldbuilder.jobs.principal` is the actual orchestrator mesh identity, distinct from browser and MCP. Inspect the conditional ingress/egress policies for orchestrator→external TCP 8080 and test forged/missing token, human browser principal and wrong service principal denial. The configurable orchestrator `worldbuilder.jobs.externalAPIURL` must be the private external service root. Activate these flags only as a separately reviewed main-branch values change.
 
@@ -180,3 +181,5 @@ If dispatch was lost after broker retention or a broker restore, first stop the 
 For read-only acceptance and incident baselines, follow [observability](OBSERVABILITY.md): verify existing external scrapes, inspect aggregate SQL diagnostics and review/import the dashboard only after datasource identity is known. Establish representative latency/error/backlog thresholds on LAN before enabling alerts. HTTP worker acknowledgements alone do not prove successful provider output; compare durable job/ledger state.
 
 The initial remote baseline was verified through increment 15; the continuing [offline work audit](OFFLINE-WORK.md) tracks remaining source-only features and deeper recovery checks. The processor S3 adapter has removed the old MinIO transitive findings. Before activation, reproduce [offline acceptance](OFFLINE-ACCEPTANCE.md), compare exact installed CRD versions with the recorded schema snapshots, and retain the read-only discovery evidence above. The real-browser fixture does not replace validation of actual OAuth identities, forwarded-header sanitisation or mesh principals.
+
+For schema 7, refresh grants and include `change_review` in the 17-table restore drill. Validate a two-reviewer proposal with real distinct human principals: one vote must not publish; removing/recreating or changing a reviewer’s role must require a fresh review. Lowering a policy must satisfy the previous higher count. Preserve old review/audit records and published approval identities. See [review-policy acceptance](REVIEW-POLICY.md).
