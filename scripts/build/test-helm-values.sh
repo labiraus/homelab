@@ -42,5 +42,7 @@ helm template istio "$repo_root/helm/bootstrap/istio" --show-only templates/isti
 yq 'select(.kind == "HelmRelease") | .spec.values.meshConfig.extensionProviders' "$fixture/parent.yaml" > "$fixture/parent-auth.yaml"
 yq '.spec.values.meshConfig.extensionProviders' "$fixture/child.yaml" > "$fixture/child-auth.yaml"
 diff "$fixture/parent-auth.yaml" "$fixture/child-auth.yaml"
-yq -e '.[0].envoyExtAuthzHttp.pathPrefix == "/oauth2/auth?"' "$fixture/parent-auth.yaml" >/dev/null
-echo 'PASS: bootstrap overrides preserve the child auth-only provider configuration'
+yq -e '.[] | select(.name == "oauth2-proxy") | .envoyExtAuthzHttp.pathPrefix == "/oauth2/auth?"' "$fixture/parent-auth.yaml" >/dev/null
+yq '.[] | select(.name == "mcp-oauth") | .envoyExtAuthzHttp' "$fixture/parent-auth.yaml" > "$fixture/native-auth.yaml"
+yq -e '(.pathPrefix == "/api/mcp-oauth/check?") and (.failOpen == false) and (.statusOnError == "503")' "$fixture/native-auth.yaml" >/dev/null
+echo 'PASS: bootstrap overrides preserve both named auth providers and failure refusal'
