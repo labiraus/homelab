@@ -40,6 +40,8 @@ A later MCP run `38164323246` was found to have checked out old `d4cecf9`, despi
 
 External `38166699296` and UI `38166699340` are deployed after their complete hosted gates. Browser-only Worldbuilder activation is now staged with the observed exact OAuth proxy principal and dedicated external Secret. AI, delegation, generation workers and relay remain separate stages; no source-storage cutover is bundled with this flag.
 
+Browser activation is verified: the user confirms **Worlds → Superuser · Manage users** is visible. Live dedicated-runtime API acceptance creates an owned synthetic world, self-approves and publishes one proposal, reads revision 1, then archives the fixture while retaining its immutable audit. Public Host/Origin writes pass through the proxy-scoped mesh route; wrong Origin returns 403, missing identity 401, and wrong mesh principal with forged email 403. The diagnostic proxy-labelled Pod has an unsatisfied readiness gate and was verified excluded from serving OAuth traffic.
+
 ## Increment 32 — Persistent Prometheus history and snapshot recovery
 
 Added explicit, default-disabled Prometheus PVC/retention inputs with exact stack version and observed-storage requirements. Base/GHCR/ECR render checks preserve defaults and dashboard composition and reject 19 incomplete/invalid storage settings. The new [TSDB recovery gate](TSDB-RECOVERY.md) exercises actual Go metric history, same-PVC WAL replay, snapshot hashes, source-volume loss, exact sample restoration, later-sample exclusion and corrupt-index refusal/recovery in an owned cluster. Snapshot path/layout/checksum/bounds refusal cases run before the drill.

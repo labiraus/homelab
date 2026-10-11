@@ -75,6 +75,12 @@ security:
   networkPolicy:
     enabled: false
 
+upstreamRouting:
+  enabled: true
+  publicHost: mcp.labiraus.com
+  apiHost: homelab-external.homelab.svc.cluster.local
+  uiHost: homelab-ui.homelab.svc.cluster.local
+
 podAnnotations: {}
 podLabels:
   testing_label_key: oauth2-proxy

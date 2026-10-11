@@ -1,0 +1,40 @@
+{{- if .Values.upstreamRouting.enabled }}
+# Preserve the public Host while selecting the private mTLS upstream explicitly.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: {{ include "commonapi.fullname" . }}-upstreams
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "commonapi.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-name: {{ .Release.Name | quote }}
+    meta.helm.sh/release-namespace: {{ .Release.Namespace | quote }}
+spec:
+  exportTo: ["."]
+  hosts: [{{ required "OAuth proxy public host is required" .Values.upstreamRouting.publicHost | quote }}]
+  gateways: [mesh]
+  http:
+    - match:
+        - sourceLabels:
+            {{- include "commonapi.selectorLabels" . | nindent 12 }}
+          uri:
+            prefix: /api/
+        - sourceLabels:
+            {{- include "commonapi.selectorLabels" . | nindent 12 }}
+          uri:
+            exact: /api
+      route:
+        - destination:
+            host: {{ required "OAuth proxy API upstream is required" .Values.upstreamRouting.apiHost | quote }}
+            port:
+              number: 80
+    - match:
+        - sourceLabels:
+            {{- include "commonapi.selectorLabels" . | nindent 12 }}
+      route:
+        - destination:
+            host: {{ required "OAuth proxy UI upstream is required" .Values.upstreamRouting.uiHost | quote }}
+            port:
+              number: 80
+{{- end }}

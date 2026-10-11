@@ -45,7 +45,7 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 
 - `libraries/commonapi/` is the shared chart template library
 - Its Istio resources are in `libraries/commonapi/templates/_istio.tpl`; discover template paths with `rg --files` before reading them rather than deriving filenames from Kubernetes kinds.
-- OAuth2 reverse proxying must preserve the public Host header for Worldbuilder's same-origin writes. Keep `OAUTH2_PROXY_PASS_HOST_HEADER=true`; do not bypass application origin checks to accommodate an internal upstream Host.
+- OAuth2 reverse proxying must preserve the public Host header for Worldbuilder's same-origin writes. Keep `OAUTH2_PROXY_PASS_HOST_HEADER=true` together with the proxy-scoped mesh VirtualService in `infra/oauth2-proxy/templates/upstream-routing.yaml`. Preserving Host without the route sends requests through passthrough and fails against STRICT mTLS. Verify the actual public Host/Origin pair through the proxy identity; do not bypass application origin checks.
 - bootstrap charts define how Flux discovers and deploys workloads
 - `workloads/` is for miscellaneous user workloads that are deployed by Flux but are not considered core platform services
 - values files under `values/` complement this directory and should be checked when chart behavior changes

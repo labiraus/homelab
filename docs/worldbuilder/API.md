@@ -4,7 +4,7 @@ This describes the **source implementation**, default-disabled until the [LAN ga
 
 ## Ownership and identity
 
-`apps/external/worldbuilder/` is the only canon writer. Every route requires validated auth context plus current world membership. Unknown/unauthorised worlds return 404. Owners manage member roles; editor/owner/admin create proposals; reviewer/owner/admin approve and publish. Authors cannot approve their own changes. Membership and reviewer authority are rechecked at publication while holding the world lock.
+`apps/external/worldbuilder/` is the only canon writer. Every route requires validated auth context plus current world membership. Unknown/unauthorised worlds return 404. Owners manage member roles; editor/owner/admin create proposals; reviewer/owner/admin approve and publish. Authors may approve their own changes only while holding a current operator-granted superuser authority. Membership and reviewer authority are rechecked at publication while holding the world lock.
 
 The current shared auth middleware trusts proxy identity headers. Therefore activation **requires** the chart's Istio DENY policy limiting `/api/worlds` and `/api/worlds/*` to the verified oauth2-proxy mTLS service principal, plus proxy header sanitisation. Processor/MCP cannot call these routes directly. Neither header conventions nor private networking alone prove a human approval boundary. Optional MCP delegation uses the separate narrow endpoint described below; activation still requires observed edge identities and sanitisation. Existing MCP document tools are unchanged.
 
