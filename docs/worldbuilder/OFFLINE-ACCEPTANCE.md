@@ -1,6 +1,6 @@
 # Reproducible offline acceptance
 
-No command here connects to or mutates Kubernetes. Docker fixtures create/remove only their own disposable services; SQL never loads operator `.env` files. Public schema/browser downloads need internet access, not LAN credentials.
+Commands use disposable local services and public source artifacts. The API-server fixture installs CRDs and synthetic namespaces in temporary loopback etcd; workload manifests use strict server dry runs. Operator kubeconfig and SQL `.env` files are not loaded. Public tool/schema/browser downloads need internet access, not LAN credentials.
 
 ## Real browser and canon database
 
@@ -29,9 +29,27 @@ bash scripts/worldbuilder/export-crd-schemas.sh /tmp/worldbuilder-schema-check
 /tmp/worldbuilder-checks/bin/python scripts/worldbuilder/validate-custom-resources.py /tmp/worldbuilder-schema-check /tmp/worldbuilder-manifests-REPLACE_WITH_PRINTED_DIRECTORY
 ```
 
-The exporter runs only `helm template`, public HTTP downloads and `flux install --export`. It writes version/checksum metadata beside the schemas. Gateway v1.7.0 and AI Gateway v1.0.0 match repository pins; CNPG chart 0.23.2 and KEDA 2.16.1 satisfy repository ranges. Istio 1.30.5 is an explicit comparison snapshot because the repo's upstream chart is unconstrained. Flux uses the local CLI export (2.9.6 in the recorded check). Verify installed versions/CRDs read-only on LAN and rerun against those exact schemas before activation.
+The exporter runs only `helm template` and public HTTP downloads. It writes version/checksum metadata beside the schemas. Gateway v1.7.0 and AI Gateway v1.0.0 match repository pins; CNPG chart 0.23.2 and KEDA 2.16.1 satisfy repository ranges. Istio 1.30.5 is an explicit comparison snapshot because the repo's upstream chart is unconstrained. Flux comes from the pinned official 2.9.6 install manifest, including its optional controller CRDs. Verify installed versions/CRDs read-only on LAN and rerun against those exact schemas before activation.
 
-Every custom resource in base/overlay and feature-activation renders must have a schema; missing schemas fail. Structural types/required fields/enums/bounds are checked, including Kubernetes IntOrString/nullable conversion. This does not execute admission webhooks, Kubernetes CEL, unknown-field pruning or built-in resource schemas; Helm/Kustomize checks cover render structure, with server-side admission reserved for controlled LAN validation. Never label this as a live dry run.
+Every custom resource in base/overlay and feature-activation renders must have a schema; missing schemas fail. This lightweight structural check handles types/required fields/enums/bounds, including Kubernetes IntOrString/nullable conversion. The complete API-server gate below additionally executes built-in validation, CRD validation/CEL and strict unknown-field checks. Neither establishes installed admission behavior.
+
+## Disposable API-server acceptance
+
+With Helm 4.3.0, Go 1.25.6 and Python available:
+
+```bash
+python3 -m venv /tmp/platform-checks
+/tmp/platform-checks/bin/pip install -r scripts/worldbuilder/requirements.txt
+PATH=/tmp/platform-checks/bin:$PATH \
+GOPATH=/tmp/platform-go GOMODCACHE=/tmp/platform-go-mod GOCACHE=/tmp/platform-go-build \
+  bash scripts/worldbuilder/test-platform.sh
+```
+
+The [reusable workflow](../../.github/workflows/platform-acceptance.yml) runs this gate before app image/chart publication and before Helm publication/dispatch. It downloads official Kubernetes 1.35.0 envtest binaries with pinned architecture-specific SHA-512 verification, builds a separate locked Go test module, renders all 26 Worldbuilder base/overlay combinations and activation variants against Kubernetes 1.35.0, and exports the public schema snapshots above. The harness uses explicit binary paths and a fresh TLS loopback connection. It deliberately supplies unusable `KUBECONFIG`, existing-cluster and binary-override environment settings to prove those inputs cannot select a live cluster.
+
+The current source set contains 65 CRDs and 275 rendered resources (131 built-in, 144 custom). CRDs are installed without rewriting their schemas/conversion settings; a conversion webhook requires an explicit local fixture and otherwise fails. Strict YAML parsing rejects duplicate keys and preserves large integers. Every render is submitted with server-side dry run and strict field validation. Explicit invalid-port, contradictory CEL and unknown-field cases must fail, while a valid dry-run fixture must remain absent from storage. Missing schemas/APIs, empty inputs or invalid resources fail the gate. Temporary API-server/etcd processes stop on completion or handled interruption.
+
+Kubernetes 1.35.0 is a source comparison baseline, not an assertion about the installed cluster. No kubelet, workload controller, operator, service mesh or external admission webhook is started. This gate does not prove pod scheduling, Secret existence, image availability, networking, operator reconciliation, conversion-webhook behavior or production restores. The separate platform audit still needs feasible disposable controller/backup drills; actual installed versions/identities and live admission remain LAN gates. CI retains only public schemas, synthetic renders and binary-checksum metadata, excluding generated control-plane credentials. Set `KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT=true` locally for startup diagnostics.
 
 ## Bounded domain load
 

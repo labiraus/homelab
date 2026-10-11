@@ -74,6 +74,8 @@ Before adding a Dockerfile tool installer, check whether a configured devcontain
 
 For multi-file patches, read exact current headings/anchors first and omit placeholder or no-op updates; one stale anchor rejects the entire patch. When inserting a section before a heading, replace the anchor once rather than retaining it above the new section and duplicating it below. Check changed documents for duplicate headings.
 
+Wait for background formatters or generators to finish before editing their output files, then read the current anchors again. A yielded command may still mutate files even when its tool call has returned.
+
 ## CI script execution
 
 On Windows-backed workspaces, local executable permissions do not prove Git stores an executable file mode. For scripts invoked directly by CI, verify `git ls-files --stage` reports `100755`; use an explicit interpreter in CI as well.

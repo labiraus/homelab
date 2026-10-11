@@ -29,6 +29,11 @@ permissions:
 concurrency: ci-external-docker-pipeline
 
 jobs:
+  platform-acceptance:
+    uses: ./.github/workflows/platform-acceptance.yml
+    with:
+      commit_sha: ${{ github.event.inputs.commit_sha || github.sha }}
+
   test:
     name: "External Test"
     runs-on: ubuntu-latest
@@ -66,7 +71,7 @@ jobs:
         run: bash scripts/worldbuilder/test-postgres.sh
 
   ghcr:
-    needs: test
+    needs: [test, platform-acceptance]
     name: "External Build to GHCR"
     runs-on: ubuntu-latest
     environment: uat

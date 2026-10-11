@@ -26,6 +26,11 @@ permissions:
 concurrency: ci-ui-docker-pipeline
 
 jobs:
+  platform-acceptance:
+    uses: ./.github/workflows/platform-acceptance.yml
+    with:
+      commit_sha: ${{ github.event.inputs.commit_sha || github.sha }}
+
   test:
     name: "UI Test"
     runs-on: ubuntu-latest
@@ -79,7 +84,7 @@ jobs:
         working-directory: apps/ui
 
   ghcr:
-    needs: test
+    needs: [test, platform-acceptance]
     name: "UI Build to GHCR"
     runs-on: ubuntu-latest
     environment: uat

@@ -29,6 +29,11 @@ permissions:
 concurrency: ci-orchestrator-docker-pipeline
 
 jobs:
+  platform-acceptance:
+    uses: ./.github/workflows/platform-acceptance.yml
+    with:
+      commit_sha: ${{ github.event.inputs.commit_sha || github.sha }}
+
   storage-acceptance:
     uses: ./.github/workflows/storage-acceptance.yml
     with:
@@ -70,7 +75,7 @@ jobs:
         run: bash scripts/worldbuilder/test-jetstream.sh
 
   ghcr:
-    needs: [test, storage-acceptance]
+    needs: [test, storage-acceptance, platform-acceptance]
     name: "Orchestrator Build to GHCR"
     runs-on: ubuntu-latest
     environment: uat

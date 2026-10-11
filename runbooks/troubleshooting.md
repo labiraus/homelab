@@ -300,6 +300,12 @@ Worldbuilder implementation and offline checks are tracked in [implementation st
 
 An `incompatible generation stream` startup error now includes durability drift: inspect subjects, file storage, three replicas and seven-day limits retention. A consumer replica mismatch also stops startup. Do not delete or silently recreate existing streams/consumers to bypass the error; inspect and back up their pending work before controlled repair. The [disposable broker drill](../docs/worldbuilder/BROKER-RECOVERY.md) verifies leader loss, quorum loss and restart locally; installed topology and storage remain LAN checks.
 
+## Worldbuilder disposable API-server acceptance
+
+Use `bash scripts/worldbuilder/test-platform.sh` with the dependencies in [offline acceptance](../docs/worldbuilder/OFFLINE-ACCEPTANCE.md). It downloads pinned/checksummed test binaries and uses generated loopback TLS credentials; setting an operator kubeconfig or `USE_EXISTING_CLUSTER` must never redirect the test. A checksum mismatch, missing API/schema, strict field error or failed negative fixture is a failed gate. Preserve the printed public-schema/render artifact directory and inspect the named resource. Helm stderr is stored separately from YAML. Set `KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT=true` for local startup diagnostics.
+
+New CRDs can initially have absent/null status conditions; the harness waits for `Established` with a deadline. It refuses remote conversion-webhook configurations rather than rewriting their source or connecting outside the fixture. External operators/webhooks need separate disposable fixtures; do not bypass an acceptance failure by selecting a real cluster. No test success proves live admission or workload readiness.
+
 ## Worldbuilder disposable PostgreSQL host forwarding
 
 If the test container is healthy but the devcontainer cannot reach its published port, use `WORLDBUILDER_TEST_TRANSPORT=exec bash scripts/worldbuilder/test-postgres.sh`. The local loopback socat bridge uses only the harness's generated test container and cleans up on exit. See [Worldbuilder troubleshooting](../docs/worldbuilder/TROUBLESHOOTING.md). This does not require cluster access or a production database connection.

@@ -27,6 +27,11 @@ permissions:
 concurrency: ci-mcp-docker-pipeline
 
 jobs:
+  platform-acceptance:
+    uses: ./.github/workflows/platform-acceptance.yml
+    with:
+      commit_sha: ${{ github.event.inputs.commit_sha || github.sha }}
+
   test:
     name: "MCP Test"
     runs-on: ubuntu-latest
@@ -61,7 +66,7 @@ jobs:
         working-directory: apps/pkg/api
 
   ghcr:
-    needs: test
+    needs: [test, platform-acceptance]
     name: "MCP Build to GHCR"
     runs-on: ubuntu-latest
     environment: uat

@@ -24,8 +24,8 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - external service state management, including the Minecraft VM
 - `apps/ui/src/WorldRecordEditor.jsx` and `WorldHistory.jsx`/`WorldAdministration.jsx`: canon editing, history, reconciliation, owner lifecycle and recovery UI
 - `docs/worldbuilder/`: architecture, migration, audit, decisions, implementation status, acceptance matrix, dependency validation, API contract and LAN runbook
-- `sql/worldbuilder/`: explicit schema-v1/v2 migrations, immutable identity registry and dedicated runtime grants
-- `scripts/worldbuilder/`: disposable database tests (including a loopback Docker-exec transport fallback), a pinned three-node JetStream process-recovery drill (`test-jetstream.sh`) and offline manifest checks
+- `sql/worldbuilder/`: explicit migrations 001–007, immutable identity/review ledgers and dedicated runtime grants
+- `scripts/worldbuilder/`: disposable database tests (including a loopback Docker-exec transport fallback), a pinned three-node JetStream recovery drill (`test-jetstream.sh`), and real API-server/schema acceptance (`test-platform.sh`, `platform/`, `install-control-plane.py`)
 - `scripts/storage/reference_coverage.py`: read-only local-psql structured reference export, offline version-map coverage and export-bound reviewed identity context; `test-reference-postgres.sh` and `docs/StorageReferenceCoverage.md` provide disposable acceptance/operator use.
 - `docs/`
   - `Setup.md`: Kubernetes setup path for local machine, Proxmox worker prep, SSH, kubeconfig, and worker network stability
@@ -234,6 +234,6 @@ Reviewed calendars/date facts: `docs/worldbuilder/CALENDARS.md`, `apps/external/
 
 Human review quorum: `docs/worldbuilder/REVIEW-POLICY.md`, `apps/external/worldbuilder/reviews.go`, `reviews_test.go`, `sql/worldbuilder/007_up.sql`; settings configure 1–5 approvals, immutable decisions bind to membership authority, and publication preserves its counted principals. UI settings/review queue and three-identity Chromium acceptance cover the human path.
 
-Offline acceptance and operations: `docs/worldbuilder/OFFLINE-ACCEPTANCE.md`, `OBSERVABILITY.md`, `apps/ui/browser/worldbuilder.spec.js`, test-only `apps/external/worldbuilder/browser_test.go`, `scripts/worldbuilder/export-crd-schemas.sh`, `validate-custom-resources.py`, and `sql/worldbuilder/ops_dashboard_queries.pgsql`. Typed-reference traversal is in `connections.go` / `WorldConnections.jsx`.
+Offline acceptance and operations: `docs/worldbuilder/OFFLINE-ACCEPTANCE.md`, `OBSERVABILITY.md`, `apps/ui/browser/worldbuilder.spec.js`, test-only `apps/external/worldbuilder/browser_test.go`, `scripts/worldbuilder/export-crd-schemas.sh`, `validate-custom-resources.py`, `test-platform.sh`, `.github/workflows/platform-acceptance.yml`, and `sql/worldbuilder/ops_dashboard_queries.pgsql`. Typed-reference traversal is in `connections.go` / `WorldConnections.jsx`.
 
 Canonical graph/chronology presentation is in `apps/ui/src/WorldViews.jsx`, with shared UI styling in `styles.css`. It consumes the loaded published scope from `Worldbuilder.jsx`; `worldTicks.js` preserves exact date transport/ordering. Component and real-browser fixtures verify scope, precision, navigation and separation from editor drafts.

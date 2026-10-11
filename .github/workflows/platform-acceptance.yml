@@ -1,0 +1,59 @@
+name: Offline Platform Acceptance
+on:
+  workflow_call:
+    inputs:
+      commit_sha:
+        type: string
+        required: false
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Commit SHA to validate
+        type: string
+        required: false
+  push:
+    paths:
+      - 'scripts/worldbuilder/**'
+      - '.github/workflows/platform-acceptance.yml'
+  pull_request:
+    paths:
+      - 'scripts/worldbuilder/**'
+      - 'helm/**'
+      - '.github/workflows/platform-acceptance.yml'
+permissions:
+  contents: read
+jobs:
+  api-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4.1.1
+        with:
+          ref: ${{ inputs.commit_sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.6'
+          cache: false
+      - uses: azure/setup-helm@v4.2.0
+        with:
+          version: 'v4.3.0'
+      - name: Install structural validation dependencies
+        run: python3 -m pip install -r scripts/worldbuilder/requirements.txt
+      - name: Validate source against a disposable API server
+        run: bash scripts/worldbuilder/test-platform.sh "$RUNNER_TEMP/platform-acceptance"
+      - name: Retain public schema and synthetic render evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-platform-evidence
+          path: |
+            ${{ runner.temp }}/platform-acceptance/schemas/*.yaml
+            ${{ runner.temp }}/platform-acceptance/schemas/sources.json
+            ${{ runner.temp }}/platform-acceptance/renders/*.template
+            ${{ runner.temp }}/platform-acceptance/renders/*-enabled.yaml
+            ${{ runner.temp }}/platform-acceptance/renders/*.stderr
+            ${{ runner.temp }}/platform-acceptance/assets/assets.json
+          retention-days: 7
