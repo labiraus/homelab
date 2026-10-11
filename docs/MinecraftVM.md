@@ -172,3 +172,18 @@ Notes:
 - Archive the profile-specific directory under `/srv/minecraft/servers/<profile>/data`, not the `/srv/minecraft/data` symlink, so the backup remains tied to the intended server profile.
 - The repo remains authoritative for the active profile and pinned version. Any local in-guest changes will be overwritten the next time `make ansible-minecraft-vm` runs.
 - If `/srv/minio/backups/minecraft/` does not exist yet on `svartalfheim`, create it once before the first copy with `ssh svartalfheim 'mkdir -p /srv/minio/backups/minecraft'`.
+
+## Aero 1.10.0 rollout (2026-09-17)
+
+The installed manifest and `.ftb-installed` marker confirm pack `134`, version `100497`,
+with NeoForge `21.1.248`. World startup completed, Docker reported healthy, and authenticated
+RCON responded. Reapplying the role after the restart-order fix reported zero changes and failures.
+
+The verified cold backup is
+`nidavellir:/srv/minecraft/archives/ftb_skies_2_aero-pre-1.10.0-20260917.tar.gz`, with an
+independent copy at `/tmp/minecraft-upgrade-backups/ftb_skies_2_aero-pre-1.10.0-20260917.tar.gz`
+on the operator devcontainer host. Both copies have SHA-256
+`912960a42e0769d4d5629b8e34325b974d5026d7e5ce09f3055b6ce5f10a5f3a`.
+The usual copy to `svartalfheim:/srv/minio/backups/minecraft/` remains outstanding: the SSH
+certificate expired, and its CA key requires a passphrase to renew. Preserve the VM archive
+until that copy has been completed; the operator `/tmp` copy is temporary storage.

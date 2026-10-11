@@ -508,14 +508,14 @@
     - Reload systemd
     - Restart minecraft
 
+- name: Apply pending Minecraft restarts before ensuring service is started
+  ansible.builtin.meta: flush_handlers
+
 - name: Ensure Minecraft service is enabled and started
   ansible.builtin.systemd_service:
     name: "{{ minecraft_vm_service_name }}"
     enabled: true
     state: started
-
-- name: Apply pending Minecraft restarts before server tuning
-  ansible.builtin.meta: flush_handlers
 
 - name: Wait for Minecraft server.properties to exist
   ansible.builtin.wait_for:

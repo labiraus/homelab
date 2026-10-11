@@ -259,3 +259,11 @@ version, check the live pack and version API before changing Ansible. On Septemb
 indexed Aero download page paired `1.10.0` with `100504`, while the live API identified that ID as
 `1.11.0`. The correct Aero `1.10.0` ID is `100497`. See [Minecraft VM updates](../docs/MinecraftVM.md#updating-a-managed-server-version)
 for cold backups and installed-version/readiness checks.
+
+## Minecraft installer interrupted by Ansible
+
+If a cold upgrade starts Minecraft and immediately logs `Stopping minecraft.service` while the
+modpack installer is still downloading, check the role's handler ordering. Configuration templates
+notify a restart; flushing that handler after `state: started` interrupts the newly started installer.
+The role now flushes pending restarts before ensuring the service is enabled and started. A stopped
+service with changed configuration starts once, while an unchanged stopped service still starts.

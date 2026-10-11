@@ -217,6 +217,7 @@ Managed Minecraft VM state:
 - keeps `/etc/minecraft/minecraft.env`, `/etc/minecraft/runtime.env`, `/srv/minecraft/data`, and `/srv/minecraft/backups` pointed at the active profile
 - enforces selected `server.properties` values such as the current RCON credentials and `sync-chunk-writes=false` across every initialized profile, plus profile-specific values such as `spawn-protection=0` for `atm11`
 - manages a `minecraft.service` systemd unit that runs the active profile's image
+- flushes pending configuration restarts before ensuring the service is started, so a cold upgrade does not start and immediately interrupt the modpack installer
 - uses profile runtime metadata and a shared launcher so bootstrap profiles and profiles that start from a preinstalled `run.sh` can be switched without regenerating the systemd unit
 - keeps the shared image default at `itzg/minecraft-server:java21`, while `atm11` overrides to `itzg/minecraft-server:java25` because current NeoForge server builds require Java 25 there
 - pins `atm11` to `NEOFORGE_VERSION=26.1.2.93`, mirrors that into `CF_MOD_LOADER_VERSION` for AUTO_CURSEFORGE installs, and starts it via the already-installed `/data/run.sh` script so the VM keeps using the repo-selected NeoForge build
