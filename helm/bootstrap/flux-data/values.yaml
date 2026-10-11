@@ -93,6 +93,9 @@ postgres:
     worldbuilderRoles:
       enabled: true
       migrationLogin: false
+    nativeOAuthRole:
+      enabled: true
+      passwordSecret: mcp-oauth-credentials
     networkPolicy:
       allowedClients:
         - namespace: homelab

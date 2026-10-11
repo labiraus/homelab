@@ -26,6 +26,8 @@ Never write tokens or connection passwords into Git, logs, command arguments or 
 
 ## Restart, restore and revocation
 
+Production staging on 2026-10-11: backup `20261011T203021` completed before native authorization changes. The dedicated `data/mcp-oauth-credentials` Secret is provisioned separately and `flux-data` enables its managed role while preserving the closed canon migration owner. Schema installation and application activation are subsequent explicit steps.
+
 Ordinary service replacement retains valid credentials in the shared store. Database restoration is different: a backup can precede a revocation. Before exposing a restored authorization store, apply `sql/mcp/revoke-after-restore.sql` to clear pending requests/codes and revoke all token families, then require fresh browser consent. Preserve approved client identities. Do not automatically perform this reset on ordinary startup.
 
 The standard revocation endpoint accepts a token bound to its client and revokes its family. An operator may revoke families by registered email through the dedicated schema when a client or device is lost. No raw token is needed for an operator-side revocation. Retain the website's existing Google session and registered-user controls.
