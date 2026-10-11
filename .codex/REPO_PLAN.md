@@ -26,4 +26,6 @@ The initial remote baseline was verified through increment 15 and published with
 
 Increment 30 is CI verified: source `1076dea` passes all five platform jobs (38149569293), evaluation adapters (38149569290), and complete external/orchestrator image and Helm chart publication (38149569471 / 38149569467). The offline Velero recovery item is complete; Prometheus admission, persistent TSDB recovery, mesh, timeline inheritance and vector discovery remain open.
 
+Increment 31 implements actual Prometheus TLS admission in the existing controller gate: certificate Jobs, annotation mutation, semantic refusal, both webhook trust failures and unavailable-operator recovery. Full disposable admission/discovery/replacement verification and teardown pass locally; CI publication is pending. Persistent TSDB and mesh checks remain subsequent offline work.
+
 No live readiness or deployment success has been observed in this remote session. Source publication is authorised; production activation remains LAN-gated.

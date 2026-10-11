@@ -316,6 +316,10 @@ New CRDs can initially have absent/null status conditions; the harness waits for
 
 For a structural parser error on a bare `=` in a public CRD enum, use the repository's Kubernetes-aware safe loader. It preserves this legal string while rejecting unsafe YAML tags; do not rewrite the upstream CRD or skip its validation. The disposable API-server gate must also pass the original source.
 
+## Worldbuilder Prometheus admission acceptance
+
+The [controller fixture](../docs/worldbuilder/CONTROLLER-ACCEPTANCE.md) runs the chart’s real certificate Jobs before testing admission. Null Helm annotation maps are valid; completed hook Pods share the operator’s name label, so use the Deployment selector for shutdown/replacement. Invalid PromQL may return Kubernetes `Invalid` without a webhook prefix. Check the semantic reason, and prove TLS trust and unavailable-webhook refusal separately. After a Ready operator Pod, wait for actual admission routing within the bounded deadline. Do not disable TLS or set `failurePolicy: Ignore` to make acceptance pass.
+
 ## Worldbuilder physical backup acceptance
 
 The [CNPG backup fixture](../docs/worldbuilder/BACKUP-ACCEPTANCE.md) verifies base backup/WAL and latest/PITR recovery after removing only its synthetic source Cluster/Pods/PVCs. Do not reuse those deletion commands against an operator context. Inspect its `backup-result.json` together with the final workflow conclusion and cleanup logs; a configured/completed backup alone does not prove restore. The fixture tests all 17 populated tables and refuses wrong S3 credentials.

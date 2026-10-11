@@ -18,9 +18,13 @@ If your public registry connection uses a trusted corporate proxy, explicitly se
 
 The installer verifies architecture-specific official SHA-256 checksums for [kind 0.31.0](https://github.com/kubernetes-sigs/kind/releases/tag/v0.31.0), with its Kubernetes 1.35.0 node image pinned by digest. The API binds host loopback. Every command uses the generated fixture name/context, including teardown. Commands inside the node use its generated admin configuration, so unreachable Docker host forwarding cannot redirect tests to a real cluster. Name and kind ownership labels are checked before exec or removal.
 
-The test renders kube-prometheus-stack 92.3.0, installs its unmodified CRDs and operator resources, and waits for real Ready nodes, CoreDNS, operator and Prometheus Pods. Unrelated monitoring components and admission webhooks are explicitly disabled in this fixture. The test applies the repository-rendered ServiceMonitor with only its scrape interval/timeout shortened. A synthetic Python endpoint serves metrics emitted by the real external Go registry/handlers.
+The test renders kube-prometheus-stack 92.3.0, installs its unmodified CRDs and operator resources, and waits for real Ready nodes, CoreDNS, operator and Prometheus Pods. Unrelated monitoring components are disabled. Admission remains enabled with TLS and `failurePolicy: Fail`; the fixture executes the original certificate-generation and CA-patching hook Jobs in order. Their extended disposable TTL retains evidence until teardown. The test applies the repository-rendered ServiceMonitor with only its scrape interval/timeout shortened. A synthetic Python endpoint serves metrics emitted by the real external Go registry/handlers.
 
 Required observations:
+
+- Real admission accepts a valid PrometheusRule and coerces numeric annotations to strings; malformed PromQL and an AlertmanagerConfig with a missing receiver are rejected for their semantic errors.
+- Both validating and mutating webhook configurations reject a valid request under incorrect CA trust, then recover when the original trust is restored.
+- Stopping the owned operator makes a valid admission request fail; a fresh operator Pod UID restores successful admission and mutation.
 
 - Exactly one healthy target appears through Kubernetes discovery and operator-generated configuration.
 - The known Go counter value is present; unrelated metric names and methods are filtered.
@@ -31,6 +35,12 @@ Required observations:
 
 `controller-result.json` is written only after the controller assertions pass. The final process success additionally requires teardown. Review it together with the workflow conclusion and `cleanup.log`.
 
+## Admission details
+
+The checks exercise the [operator admission contract](https://prometheus-operator.dev/docs/platform/webhook/) through server-side dry runs against the real API server. Semantic refusal must contain the tested PromQL/receiver error; an unrelated failure cannot satisfy it. Incorrect trust must report an unknown certificate authority. Both webhook kinds require nonempty CA bundles and fail-closed policies. All changes are confined to the disposable cluster. The test restores trust and the operator even after an assertion fails.
+
+A Ready Pod may precede working Service routing. Initial startup and restart require a bounded successful admission request. Operator replacement uses the Deployment selector because certificate hook Pods share its broader name label. The fixture saves `operator.log` and `webhooks.log` alongside public manifests and synthetic results. Private certificate keys and kubeconfig are excluded. These checks do not cover certificate rotation, conversion-webhook compatibility or the installed cluster.
+
 ## Docker transport
 
 Some Docker-outside-Docker proxies close an exec attach stream early and return success while the command is still running. This was reproduced with a delayed command that eventually exited 7. Archive copy also acknowledged success without writing files in the same local kind environment. The fixture-scoped Docker wrapper records each exec ID, polls its actual terminal exit status, and transfers private input/output in bounded chunks with output-length checks. It never replaces the global Docker executable or uses a production container. Delayed binary I/O, stderr, nonzero status, timeout and ownership-refusal checks cover this boundary.
@@ -39,4 +49,4 @@ Do not treat a client exit, partial output or successful `docker cp` response as
 
 ## Boundaries
 
-This is controller discovery and process recovery evidence. It does not establish installed versions, Flux rollout, production data coverage, persistent TSDB restoration, admission webhooks, network-policy enforcement or Istio mTLS. Default kind networking does not enforce the repository's mesh/security policies; no such success is inferred from this fixture. The separate [CNPG backup drill](BACKUP-ACCEPTANCE.md) exercises real physical recovery and CNPG admission; [Velero recovery](VELERO-ACCEPTANCE.md) separately covers files, Kubernetes resources and backup-controller replacement. Prometheus admission, persistent TSDB recovery and disposable mesh enforcement remain in [offline work](OFFLINE-WORK.md). Actual estate identity, storage and hardware checks remain LAN gates. No production feature, schema or storage setting is activated.
+This is controller discovery and process recovery evidence. It does not establish installed versions, Flux rollout, production data coverage, persistent TSDB restoration, installed admission, network-policy enforcement or Istio mTLS. Default kind networking does not enforce the repository's mesh/security policies; no such success is inferred from this fixture. The separate [CNPG backup drill](BACKUP-ACCEPTANCE.md) exercises real physical recovery and CNPG admission; [Velero recovery](VELERO-ACCEPTANCE.md) separately covers files, Kubernetes resources and backup-controller replacement. Persistent TSDB recovery and disposable mesh enforcement remain in [offline work](OFFLINE-WORK.md). Actual estate identity, storage and hardware checks remain LAN gates. No production feature, schema or storage setting is activated.

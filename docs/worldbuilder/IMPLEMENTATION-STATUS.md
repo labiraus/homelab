@@ -1,5 +1,11 @@
 # Worldbuilder implementation status
 
+## Increment 31 — Prometheus admission and certificate refusal
+
+The [controller acceptance](CONTROLLER-ACCEPTANCE.md) gate now enables the pinned stack’s actual TLS admission webhooks and executes its certificate-generation and CA-patching Jobs. It verifies numeric annotation mutation, invalid PromQL and Alertmanager receiver refusal, wrong-CA refusal/recovery for both webhook kinds, and fail-closed behavior while the operator is unavailable. A fresh operator Pod must restore real successful admission before the existing discovery/filtering/replacement drill proceeds. Hook Pod selection, null Helm annotations and Service-routing readiness follow the lessons captured in root agent guidance.
+
+LOCAL_VERIFIED (2026-10-11): the full fresh-cluster run passes every admission/trust/refusal check, the complete monitor-discovery/filtering/removal/replacement regression and owned-fixture teardown (`/tmp/homelab-prometheus-admission-full.log`). Python compilation, actionlint, changed-document links/headings and whitespace checks pass. CI/publication evidence is pending. Only synthetic cluster state is changed. Installed admission, certificate rotation, conversion compatibility, persistent TSDB recovery and mesh remain separate gates.
+
 ## Increment 30 — Velero file and Kubernetes resource recovery
 
 Added [Velero acceptance](VELERO-ACCEPTANCE.md) to the reusable publication gate. The real Velero 1.18.2 controller/node-agent (chart 12.2.1), AWS plugin 1.14.4 and Kopia use the repository's prepared SeaweedFS values and scoped `velero` bucket credentials. The shared external S3 fixture now reads the target identity actions and serves both CNPG and Velero tests; production values remain unchanged.

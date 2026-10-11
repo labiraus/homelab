@@ -3,8 +3,9 @@
 
 Installs the pinned Prometheus Operator in a freshly generated kind cluster.
 Only synthetic metrics and public chart inputs enter it. No production network,
-mesh/admission claims, existing context, host mount or source data is used.
+live admission claims, existing context, host mount or source data is used.
 """
+import base64
 import copy
 import importlib.util
 import json
@@ -34,6 +35,111 @@ common = module('kind-fixture')
 Fixture, wait_for = common.Fixture, common.wait_for
 
 
+def operator_selector(f):
+    deployment = json.loads(f.kubectl('-n', STACK_NAMESPACE, 'get', 'deployment/' + OPERATOR, '-o', 'json'))
+    return ','.join(k + '=' + v for k, v in deployment['spec']['selector']['matchLabels'].items())
+
+
+def install_stack(f, documents):
+    crds = [d for d in documents if d['kind'] == 'CustomResourceDefinition']
+    resources = [d for d in documents if d['kind'] != 'CustomResourceDefinition']
+    hooks = [d for d in resources if 'helm.sh/hook' in (d['metadata'].get('annotations') or {})]
+    assert crds and any(d['kind'] == 'Prometheus' for d in resources)
+    assert {d['kind'] for d in resources} >= {'MutatingWebhookConfiguration', 'ValidatingWebhookConfiguration'}
+    f.apply(crds)
+    for crd in crds:
+        f.kubectl('wait', 'crd/' + crd['metadata']['name'], '--for=condition=Established', '--timeout=60s')
+    f.apply([d for d in hooks if d['kind'] != 'Job'])
+    jobs = [d for d in hooks if d['kind'] == 'Job']
+    create = [d for d in jobs if d['metadata']['name'].endswith('-admission-create')]
+    patch = [d for d in jobs if d['metadata']['name'].endswith('-admission-patch')]
+    assert len(create) == len(patch) == 1 and len(jobs) == 2
+    f.apply(create)
+    f.kubectl('-n', STACK_NAMESPACE, 'wait', 'job/' + create[0]['metadata']['name'],
+              '--for=condition=Complete', '--timeout=180s')
+    f.apply([d for d in resources if d not in hooks])
+    f.apply(patch)
+    f.kubectl('-n', STACK_NAMESPACE, 'wait', 'job/' + patch[0]['metadata']['name'],
+              '--for=condition=Complete', '--timeout=180s')
+    f.kubectl('-n', STACK_NAMESPACE, 'rollout', 'status', 'deployment/' + OPERATOR, '--timeout=240s')
+
+
+def admission_drill(f):
+    """Exercise actual semantic admission, TLS trust, and fail-closed recovery."""
+    rule = {'apiVersion': 'monitoring.coreos.com/v1', 'kind': 'PrometheusRule',
+            'metadata': {'name': 'fixture-rule', 'namespace': STACK_NAMESPACE},
+            'spec': {'groups': [{'name': 'fixture', 'rules': [{'alert': 'OfflineRule',
+                     'expr': 'up == 0', 'annotations': {'summary': 42}}]}]}}
+
+    def dry(obj, check=True):
+        return f.kubectl('apply', '--dry-run=server', '-f', '-', '-o', 'json',
+                         data=json.dumps(obj).encode(), check=check, timeout=45)
+
+    def ready(label):
+        wait_for(label, lambda: dry(rule, False)[0] == 0, 90)
+        assert json.loads(dry(rule))['spec']['groups'][0]['rules'][0]['annotations']['summary'] == '42'
+
+    configurations = {}
+    for kind in ('validatingwebhookconfiguration', 'mutatingwebhookconfiguration'):
+        key = kind + '/prometheus-kube-prometheus-admission'
+        obj = json.loads(f.kubectl('get', key, '-o', 'json'))
+        assert obj['webhooks'] and all(w['failurePolicy'] == 'Fail' and w['clientConfig'].get('caBundle')
+                                       for w in obj['webhooks'])
+        configurations[key] = obj
+    ready('real admission accepts and mutates a valid PrometheusRule')
+    bad = copy.deepcopy(rule); bad['spec']['groups'][0]['rules'][0]['expr'] = 'sum('
+    code, out, err = dry(bad, False)
+    assert code and 'could not parse expression' in err, (code, out, err)
+    alert = {'apiVersion': 'monitoring.coreos.com/v1alpha1', 'kind': 'AlertmanagerConfig',
+             'metadata': {'name': 'fixture-alertmanager', 'namespace': STACK_NAMESPACE},
+             'spec': {'route': {'receiver': 'sink'}, 'receivers': [{'name': 'sink'}]}}
+    dry(alert)
+    bad = copy.deepcopy(alert); bad['spec']['route']['receiver'] = 'missing'
+    code, out, err = dry(bad, False)
+    assert code and 'receiver' in err.lower() and 'missing' in err, (code, out, err)
+    print('PASS: invalid PromQL and missing Alertmanager receiver are refused', flush=True)
+
+    # A different, valid CA isolates trust failure from malformed input or server downtime.
+    other = base64.b64encode(json.loads(f.kubectl('-n', STACK_NAMESPACE, 'get',
+        'configmap/kube-root-ca.crt', '-o', 'json'))['data']['ca.crt'].encode()).decode()
+    for key, obj in configurations.items():
+        original = obj['webhooks'][0]['clientConfig']['caBundle']
+        assert other != original
+
+        def trust(value):
+            f.kubectl('patch', key, '--type=json', '-p', json.dumps([{
+                'op': 'replace', 'path': '/webhooks/0/clientConfig/caBundle', 'value': value}]))
+
+        def untrusted():
+            code, out, err = dry(rule, False)
+            return code != 0 and 'certificate signed by unknown authority' in err
+
+        try:
+            trust(other)
+            wait_for(key + ' refuses incorrect certificate trust', untrusted, 60)
+        finally:
+            trust(original)
+        ready(key + ' recovers with the original certificate trust')
+
+    selector = operator_selector(f)
+    before = json.loads(f.kubectl('-n', STACK_NAMESPACE, 'get', 'pods', '-l', selector, '-o', 'json'))['items']
+    assert len(before) == 1
+    old_uid = before[0]['metadata']['uid']
+    f.kubectl('-n', STACK_NAMESPACE, 'scale', 'deployment/' + OPERATOR, '--replicas=0')
+    try:
+        f.kubectl('-n', STACK_NAMESPACE, 'wait', 'pod', '-l', selector, '--for=delete', '--timeout=90s')
+        code, out, err = dry(rule, False)
+        assert code and 'failed calling webhook' in err, (code, out, err)
+        print('PASS: unavailable webhook refuses valid input', flush=True)
+    finally:
+        f.kubectl('-n', STACK_NAMESPACE, 'scale', 'deployment/' + OPERATOR, '--replicas=1')
+        f.kubectl('-n', STACK_NAMESPACE, 'rollout', 'status', 'deployment/' + OPERATOR, '--timeout=240s')
+    ready('operator restart restores actual admission and mutation')
+    after = json.loads(f.kubectl('-n', STACK_NAMESPACE, 'get', 'pods', '-l', selector, '-o', 'json'))['items']
+    assert len(after) == 1 and after[0]['metadata']['uid'] != old_uid
+    dry(alert)
+
+
 def monitor_drill(f, fixture_directory, metrics):
     directory = Path(fixture_directory)
     monitor = json.loads((directory / 'monitor.json').read_text())
@@ -49,8 +155,9 @@ def monitor_drill(f, fixture_directory, metrics):
         'kubeStateMetrics', 'kubeApiServer', 'kubelet', 'kubeControllerManager', 'coreDns',
         'kubeDns', 'kubeEtcd', 'kubeScheduler', 'kubeProxy')}
     values.update(defaultRules={'create': False},
-        prometheusOperator={'admissionWebhooks': {'enabled': False},
-                            'tls': {'enabled': False}, 'serviceMonitor': {'selfMonitor': False}},
+        prometheusOperator={'admissionWebhooks': {'enabled': True, 'failurePolicy': 'Fail',
+                                'patch': {'ttlSecondsAfterFinished': 1800}},
+                            'tls': {'enabled': True}, 'serviceMonitor': {'selfMonitor': False}},
         prometheus={'serviceMonitor': {'selfMonitor': False}, 'prometheusSpec': {
             'retention': '1h', 'resources': {'requests': {'memory': '128Mi', 'cpu': '50m'},
                                           'limits': {'memory': '512Mi'}},
@@ -63,17 +170,10 @@ def monitor_drill(f, fixture_directory, metrics):
     # The upstream CRD enums can contain an unquoted '='. Use the repository safe loader.
     loader = module('validate-custom-resources').KubernetesLoader
     documents = [d for d in yaml.load_all(rendered, Loader=loader) if d]
-    crds = [d for d in documents if d['kind'] == 'CustomResourceDefinition']
-    resources = [d for d in documents if d['kind'] != 'CustomResourceDefinition']
-    assert crds and any(d['kind'] == 'Prometheus' for d in resources)
-    assert not any(d['kind'] in ('MutatingWebhookConfiguration', 'ValidatingWebhookConfiguration') for d in resources)
     f.apply([{'apiVersion': 'v1', 'kind': 'Namespace', 'metadata': {'name': n}}
              for n in (namespace, STACK_NAMESPACE, 'wrong-namespace')])
-    f.apply(crds)
-    for crd in crds:
-        f.kubectl('wait', 'crd/' + crd['metadata']['name'], '--for=condition=Established', '--timeout=60s')
-    f.apply(resources)
-    f.kubectl('-n', STACK_NAMESPACE, 'rollout', 'status', 'deployment/' + OPERATOR, '--timeout=240s')
+    install_stack(f, documents)
+    admission_drill(f)
     wait_for('operator creates the Prometheus Pod', lambda: bool(json.loads(f.kubectl(
         '-n', STACK_NAMESPACE, 'get', 'pods', '-l', 'prometheus=' + PROMETHEUS, '-o', 'json'))['items']))
     f.kubectl('-n', STACK_NAMESPACE, 'wait', 'pod', '-l', 'prometheus=' + PROMETHEUS,
@@ -161,7 +261,7 @@ HTTPServer(('0.0.0.0',8080),Handler).serve_forever()
     wait_for('ServiceMonitor deletion removes discovery configuration', lambda: targets() == [])
     f.apply([monitor])
     wait_for('ServiceMonitor recreation recovers scraping', healthy)
-    for selector, label in [('app.kubernetes.io/name=kube-prometheus-stack-prometheus-operator', 'operator'),
+    for selector, label in [(operator_selector(f), 'operator'),
                             ('prometheus=' + PROMETHEUS, 'Prometheus')]:
         before = json.loads(f.kubectl('-n', STACK_NAMESPACE, 'get', 'pods', '-l', selector, '-o', 'json'))['items']
         assert len(before) == 1, (label, len(before))
@@ -180,8 +280,11 @@ HTTPServer(('0.0.0.0',8080),Handler).serve_forever()
         'status': 'passed', 'stackVersion': STACK_VERSION, 'observedImageIDs': images, 'tests': [
             'kind Ready/DNS/exec transport', 'operator reconciliation', 'Go metrics and filtering',
             'monitor/Service/namespace/port isolation', 'Service change recovery', 'monitor delete/recreate',
-            'operator and Prometheus replacement'],
-        'exclusions': ['production readiness', 'Istio/NetworkPolicy enforcement', 'admission webhooks',
+            'operator and Prometheus replacement', 'real certificate hook Jobs',
+            'PrometheusRule annotation mutation and semantic refusal', 'AlertmanagerConfig receiver refusal',
+            'validating and mutating TLS trust refusal/recovery', 'unavailable admission refuses valid input',
+            'fresh operator UID and real admission recovery'],
+        'exclusions': ['production readiness', 'Istio/NetworkPolicy enforcement', 'installed admission',
                        'CNPG/Velero restore', 'persistent TSDB recovery']}, indent=2) + '\n')
 
 
@@ -195,7 +298,9 @@ def main():
     finally:
         try:
             for name, args in [('pods', ['get', 'pods', '-A', '-o', 'wide']),
-                               ('events', ['get', 'events', '-A', '--sort-by=.lastTimestamp'])]:
+                               ('events', ['get', 'events', '-A', '--sort-by=.lastTimestamp']),
+                               ('operator', ['-n', STACK_NAMESPACE, 'logs', 'deployment/' + OPERATOR, '--tail=200']),
+                               ('webhooks', ['get', 'validatingwebhookconfiguration,mutatingwebhookconfiguration', '-o', 'json'])]:
                 code, out, err = f.kubectl(*args, check=False, timeout=30)
                 (f.output / (name + '.log')).write_text(out + err)
         finally:

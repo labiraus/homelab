@@ -95,7 +95,7 @@ jobs:
       - name: Emit real external metrics from test-only handlers
         working-directory: apps/external
         run: WORLDBUILDER_METRICS_FIXTURE="$RUNNER_TEMP/worldbuilder-metrics.txt" go test -count=1 -run '^TestWorldbuilderObservabilityFixture$' .
-      - name: Verify real disposable monitor reconciliation and recovery
+      - name: Verify real admission, monitor reconciliation and recovery
         run: python3 scripts/worldbuilder/test-controllers.py "$RUNNER_TEMP/controller-acceptance" "$RUNNER_TEMP/platform-evidence/renders/observability" "$RUNNER_TEMP/worldbuilder-metrics.txt"
       - uses: actions/upload-artifact@v4
         if: always()
