@@ -153,3 +153,7 @@ external databases and broker-only history are not asserted to be inventoried.
 Audit those sources and unusual legacy formats during LAN discovery. Actual
 production coverage, verified context attestations, map authenticity, frozen
 writer state and isolated database/application restore remain cutover gates.
+
+## Recorded acceptance — 2026-10-11
+
+Source `c0fda1b` passed [storage CI 38137124323](https://github.com/labiraus/homelab/actions/runs/38137124323): 20 archive/reference unit tests, six explicit disposable PostgreSQL cases, storage chart validation and the existing complete SeaweedFS migration/recovery plus real Go/Node application clients. Local database acceptance also passed (`/tmp/homelab-reference-postgres-final.log`, ephemeral). These results prove the offline tooling gate; no production inventory or cutover was performed.
