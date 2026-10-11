@@ -55,6 +55,14 @@ test("gateway forwards correlation and retains the reported model", async (t) =>
         new Headers(options?.headers).get("X-Request-ID"),
         requestId,
       );
+      const sent = JSON.parse(String(options?.body));
+      assert.equal(sent.response_format.type, "json_schema");
+      const schema = sent.response_format.json_schema.schema;
+      assert.equal(schema.additionalProperties, false);
+      assert.deepEqual(schema.required, ["answer", "unknown", "citations", "operations"]);
+      assert.deepEqual(schema.properties.citations.items.enum, ["world:1:main:age"]);
+      assert.equal(schema.properties.operations.maxItems, 0);
+      assert.equal(schema.properties.findings, undefined);
       const output = await response()([]);
       return new Response(
         JSON.stringify({
@@ -68,6 +76,29 @@ test("gateway forwards correlation and retains the reported model", async (t) =>
   const result = await runCanon({ ...request, requestId });
   assert.equal(result.model, "reported-model");
   assert.equal(result.usage.total_tokens, 10);
+});
+test("gateway schema preserves each workflow's output boundary", async (t) => {
+  const previous = process.env.AI_GATEWAY_BASE_URL;
+  process.env.AI_GATEWAY_BASE_URL = "http://offline-gateway.test/v1";
+  t.after(() => {
+    if (previous === undefined) delete process.env.AI_GATEWAY_BASE_URL;
+    else process.env.AI_GATEWAY_BASE_URL = previous;
+  });
+  let properties: Record<string, any> = {};
+  t.mock.method(globalThis, "fetch", async (_url: unknown, options?: RequestInit) => {
+    properties = JSON.parse(String(options?.body)).response_format.json_schema.schema.properties;
+    const output = await response()([]);
+    return new Response(JSON.stringify({choices: [{message: {content: output.text}}]}));
+  });
+  for (const workflow of ["canon_proposal", "consistency_check", "story_turn", "narrative_generate"] as const) {
+    await runCanon({...request, workflow,
+      ...(workflow === "story_turn" ? {story: {version: 0, recentTurns: [], memory: {summary: "", throughVersion: 0, choices: []}}} : {})});
+    assert.equal(properties.operations.maxItems, ["canon_proposal", "story_turn"].includes(workflow) ? 100 : 0);
+    assert.equal(Boolean(properties.findings), workflow === "consistency_check");
+    assert.equal(Boolean(properties.choices), ["story_turn", "narrative_generate"].includes(workflow));
+    assert.equal(Boolean(properties.memorySummary), workflow === "story_turn");
+    if (properties.findings) assert.deepEqual(properties.findings.items.properties.citations.items.enum, ["world:1:main:age"]);
+  }
 });
 test("selected evidence declares limited coverage and still rejects forged citations", async () => {
   const selected = { ...request, contextScope: "selected_records" as const };

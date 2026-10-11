@@ -136,6 +136,17 @@ kubectl -n homelab rollout status deployment/homelab-orchestrator --timeout=180s
 
 For AI, first verify provider/model pricing, maximum bounded input/output charges and the actual gateway route. Set explicit `external.values.worldbuilder.aiBudget` fields: `dailyRequests`, `concurrent`, positive `requestMicros`/`dailyMicros`, uppercase three-letter `currency` and a meaningful `gatewayRoute` label. Derive a conservative per-attempt allowance from observed route limits/tariffs; do not treat test fixture amounts or allocated ledger amounts as provider invoices. Confirm multiple external replicas share daily/concurrency limits, failed calls remain allocated, and abandoned leases cease blocking after 60 seconds without refunding that day. Then set `external.values.worldbuilder.aiSecret` and `processor.values.worldbuilder.aiSecret` to the verified shared secret name, publish that separately reviewed stage, and validate `AI_GATEWAY_BASE_URL` and model JSON capability. Run authorised `make vllm-gateway-smoke`, grounded unknown/citation/adversarial tests, usage limits and privacy checks. Test session reload/restart, concurrent turns, provisional-state isolation and story-outcome review/publish/wiki flow. Confirm actual backup restore and outbox/OpenSearch recovery with fixture worlds before broader use.
 
+Run the small live semantic gate with synthetic data after building processor:
+
+```bash
+npm run build --prefix apps/processor
+# Set a verified private gateway URL (or its temporary loopback port-forward) and the observed model.
+AI_GATEWAY_BASE_URL=http://127.0.0.1:18087/v1 AI_CHAT_MODEL='<observed model>' \
+  node scripts/worldbuilder/check-live-ai.mjs
+```
+
+This exercises the actual application prompt, response schema and validators against known/unknown facts, hostile evidence and explicit historical/timeline pins. It is a limited live quality gate, not broad correctness or capacity proof. Unlike offline fixtures, it invokes the configured model; never aim it at an unreviewed paid route. Preserve per-case latency/model/usage evidence and keep AI disabled if an unknown fact is invented.
+
 Read-only progress SQL through local psql:
 
 ```sql

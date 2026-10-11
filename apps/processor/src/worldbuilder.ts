@@ -78,7 +78,7 @@ export async function runCanon(
 ): Promise<CanonResult> {
   validateRequest(request);
   const generateRequest =
-    generate ?? ((messages) => gateway(messages, request.requestId));
+    generate ?? ((messages) => gateway(messages, request));
   if (request.evidence.length === 0) return unknownResult();
   const graph = new StateGraph(State)
     .addNode("ground", async ({ request }) => {
@@ -342,9 +342,60 @@ function validateOutput(
     usage: response.usage,
   };
 }
+// Constrain provider output while retaining independent semantic validation below.
+function responseSchema(request: CanonRequest): Record<string, unknown> {
+  const citation = { type: "string", enum: request.evidence.map((e) => e.id) };
+  const citations = { type: "array", items: citation, maxItems: 100 };
+  const operations = {
+    type: "array",
+    maxItems: ["canon_proposal", "story_turn"].includes(request.workflow) ? 100 : 0,
+    items: {
+      type: "object", additionalProperties: false,
+      required: ["action", "id"],
+      properties: {
+        action: { type: "string", enum: ["put", "delete"] },
+        id: { type: "string" },
+        record: { type: "object", required: ["id", "kind"],
+          properties: { id: { type: "string" }, kind: { type: "string" } },
+          additionalProperties: true },
+      },
+    },
+  };
+  const properties: Record<string, unknown> = {
+    unknown: { type: "boolean" },
+    answer: { type: "string", maxLength: 16000 },
+    citations, operations,
+  };
+  if (request.workflow === "consistency_check") properties.findings = {
+    type: "array", maxItems: 20, items: {
+      type: "object", additionalProperties: false,
+      required: ["severity", "uncertainty", "message", "citations"],
+      properties: {
+        severity: { type: "string", enum: ["info", "warning", "critical"] },
+        uncertainty: { type: "string", enum: ["low", "medium", "high"] },
+        message: { type: "string", maxLength: 2000 },
+        citations: { ...citations, minItems: 1, maxItems: 10 },
+      },
+    },
+  };
+  if (["story_turn", "narrative_generate"].includes(request.workflow)) properties.choices = {
+    type: "array", maxItems: 6, items: {
+      type: "object", additionalProperties: false,
+      required: ["id", "label", "direction"], properties: {
+        id: { type: "string", minLength: 1, maxLength: 80 },
+        label: { type: "string", minLength: 1, maxLength: 200 },
+        direction: { type: "string", minLength: 1, maxLength: 1000 },
+      },
+    },
+  };
+  if (request.workflow === "story_turn") properties.memorySummary = { type: "string", maxLength: 4000 };
+  return { type: "object", additionalProperties: false,
+    required: ["answer", "unknown", "citations", "operations"], properties };
+}
+
 async function gateway(
   messages: Array<{ role: string; content: string }>,
-  requestId?: string,
+  request: CanonRequest,
 ): ReturnType<Generate> {
   const base = process.env.AI_GATEWAY_BASE_URL?.replace(/\/+$/, "");
   if (!base) throw new Error("AI_GATEWAY_BASE_URL required");
@@ -353,7 +404,7 @@ async function gateway(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(requestId ? { "X-Request-ID": requestId } : {}),
+      ...(request.requestId ? { "X-Request-ID": request.requestId } : {}),
     },
     signal: AbortSignal.timeout(20000),
     body: JSON.stringify({
@@ -361,6 +412,7 @@ async function gateway(
       messages,
       temperature: 0.2,
       max_tokens: 768,
+      response_format: { type: "json_schema", json_schema: { name: "worldbuilder_response", schema: responseSchema(request) } },
     }),
   });
   // Bound response bytes, including non-success provider responses.

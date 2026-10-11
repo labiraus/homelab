@@ -40,6 +40,8 @@ The storage adapter uses the pinned AWS SDK v3 S3 client with path-style request
 
 Worldbuilder requests can mark `contextScope=selected_records`. The graph explicitly treats this as partial canon, cannot claim global absence/consistency, and still accepts only supplied canonical citation IDs. External owns selection and validates returned scope/operations.
 
+The gateway request supplies a workflow-specific JSON schema: required result fields, exact supplied citation IDs, no mutations for read-only workflows, and scoped optional story/findings fields. Independent response, byte-length, citation and canon-operation validation remains mandatory. This avoids the observed local model returning plausible prose in an incompatible object shape. The deployed vLLM interface is documented in [structured outputs](https://docs.vllm.ai/en/v0.20.2/examples/online_serving/structured_outputs/); actual route/schema/quality acceptance remains a LAN gate.
+
 Worldbuilder correlation IDs supplied by external are forwarded to Envoy as `X-Request-ID`. Responses preserve the gateway-reported model when available. Durable per-actor allowance decisions belong to external before this endpoint; processor’s local burst/concurrency bounds remain an additional guard.
 
 `narrative_generate` returns scenario prose without mutations. `story_turn` consumes a scoped private definition, bounded summary/recent-turn context and canonical evidence, and may propose bounded summaries/choices. Provisional memory cannot supply canonical citation IDs or expand permissions.

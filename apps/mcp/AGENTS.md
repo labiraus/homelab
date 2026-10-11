@@ -20,3 +20,5 @@ This file applies to everything under `apps/mcp/`.
 ## Worldbuilder delegation
 
 World tools require validated AuthStatus and a signed exact-request assertion to external’s dedicated operation allowlist. Never reuse raw UserID/header forwarding for canon, or add review/publication/administration/private-story operations to the MCP route. Keep the human browser route mesh restriction and both MCP transport edge restrictions when changing delegation.
+
+- Current MCP operation bindings proxy storage/database/search through external; unused legacy helpers and leftover live Secret keys do not establish direct backend consumption. Trace bindings and startup before proposing direct credentials or broader egress.

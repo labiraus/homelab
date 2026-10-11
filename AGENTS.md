@@ -113,3 +113,7 @@ Treat S3 version IDs as opaque. Retain mixed listing/pagination evidence for tim
 ## Disposable TSDB history
 
 A healthy scrape or replacement Pod does not prove historical recovery. Stop producers, wait for quiescent raw samples, pin the comparison time, verify PVC identity and the actual `prometheus-db` mount, and compare exact sample labels/timestamps/values after WAL replay and snapshot restore. Delete only owned fixture volumes, prove the old paths are gone and use a fresh PVC after a corrupt-data refusal. Keep the admin API confined to the disposable source and disabled in published storage settings.
+
+## Recovery command dependencies
+
+Use `set -euo pipefail` in multi-step shell recovery commands, or execute dependent steps separately and inspect each result. A failed render or missing Python dependency must prevent subsequent apply/mutation steps; do not infer success from the final command exit status. Use the prepared Python virtualenv when scripts require PyYAML/boto3.
