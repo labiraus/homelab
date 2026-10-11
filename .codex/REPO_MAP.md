@@ -84,6 +84,7 @@ Current behavior note:
   - `helm/apps/ui/`: Vite frontend deployment
 - Infra charts: `helm/infra/`
 - `helm/infra/vllm/`: local GPU vLLM deployment and Envoy AI Gateway resources
+- `helm/infra/embeddings/`: gated private CPU embeddings and model-specific Envoy AI Gateway route; see `docs/DocumentSearchRecovery.md`
 - Bootstrap child infra chart: `helm/bootstrap/flux-infra/`
 - Browser edge auth chart: `helm/infra/oauth2-proxy/`
 - Bootstrap charts: `helm/bootstrap/`

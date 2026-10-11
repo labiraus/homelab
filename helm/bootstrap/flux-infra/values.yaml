@@ -37,3 +37,10 @@ vllm:
   upgradeDisableWait: true
   dependsOn:
     - envoy-ai-gateway
+
+embeddings:
+  enabled: true # Runtime passed owned inference; verify live gateway before ingestion.
+  namespace: homelab
+  dependsOn:
+    - envoy-ai-gateway
+    - vllm

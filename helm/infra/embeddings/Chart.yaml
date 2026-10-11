@@ -1,0 +1,8 @@
+apiVersion: v2
+name: embeddings
+description: Private CPU embedding inference behind Envoy AI Gateway
+type: application
+version: 0.1.0
+appVersion: "1.9"
+sources:
+  - https://github.com/huggingface/text-embeddings-inference

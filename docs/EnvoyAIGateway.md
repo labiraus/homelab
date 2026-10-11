@@ -45,6 +45,7 @@ Local vLLM integration:
 - the processor service uses `AI_GATEWAY_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`; Envoy AI Gateway routes that OpenAI-compatible traffic to the in-cluster vLLM backend
 - OpenSearch ML Commons models used by RAG indexing/search should be configured with connectors that call Envoy AI Gateway, so embedding providers can move from local/OpenSearch-backed inference to Bedrock without app code changes
 - current gap: the repo creates the OpenSearch ingest/search pipelines but does not yet automate ML Commons model and connector registration; operators must register `OPENSEARCH_RAG_MODEL_ID` against Envoy AI Gateway before processor indexing succeeds
+- `helm/infra/embeddings` supplies a separate private CPU embedding runtime and model-specific gateway route. Owned real inference passes and bootstrap enables its deployment; live gateway, registration and ingestion checks remain required. See [document search recovery](DocumentSearchRecovery.md).
 
 Near-term validation focus:
 

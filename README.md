@@ -276,6 +276,8 @@ GHCR publication uses `scripts/build/merge-helm-values.sh` so empty overlays ret
 
 After the vLLM and Envoy AI Gateway releases deploy, use `make vllm-gateway-smoke` to validate the live OpenAI-compatible route used by processor-owned assistant workflows.
 
+The separate `helm/infra/embeddings` chart supplies CPU embeddings through the same private gateway. [Document search recovery](docs/DocumentSearchRecovery.md) distinguishes runtime/model/ingest verification from healthy Pods and pipeline creation.
+
 Important note: some workflow files may lag behind the runtime choices in the repo. For example, the React app is Vite-based and the devcontainer uses Node 24, so treat workflow definitions as something to verify rather than assume are fully current.
 
 ## Ansible Workflow

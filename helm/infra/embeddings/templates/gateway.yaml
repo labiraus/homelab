@@ -1,0 +1,43 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  type: Endpoints
+  endpoints:
+    - fqdn:
+        hostname: {{ .Release.Name }}.{{ .Values.namespace }}.svc.cluster.local
+        port: 8080
+---
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: AIServiceBackend
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  schema:
+    name: OpenAI
+    prefix: /v1
+  backendRef:
+    group: gateway.envoyproxy.io
+    kind: Backend
+    name: {{ .Release.Name }}
+---
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: AIGatewayRoute
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  parentRefs:
+    - name: {{ .Values.aiGateway.gatewayName }}
+  rules:
+    - matches:
+        - headers:
+            - type: Exact
+              name: x-ai-eg-model
+              value: {{ .Values.model.id | quote }}
+      backendRefs:
+        - name: {{ .Release.Name }}
+          modelNameOverride: {{ .Values.model.id | quote }}
