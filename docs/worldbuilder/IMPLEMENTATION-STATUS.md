@@ -1,5 +1,13 @@
 # Worldbuilder implementation status
 
+## Increment 24 — bounded multipart migration and uncertain-write recovery
+
+Archive imports now use sequential multipart uploads for objects at least 64 MiB. Seekable file windows bound reads to 1 MiB while preserving SDK signing/checksum behavior; part sizing respects the 10,000-part protocol bound. A separate fsynced journal records intent, upload/part acknowledgements, completion uncertainty and best-effort known-ID aborts. Imports refuse existing uploads, prior import evidence and automatic SDK mutation retries. The activation map remains schema 1 and is written only after complete destination verification. Source-order ties still require separate work.
+
+The fixed-loopback harness injects lost replies after real initiation, part and completion operations. It proves cleanup of known uploads and retention of uncertain committed versions/unknown upload IDs. Storage CI also requires `--large-migration`: a 5 GiB + 17 byte archive import, 81 streamed parts, complete content/metadata/tag verification, actual S3 re-export and a Python peak-memory limit of 256 MiB. The fixture requires 12 GiB free temporary disk. Provider capacity, source inventory and actual migration remain LAN gates.
+
+LOCAL_VERIFIED (2026-10-11): the full disposable SeaweedFS 4.48 harness passes real multipart failure scenarios, the 5 GiB + 17 byte import/re-export and actual Go/Node clients (`/tmp/homelab-multipart-acceptance-final.log`). Python peak RSS was 61,348 KiB. Archive/multipart/reference unit checks pass 31 cases; six database cases are separate explicit CI acceptance. Workflow lint and whitespace checks pass. Local proxy startup initially lacked extracted systemd/kmod library paths; checking the combined path fixed the harness environment. CI publication evidence follows observation. No production endpoint, schema, credential or activation setting changes.
+
 ## Increment 23 — read-only storage reference coverage
 
 Source `c0fda1b` is published on main and passed [Storage Migration Acceptance 38137124323](https://github.com/labiraus/homelab/actions/runs/38137124323): archive/reference unit checks, all six explicit local-psql database cases, source/target chart validation and complete SeaweedFS migration/recovery with real Go/Node clients. This closes the offline reference-coverage tooling item. Production inventory, attestations and restores remain unobserved; no runtime deployment configuration changed.

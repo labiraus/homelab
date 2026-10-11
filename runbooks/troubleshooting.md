@@ -312,6 +312,12 @@ If an old audit marker cannot be reverted after copying objects, compare the exa
 
 The disposable storage test needs `systemd-socket-activate` and `systemd-socket-proxyd`, plus the role-pinned `weed` binary. Minimal devcontainers may lack the systemd tools even when production hosts have them. CI uses an Ubuntu runner with these tools. SeaweedFS interprets environment variables as flags: an inherited `debug=release` caused startup failure on 2026-10-11. The harness now starts it with a minimal environment and prints the beginning as well as the end of failed startup logs.
 
+## Interrupted multipart migration
+
+Retain `multipart-journal.jsonl` and `import-journal.jsonl`; neither authorises activation. Known upload IDs receive a best-effort abort, but a lost initiation reply can leave an unknown orphan and a lost completion reply can leave a committed version even after an acknowledged abort. Inspect versions and unfinished uploads for the recorded key, preserving evidence before controlled cleanup. A disk-full journal or hard stop can leave intent without an outcome. The importer refuses prior import evidence, populated destinations and pre-existing uploads; do not remove these safeguards to rerun it. Prepare a separately empty destination after reconciliation. See [multipart recovery boundaries](../docs/StorageVersionMigration.md).
+
+For the disposable large-object round trip, use `--large-migration` with 12 GiB free temporary disk. If locally extracted systemd tools fail before the server checks, verify their dependencies with `ldd`: both the directory containing `libsystemd-shared-252.so` and the extracted architecture library directory containing `libkmod.so.2` must be in `LD_LIBRARY_PATH`. Check `systemd-socket-activate --version` before restarting the harness.
+
 ## Storage reference coverage refuses completion
 
 Use the [reference coverage procedure](../docs/StorageReferenceCoverage.md) to interpret explicit missing-version/context/delete-marker outcomes. A failed PostgreSQL export has no sealed `manifest.json`; inspect its private `psql.log` for permissions, RLS or schema errors. Do not enable filtered row visibility or substitute a current object to obtain a green result. Resolve verified missing context through an export-bound reviewed file, preserving original database/history values. S3 delete-marker map entries have no body size/hash, and literal `null` is a valid source version ID; neither is a processing-generation number.

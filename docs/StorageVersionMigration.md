@@ -12,6 +12,8 @@ The [storage workflow](../.github/workflows/storage-acceptance.yml) runs without
 
 - bucket isolation, versioned reads, metadata, ranges, copies, multipart operations and restart persistence;
 - export/copy/reconciliation of history, delete markers, tags, empty files and source preservation;
+- a 5 GiB + 17 byte archive import and S3 re-export with full hashes, 81 streamed parts and Python peak memory below 256 MiB;
+- lost initiation/part/completion replies against the real server, known-upload cleanup and refusal to activate or retry uncertain imports;
 - recovery into a fresh store with original/intermediate version aliases and post-cutover writes preserved;
 - archive corruption/path/order checks before any destination write;
 - read-only PostgreSQL reference inventory and offline map coverage, including deleted inventory, saved tool results, aliases and unresolved identities;
@@ -28,10 +30,12 @@ npm ci --prefix apps/processor
 /tmp/storage-venv/bin/python -m unittest discover -s scripts/storage -p 'test_*.py'
 /tmp/storage-venv/bin/python scripts/storage/check_charts.py
 GOPATH=/tmp/storage-go GOMODCACHE=/tmp/storage-go-mod GOCACHE=/tmp/storage-go-cache \
-  /tmp/storage-venv/bin/python scripts/seaweedfs-smoke.py --application-clients
+  /tmp/storage-venv/bin/python scripts/seaweedfs-smoke.py --application-clients --large-migration
 ```
 
 The harness has fixed loopback endpoints, synthetic credentials and temporary data. It never accepts a supplied production endpoint. Normal unit runs skip the integration-only tests; the explicit harness invocation is required as acceptance evidence. The test server inherits a minimal environment because SeaweedFS also interprets environment variables as command flags.
+
+The large-object round trip requires at least 12 GiB free temporary disk and fails rather than skipping when space is insufficient. Omitting `--large-migration` still exercises real multipart failures but does not establish large-object acceptance. The memory assertion covers the Linux Python client, not the server or deployment capacity.
 
 ## Controlled production procedure — prepared, not executed
 
@@ -56,7 +60,7 @@ python3 scripts/storage/migrate_versions.py verify /private-backups/documents-fi
 
 Use the exact same endpoint origin and bucket name as the application configuration. The general copier can target another bucket for isolated tests; the runtime resolver intentionally requires the original and destination bucket names to match. It rejects a hostname/IP alias mismatch instead of silently applying a map to the wrong store.
 
-`version-map.json` is the verified result; `import-journal.jsonl` records acknowledged writes and is not an activation map. Use the [read-only reference exporter and coverage checker](StorageReferenceCoverage.md) to reconcile structured historical references against the map. Resolve every reported gap and audit the recorded scope, then prove an isolated database/application restore. Upload the reviewed map to a reserved key such as `.migration/version-map.json` in the versioned destination documents bucket, with `application/json` content type. Record the immutable version ID returned by that upload, then set both values in the reviewed orchestrator chart/Flux configuration:
+`version-map.json` is the verified result; `import-journal.jsonl` records acknowledged writes and `multipart-journal.jsonl` records upload attempts, acknowledgements and uncertainty. Neither journal is an activation map. Use the [read-only reference exporter and coverage checker](StorageReferenceCoverage.md) to reconcile structured historical references against the map. Resolve every reported gap and audit the recorded scope, then prove an isolated database/application restore. Upload the reviewed map to a reserved key such as `.migration/version-map.json` in the versioned destination documents bucket, with `application/json` content type. Record the immutable version ID returned by that upload, then set both values in the reviewed orchestrator chart/Flux configuration:
 
 ```yaml
 env:
@@ -69,16 +73,20 @@ The map is bounded to 32 MiB, loaded once at startup through existing bucket-sco
 ## Refusal boundaries and recovery
 
 - This is a frozen export and fresh-destination copy, not a live incremental migration. Changed source inventory during export fails without a completed manifest. Equal timestamps within one key are rejected when original ordering cannot be proved. Copies of successive versions of the same key are spaced by just over one second so subsequent export/recovery remains unambiguous even with whole-second S3 timestamps; include that cost in the maintenance window estimate.
-- The initial copier supports individual objects up to 5 GiB. Larger objects, object lock/legal hold, customer-key encryption and non-standard storage classes require a separately validated procedure. Source bucket policies, lifecycle rules, encryption configuration, ACLs and retention must be inventoried separately; they are not cloned by the data tool.
+- Objects at least 64 MiB use sequential multipart upload with seekable file windows and reads bounded to 1 MiB. Parts default to 64 MiB and grow to stay within 10,000 parts, with a 5 GiB maximum part size. These are protocol bounds, not a claim of provider capacity; the real acceptance fixture is 5 GiB + 17 bytes. Object lock/legal hold, customer-key encryption and non-standard storage classes require a separately validated procedure. Source bucket policies, lifecycle rules, encryption configuration, ACLs and retention must be inventoried separately; they are not cloned by the data tool.
 - Interrupted imports stop. A version may have been written even if its acknowledgement or journal entry was lost. Do not rerun into the same populated target or delete source data. Inspect the journal and destination inventory, retain evidence, then recover using a separately prepared empty destination. No automatic source cleanup is implemented.
 - Verification requires the destination to contain exactly the archived versions. Upload the mapping object only after that verification; subsequent application writes intentionally invalidate an exact frozen-copy comparison.
 - Before destination writes, rollback retains the original source configuration/data. After writes, source and destination diverge: freeze writers, preserve both histories and prove a reconciled restore plus composed version mapping before switching back. Automatic rollback into the populated source is intentionally unavailable.
+
+Imports refuse pre-existing unfinished multipart uploads and any prior import journal/map. SDK mutation retries must be disabled. Multipart intent is flushed to disk before initiation, each part and completion. Failures attempt to abort only a known upload ID, even if the journal has stopped accepting writes. An `abort_acknowledged` event does not prove that completion never committed an object. A lost initiation reply can leave an upload whose ID the tool never learned; a lost completion reply can leave a complete immutable version. A hard stop may leave only the preceding intent. Preserve both journals, inspect destination versions and unfinished uploads, and reconcile the affected key before preparing a fresh destination. No automated retry, guessed upload abort or source cleanup is performed.
 
 For recovery after destination writes, export the frozen destination into a new archive and import into a separately provisioned empty recovery store with `--prior-map /private-backups/documents-final/version-map.json`. This composes the original markers with the destination-native markers, verifies every previously mapped version still exists with the same content, and carries post-cutover writes too. The resulting map resolves both generations of references. Repeat the isolated database/application restore before switching the endpoint and map pin through CI. Retain both populated stores; the tool never merges into or deletes them. Missing historical versions or conflicting aliases stop recovery before any destination write.
 
 These offline checks do not establish Pi disk/mount health, production source coverage, backup recoverability, deployed Flux state or live application readiness.
 
 ## Recorded validation — 2026-10-11
+
+Multipart follow-up: 31 archive/multipart/reference unit cases pass (six database cases run through the separate explicit harness). The full disposable SeaweedFS 4.48 run passes lost initiation/part/completion replies, the 5 GiB + 17 byte import through 81 parts, full hash/metadata/tag verification, S3 re-export and real Go/Node clients. Python peak RSS was 61,348 KiB; local log `/tmp/homelab-multipart-acceptance-final.log` is ephemeral. CI evidence is recorded in [increment 24](worldbuilder/IMPLEMENTATION-STATUS.md). This closes the tested large-object scope independently of source-order ambiguity and deployment capacity.
 
 Local archive/refusal tests: 9 passed. Orchestrator `go test -race ./...` passed; processor build and 44 unit tests passed (the integration-only test is deliberately skipped in that command). The full disposable storage harness then passed both actual-client tests with no skips, version copy/reconciliation and recovery with composed aliases. Local log: `/tmp/homelab-storage-acceptance.log` (ephemeral). The run used the checksum-verified SeaweedFS 4.48 binary and temporary extracted Debian systemd libraries; no host installation or LAN access was required.
 

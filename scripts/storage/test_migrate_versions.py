@@ -105,6 +105,31 @@ class ArchiveTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 migration.compose_history(self.manifest, broken)
 
+    def test_unfinished_destination_upload_refused_without_cleanup(self):
+        client = Mock()
+        client.meta.endpoint_url = "http://destination.invalid:8333"
+        client.get_bucket_versioning.return_value = {"Status": "Enabled"}
+        versions, uploads = Mock(), Mock()
+        versions.paginate.return_value = []
+        uploads.paginate.return_value = [{"Uploads": [{"Key": "other", "UploadId": "unknown"}]}]
+        client.get_paginator.side_effect = lambda api: uploads if api == "list_multipart_uploads" else versions
+        with self.assertRaisesRegex(ValueError, "unfinished"):
+            migration.import_archive(client, "documents", self.directory)
+        client.abort_multipart_upload.assert_not_called()
+        client.put_object.assert_not_called()
+        self.assertFalse((self.directory / "import-journal.jsonl").exists())
+
+    def test_automatic_mutation_retries_refused(self):
+        client = Mock()
+        client.meta.endpoint_url = "http://destination.invalid:8333"
+        client.meta.config.retries = {"total_max_attempts": 3}
+        client.get_bucket_versioning.return_value = {"Status": "Enabled"}
+        client.get_paginator.return_value.paginate.return_value = []
+        with self.assertRaisesRegex(ValueError, "retries disabled"):
+            migration.import_archive(client, "documents", self.directory)
+        client.put_object.assert_not_called()
+        self.assertFalse((self.directory / "import-journal.jsonl").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

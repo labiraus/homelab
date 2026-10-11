@@ -79,4 +79,4 @@ jobs:
           done
           python3 scripts/storage/check_charts.py
       - name: Verify disposable S3 migration and actual Go/Node clients
-        run: python3 scripts/seaweedfs-smoke.py --application-clients
+        run: python3 scripts/seaweedfs-smoke.py --application-clients --large-migration

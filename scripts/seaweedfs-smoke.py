@@ -35,6 +35,7 @@ def denied(operation, **kwargs):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--application-clients", action="store_true")
+    parser.add_argument("--large-migration", action="store_true", help="Required release gate: real >5 GiB multipart round trip")
     args = parser.parse_args()
     values = yaml.safe_load((ROLE / "defaults/main.yml").read_text())
     fake_env = {}
@@ -48,13 +49,13 @@ def main():
     bootstrap = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(bootstrap)
 
-    def client(name, unsigned=False, endpoint=ENDPOINT):
+    def client(name, unsigned=False, endpoint=ENDPOINT, read_timeout=10):
         return boto3.client(
             "s3", endpoint_url=endpoint, region_name="us-east-1",
             aws_access_key_id="test-" + name, aws_secret_access_key="test-secret-" + name,
             config=Config(signature_version=UNSIGNED if unsigned else "s3v4",
                           s3={"addressing_style": "path"},
-                          proxies={}, retries={"max_attempts": 0}, connect_timeout=2, read_timeout=10),
+                          proxies={}, retries={"max_attempts": 0}, connect_timeout=2, read_timeout=read_timeout),
         )
 
     with tempfile.TemporaryDirectory(prefix="homelab-seaweedfs-") as temporary:
@@ -225,6 +226,10 @@ def main():
             assert admin.get_object(Bucket="migration-recovery", Key="new-after-cutover.txt")["Body"].read() == b"new work"
             print("PASS: version archive/copy, hashes, metadata/tags, delete markers, empty content and source preservation", flush=True)
             print("PASS: recovery to a fresh store preserves original aliases and post-cutover writes", flush=True)
+            spec = importlib.util.spec_from_file_location("multipart_acceptance", ROOT / "scripts/storage/multipart_acceptance.py")
+            multipart = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(multipart)
+            multipart.run(client("admin", read_timeout=120), base, migration, large=args.large_migration)
             if args.application_clients:
                 test_env = dict(os.environ, SEAWEEDFS_CLIENT_TEST="1")
                 subprocess.run(["go", "test", "-count=1", "-run", "^TestSeaweedFSClients$", "-v", "."],
