@@ -82,6 +82,9 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
+	if err = registerWorldbuilder(ctx, mux); err != nil {
+		return
+	}
 	prometheusutil.Start(mux)
 	mux.HandleFunc("/api/auth/status", authStatusHandler)
 	mux.HandleFunc("/api/auth/providers", authProvidersHandler)

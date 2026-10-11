@@ -37,7 +37,9 @@ Use `ansible/.env` for external-host secrets that Ansible needs but the rest of 
 - `.devcontainer/.env`: shared shell env, minimal, loaded automatically by the devcontainer shell
 - `ansible/.env`: Ansible-only local cache and overrides, loaded only by `scripts/ansible-run-playbook.sh`
 
-Sync the MinIO admin credentials from `svartalfheim`:
+For the SeaweedFS target, supply per-workload `SEAWEED_*` credentials in local `ansible/.env` as described in [Storage Bootstrap](StorageBootstrap.md). The Ansible wrapper defaults to no MinIO credential fetch. Generated destination Kubernetes Secrets stay under ignored `ansible/out/seaweedfs/`; apply only during the [migration cutover](SeaweedFSMigration.md).
+
+For the legacy source only, sync the MinIO admin credentials from `svartalfheim`:
 
 ```bash
 make refresh-ansible-secrets

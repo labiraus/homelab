@@ -25,14 +25,16 @@ Directory-level `AGENTS.md` files currently exist for:
 
 ## Working Rules
 
-- Treat the Labiraus MCP server (`homelab-mcp` in local Codex config) as the primary subject of this repo and its deployed surface area, not as a sidecar utility.
+- Worldbuilder AI is the application target; follow `docs/worldbuilder/` and its verified implementation status. The Labiraus MCP server (`homelab-mcp`) remains a first-class deployed integration surface.
+- The Worldbuilder target initially assumed separate engine/infra repositories, Cassandra and Fastify. This checkout is a monorepo with existing PostgreSQL and Node HTTP; audit actual code before acting on illustrative paths. No Cassandra resource removal is authorised by its absence from this checkout.
 - When evaluating the deployed project, prefer using the Labiraus MCP server together with other repo-native tools such as local `psql`, Helm/Flux inspection, and app logs so MCP-discovered behavior is checked against the rest of the deployed system.
 - Prefer small, targeted changes that fit the current structure of the repo.
+- Discover existing file paths with `rg --files` before targeted reads; do not infer app, chart or migration-document paths from naming conventions.
 - When changing behavior, config, workflows, or layout, update the relevant human docs in the same task.
 - Do not commit real secrets, kubeconfig material, private keys, or local-only environment files.
 - Prefer repo-native workflows before inventing new ones.
-- Treat MinIO as an external service hosted on the Raspberry Pi `svartalfheim`; do not reintroduce an in-cluster MinIO deployment unless repo guidance is explicitly updated.
-- Do not assume the external MinIO host should be publicly reachable from the internet. Cluster workloads should talk to MinIO directly on the private/repo-managed network path, and any browser-facing or pre-signed-style document delivery should be brokered through an authenticated `mcp.labiraus.com` endpoint rather than exposing MinIO itself.
+- SeaweedFS is the target external S3 service on `svartalfheim`; follow `docs/SeaweedFSMigration.md`. Existing MinIO automation and data are migration/rollback sources, not the target architecture. Do not remove source data or treat source configuration changes as a completed migration.
+- Keep SeaweedFS on the private network. Cluster workloads use its private S3 endpoint; browser-facing document delivery remains brokered through authenticated `mcp.labiraus.com` routes. Master, filer and volume interfaces stay on loopback for this single-host deployment.
 - When a session reveals durable setup facts about Raspberry Pi hosts that do not yet have dedicated repo code, record them in `.codex/PI_NOTES.md`.
 
 For Postgres troubleshooting in this repo, prefer the devcontainer `psql` workflow over `kubectl exec` into the database pod:
@@ -63,3 +65,37 @@ When a problem is fixed, capture the learning close to where it matters:
 If the same issue or class of issue happens more than once, add a permanent rule to the nearest relevant `AGENTS.md` rather than relying on memory.
 
 If Codex makes an incorrect assumption about this repo, correct that assumption in the nearest relevant `AGENTS.md` so future sessions start from the updated rule.
+
+## Devcontainer tool installation
+
+Before adding a Dockerfile tool installer, check whether a configured devcontainer feature already installs it (the Terraform feature includes TFLint). Prefer that single source. For direct binary downloads, use pinned official release assets with architecture-specific checksum verification; avoid floating installer URLs piped into a shell. Validate changes with a complete feature-enabled Dev Containers build, since fixing one expired download can expose another.
+
+## Patch application
+
+For multi-file patches, read exact current headings/anchors first and omit placeholder or no-op updates; one stale anchor rejects the entire patch. When inserting a section before a heading, replace the anchor once rather than retaining it above the new section and duplicating it below. Check changed documents for duplicate headings.
+
+Wait for background formatters or generators to finish before editing their output files, then read the current anchors again. A yielded command may still mutate files even when its tool call has returned.
+
+## CI script execution
+
+On Windows-backed workspaces, local executable permissions do not prove Git stores an executable file mode. For scripts invoked directly by CI, verify `git ls-files --stage` reports `100755`; use an explicit interpreter in CI as well.
+
+## Disposable database test transport
+
+Docker-outside-Docker published ports can become unreachable despite a healthy container. Use the Worldbuilder harness with `WORLDBUILDER_TEST_TRANSPORT=exec` for its loopback-only Docker-exec bridge when needed; do not switch these offline tests to a LAN/production DSN. A failed transport preflight is not a passing integration test.
+
+## Disposable controller transport
+
+For disposable kind work, set the generated `KUBECONFIG` for creation and deletion; cleanup must not lock or edit the operator's home configuration. The controller harness supplies both explicit arguments and environment settings.
+
+Docker exec attach can terminate early with exit 0 while its command is still running, and archive-copy acknowledgements can lack the expected files in a proxied kind environment. Do not infer command completion from that client status. Use the fixture-scoped exec-ID transport in `scripts/worldbuilder/docker-exec.py`, verify terminal status and output/postconditions, and keep ownership checks and timeout failure intact. Never redirect an offline fixture to production to bypass transport failures.
+
+Use `scripts/worldbuilder/kind-fixture.py` for shared controller/backup lifecycle and loopback mappings. CNPG webhook refusals can appear as ordinary `Cluster is invalid` messages without the words `admission webhook`; prove invalid-input rejection and unavailable-webhook refusal/recovery rather than requiring that prefix. Database fixture fallback is for unavailable local transport, never authentication or SQL failures.
+
+NodePort creation does not mean kube-proxy has installed its route: Docker can accept and close an initial connection. Retry bounded preflight connection closure before evaluating database readiness; persistent closure must still fail rather than switch to peer authentication.
+
+For disposable Velero file recovery, assert the actual PV is supported `local` storage rather than kind's default hostPath, require completed PodVolumeBackup/Restore evidence and remove the source data path before comparison. Exclude the source's generated namespace root-CA ConfigMap with the `velero.io/exclude-from-backup=true` **label**, not an annotation; keep fresh destination trust and fail unexplained restore warnings. Use `scripts/worldbuilder/s3-fixture.py` for owned external storage and the target's scoped identity actions.
+
+## Storage chronology evidence
+
+Treat S3 version IDs as opaque. Retain mixed listing/pagination evidence for timestamp ties, and use `IsLatest` when it proves a unique position: a latest null version is not ambiguous merely because its timestamp ties another version. Refuse null ties only when multiple chronological positions remain possible; never infer order from the provider's placement of null last.

@@ -14,7 +14,7 @@ Use this file as the first fast pass when you need to locate the relevant code i
 - `.devcontainer/`
   - Devcontainer config, mounted kubeconfig, SSH config, env file
 - `apps/`
-  - `external/`: public Go service
+  - `external/`: public Go service; `worldbuilder/` owns canon validation/publication, revision queries/diffs, explicit reconciliation/compensation, reasoning boundary and story persistence
   - `mcp/`: public Go MCP service; see `apps/mcp/AGENTS.md` for transport/client-compatibility rules
   - `orchestrator/`: internal Go document service
   - `processor/`: internal TypeScript service for assistant orchestration plus the NATS JetStream worker that extracts text and indexes derived retrieval state into OpenSearch
@@ -22,10 +22,15 @@ Use this file as the first fast pass when you need to locate the relevant code i
   - `pkg/`: shared Go modules
 - `ansible/`
   - external service state management, including the Minecraft VM
+- `apps/ui/src/WorldRecordEditor.jsx` and `WorldHistory.jsx`/`WorldAdministration.jsx`: canon editing, history, reconciliation, owner lifecycle and recovery UI
+- `docs/worldbuilder/`: architecture, migration, audit, decisions, implementation status, acceptance matrix, dependency validation, API contract and LAN runbook
+- `sql/worldbuilder/`: explicit migrations 001–007, immutable identity/review ledgers and dedicated runtime grants
+- `scripts/worldbuilder/`: disposable database tests (including a loopback Docker-exec transport fallback), a pinned three-node JetStream recovery drill (`test-jetstream.sh`), and real API-server/schema acceptance (`test-platform.sh`, `platform/`, `install-control-plane.py`)
+- `scripts/storage/reference_coverage.py`: read-only local-psql structured reference export, offline version-map coverage and export-bound reviewed identity context; `test-reference-postgres.sh` and `docs/StorageReferenceCoverage.md` provide disposable acceptance/operator use.
 - `docs/`
   - `Setup.md`: Kubernetes setup path for local machine, Proxmox worker prep, SSH, kubeconfig, and worker network stability
   - `Secrets.md`: generated local secrets and Ansible-only secret handling
-  - `StorageBootstrap.md`: external MinIO and Samba bootstrap on `svartalfheim`
+  - `StorageBootstrap.md`: external SeaweedFS bootstrap and legacy mount recovery on `svartalfheim`
   - `EnvoyAIGateway.md`: Flux infra path and scope for Envoy Gateway plus Envoy AI Gateway
   - `MinecraftVM.md`: dedicated Minecraft VM provisioning and operations
   - `NodeClassification.md`: Kubernetes worker label policy and GPU/LLM classification
@@ -93,7 +98,9 @@ Current behavior note:
 
 - Public API entry point: `apps/external/main.go`
 - Assistant API and orchestration entry points: `apps/processor/src/assistant_api.ts`, `apps/processor/src/assistant_llm.ts`, and `apps/processor/src/assistant_db.ts`
-- MCP entry point: `apps/mcp/main.go`
+- Private story definitions/memory: `apps/external/worldbuilder/story_definition.go`, `apps/ui/src/WorldStorySetup.jsx`, migration `sql/worldbuilder/004_up.sql`.
+- Inference allocation ledger: `apps/external/worldbuilder/budget.go`, `sql/worldbuilder/003_up.sql`; independent of canon transaction rollback.
+- MCP entry point: `apps/mcp/main.go`; optional canon delegation: `apps/mcp/worldbuilder.go`, `apps/external/worldbuilder/tools.go`, shared signatures in `apps/pkg/api/delegation.go`
 - Orchestrator entry point: `apps/orchestrator/main.go`
 - Orchestrator request, scan, and async contract shapes: `apps/orchestrator/documents.go` and `apps/orchestrator/scan.go`
 - Browser-facing document inventory API: `apps/external/inventory.go`
@@ -167,7 +174,7 @@ Current behavior note:
 - `external` and `mcp` expose durable document lifecycle history from `rag.document_lifecycle_events`.
 - `processor` stores conversations, per-user memories, tool calls, file proposals, and audit views in Postgres.
 - `rag.document_change_audits` links create/edit/revert operations to actor email, conversation ID, proposal ID, MinIO version markers, and processing versions.
-- `evals/ragas` is a migration gap until updated from legacy Postgres chunk reads to OpenSearch neural search.
+- `evals/ragas` defaults to authenticated external document search, preserving OpenSearch retrieval and citations; legacy PostgreSQL comparison is explicit. `evals/worldbuilder` documents synthetic processor fixtures and separate LAN quality evaluation.
 - `runbooks/troubleshooting.md` captures the current day-two checks for stuck document lifecycle states, NATS/KEDA lag, vLLM startup, assistant proposals, retention, and backup/recovery rehearsal.
 - `mcp` publishes prompt guidance for live document inventory, retrieval, curation, editing, reprocessing, history, notification, and MinIO browsing workflows.
 - `mcp` advertises strict top-level tool input schemas and validates prompt arguments plus advertised tool argument names, required fields, and primitive/object types before execution while leaving unknown nested payload fields to the owning service contract.
@@ -177,7 +184,11 @@ Current behavior note:
 - approved assistant proposals use `orchestrator` create/edit endpoints so file changes are written to MinIO and reingested through the existing processor path.
 - the current design does not use a separate RAG API app or standalone assistant service; retrieval and context flow through `external`, `mcp`, and processor-owned assistant workflows.
 
-### MinIO and Ansible
+### External storage and Ansible
+
+- Target: SeaweedFS, managed by `ansible/playbooks/seaweedfs-external-pi-host.yml` and `ansible/roles/seaweedfs/`; `make ansible-seaweedfs-host` provisions the destination.
+- Offline migration tooling and actual-client CI acceptance: `scripts/storage/`, `scripts/seaweedfs-smoke.py`, `.github/workflows/storage-acceptance.yml`; `version_order.py` retains/verifies schema-2 mixed listing evidence and `order_acceptance.py` exercises real ties/null histories. Procedure/limits in `docs/StorageVersionMigration.md`. Explicit `values-seaweedfs.yaml` overlays prepare cutover while routine publication retains source settings.
+- See `docs/SeaweedFSMigration.md` for cutover gates before publishing application/backup endpoint changes. MinIO details below describe the legacy migration source.
 
 - Start with `ansible/README.md`
 - Supporting operator docs: `docs/Secrets.md` and `docs/StorageBootstrap.md`
@@ -216,3 +227,13 @@ Current behavior note:
 - The root `AGENTS.md` is the main repo-wide agent policy; use the nearest directory-level `AGENTS.md` for more specific conventions.
 - The current GitOps path is Flux plus `helm/`; keep docs and changes aligned to that delivery model.
 - If Codex changes behavior, entry points, or layout, update both the human docs and this file in the same task.
+
+Worldbuilder durable generation: `apps/external/worldbuilder/generation.go` owns private jobs/checkpoints, `apps/orchestrator/worldbuilder_jobs.go` relays metadata and dispatches one part, `apps/ui/src/WorldGenerations.jsx` exposes private progress/candidates; `sql/worldbuilder/005_up.sql` adds explicit schema-v5 storage.
+
+Reviewed calendars/date facts: `docs/worldbuilder/CALENDARS.md`, `apps/external/worldbuilder/calendar.go`, `apps/ui/src/worldCalendar.js` and `WorldCalendarEditor.jsx`; additive `sql/worldbuilder/006_up.sql` stores calendar projection and permits exact `tick` facts. Canon/search metadata supplies the pinned calendar independently of record filters.
+
+Human review quorum: `docs/worldbuilder/REVIEW-POLICY.md`, `apps/external/worldbuilder/reviews.go`, `reviews_test.go`, `sql/worldbuilder/007_up.sql`; settings configure 1–5 approvals, immutable decisions bind to membership authority, and publication preserves its counted principals. UI settings/review queue and three-identity Chromium acceptance cover the human path.
+
+Offline acceptance and operations: `docs/worldbuilder/OFFLINE-ACCEPTANCE.md`, `OBSERVABILITY.md`, `CONTROLLER-ACCEPTANCE.md`, `apps/ui/browser/worldbuilder.spec.js`, test-only `apps/external/worldbuilder/browser_test.go`, `scripts/worldbuilder/export-crd-schemas.sh`, `validate-custom-resources.py`, `test-platform.sh`, `check-observability.py`, `test-observability.py`, `test-controllers.py`, `test-backups.py`, `backup-seed.sql`, `test-velero.py`, `velero-files.py`, `s3-fixture.py`, `docs/worldbuilder/VELERO-ACCEPTANCE.md`, `kind-fixture.py`, `docs/worldbuilder/BACKUP-ACCEPTANCE.md`, `.github/workflows/platform-acceptance.yml`, and `sql/worldbuilder/ops_dashboard_queries.pgsql`. `install-kind.py` pins the disposable node/runtime and `docker-exec.py` provides fixture-scoped terminal-status transport. The single dashboard JSON lives in `helm/observability/prometheus/files/`; external's `worldbuilder-monitor.yaml` prepares its optional scrape/network/identity resources. Typed-reference traversal is in `connections.go` / `WorldConnections.jsx`.
+
+Canonical graph/chronology presentation is in `apps/ui/src/WorldViews.jsx`, with shared UI styling in `styles.css`. It consumes the loaded published scope from `Worldbuilder.jsx`; `worldTicks.js` preserves exact date transport/ordering. Component and real-browser fixtures verify scope, precision, navigation and separation from editor drafts.

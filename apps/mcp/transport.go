@@ -463,6 +463,15 @@ func handleToolsCall(ctx context.Context, r *http.Request, req jsonRPCRequest) (
 		}
 	}
 
+	if resolution.operation.Binding.ExecutionMode == worldbuilderMode {
+		// Re-read the original tokens before signing: generic float64 decoding
+		// would round numeric dates in proposals and time filters.
+		decoder := json.NewDecoder(bytes.NewReader(req.Params))
+		decoder.UseNumber()
+		if err := decoder.Decode(&params); err != nil {
+			return http.StatusOK, &jsonRPCResponse{JSONRPC: "2.0", ID: req.ID, Error: &jsonRPCError{Code: -32602, Message: "Invalid tools/call params"}}
+		}
+	}
 	inputSchema := toToolInputSchema(resolution.operation)
 	if err := validateToolArguments(params.Arguments, inputSchema); err != nil {
 		return http.StatusOK, &jsonRPCResponse{
@@ -486,7 +495,7 @@ func handleToolsCall(ctx context.Context, r *http.Request, req jsonRPCRequest) (
 		"isError": upstreamErr != nil,
 	}
 
-	if structured, ok := decodeStructuredContent(response.Body, response.ContentType); ok {
+	if structured, ok := decodeStructuredContentExact(response.Body, response.ContentType, resolution.operation.Binding.ExecutionMode == worldbuilderMode); ok {
 		result["structuredContent"] = structured
 	}
 
@@ -561,6 +570,8 @@ func executeToolOperation(ctx context.Context, r *http.Request, resolution toolR
 	}
 
 	switch binding.ExecutionMode {
+	case worldbuilderMode:
+		return proxyWorldbuilder(ctx, binding.Path, arguments)
 	case manifestExecutionModeHTTPProxy:
 		path, rpcErr := buildOperationPath(binding.Path, extractArgumentStrings(arguments, extractPathParameters(resolution.operation.Path)))
 		if rpcErr != nil {
@@ -1026,7 +1037,7 @@ func minioDeleteBucketObject(ctx context.Context, bucket string, objectKey strin
 }
 
 func findResourceOperationByURI(uri string) (resourceResolution, bool) {
-	for _, capability := range capabilityCatalog {
+	for _, capability := range activeCapabilityCatalog() {
 		for _, operation := range capability.Operations {
 			if operation.Primitive != manifestPrimitiveResource && operation.Primitive != manifestPrimitiveResourceTemplate {
 				continue
@@ -1051,7 +1062,7 @@ func findResourceOperationByURI(uri string) (resourceResolution, bool) {
 }
 
 func findPromptOperationByName(name string) (promptResolution, bool) {
-	for _, capability := range capabilityCatalog {
+	for _, capability := range activeCapabilityCatalog() {
 		for _, operation := range capability.Operations {
 			if operation.Primitive == manifestPrimitivePrompt && operation.ID == name {
 				return promptResolution{
@@ -1066,7 +1077,7 @@ func findPromptOperationByName(name string) (promptResolution, bool) {
 }
 
 func findToolOperationByName(name string) (toolResolution, bool) {
-	for _, capability := range capabilityCatalog {
+	for _, capability := range activeCapabilityCatalog() {
 		for _, operation := range capability.Operations {
 			if operation.Primitive == manifestPrimitiveTool && operation.ID == name {
 				return toolResolution{
@@ -1261,6 +1272,18 @@ func validateToolArgumentTypes(arguments map[string]any, properties map[string]m
 		}
 
 		path := toolArgumentPath(pathPrefix, name)
+		if len(property.AnyOf) > 0 {
+			matched := false
+			for _, option := range property.AnyOf {
+				if validateToolArgumentTypes(map[string]any{name: value}, map[string]manifestSchema{name: option}, pathPrefix) == nil {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return fmt.Errorf("tool argument %q does not match an allowed type", path)
+			}
+		}
 		if err := validateToolArgumentType(path, value, property.Type); err != nil {
 			return err
 		}
@@ -1415,12 +1438,23 @@ func negotiateProtocolVersion(requested string) string {
 }
 
 func decodeStructuredContent(body string, contentType string) (any, bool) {
+	return decodeStructuredContentExact(body, contentType, false)
+}
+
+func decodeStructuredContentExact(body string, contentType string, exact bool) (any, bool) {
 	if contentType != "application/json" {
 		return nil, false
 	}
 
 	var decoded any
-	if err := json.Unmarshal([]byte(body), &decoded); err != nil {
+	decoder := json.NewDecoder(strings.NewReader(body))
+	if exact {
+		decoder.UseNumber()
+	}
+	if err := decoder.Decode(&decoded); err != nil {
+		return nil, false
+	}
+	if decoder.Decode(&struct{}{}) != io.EOF {
 		return nil, false
 	}
 

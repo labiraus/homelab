@@ -1,70 +1,30 @@
-# RAGAS Chunking Evaluation
+# Document retrieval evaluation
 
-This harness scores the quality of the current processed document chunks by running representative queries against live Postgres-backed retrieval data and evaluating the retrieved chunks with RAGAS.
-
-Create a local gold case file:
-
-```bash
-cp evals/ragas/chunking_cases.example.jsonl evals/ragas/chunking_cases.jsonl
-```
-
-`chunking_cases.jsonl` is intentionally ignored because cases can include private source excerpts. Each JSONL row supports:
-
-- `query`: required natural-language query
-- `reference_context_ids`: stable chunk citation IDs, such as `s3://documents/path/to/source.md#chunk-0`
-- `reference_contexts`: source passage text for non-LLM RAGAS context precision/recall
-- `prefix`, `documentId`, `metadata`, `limit`: optional retrieval filters matching `documents.search`
-
-Context text is compared after light normalization so repo-local markup does not dominate the score:
-
-- markdown links such as `[label](url)` are scored as `label`
-- wiki links such as `[[../Places/Monastery at Tristram]]` are scored as `Monastery at Tristram`
-- repeated whitespace is collapsed before scoring
-
-Install and run:
+The default RAGAS harness queries authenticated external `POST /api/documents/search`, exercising the same OpenSearch retrieval and citation construction as the browser. It does not connect directly to OpenSearch, manufacture identity headers, read cluster secrets or open a port-forward. This evaluates retained source-document retrieval; Worldbuilder canon grounding has separate [synthetic fixtures and LAN quality gates](../worldbuilder/README.md).
 
 ```bash
 python3 -m venv .venv-ragas
 . .venv-ragas/bin/activate
 python3 -m pip install -r evals/ragas/requirements.txt
+cp evals/ragas/chunking_cases.example.jsonl evals/ragas/chunking_cases.jsonl
+# In an approved authenticated LAN session, supply RAGAS_API_COOKIE or
+# RAGAS_API_AUTHORIZATION through your local secret environment, never source.
+export RAGAS_API_URL=https://mcp.labiraus.com
 make ragas-chunking-eval RAGAS_ARGS="--min-id-recall 0.8 --min-context-recall 0.8"
 ```
 
-The Make target reads the CNPG app credentials from the cluster secret and opens a temporary `kubectl port-forward` before running the eval; it does not rewrite `.devcontainer/.env`. If you run the Python script directly, it reads Postgres connection details from `--postgres-dsn`, `DB_*`, `POSTGRES_*`, `PG*`, `POSTGRES_CONNECTION_STRING`, or `DATABASE_URL`; direct script runs need their own working Postgres route.
+Use the observed external root if different from this example. HTTPS is required except on loopback; redirects are refused so credentials cannot follow an unexpected login/host redirect. Authentication failure is a failed evaluation, never an empty successful result. No environment files are loaded implicitly; `--env-file` is explicit. Results are capped at 2 MB and require stable citation IDs matching hit processing versions/chunk indexes.
 
-## Gold Case Guidance
+Each private JSONL gold case has `query`, `reference_context_ids` and/or `reference_contexts`, plus optional `prefix`, `documentId`, `metadata`, `limit`. Use the exact citation IDs returned by the API (`sourceUri#chunk-N`) and actual processed text granularity. Include identity, relationship, metadata-filter and negative/near-neighbour cases. Start with 5–10 representative cases and baseline thresholds before tightening them. Markdown/wiki links and whitespace are normalised for text comparison.
 
-Prefer 5-10 private gold cases before changing chunking, embedding dimensions, ranking, or metadata-filter behavior. A useful starter set includes:
+`--include-contexts --output evals/ragas/baseline.report.json` records retrieved text for private inspection; the local cases and report files are ignored. Reports retain document/source/object/chunk/version metadata and identify the backend. `server-managed-opensearch` means the API owns retrieval/model configuration; it is not a claim about the embedding model's identity or quality. Missing expected citations or processing versions are regressions even when prose looks plausible.
 
-- two exact-identity questions where the answer should live in one known source document
-- two relationship questions where the right chunk mentions both entities or the key link between them
-- one metadata-filtered query that proves curated metadata narrowing still returns the expected chunk
-- one negative or near-neighbor query where the expected source should outrank a similarly named document
+For an explicitly required historical comparison, `--backend legacy-postgres --postgres-dsn ...` retains the old `rag.chunks`/`rag.embeddings` path. Use an existing read-only local psql route and supply credentials privately. Legacy local hash embeddings are a regression baseline only; they cannot validate current OpenSearch semantic retrieval. The Make target no longer obtains CNPG credentials automatically.
 
-Use `documents.search` or the UI Search tab to capture the stable citation ID for each expected chunk. The ID format used by this harness is `sourceUri#chunk-N`, matching the citation IDs returned by the browser and MCP retrieval surfaces.
-Set `limit` intentionally per case. For exact-answer or citation-top-hit checks, `limit: 1` is often the clearest signal. Use wider limits when you explicitly want to measure tail precision or multi-chunk recall.
-For chunk-level context precision and recall, prefer the current processed `chunk_text` over a shorter paraphrase or operator summary. The non-LLM RAGAS context metrics are much more stable when the gold text matches the chunk granularity that retrieval actually returns.
-When a case looks suspicious, rerun with `--include-contexts --output /tmp/ragas.report.json` so the saved report contains the retrieved raw chunk text for inspection.
-
-The JSON report intentionally includes citation-confidence fields for every retrieved chunk:
-
-- `source_uri`
-- `object_key`
-- `content_type`
-- `chunk_index`
-- `processing_version`
-- `metadata`
-- `chunk_metadata`
-- `citation.id`, `citation.label`, and the source/chunk/version fields used to render it
-
-Keep the first private baseline permissive while the gold set is still small, for example:
+Offline adapter checks (standard library only):
 
 ```bash
-make ragas-chunking-eval RAGAS_ARGS="--min-id-recall 0.6 --min-context-recall 0.6 --output evals/ragas/baseline.report.json"
+python3 -m unittest discover -s evals/ragas -p 'test_*.py'
 ```
 
-Once the cases represent real operator questions, raise the regular gate toward `--min-id-recall 0.8 --min-context-recall 0.8`. Treat a missing expected citation ID or a dropped processing version/source URI as a retrieval-quality regression, even when the rendered answer text still looks plausible.
-
-## Local Embeddings
-
-The default `local-embeddings` mode uses the same deterministic 384-dimensional token-hash embedding shape as the processor fallback. It stores and queries `vector(384)` rows so the harness can run without an external embedding service. These scores are useful for regression checks against the current fallback behavior, but they should not be interpreted as a production-quality semantic benchmark for a future embedding model. When `EMBEDDING_ENDPOINT` and a non-local `EMBEDDING_MODEL` are supplied, the case file and thresholds should be baselined separately for that model.
+These verify filters, authenticated request construction, citation versions and redirect refusal against a disposable local HTTP server. Live RAGAS scores and private gold cases require LAN authentication/data and are not claimed by those checks.

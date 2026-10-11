@@ -47,8 +47,7 @@ RUN curl -sSLo /tmp/terraform-docs.tar.gz https://terraform-docs.io/dl/v0.16.0/t
     && mv /tmp/terraform-docs /usr/local/bin/terraform-docs \
     && chmod +x /usr/local/bin/terraform-docs
 
-# Install tflint
-RUN curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+# TFLint is installed by the Terraform feature in devcontainer.json.
 
 # Install istioctl
 RUN set -eux; \
@@ -59,16 +58,20 @@ RUN set -eux; \
     cd / && \
     rm -rf /tmp/istio-*
 
-# Install MinIO client
+# Install SeaweedFS tooling from a pinned, checksum-verified release.
 RUN set -eux; \
+    seaweed_version='4.48'; \
     arch="$(dpkg --print-architecture)"; \
     case "$arch" in \
-    amd64) mc_arch='linux-amd64' ;; \
-    arm64) mc_arch='linux-arm64' ;; \
+    amd64) seaweed_sha256='4a7d108384d044d95212d1342cdda9533fa55842c1c9b41f606ca3c8a9561124' ;; \
+    arm64) seaweed_sha256='557e92c38c5c7d180748eb8e2b2b45e426f8e5282a4caca8e098a90d09f03a07' ;; \
     *) echo "Unsupported architecture: $arch" >&2; exit 1 ;; \
     esac; \
-    curl -fsSL "https://dl.min.io/client/mc/release/${mc_arch}/mc" -o /usr/local/bin/mc; \
-    chmod 0755 /usr/local/bin/mc
+    curl -fsSL "https://github.com/seaweedfs/seaweedfs/releases/download/${seaweed_version}/linux_${arch}.tar.gz" -o /tmp/seaweedfs.tar.gz; \
+    echo "${seaweed_sha256}  /tmp/seaweedfs.tar.gz" | sha256sum -c -; \
+    tar -xzf /tmp/seaweedfs.tar.gz -C /usr/local/bin weed; \
+    chmod 0755 /usr/local/bin/weed; \
+    rm /tmp/seaweedfs.tar.gz
 
 RUN set -eux; \
     plat="$(uname -m | grep -qiE 'aarch64\|arm64' && echo linux_arm64 || echo linux_amd64)"; \

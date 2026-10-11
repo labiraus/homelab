@@ -193,3 +193,16 @@ affinity: {}
 
 env:
   configValue: "default"
+  # Set both only after a verified version-preserving storage migration.
+  S3_VERSION_MAP_KEY: ""
+  S3_VERSION_MAP_VERSION: ""
+
+worldbuilder:
+  enabled: false
+  databaseSecret: worldbuilder-relay
+  openSearchURL: http://labiraus-rag-data.data.svc.cluster.local:9200
+  rebuildOnStart: false
+  jobs:
+    enabled: false
+    workerSecret: ""
+    externalAPIURL: http://homelab-external.homelab.svc.cluster.local

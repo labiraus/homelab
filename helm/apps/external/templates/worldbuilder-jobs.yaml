@@ -1,0 +1,47 @@
+{{- if .Values.worldbuilder.jobs.enabled }}
+{{- if not .Values.worldbuilder.enabled }}{{- fail "generation jobs require Worldbuilder" }}{{- end }}
+{{- $principal := required "worldbuilder.jobs.principal must be verified" .Values.worldbuilder.jobs.principal }}
+{{- if or (contains "*" $principal) (eq $principal .Values.worldbuilder.browserPrincipal) (and .Values.worldbuilder.mcp.enabled (eq $principal .Values.worldbuilder.mcp.principal)) }}
+{{- fail "generation worker principal must be exact and distinct from browser/MCP" }}
+{{- end }}
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ include "commonapi.fullname" . }}-generation-worker
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "commonapi.selectorLabels" . | nindent 6 }}
+  action: DENY
+  rules:
+    - from:
+        - source:
+            notPrincipals: [{{ $principal | quote }}]
+      to:
+        - operation:
+            paths: ["/api/worldbuilder-jobs", "/api/worldbuilder-jobs/*"]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "commonapi.fullname" . }}-generation-worker
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "commonapi.selectorLabels" . | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.namespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: homelab-orchestrator
+              app.kubernetes.io/name: orchestrator
+      ports:
+        - protocol: TCP
+          port: 8080
+{{- end }}

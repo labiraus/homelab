@@ -1,6 +1,6 @@
 # Async Ingestion Slice
 
-This document describes the first coherent ingestion slice for the current architecture.
+This document describes retained document ingestion. Worldbuilder canon uses a separate transactional outbox in PostgreSQL, relayed by orchestrator only after publication commits. See [Worldbuilder API and event contracts](worldbuilder/API.md). Legacy document jobs below retain their existing semantics; they never publish canon.
 
 ## Goal
 
@@ -143,4 +143,4 @@ Later phases can add:
 - update the RAGAS harness to query OpenSearch rather than legacy Postgres chunks
 - RAGAS-backed quality gates for OpenSearch chunking, embedding, ranking, and metadata filter changes
 - operations hardening for stuck lifecycle states, worker lag, and notification fan-out failures
-- graph-style capabilities on top of the same document foundation
+- source-document import proposals into typed Worldbuilder canon, with independent human review

@@ -1,5 +1,11 @@
 # Default values for mcp.
 
+# Enable only after verifying edge identity/header sanitisation on every transport.
+worldbuilder:
+  enabled: false
+  delegationSecret: ""
+  trustedEdgePrincipals: []
+
 replicaCount: 1
 minReadySeconds: 5
 terminationGracePeriodSeconds: 30

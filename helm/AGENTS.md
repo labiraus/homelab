@@ -15,7 +15,7 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 - Prefer reusable templates and consistent values structure over copy-pasted chart logic.
 - When changing chart inputs or outputs, update values files, templates, and operator docs together.
 - Treat Flux-facing bootstrap charts as part of the delivery contract; avoid one-off behavior that breaks repository or secret conventions.
-- Do not add MinIO back under `helm/` unless the repo-wide MinIO hosting decision is explicitly changed; the current source of truth is the external service on `svartalfheim`.
+- SeaweedFS is the external Ansible-managed target on `svartalfheim:8333`; do not add an in-cluster object store. Until migration/restore gates pass, normal publication retains port-9000 source settings; target endpoints, Secrets and egress are prepared together in explicit `values-seaweedfs.yaml` overlays. Do not make routine app publication perform an unverified storage cutover. Follow `docs/SeaweedFSMigration.md`; application `MINIO_*` keys remain compatibility names for S3 clients.
 - Keep secret handling indirect where possible: reference existing secrets or generated values rather than committing literal credentials.
 - Treat git push as the deployment trigger for charts in normal operation. Chart build and publication are performed by `.github/workflows/helm-all.yml`, and Flux deploys from the published OCI artifacts rather than from local chart files.
 - For app-backed charts, remember that container publication and chart publication move together. The app workflows publish a new container image and then publish the corresponding chart with the matching app version, so image and chart changes should stay aligned.
@@ -43,6 +43,7 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 ## Repo-Specific Notes
 
 - `libraries/commonapi/` is the shared chart template library
+- Its Istio resources are in `libraries/commonapi/templates/_istio.tpl`; discover template paths with `rg --files` before reading them rather than deriving filenames from Kubernetes kinds.
 - bootstrap charts define how Flux discovers and deploys workloads
 - `workloads/` is for miscellaneous user workloads that are deployed by Flux but are not considered core platform services
 - values files under `values/` complement this directory and should be checked when chart behavior changes
@@ -72,3 +73,10 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 If a charting convention or Flux integration rule proves durable, record it here.
 
 If a lesson is specific to one chart family, add a more local `AGENTS.md` under that subtree later.
+
+- Helm `required` does not reject an empty list in the locally verified Helm version. Security-sensitive principal lists must explicitly test `empty` and reject wildcard entries; include negative render tests.
+
+- Offline CRD checks must fail on missing schemas. Some upstream charts render CRDs from templates, so `helm show crds` can be empty; use `helm template --include-crds`. Set `HELM_CACHE_HOME` for temporary writable caches. `scripts/worldbuilder/test-platform.sh` validates the Worldbuilder render matrix against a disposable pinned API server, including built-ins/CEL/strict fields. Keep source CRDs unchanged and operator kubeconfig unused; source validation does not establish installed versions, external webhooks or controller reconciliation. CI gates app and Helm publication on this check.
+
+- Worldbuilder observability stays opt-in until scraper namespace/Pod labels/mTLS principal, monitor discovery and datasource UID are observed. Keep STRICT mTLS, exact metric-only identity boundaries and existing dashboard providers. Grafana file provisioning does not substitute manual-import `__inputs`: bind the UID explicitly and package one dashboard JSON source in the Prometheus chart. Compare selected upstream chart mounts/CRDs and execute the disposable metric/dashboard gate before publication.
+- Public monitoring CRDs can contain a legal bare `=` enum. Use the repository's Kubernetes-aware safe structural loader; do not rewrite the source enum or bypass the API-server validation gate to accommodate a YAML parser error.

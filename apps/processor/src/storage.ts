@@ -1,4 +1,4 @@
-import { Client } from "minio";
+import { GetObjectCommand, S3Client, S3ServiceException } from "@aws-sdk/client-s3";
 
 import type { ProcessorConfig } from "./config.js";
 
@@ -6,28 +6,35 @@ export interface DocumentStorage {
 	readDocument(bucket: string, objectKey: string): Promise<Buffer>;
 }
 
-export function createDocumentStorage(config: ProcessorConfig): DocumentStorage {
+export function createDocumentStorage(config: Pick<ProcessorConfig,
+	"minioEndpoint" | "minioUseSSL" | "minioAccessKey" | "minioSecretKey" | "minioRegion" | "minioBucket"
+>): DocumentStorage {
 	const endpoint = parseMinioEndpoint(config.minioEndpoint, config.minioUseSSL);
-	const client = new Client({
-		endPoint: endpoint.endPoint,
-		port: endpoint.port,
-		useSSL: config.minioUseSSL,
-		accessKey: config.minioAccessKey,
-		secretKey: config.minioSecretKey,
-		region: config.minioRegion || undefined,
+	const origin = `${config.minioUseSSL ? "https" : "http"}://${endpoint.endPoint}${endpoint.port ? `:${endpoint.port}` : ""}`;
+	const client = new S3Client({
+		endpoint: origin,
+		forcePathStyle: true,
+		region: config.minioRegion || "us-east-1",
+		credentials: {
+			accessKeyId: config.minioAccessKey,
+			secretAccessKey: config.minioSecretKey,
+		},
+		maxAttempts: 3,
 	});
 
 	return {
 		async readDocument(bucket: string, objectKey: string): Promise<Buffer> {
 			const resolvedBucket = bucket || config.minioBucket;
-			const stream = await client.getObject(resolvedBucket, objectKey);
-			const chunks: Buffer[] = [];
-
-			for await (const chunk of stream) {
-				chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+			try {
+				const response = await client.send(new GetObjectCommand({ Bucket: resolvedBucket, Key: objectKey }));
+				if (!response.Body) throw new Error("S3 response did not include an object body");
+				return Buffer.from(await response.Body.transformToByteArray());
+			} catch (error) {
+				// Preserve the adapter's S3 error code for callers without exposing
+				// the SDK's response-body/transport types through our interface.
+				if (error instanceof S3ServiceException) Object.assign(error, { code: error.name });
+				throw error;
 			}
-
-			return Buffer.concat(chunks);
 		},
 	};
 }
@@ -44,6 +51,10 @@ export function parseMinioEndpoint(
 		? endpoint
 		: `${useSSL ? "https" : "http"}://${endpoint}`;
 	const parsed = new URL(normalized);
+	if (parsed.protocol !== (useSSL ? "https:" : "http:") || parsed.username || parsed.password ||
+		(parsed.pathname !== "" && parsed.pathname !== "/") || parsed.search || parsed.hash) {
+		throw new Error("MINIO_ENDPOINT must be an HTTP(S) origin matching MINIO_USE_SSL, without credentials, path or query");
+	}
 	const port = parsed.port ? Number(parsed.port) : undefined;
 
 	return {

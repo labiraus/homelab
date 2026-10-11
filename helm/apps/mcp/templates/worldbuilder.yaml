@@ -1,0 +1,29 @@
+{{- if .Values.worldbuilder.enabled }}
+{{- if empty .Values.worldbuilder.trustedEdgePrincipals }}
+{{- fail "worldbuilder.trustedEdgePrincipals must contain verified identities" }}
+{{- end }}
+{{- $principals := required "worldbuilder.trustedEdgePrincipals must be verified before enabling delegation" .Values.worldbuilder.trustedEdgePrincipals }}
+{{- range $principal := $principals }}
+{{- if or (empty $principal) (contains "*" $principal) }}
+{{- fail "Worldbuilder trusted edge principals must be exact nonempty identities" }}
+{{- end }}
+{{- end }}
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ include "commonapi.fullname" . }}-worldbuilder-edge
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "commonapi.selectorLabels" . | nindent 6 }}
+  action: DENY
+  rules:
+    - from:
+        - source:
+            notPrincipals:
+              {{- toYaml $principals | nindent 14 }}
+      to:
+        - operation:
+            paths: ["/mcp", "/mcp/*", "/sse", "/sse/*", "/messages", "/messages/*", "/message", "/message/*"]
+{{- end }}

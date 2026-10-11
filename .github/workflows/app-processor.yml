@@ -26,10 +26,20 @@ permissions:
 concurrency: ci-processor-docker-pipeline
 
 jobs:
+  platform-acceptance:
+    uses: ./.github/workflows/platform-acceptance.yml
+    with:
+      commit_sha: ${{ github.event.inputs.commit_sha || github.sha }}
+
+  storage-acceptance:
+    uses: ./.github/workflows/storage-acceptance.yml
+    with:
+      commit_sha: ${{ github.event.inputs.commit_sha || github.sha }}
+
   test:
     name: "Processor Test"
     runs-on: ubuntu-latest
-    if: github.ref != 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci')
+    if: ${{ !contains(github.event.head_commit.message, 'no-ci') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4.1.1
@@ -37,19 +47,24 @@ jobs:
           ref: ${{ github.event.inputs.commit_sha || github.sha }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v6
         with:
           node-version: '24'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
         working-directory: apps/processor
 
       - name: Run unit tests
-        run: CI=true npm test
+        run: npm run build && npm test
+        working-directory: apps/processor
+
+      - name: Check dependency advisories
+        run: npm audit --audit-level=moderate
         working-directory: apps/processor
 
   ghcr:
+    needs: [test, storage-acceptance, platform-acceptance]
     name: "Processor Build to GHCR"
     runs-on: ubuntu-latest
     environment: uat
@@ -70,6 +85,13 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           registry: processor
           tag: uat
+
+      - name: Verify locked runtime image before chart publication
+        env:
+          PROCESSOR_IMAGE: ghcr.io/labiraus/homelab/processor:${{ steps.build.outputs.image_tag }}
+        run: |
+          expected_lock_sha=$(sha256sum apps/processor/package-lock.json | cut -d' ' -f1)
+          docker run --rm -i --network none --env EXPECTED_LOCK_SHA="$expected_lock_sha" --entrypoint node "$PROCESSOR_IMAGE" --input-type=module < apps/processor/test/image-smoke.mjs
 
       - name: Publish Helm chart to GHCR
         uses: ./.github/actions/helm/ghcr

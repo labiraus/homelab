@@ -1,5 +1,11 @@
 # orchestrator
 
+Worldbuilder index projections retain original JSON number tokens in derived record text, including full-range signed fictional dates. The index remains rebuildable and external rechecks candidates against authorised canon; see the [date wire contract](../../docs/worldbuilder/API.md).
+
+Optional Worldbuilder outbox relay and canon projection live in `worldbuilder.go`. `WORLDBUILDER_RELAY_ENABLED=true` requires `WORLDBUILDER_RELAY_DATABASE_URL` (nonprivileged `worldbuilder_relay`), `WORLDBUILDER_OPENSEARCH_URL` and existing `NATS_URLS`. The relay acknowledges durable publish before marking delivered; projection uses external revision versions and can rebuild with `WORLDBUILDER_REBUILD_ON_START=true`. See [API/events](../../docs/worldbuilder/API.md). Disabled by default. Existing document queue semantics below are retained.
+
+Generation startup refuses an existing stream unless it uses three replicas, file storage and seven-day limits retention with the expected subject. Its durable consumer explicitly requires three replicas. Run `bash scripts/worldbuilder/test-jetstream.sh` from the repository root for the CI-gated, disposable three-node leader/quorum/restart drill. See [broker recovery](../../docs/worldbuilder/BROKER-RECOVERY.md) for coverage and remaining LAN gates.
+
 `orchestrator` is the internal Go control-plane service.
 
 It owns reconciliation and workflow decisions, including when documents should be queued for asynchronous processing.
@@ -135,6 +141,8 @@ Optional fields:
 - `conversationId`
 - `proposalId`
 
+Historical object versions copied between S3 stores can be resolved through a verified map without rewriting inventory or audit history. Optional `S3_VERSION_MAP_KEY` and `S3_VERSION_MAP_VERSION` must both identify an immutable mapping-object version in `MINIO_BUCKET`. Startup validates the map's schema, endpoint, bucket and version identities; mapped revert reads verify SHA-256/size and reject delete markers. With both unset, existing native version reads are unchanged. New writes always use destination-native IDs. See [version migration and offline client acceptance](../../docs/StorageVersionMigration.md) for the archive/copy tool, limits and controlled activation.
+
 ## Reprocess Contract
 
 `POST /documents/reprocess` queues an existing inventory row for a newer processing version.
@@ -157,3 +165,5 @@ Runtime configuration now expects both Postgres/NATS settings and the standard d
 - `MINIO_USE_SSL`
 - `MINIO_REGION`
 - `MINIO_BUCKET`
+
+Optional Worldbuilder generation dispatch requires schema 7 (aligned with current external), the existing relay flag and `WORLDBUILDER_JOBS_ENABLED=true`, `WORLDBUILDER_JOB_TOKEN` and `WORLDBUILDER_JOB_API_URL`. It relays metadata-only generation outbox events and invokes external's fixed worker endpoint one checkpoint at a time. Dedicated relay grants cannot read private jobs or mutate canon. Both jobs flags default off; configure the dedicated secret, verified mesh identity and conditional network path using the [LAN runbook](../../docs/worldbuilder/LAN-RUNBOOK.md). Orchestrator publication runs the disposable migration harness, including a startup/schema probe that stops before broker activation; schema and harness changes trigger this gate too.

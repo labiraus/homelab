@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evaluate processed document chunk quality with RAGAS retrieval metrics."""
+"""Evaluate authenticated search results; legacy PostgreSQL is an explicit comparison backend."""
 
 from __future__ import annotations
 
@@ -17,13 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-try:
-    import psycopg
-except ImportError as error:  # pragma: no cover - exercised by operator setup.
-    raise SystemExit(
-        "Missing dependency psycopg. Install with: "
-        "python3 -m pip install -r evals/ragas/requirements.txt"
-    ) from error
+from search_api import retrieve as retrieve_api
 
 try:
     warnings.filterwarnings(
@@ -84,27 +78,41 @@ async def main() -> int:
     args = parse_args()
     load_env_files(args.env_file)
     cases = load_cases(args.cases, args.limit)
-    dsn = postgres_dsn(args.postgres_dsn)
-    embedding_endpoint = args.embedding_endpoint or os.environ.get("EMBEDDING_ENDPOINT", "").strip()
-    embedding_model = args.embedding_model or os.environ.get("EMBEDDING_MODEL", "").strip() or LOCAL_EMBEDDING_MODEL
-
     results = []
-    try:
-        with psycopg.connect(dsn) as connection:
-            for case in cases:
-                embedding, model = fetch_embedding(case.query, embedding_model, embedding_endpoint)
-                chunks = retrieve_chunks(connection, case, embedding, model)
-                scores = await score_case(case, chunks)
-                results.append(format_case_result(case, chunks, model, scores, args.include_contexts))
-    except psycopg.OperationalError as error:
-        raise SystemExit(
-            "Could not connect to Postgres. Run through `make ragas-chunking-eval` so the "
-            "target can refresh local DB env and open the app-db port-forward, or pass a "
-            f"working --postgres-dsn. psycopg said: {error}"
-        ) from error
+    if args.backend == "api":
+        for case in cases:
+            try:
+                hits = retrieve_api(args.api_url or os.environ.get("RAGAS_API_URL", ""), case)
+            except (ValueError, urllib.error.URLError) as error:
+                # Do not echo requests, session headers or server response bodies.
+                raise SystemExit(f"Authenticated retrieval failed ({type(error).__name__}); verify API root, session and LAN access") from None
+            chunks = [RetrievedChunk(
+                context_id=h["citation"]["id"], document_id=h["documentId"],
+                source_uri=h.get("sourceUri", ""), object_key=h.get("objectKey", ""),
+                content_type=h.get("contentType", ""), chunk_index=h["chunkIndex"],
+                processing_version=h["processingVersion"], metadata=h.get("metadata", {}),
+                chunk_metadata=h.get("chunkMetadata", {}), chunk_text=h["chunkText"],
+                distance=float(h.get("distance", 0)), similarity=float(h.get("similarity", 0)),
+            ) for h in hits]
+            scores = await score_case(case, chunks)
+            results.append(format_case_result(case, chunks, "server-managed-opensearch", scores, args.include_contexts))
+    else:
+        import psycopg
+        dsn = postgres_dsn(args.postgres_dsn)
+        endpoint = args.embedding_endpoint or os.environ.get("EMBEDDING_ENDPOINT", "").strip()
+        model = args.embedding_model or os.environ.get("EMBEDDING_MODEL", "").strip() or LOCAL_EMBEDDING_MODEL
+        try:
+            with psycopg.connect(dsn) as connection:
+                for case in cases:
+                    embedding, actual_model = fetch_embedding(case.query, model, endpoint)
+                    chunks = retrieve_chunks(connection, case, embedding, actual_model)
+                    scores = await score_case(case, chunks)
+                    results.append(format_case_result(case, chunks, actual_model, scores, args.include_contexts))
+        except psycopg.OperationalError:
+            raise SystemExit("Legacy PostgreSQL evaluation unavailable; provide an explicit read-only DSN and network route") from None
 
     summary = summarize(results, args)
-    payload = {"summary": summary, "cases": results}
+    payload = {"backend": args.backend, "summary": summary, "cases": results}
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -119,8 +127,10 @@ async def main() -> int:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Score live Postgres-backed RAG chunks with RAGAS retrieval metrics.",
+        description="Score authenticated document retrieval with RAGAS; legacy PostgreSQL is opt-in.",
     )
+    parser.add_argument("--backend", choices=("api", "legacy-postgres"), default="api")
+    parser.add_argument("--api-url", default="", help="Authenticated external HTTPS root; defaults to RAGAS_API_URL")
     parser.add_argument(
         "--cases",
         type=Path,
@@ -165,8 +175,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_env_files(paths: list[Path]) -> None:
-    defaults = [Path(".devcontainer/.env"), Path("/home/vscode/.env")]
-    for path in [*defaults, *paths]:
+    for path in paths:
         if not path.exists():
             continue
         for line in path.read_text(encoding="utf-8").splitlines():

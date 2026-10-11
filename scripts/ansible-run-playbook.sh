@@ -23,7 +23,7 @@ load_env_file() {
 
 load_env_file "${repo_root}/.devcontainer/.env"
 
-if [[ "${ANSIBLE_FETCH_MINIO_SECRETS:-1}" == "1" ]]; then
+if [[ "${ANSIBLE_FETCH_MINIO_SECRETS:-0}" == "1" ]]; then
   "${scripts_dir}/ansible-fetch-secrets.sh"
 fi
 

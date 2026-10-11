@@ -1,0 +1,14 @@
+{
+  "identities": [
+{% for identity in seaweedfs_identities %}
+    {
+      "name": {{ identity.name | to_json }},
+      "credentials": [{
+        "accessKey": {{ lookup('ansible.builtin.env', identity.access_key_env) | to_json }},
+        "secretKey": {{ lookup('ansible.builtin.env', identity.secret_key_env) | to_json }}
+      }],
+      "actions": {{ identity.actions | to_json }}
+    }{{ ',' if not loop.last else '' }}
+{% endfor %}
+  ]
+}

@@ -1397,3 +1397,40 @@ a {
 		align-items: center;
 	}
 }
+
+.worldbuilder fieldset { margin-block: 1.5rem; padding: 1rem; border: 1px solid var(--border-color, #777); border-radius: .5rem; }
+.worldbuilder form { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; margin-block: 1rem; }
+.worldbuilder label { display: inline-flex; flex-direction: column; gap: .3rem; margin: .35rem; }
+.worldbuilder input, .worldbuilder select, .worldbuilder textarea, .worldbuilder button { padding: .5rem; font: inherit; }
+.worldbuilder textarea { min-width: 20rem; min-height: 5rem; }
+.worldbuilder button { margin: .3rem; cursor: pointer; }
+.worldbuilder button:disabled { cursor: default; opacity: .5; }
+.worldbuilder pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.world-records { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+.world-diff { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+.world-diff section { min-width: 0; }
+.worldbuilder article { padding: .75rem; border-bottom: 1px solid var(--border-color, #777); }
+.worldbuilder [role="alert"] { color: #e96969; }
+
+.world-views { margin-block: 1.25rem; padding: 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: .6rem; min-width: 0; }
+.world-views details { border-top: 1px solid var(--line); padding-block: .75rem; }
+.world-views summary { cursor: pointer; font-weight: 600; padding: .4rem; }
+.world-views summary:focus-visible, .world-graph a:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+.world-graph-scroll, .world-view-table { overflow-x: auto; max-width: 100%; }
+.world-graph { display: block; width: 100%; min-width: 680px; max-height: 680px; color: var(--brand-strong); }
+.world-graph-edge { fill: none; stroke: currentColor; stroke-width: 2; }
+.world-graph-hit { fill: none; stroke: transparent; stroke-width: 18; pointer-events: stroke; }
+.world-graph .world-graph-edge-label { font-size: 13px; paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+.world-graph a:hover .world-graph-edge, .world-graph a:focus .world-graph-edge { stroke-width: 5; }
+.world-graph circle { fill: var(--surface); stroke: var(--brand-strong); stroke-width: 3; }
+.world-graph text { fill: var(--ink); font-size: 14px; }
+.world-graph a:hover circle, .world-graph a:focus circle { fill: var(--brand); }
+.world-view-table table { width: 100%; border-collapse: collapse; text-align: left; }
+.world-view-table caption { text-align: left; font-weight: 600; padding-block: .75rem; }
+.world-view-table th, .world-view-table td { padding: .65rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.world-chronology { list-style: none; margin: 1rem .5rem; padding: 0 0 0 1.25rem; border-left: 2px solid var(--brand); }
+.world-chronology li { position: relative; display: grid; grid-template-columns: minmax(12ch, 22ch) 1fr; gap: 1rem; padding-block: .65rem; }
+.world-chronology li::before { content: ""; position: absolute; left: -1.65rem; top: 1rem; width: .65rem; height: .65rem; border-radius: 50%; background: var(--brand); }
+.world-chronology-tick { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.world-chronology p { color: var(--muted); margin-block: .35rem; }
+@media (max-width: 600px) { .world-chronology li { grid-template-columns: 1fr; gap: .3rem; } }

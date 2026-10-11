@@ -196,7 +196,7 @@ security:
             port: 9200
       - to:
           - ipBlock:
-              cidr: 0.0.0.0/0
+              cidr: 192.168.8.177/32
         ports:
           - protocol: TCP
             port: 9000
@@ -284,3 +284,7 @@ affinity: {}
 
 env:
   configValue: "default"
+
+# Secret contains WORLDBUILDER_AI_TOKEN, shared only with external; empty disables AI.
+worldbuilder:
+  aiSecret: ""

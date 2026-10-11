@@ -5,6 +5,7 @@ This guide is only for bringing up and maintaining the Kubernetes environment. R
 - node labels and worker capability classification: [NodeClassification.md](/workspaces/homelab/docs/NodeClassification.md)
 - dedicated Minecraft VM provisioning and in-guest management: [MinecraftVM.md](/workspaces/homelab/docs/MinecraftVM.md)
 - external MinIO and Samba host bootstrap on `svartalfheim`: [StorageBootstrap.md](/workspaces/homelab/docs/StorageBootstrap.md)
+- SeaweedFS cutover and offline version/client acceptance: [SeaweedFSMigration.md](SeaweedFSMigration.md) and [StorageVersionMigration.md](StorageVersionMigration.md)
 - generated local secrets and Ansible secret handling: [Secrets.md](/workspaces/homelab/docs/Secrets.md)
 
 ## Local
@@ -421,3 +422,9 @@ After the host returns, confirm the update:
 ssh root@proxmox-node1 'hostnamectl | rg "Firmware Version"'
 ssh root@proxmox-node1 'dmidecode -t bios | sed -n "1,20p"'
 ```
+
+## Worldbuilder migration
+
+The initial Worldbuilder source baseline is verified and published; the broader [offline work audit](worldbuilder/OFFLINE-WORK.md) remains active, including timeline inheritance, vector discovery and remaining disposable platform/mesh drills. App and Helm publication require disposable API-server validation, real Prometheus/Grafana provisioning and [Prometheus controller reconciliation/recovery](worldbuilder/CONTROLLER-ACCEPTANCE.md). The platform gate now also includes [CNPG physical backup, WAL/PITR recovery and admission failure/recovery](worldbuilder/BACKUP-ACCEPTANCE.md), using synthetic data and external SeaweedFS (increment 29). It also includes [Velero file/resource recovery](worldbuilder/VELERO-ACCEPTANCE.md), with source loss, bad-credential refusal and controller replacement; final evidence is tracked in increment 30. Opt-in [observability configuration](worldbuilder/OBSERVABILITY.md) is prepared and published; installed identities, selectors and datasource settings still need LAN verification. Reproduce browser, API-server, observability and load checks with [offline acceptance](worldbuilder/OFFLINE-ACCEPTANCE.md). Detailed implementation and CI evidence are tracked in [implementation status](worldbuilder/IMPLEMENTATION-STATUS.md). Use the [LAN runbook](worldbuilder/LAN-RUNBOOK.md) for discovery and controlled activation. Code publication on main is authorised; production migrations and feature activation require the separate LAN gate. Do not use the unfinished `scripts/pg-update.sh` placeholder for this migration.
+
+Public Endpoint Validation runs automatically after successful app/Helm publication and checks HTTPS, MCP discovery and anonymous browser auth from GitHub's runner, with bounded retries and sanitized artifacts. A passing public check does not establish Flux reconciliation or authenticated feature acceptance. See [public connectivity diagnosis](worldbuilder/PUBLIC-VALIDATION.md); run locally with `python3 scripts/validation/public-endpoints.py --output /tmp/public-endpoints.json`.

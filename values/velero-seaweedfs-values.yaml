@@ -1,0 +1,17 @@
+# Prepared cutover values; validate an isolated restore before use.
+configuration:
+  backupStorageLocation:
+    - name: default
+      provider: aws
+      bucket: velero
+      default: true
+      config:
+        region: us-east-1
+        s3Url: http://svartalfheim:8333
+        s3ForcePathStyle: "true"
+        insecureSkipTLSVerify: "false"
+credentials:
+  useSecret: true
+  existingSecret: velero-s3-credentials
+deployNodeAgent: true
+snapshotsEnabled: false

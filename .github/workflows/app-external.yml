@@ -15,6 +15,8 @@ on:
   push:
     paths:
       - "apps/external/**"
+      - "sql/worldbuilder/**"
+      - "scripts/worldbuilder/**"
       - "apps/pkg/**"
       - ".github/actions/docker/**"
       - ".github/workflows/app-external.yml"
@@ -27,10 +29,15 @@ permissions:
 concurrency: ci-external-docker-pipeline
 
 jobs:
+  platform-acceptance:
+    uses: ./.github/workflows/platform-acceptance.yml
+    with:
+      commit_sha: ${{ github.event.inputs.commit_sha || github.sha }}
+
   test:
     name: "External Test"
     runs-on: ubuntu-latest
-    if: github.ref != 'refs/heads/main' && !contains(github.event.head_commit.message, 'no-ci')
+    if: ${{ !contains(github.event.head_commit.message, 'no-ci') }}
 
     steps:
       - name: Checkout
@@ -39,12 +46,13 @@ jobs:
           ref: ${{ github.event.inputs.commit_sha || github.sha }}
 
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v6
         with:
           go-version: '1.25.6'
+          cache: false
 
       - name: Cache Go modules
-        uses: actions/cache@v3
+        uses: actions/cache@v5
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('./apps/external/go.sum') }}
@@ -52,9 +60,18 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: unit test
-        run: go test ./apps/external/...
+        run: go test ./...
+        working-directory: apps/external
+
+      - name: Shared identity and delegation tests
+        run: go test ./...
+        working-directory: apps/pkg/api
+
+      - name: Worldbuilder PostgreSQL migration and integrity checks
+        run: bash scripts/worldbuilder/test-postgres.sh
 
   ghcr:
+    needs: [test, platform-acceptance]
     name: "External Build to GHCR"
     runs-on: ubuntu-latest
     environment: uat

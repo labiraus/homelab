@@ -16,3 +16,13 @@ ingress:
   #  - secretName: chart-example-tls
   #    hosts:
   #      - mcp.labiraus.com
+
+# Existing stack defaults remain unchanged until an observed version is selected.
+stack:
+  chartVersion: '*'
+  targetNamespace: istio-system
+
+worldbuilderObservability:
+  enabled: false
+  datasourceUID: '' # Existing Prometheus datasource UID; never a URL or credential.
+  externalNamespace: ''

@@ -252,7 +252,7 @@ security:
             port: 80
       - to:
           - ipBlock:
-              cidr: 0.0.0.0/0
+              cidr: 192.168.8.177/32
         ports:
           - protocol: TCP
             port: 9000
@@ -295,3 +295,34 @@ affinity: {}
 
 env:
   configValue: "default"
+
+# Separate from canon activation. Populate from observed Prometheus/mesh state.
+worldbuilderMonitoring:
+  enabled: false
+  labels: {} # Must match the installed Prometheus serviceMonitorSelector.
+  scraperNamespace: ""
+  scraperPodLabels: {}
+  scraperPrincipal: "" # Exact mTLS identity; scraper must send authenticated mesh traffic.
+
+# Off until explicit migration, dedicated grants and browser mTLS identity validation.
+worldbuilder:
+  enabled: false
+  databaseSecret: worldbuilder-external
+  browserPrincipal: ""
+  aiSecret: ""
+  jobs:
+    enabled: false
+    workerSecret: ""
+    principal: "" # Observed orchestrator identity; separate from browser/MCP.
+  aiBudget:
+    dailyRequests: 100
+    concurrent: 2
+    # Operator-defined maximum allowance per attempt; no tariff is assumed.
+    requestMicros: 0
+    dailyMicros: 0
+    currency: ""
+    gatewayRoute: ""
+  mcp:
+    enabled: false
+    delegationSecret: ""
+    principal: "" # Observed MCP service-account principal, never browser/processor.

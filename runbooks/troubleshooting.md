@@ -2,7 +2,39 @@
 
 This runbook is for day-two document-platform and assistant operations.
 
+If the UI image smoke check passes image-pull progress along with a container ID to `docker start`, keep stderr separate when parsing the stdout identifier from `docker create`. A cached image can hide this harness failure locally. Require a corrected actual-image check and successful CI chart publication; a published image alone is not a completed release.
+
+If a local Node image build reports `npm error Exit handler never called!`, verify registry TLS inside that Docker worker before blaming the lockfile. On this offline workstation, `node:24.13.0-bookworm-slim` could be pulled, but its direct fetch of `https://registry.npmjs.org/typescript` failed with `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`. Host/devcontainer npm success does not prove container trust. Use hosted CI's complete image/runtime checks while correcting workstation trust separately; retain `npm ci` and certificate verification. Do not add a private workstation CA or disable TLS verification in production Dockerfiles to bypass a local interception issue.
+
+For Worldbuilder dates outside JavaScript's safe integer range, inspect the raw HTTP JSON before ordinary `response.json()`/`JSON.parse()` converts numbers. The UI/processor preserve original date tokens and send large dates as decimal strings; external keeps exact numeric history. An “Exact fictional dates require … JSON source support” error means the browser needs updating, not that canon should be truncated or rewritten. See the [date wire contract](../docs/worldbuilder/API.md). Calendar formatting and life-bound fact types remain separate from this transport behavior.
+
 Postgres-backed state is authoritative. NATS, SSE, and MCP notifications are delivery paths; do not treat notification absence as proof that the durable state is missing.
+
+## Devcontainer build fails while installing TFLint
+
+If the build reports `bash: line 1: 404:: command not found` at the TFLint step, check for the obsolete `terraform-linters/tflint/master/install_linux.sh` download in `.devcontainer/Dockerfile`. That upstream URL returns HTTP 404. TFLint is already installed by the pinned Terraform feature in `.devcontainer/devcontainer.json`; keep that feature as the single installation source.
+
+After removing the duplicate Dockerfile installer, run **Dev Containers: Rebuild Container** in VS Code. Verify `terraform version` and `tflint --version` inside the rebuilt container.
+
+## Devcontainer storage tooling and download failures
+
+On 2026-10-11, `https://dl.min.io/client/mc/release/linux-amd64/mc` returned HTTP 410. The devcontainer now installs the SeaweedFS `weed` CLI instead of `mc`, following the storage pivot. It downloads the official [4.48 release](https://github.com/seaweedfs/seaweedfs/releases/tag/4.48) and checks the architecture-specific SHA-256 before extraction. When updating it, update the release and both amd64/arm64 checksums together. Rebuild and verify `weed version`. Existing MinIO-specific Ansible state playbooks still require `mc` and must be replaced as part of the service migration; installing `weed` alone does not migrate storage or backups.
+
+For command-line Dev Containers builds on a Zscaler-inspected Windows host, set `NODE_EXTRA_CA_CERTS` to the absolute path of the existing `.devcontainer/zscaler-ca.crt` before running the CLI. The Dockerfile CA installation covers build steps inside the image; the host Node process needs its own CA configuration for feature downloads.
+
+## SeaweedFS returns read errors immediately after restart
+
+The S3 listener and bucket listing can become ready before volume servers register with the master. The disposable storage smoke test observed transient `InternalError` / `volume not found` responses during that interval. Check a known object's contents as well as listener/list readiness, using bounded retries; persistent failures require checking volume files, the disk mount and filer/master metadata. Never treat a successful bucket listing alone as proof that object data is available. See [migration gates](../docs/SeaweedFSMigration.md).
+
+## Public HTTPS fails before application authentication
+
+Check the **Public Endpoint Validation** workflow after app/Helm publication. It retries verified HTTPS and records sanitized DNS/TLS/discovery/auth results from GitHub's runner; compare that independent observation with the local network failure. A successful build only establishes artifact publication, and even a passing public probe does not establish the installed revision. Inspect Flux source/release status when an approved cluster connection is available.
+
+After MCP publication, the check now additionally requires that image's stamped discovery version. On 2026-10-10, hosted runs `38082334514` and `38082259713` each failed ten attempts with TLS verification code 62 (hostname mismatch) against `87.117.64.111`, independently confirming the public TLS problem. MCP build/chart publication succeeded, but no application version could be read. Confirm WAN/DNS/NAT ownership and inspect installed Gateway/Certificate/Flux status before changing source that already declares the correct hostname. Do not infer stalled Flux from an inaccessible public route.
+
+Hosted run `38125438853` on 2026-10-11 additionally observed the origin's date-valid Let's Encrypt/YE2 certificate for `bath.bprj.co.uk` and related `bprj.co.uk` names, and a timeout on the anonymous HTTP-01 challenge-path probe. The mismatch therefore exists beyond local Zscaler interception. Final failed checks retain public certificate metadata with verification enabled and HTTP-01 status/redacted redirects without application credentials or response bodies. A date-valid certificate for another hostname is not fixed by expiry/CA-trust bypasses.
+
+On 2026-10-10, `mcp.labiraus.com` resolved but the development network presented a Zscaler-issued certificate for unrelated `bprj.co.uk` names. Anonymous diagnostic responses were Zscaler HTTP 403 pages reporting “Access denied due to bad server certificate”. This is not an application authorization result. Do not disable certificate verification for normal use or send credentials through the failing connection. Have the network administrator investigate; on the approved LAN, compare DNS/NAT forwarding, Gateway certificate/listener readiness and HTTPRoute attachment read-only. Interception prevents concluding whether the origin certificate is also wrong. See [public validation evidence](../docs/worldbuilder/PUBLIC-VALIDATION.md).
 
 ## Document Processing Failures
 
@@ -267,3 +299,77 @@ modpack installer is still downloading, check the role's handler ordering. Confi
 notify a restart; flushing that handler after `state: started` interrupts the newly started installer.
 The role now flushes pending restarts before ensuring the service is enabled and started. A stopped
 service with changed configuration starts once, while an unchanged stopped service still starts.
+
+## Worldbuilder migration
+
+Worldbuilder implementation and offline checks are tracked in [implementation status](../docs/worldbuilder/IMPLEMENTATION-STATUS.md). Use the [LAN runbook](../docs/worldbuilder/LAN-RUNBOOK.md) for discovery and controlled activation. Code publication on main is authorised; production migrations and feature activation require the separate LAN gate. Do not use the unfinished `scripts/pg-update.sh` placeholder for this migration.
+
+## Worldbuilder generation broker configuration
+
+An `incompatible generation stream` startup error now includes durability drift: inspect subjects, file storage, three replicas and seven-day limits retention. A consumer replica mismatch also stops startup. Do not delete or silently recreate existing streams/consumers to bypass the error; inspect and back up their pending work before controlled repair. The [disposable broker drill](../docs/worldbuilder/BROKER-RECOVERY.md) verifies leader loss, quorum loss and restart locally; installed topology and storage remain LAN checks.
+
+## Worldbuilder disposable API-server acceptance
+
+Use `bash scripts/worldbuilder/test-platform.sh` with the dependencies in [offline acceptance](../docs/worldbuilder/OFFLINE-ACCEPTANCE.md). It downloads pinned/checksummed test binaries and uses generated loopback TLS credentials; setting an operator kubeconfig or `USE_EXISTING_CLUSTER` must never redirect the test. A checksum mismatch, missing API/schema, strict field error or failed negative fixture is a failed gate. Preserve the printed public-schema/render artifact directory and inspect the named resource. Helm stderr is stored separately from YAML. Set `KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT=true` for local startup diagnostics.
+
+New CRDs can initially have absent/null status conditions; the harness waits for `Established` with a deadline. It refuses remote conversion-webhook configurations rather than rewriting their source or connecting outside the fixture. External operators/webhooks need separate disposable fixtures; do not bypass an acceptance failure by selecting a real cluster. No test success proves live admission or workload readiness.
+
+For a structural parser error on a bare `=` in a public CRD enum, use the repository's Kubernetes-aware safe loader. It preserves this legal string while rejecting unsafe YAML tags; do not rewrite the upstream CRD or skip its validation. The disposable API-server gate must also pass the original source.
+
+## Worldbuilder physical backup acceptance
+
+The [CNPG backup fixture](../docs/worldbuilder/BACKUP-ACCEPTANCE.md) verifies base backup/WAL and latest/PITR recovery after removing only its synthetic source Cluster/Pods/PVCs. Do not reuse those deletion commands against an operator context. Inspect its `backup-result.json` together with the final workflow conclusion and cleanup logs; a configured/completed backup alone does not prove restore. The fixture tests all 17 populated tables and refuses wrong S3 credentials.
+
+CNPG webhook errors may print `Cluster ... is invalid` without an `admission webhook` prefix. The acceptance harness checks the CNPG rejection and separately stops/restarts its own operator to prove fail-closed admission and recovery. Local database fallback only follows a transport failure; password, SQL and certificate errors must not be bypassed by switching to peer authentication.
+
+A newly created NodePort can briefly accept and close a connection before kube-proxy installs its route. The local `psql` preflight retries this startup condition for a bounded interval; a persistent closed connection still fails, and does not select peer authentication. Hosted CI exposed this race after successful CNPG admission checks; test both recovery on a later connection and persistent-failure refusal.
+
+## Worldbuilder Velero recovery
+
+Use the [Velero fixture](../docs/worldbuilder/VELERO-ACCEPTANCE.md) for disposable file/resource restore, and inspect `velero-state.log`, controller/node-agent/restore logs and the final workflow result. A completed metadata backup is insufficient: require a completed PodVolumeBackup/Kopia snapshot, removed source storage, completed PodVolumeRestore and matching file/resource evidence. Failed, partial or warning-bearing results cannot pass.
+
+Default kind local-path PVCs may produce unsupported hostPath PVs. The fixture requests `volumeType: local` and verifies the actual PV and claim UID. It excludes generated `kube-root-ca.crt` with the `velero.io/exclude-from-backup=true` label so the mapped namespace keeps its own current trust. An annotation with that name does not exclude the resource and produces an existing-ConfigMap mismatch. Do not suppress arbitrary restore warnings or copy stale cluster trust to make the test pass. Shared SeaweedFS fixtures use only the target's scoped `cnpg` or `velero` identity actions.
+
+## Worldbuilder metrics and dashboard provisioning
+
+For disposable controller failures, use [controller acceptance](../docs/worldbuilder/CONTROLLER-ACCEPTANCE.md) and retain `kind.log`, `pods.log`, `events.log` and the workflow conclusion. A kind bootstrap that appears to finish kubeadm early can be a Docker exec transport failure: this environment returned exit 0 before a delayed command actually exited 7. The fixture now inspects exec IDs to completion and verifies bounded output transfers. A failed/partial copy or timed-out exec must not become a passing gate. Creation and teardown both use generated kubeconfig; do not allow kind cleanup to edit the operator's home config.
+
+Use the two acceptance commands in [observability](../docs/worldbuilder/OBSERVABILITY.md) before activation. Empty panels require separate checks of the configured datasource UID, application namespace, `worldbuilder-external` job, monitor/Service selection and actual scrape health. A rendered ServiceMonitor alone does not establish discovery or mTLS. Keep STRICT authentication and use the observed scraper identity; do not open the endpoint to all Pods to make a scrape pass. The disposable fixture uses an internal Docker network and needs no reachable published host ports.
+
+Grafana file provisioning does not resolve manual-import `__inputs`. The chart binds UIDs and namespace explicitly, supplies the provider and mounts its ConfigMap. Inspect both the selected upstream chart's volume/provider render and Grafana's provisioned dashboard API. Keep one dashboard JSON source under the Prometheus chart; avoid a separate docs copy drifting from the published artifact.
+
+## Worldbuilder disposable PostgreSQL host forwarding
+
+If the test container is healthy but the devcontainer cannot reach its published port, use `WORLDBUILDER_TEST_TRANSPORT=exec bash scripts/worldbuilder/test-postgres.sh`. The local loopback socat bridge uses only the harness's generated test container and cleans up on exit. See [Worldbuilder troubleshooting](../docs/worldbuilder/TROUBLESHOOTING.md). This does not require cluster access or a production database connection.
+
+## Storage publication and historical reverts during migration
+
+App CI publishes the matching Helm chart as well as the image. Keep source endpoint/Secret/egress defaults until the storage gates pass; prepare SeaweedFS settings in explicit cutover overlays. Publishing application code must not implicitly switch object stores. `scripts/storage/check_charts.py` verifies base/GHCR/ECR source and target combinations. A published chart is not evidence of Flux reconciliation or a successful migration.
+
+If an old audit marker cannot be reverted after copying objects, compare the exact bucket/key/version against the verified migration map. New S3 writes assign new IDs; a current-only copy cannot preserve historical reads. Configure both `S3_VERSION_MAP_KEY` and its immutable `S3_VERSION_MAP_VERSION` only after validating the map and restore. The resolver rejects endpoint/bucket mismatch, deleted versions and hash/size mismatch; do not work around those failures by reading the latest object. See [migration/recovery procedure](../docs/StorageVersionMigration.md).
+
+The disposable storage test needs `systemd-socket-activate` and `systemd-socket-proxyd`, plus the role-pinned `weed` binary. Minimal devcontainers may lack the systemd tools even when production hosts have them. CI uses an Ubuntu runner with these tools. SeaweedFS interprets environment variables as flags: an inherited `debug=release` caused startup failure on 2026-10-11. The harness now starts it with a minimal environment and prints the beginning as well as the end of failed startup logs.
+
+## Storage archive ordering evidence refused
+
+Schema-2 archives require both `order/before/` and `order/after/` XML page sets plus their manifest hashes. Do not delete a page or reorder tied manifest entries. A missing page, corrupt checksum, mismatched marker/scope, changed inventory, duplicate version, inconsistent latest flag or non-monotonic provider history stops export/import. SeaweedFS can list a `null` version last regardless of its age; the tool repositions it only when timestamps/latest flags establish one position. Latest null ties and a non-latest null tied only with the latest peer are provable; other null ties require independent source chronology and stay refused. Inspect the installed provider release and original history, preserving source data; changing timestamps or sorting opaque IDs does not establish order. See [retained source ordering](../docs/StorageVersionMigration.md).
+
+Hosted disposable acceptance encountered `No writable volumes and no free volumes left` after allocating 84 mostly empty volumes across fixture buckets. SeaweedFS's automatic slot count divides free disk by the configured 1 GiB volume limit, while default growth creates seven volumes per bucket. The harness now uses a bounded 256-slot override without preallocation, plus the separate large-fixture free-disk check. This is test sizing, not a production repair: actual disk usage, writable volumes, replication and growth capacity require inspection before changing a live server limit.
+
+## Interrupted multipart migration
+
+Retain `multipart-journal.jsonl` and `import-journal.jsonl`; neither authorises activation. Known upload IDs receive a best-effort abort, but a lost initiation reply can leave an unknown orphan and a lost completion reply can leave a committed version even after an acknowledged abort. Inspect versions and unfinished uploads for the recorded key, preserving evidence before controlled cleanup. A disk-full journal or hard stop can leave intent without an outcome. The importer refuses prior import evidence, populated destinations and pre-existing uploads; do not remove these safeguards to rerun it. Prepare a separately empty destination after reconciliation. See [multipart recovery boundaries](../docs/StorageVersionMigration.md).
+
+For the disposable large-object round trip, use `--large-migration` with 12 GiB free temporary disk. If locally extracted systemd tools fail before the server checks, verify their dependencies with `ldd`: both the directory containing `libsystemd-shared-252.so` and the extracted architecture library directory containing `libkmod.so.2` must be in `LD_LIBRARY_PATH`. Check `systemd-socket-activate --version` before restarting the harness.
+
+## Storage reference coverage refuses completion
+
+Use the [reference coverage procedure](../docs/StorageReferenceCoverage.md) to interpret explicit missing-version/context/delete-marker outcomes. A failed PostgreSQL export has no sealed `manifest.json`; inspect its private `psql.log` for permissions, RLS or schema errors. Do not enable filtered row visibility or substitute a current object to obtain a green result. Resolve verified missing context through an export-bound reviewed file, preserving original database/history values. S3 delete-marker map entries have no body size/hash, and literal `null` is a valid source version ID; neither is a processing-generation number.
+
+## Git push selects the wrong GitHub account
+
+On 2026-10-11, the forwarded IDE credential helper selected a different GitHub account for a documentation push and GitHub returned HTTP 403, despite an earlier successful implementation push. For this repository, `git -c credential.username=labiraus -c credential.useHttpPath=true push origin main` selected the existing authorised repository account and succeeded. These are per-command hints, not new credentials or a permission bypass. Check the account named in the rejection before assuming repository access was revoked; do not print tokens, change global account selection or force-push to work around authentication.
+
+If disposable PostgreSQL migrations encounter “the database system is shutting down” immediately after container startup, wait for `pg_isready -h 127.0.0.1` inside that container. The official image starts a temporary socket-only server during initdb; socket readiness can race its shutdown. The Worldbuilder harness now waits for the final TCP server before running migrations.
+
+A Worldbuilder proposal can remain labelled `approved` after membership changes while its eligible approval count falls below quorum. Publication correctly returns 409. Inspect review history/current count and obtain fresh independent reviews; restoring an old role does not resurrect its old approval. Published approval counts remain historical and do not change when members leave. See [review policy](../docs/worldbuilder/REVIEW-POLICY.md).

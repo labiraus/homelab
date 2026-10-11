@@ -1,3 +1,4 @@
+import { handleCanonRequest } from "./worldbuilder.js";
 import http from "node:http";
 
 import { AckPolicy, RetentionPolicy, StorageType, connect } from "nats";
@@ -28,6 +29,10 @@ async function main(): Promise<void> {
 	let pool: Pool | undefined;
 	let ready = false;
 	const server = http.createServer((request, response) => {
+		if (request.url === "/worldbuilder/generate") {
+			void handleCanonRequest(request, response);
+			return;
+		}
 		if (request.url === "/liveness") {
 			response.writeHead(200).end("ok");
 			return;

@@ -94,7 +94,7 @@ refresh-ansible-secrets:
 	@./scripts/ansible-fetch-secrets.sh
 
 bootstrap-svartalfheim-storage:
-	@./scripts/bootstrap-svartalfheim-storage.sh
+	@bash ./scripts/bootstrap-svartalfheim-storage.sh
 
 postgres:
 	@set -e; \
@@ -136,49 +136,7 @@ postgres:
 	PGPASSWORD="$$DB_PASS" psql -h "$$DB_HOST" -p "$$DB_PORT" -U "$$DB_USER" -d "$$DB_NAME"
 
 ragas-chunking-eval:
-	@set -e; \
-	if ! command -v kubectl >/dev/null 2>&1; then \
-		echo "Error: kubectl is required for the Postgres port-forward workflow." >&2; \
-		exit 1; \
-	fi; \
-	secret_name="app-db-bootstrap"; \
-	secret_namespace="data"; \
-	DB_HOST="127.0.0.1"; \
-	DB_PORT="15432"; \
-	DB_NAME="app"; \
-	DB_USER="$$(kubectl -n "$$secret_namespace" get secret "$$secret_name" -o jsonpath='{.data.username}' | base64 -d)"; \
-	DB_PASS="$$(kubectl -n "$$secret_namespace" get secret "$$secret_name" -o jsonpath='{.data.password}' | base64 -d)"; \
-	export DB_HOST DB_PORT DB_NAME DB_USER DB_PASS; \
-	if [ -z "$$DB_USER" ] || [ -z "$$DB_PASS" ]; then \
-		echo "Error: failed to load postgres credentials from $$secret_namespace/$$secret_name" >&2; \
-		exit 1; \
-	fi; \
-	port_forward_log="/tmp/ragas-postgres-port-forward.log"; \
-	rm -f "$$port_forward_log"; \
-	kubectl -n data port-forward svc/app-db-rw "$$DB_PORT:5432" >"$$port_forward_log" 2>&1 & \
-	pf_pid=$$!; \
-	cleanup() { \
-		kill "$$pf_pid" >/dev/null 2>&1 || true; \
-		wait "$$pf_pid" >/dev/null 2>&1 || true; \
-	}; \
-	trap cleanup EXIT INT TERM; \
-	for _ in $$(seq 1 20); do \
-		if grep -q "Forwarding from" "$$port_forward_log" 2>/dev/null; then \
-			break; \
-		fi; \
-		if ! kill -0 "$$pf_pid" 2>/dev/null; then \
-			cat "$$port_forward_log" >&2 || true; \
-			echo "Error: failed to start kubectl port-forward for svc/app-db-rw in namespace data." >&2; \
-			exit 1; \
-		fi; \
-		sleep 1; \
-	done; \
-	if ! grep -q "Forwarding from" "$$port_forward_log" 2>/dev/null; then \
-		cat "$$port_forward_log" >&2 || true; \
-		echo "Error: timed out waiting for the Postgres port-forward to become ready." >&2; \
-		exit 1; \
-	fi; \
-	python3 evals/ragas/chunking_eval.py --cases "$(RAGAS_CASES)" $(RAGAS_ARGS)
+	@python3 evals/ragas/chunking_eval.py --cases "$(RAGAS_CASES)" $(RAGAS_ARGS)
 
 document-platform-checks:
 	@bash ./scripts/document-platform-checks.sh
@@ -190,10 +148,14 @@ vllm-gateway-smoke:
 	@bash ./scripts/vllm-gateway-smoke.sh
 
 ansible-minio-host:
-	@./scripts/ansible-run-playbook.sh -i ansible/inventory/hosts.ini ansible/playbooks/minio-external-pi-host.yml
+	@ANSIBLE_FETCH_MINIO_SECRETS=1 bash ./scripts/ansible-run-playbook.sh -i ansible/inventory/hosts.ini ansible/playbooks/minio-external-pi-host.yml
 
 ansible-minio-state:
-	@./scripts/ansible-run-playbook.sh -i ansible/inventory/hosts.ini ansible/playbooks/minio-external-pi.yml
+	@ANSIBLE_FETCH_MINIO_SECRETS=1 bash ./scripts/ansible-run-playbook.sh -i ansible/inventory/hosts.ini ansible/playbooks/minio-external-pi.yml
+
+.PHONY: ansible-seaweedfs-host
+ansible-seaweedfs-host:
+	@ANSIBLE_FETCH_MINIO_SECRETS=0 bash ./scripts/ansible-run-playbook.sh -i ansible/inventory/hosts.ini ansible/playbooks/seaweedfs-external-pi-host.yml
 
 ansible-minecraft-vm:
 	@ANSIBLE_FETCH_MINIO_SECRETS=0 ./scripts/ansible-run-playbook.sh -i ansible/inventory/hosts.ini ansible/playbooks/minecraft-vm.yml

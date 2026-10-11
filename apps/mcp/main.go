@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"os"
 
 	"pkg/api"
 	"pkg/base"
@@ -19,6 +20,10 @@ type response struct {
 
 func main() {
 	ctx := base.Start("mcp")
+	if worldbuilderEnabled() && len(os.Getenv("WORLDBUILDER_MCP_KEY")) < 32 {
+		slog.ErrorContext(ctx, "Worldbuilder delegation requires a dedicated key of at least 32 bytes")
+		return
+	}
 	slog.InfoContext(ctx, "MCP data and control operations proxy through external API")
 
 	mux := http.NewServeMux()

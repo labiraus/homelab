@@ -1,11 +1,11 @@
-# Homelab
+# Worldbuilder AI on Labiraus
 
 This repository combines five related areas for the Labiraus homelab platform:
 
 - Terraform for provisioning Kubernetes worker VMs and dedicated service VMs on Proxmox
 - Helm charts for cluster bootstrap and in-cluster workloads
-- Small application services used inside the cluster
-- Ansible for external service management, including MinIO on `svartalfheim`
+- Worldbuilder application services plus retained document tooling
+- Ansible for external service management, including the SeaweedFS storage target on `svartalfheim`
 - Ansible for dedicated VM-hosted workloads such as Minecraft and post-provision Kubernetes worker bootstrap
 
 ## Repo Guidance For Humans And Agents
@@ -109,15 +109,17 @@ The app stack under `apps/` is intentionally small:
 - `apps/pkg/*`: shared Go packages for HTTP server startup, logging, metrics, and integrations
 - `evals/ragas`: RAGAS-based retrieval/chunking quality checks against live processed chunks
 
-Current document-platform direction:
+Worldbuilder is the application target: PostgreSQL canon, independently reviewed atomic publication, revision-scoped wiki and AI, and persistent provisional stories. See the [architecture and migration index](docs/worldbuilder/00-WORLDBUILDER-INDEX.md), [implementation status](docs/worldbuilder/IMPLEMENTATION-STATUS.md), and [LAN rollout gate](docs/worldbuilder/LAN-RUNBOOK.md). The new application is default-disabled pending schema, dedicated credentials and mesh identity validation. CI publication is authorised on `main`; this is not a claim of cluster readiness.
 
-- MinIO on `svartalfheim` is the canonical raw object store
+Retained document capabilities:
+
+- SeaweedFS on `svartalfheim` is the target raw object store; existing MinIO data remains the migration source until the [cutover gates](docs/SeaweedFSMigration.md) pass
 - Postgres via CNPG is the source of truth for metadata, workflow state, lifecycle history, audits, and assistant state
-- OpenSearch is the source of truth for derived RAG chunks, vectors, indexing, and retrieval
+- OpenSearch is a rebuildable derived RAG index; it is never authoritative canon
 - document lifecycle history is also persisted in Postgres for processing and reprocessing audits
 - browser and MCP surfaces expose retrieval, cited context, lifecycle history, metadata curation, guarded text edits, and reprocess requests while `orchestrator` keeps workflow ownership
 - the Assistant tab lets authenticated users ask RAG-backed questions, save approved per-user memories, approve or reject proposed text create/edit operations, and inspect file-change audit rows
-- approved assistant file changes are routed through `orchestrator`, written to MinIO, audited in Postgres, and reingested through the existing processor path
+- approved assistant file changes are routed through `orchestrator`, written to S3 storage, audited in Postgres, and reingested through the existing processor path
 - local vLLM is the first LLM runtime target for processor-owned assistant workflows, scheduled onto the GPU worker path and accompanied by Envoy AI Gateway resources
 - RAGAS chunking evaluation can score current processed chunks against gold retrieval cases under `evals/ragas/`
 - day-two document, assistant, vLLM, retention, and recovery checks live under `runbooks/` and `docs/RetentionAndRecovery.md`
@@ -129,11 +131,13 @@ There is no separate query API, ingestion application, or standalone assistant s
 
 ### Ansible
 
-`ansible/` manages `svartalfheim` host services such as the MinIO server, MinIO state, and the attached-drive Samba share, plus the dedicated Minecraft VM on `nidavellir` and post-provision bootstrap for repo-managed Kubernetes worker guests. Kubernetes remains Helm-managed for in-cluster services; external service state is handled separately.
+`ansible/` manages the SeaweedFS target on `svartalfheim`, legacy MinIO/Samba automation, the dedicated Minecraft VM on `nidavellir` and post-provision bootstrap for repo-managed Kubernetes worker guests. Kubernetes remains Helm-managed for in-cluster services; external service state is handled separately.
 
 ## Devcontainer
 
 The devcontainer is the preferred local working environment.
+
+The storage target is SeaweedFS. The devcontainer includes `weed` instead of MinIO `mc`; Ansible bootstrap and explicit application/backup cutover overlays are prepared for private `svartalfheim:8333`. Routine CI/CD publication retains source-storage defaults until migration and restore gates pass. [Version migration tooling](docs/StorageVersionMigration.md) and disposable Go/Node client acceptance preserve historical references without rewriting audits. Follow [SeaweedFS migration](docs/SeaweedFSMigration.md) before activating the target overlays.
 
 Secret handling is intentionally split into three local-only classes:
 
@@ -155,9 +159,9 @@ Included tooling:
 
 - Docker outside Docker
 - GitHub CLI (`gh`)
-- Terraform
+- Terraform and TFLint (installed together by the Terraform devcontainer feature)
 - Ansible Core 2.15.x
-- MinIO client (`mc`)
+- SeaweedFS CLI (`weed` 4.48, pinned GitHub release with SHA-256 verification)
 - Flux
 - kubectl and Helm
 - k9s
@@ -170,7 +174,7 @@ Bootstrap new machines from the example files:
 - copy `.devcontainer/.env.example` to `.devcontainer/.env`
 - mint or copy the local SSH keypair and CA-signed cert into `.devcontainer/ssh/`
 - run `make refresh-kubeconfig` and any other `refresh-*` targets needed for cluster-derived credentials
-- run `make refresh-ansible-secrets` if you need the external-host playbooks and want to sync MinIO admin credentials from `svartalfheim`
+- add the `SEAWEED_*` credentials from [Storage Bootstrap](docs/StorageBootstrap.md) to local `ansible/.env` for SeaweedFS; `make refresh-ansible-secrets` is only for legacy MinIO operations
 
 Customize the container by editing local-only files such as `.devcontainer/.env`, `.devcontainer/.bashrc`, `.devcontainer/hosts`, and `.devcontainer/ssh/config`, then rebuild or reopen the devcontainer if needed.
 
@@ -274,7 +278,9 @@ Important note: some workflow files may lag behind the runtime choices in the re
 
 ## Ansible Workflow
 
-Run playbooks from `ansible/` to manage `svartalfheim` host services and MinIO state:
+Provision the new SeaweedFS service and buckets with `make ansible-seaweedfs-host` (also `make bootstrap-svartalfheim-storage`); see [storage bootstrap](docs/StorageBootstrap.md) for credentials and [migration](docs/SeaweedFSMigration.md) for cutover.
+
+The following MinIO playbooks remain legacy migration/rollback tooling and require a separately supplied `mc` client:
 
 ```bash
 make ansible-minio-host
@@ -288,11 +294,11 @@ make ansible-kubernetes-worker LIMIT=helheim
 ```
 
 These targets use `scripts/ansible-run-playbook.sh`, which loads shared operator env from `.devcontainer/.env` and then applies Ansible-only overrides from `ansible/.env`.
-Before loading `ansible/.env`, the wrapper refreshes the tracked MinIO admin credentials from `svartalfheim` over SSH by default.
+The wrapper loads `.devcontainer/.env` and then local `ansible/.env`. Only the explicit legacy MinIO targets refresh MinIO admin credentials from `svartalfheim` over SSH.
 
 Generated Kubernetes Secret manifests are written under `ansible/out/` and can be applied manually.
 
-The authoritative MinIO endpoint is the external Raspberry Pi `svartalfheim` on `http://svartalfheim:9000`. Its attached NTFS drive is mounted at `/srv/minio` and is also exported as the `storage` Samba share. Bucket, user, policy, and host-share changes should go through the Ansible playbooks rather than cluster manifests.
+The target SeaweedFS endpoint is `http://svartalfheim:8333`; the legacy MinIO source is `http://svartalfheim:9000`. The attached NTFS drive remains mounted at `/srv/minio`. SeaweedFS uses its own volume directory and native-filesystem metadata; the existing Samba share and MinIO source data require the migration precautions documented in the plan.
 
 ## Setup Notes
 

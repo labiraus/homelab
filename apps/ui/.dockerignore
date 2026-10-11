@@ -46,4 +46,6 @@ LICENSE
 /scripts/
 
 node_modules
+dist
+.env*
 npm-debug.log

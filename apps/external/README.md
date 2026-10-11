@@ -1,5 +1,11 @@
 # external
 
+Fictional record dates accept exact decimal strings as well as legacy integer JSON tokens across the signed 64-bit range. Responses/history remain numeric and equivalent representations retain canonical idempotency. See the [date wire contract](../../docs/worldbuilder/API.md); this requires no schema migration.
+
+External now contains the default-disabled Worldbuilder canon engine, authorised wiki/history, proposal/review/publication, bounded reasoning proxy and persistent story APIs under `/api/worlds`. See [API contract](../../docs/worldbuilder/API.md). `WORLDBUILDER_ENABLED=true` requires schema version 7 and a dedicated `worldbuilder_external` login supplied through `WORLDBUILDER_DATABASE_URL`. Startup never migrates. Existing document and assistant routes below remain compatible.
+
+Revision lists/diffs, proposal and story reconciliation, and compensating restore are available through the same authenticated API. Reconciliation compares original/current/proposed records, requires explicit conflict decisions and creates a freshly validated draft; it never transfers approval or changes a session pin. Audit records preserve lineage and exact retry requests. The current runtime requires the additive version-2 migration. Canon lists also accept a validated comma-separated `kind` filter before pagination, allowing complete editor reference catalogs without widening world/timeline/revision scope.
+
 `external` is the public Go HTTP API for the homelab app stack.
 
 It is the browser-facing API for `ui` and should remain a stable surface even as the internal async pipeline evolves behind `orchestrator` and `processor`.
@@ -119,3 +125,27 @@ The document event bridge expects:
 - `NATS_EVENTS_SUBJECT` with a default of `documents.events.>`
 
 Lifecycle delivery to the browser is best-effort. The document processing path remains successful even if the notification fan-out path is temporarily unavailable.
+
+World names/default timelines/settings are reviewed `world_settings` records. Owner-only administration separately controls archive/reopen, versioned member changes, revocation and ownership transfer; immutable audit binds exact retries. Archived worlds allow reads and membership administration, while canon/story/inference writes are blocked. The database retains immutable record kinds after deletion.
+
+The canon validator also enforces temporal relationship cardinality, mutually exclusive boolean facts and explicit canonical chronology exceptions. Rule changes are ordinary reviewed operations and can be grouped atomically with affected records; see the rule contracts in the Worldbuilder API documentation.
+
+Scoped `/api/worlds/{world}/search` reconciles OpenSearch candidate IDs against authorised PostgreSQL snapshots, with canonical fallback and stable pinned pagination. Large-world AI evidence selection retains rule/settings/reference groups and reports limited coverage. See [API contracts](../../docs/worldbuilder/API.md).
+
+Optional MCP delegation uses only `/api/worldbuilder-tools` with signed, expiring, exact-request identity assertions and active-identity/membership checks. Reads and validated draft proposals are the entire allowlist; human routes remain separately mesh-restricted. Configure only after the [LAN gates](../../docs/worldbuilder/LAN-RUNBOOK.md).
+
+AI activation additionally requires migration-003 inference reservations and explicit `worldbuilder.aiBudget` settings. Daily UTC request/concurrency/allocated-allowance limits are per actor across replicas/worlds, persist across failures/restarts, and use a separate small database pool. See [budget/provenance contracts](../../docs/worldbuilder/API.md); no provider tariff is assumed.
+
+Schema 4 adds owner-private immutable story definitions and atomic turn memory/choices. Story generation checks expected session version before spending allowance and returns that version for later human save. Narrative generation returns prose only; see the API contract.
+
+Durable creative jobs were introduced in schema 5; current external requires schema 7. `WORLDBUILDER_JOBS_ENABLED` remains false by default. Enabling requires configured reasoning/budget plus dedicated `WORLDBUILDER_JOB_TOKEN`; the fixed worker endpoint reloads private human intent and checks current access. Job lists/details/cancellation live under each world's `/generations`; queued output remains a candidate. See the [durable API contract](../../docs/worldbuilder/API.md#durable-creative-generations-schema-5).
+
+Consistency checks now run deterministic validation first and optionally bind a proposal via `changeId`. Structured evidence-backed findings are advisory and audited with model provenance; they never change review status. Stale proposal checks fail before allocating inference.
+
+Worldbuilder endpoints emit fixed request/outcome labels in existing external Prometheus metrics. The [operator guide](../../docs/worldbuilder/OBSERVABILITY.md) covers opt-in ServiceMonitor/network/mesh configuration, provisioned Grafana dashboard, disposable runtime acceptance and privacy-preserving read-only PostgreSQL diagnostics. Private IDs and narrative text never become metric labels. `worldbuilderMonitoring` remains disabled until actual scraper selectors and its dedicated mTLS identity are verified; it does not activate canon.
+
+`/records/{id}/connections` adds authorised, paginated forward/back typed-reference traversal at a pinned timeline/revision/time. Optional `WORLDBUILDER_BROWSER_TEST=1` in the disposable harness runs Chromium against a loopback server defined only in `worldbuilder/browser_test.go`; no runtime auth switch is introduced. [Offline acceptance](../../docs/worldbuilder/OFFLINE-ACCEPTANCE.md) also records the 5,000-record domain benchmark and exact CRD schema checks.
+
+Schema 6 adds reviewed calendar projection and exact `tick` facts. Canon/search metadata carries the requested snapshot calendar even when records are filtered. Life-bound rules accept full-range date strings while preserving historical safe-integer numeric facts. See [calendar contracts](../../docs/worldbuilder/CALENDARS.md).
+
+Schema 7 adds reviewed 1–5 human approval quorums and immutable per-membership decisions. Policy changes require the stricter count; role changes/removal invalidate old votes permanently for future publication. Published approval identities remain historical evidence. See [review policy](../../docs/worldbuilder/REVIEW-POLICY.md).

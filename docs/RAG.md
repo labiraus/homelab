@@ -1,10 +1,12 @@
-# RAG Direction
+# Worldbuilder grounding and retained document RAG
 
-This repo is taking an async-first path to document ingestion and retrieval.
+Worldbuilder uses authorised PostgreSQL revision snapshots as canonical evidence. Processor LangGraph workflows receive bounded world/timeline/revision-scoped evidence from external and return candidates with resolvable citation IDs. Model outputs cannot publish or approve. The optional OpenSearch canon projection is derived and rebuildable. Current implementation and remaining gates are recorded in [Worldbuilder status](worldbuilder/IMPLEMENTATION-STATUS.md).
+
+The retained document ingestion/retrieval path is:
 
 - MinIO remains the canonical raw object store
 - Postgres is the source of truth for inventory, lifecycle, audit, assistant state, and workflow status
-- OpenSearch is the source of truth for derived RAG chunks, vectors, indexing, and retrieval
+- OpenSearch is a rebuildable derived document index
 - Envoy AI Gateway is the single app-facing inference governance and routing layer
 - NATS JetStream plus KEDA are the execution layer for asynchronous workers
 - `orchestrator` owns control-plane reconciliation and task dispatch
@@ -12,8 +14,7 @@ This repo is taking an async-first path to document ingestion and retrieval.
 - `external` and `mcp` are the stable public and AI-facing surfaces
 - `mcp` forwards document lifecycle notifications sourced from NATS JetStream to MCP subscribers
 
-The current scope is the document, chunk, embedding, retrieval, browser assistant, and MCP foundation.
-CAG starts as explicit user-approved memory records assembled into the assistant prompt for the authenticated email; graph-style knowledge layers remain future phases built on top of the same base rather than separate immediate datastores.
+Legacy document chat and explicit per-user memory remain separate from Worldbuilder canon. Raw sources or memories are not canonical facts until they enter the external change-set review/publication engine.
 
 The current ingestion slice is reference-based:
 
@@ -55,7 +56,7 @@ File-type expansion beyond the current UTF-8 `text/*` baseline is intentionally 
 
 ## Maintenance Focus
 
-The active follow-up work is no longer to add separate RAG applications. The current maintenance focus is:
+Worldbuilder milestone work follows the [migration](worldbuilder/02-WORLDBUILDER-MIGRATION.md). Maintenance of retained document capabilities includes:
 
 - keep the local vLLM plus Envoy AI Gateway smoke test green before promoting larger or quantized models
 - keep improving assistant answer quality while preserving explicit memory, proposal-before-write approvals, scoped audit views, and read-only model tool use
@@ -66,7 +67,7 @@ The active follow-up work is no longer to add separate RAG applications. The cur
 ## Chunking Evaluation
 
 Use `evals/ragas` to score whether the current processed chunks retrieve the right gold context for representative queries.
-The harness is currently a migration gap: it still reads the legacy Postgres `rag.chunks` and `rag.embeddings` rows. Before using it as a gate for the OpenSearch-native path, update it to query OpenSearch with the same neural search pipeline used by `external` and `mcp`.
+The default harness calls authenticated external document search, exercising the deployed OpenSearch retrieval/citation path. Legacy PostgreSQL embeddings require an explicit comparison backend; they do not validate current retrieval.
 Reports include citation-confidence fields for every retrieved chunk: source URI, object key, content type, chunk index, processing version, document metadata, chunk metadata, and the rendered citation label fields used by the UI and MCP surfaces.
 
 Setup:
@@ -81,7 +82,7 @@ cp evals/ragas/chunking_cases.example.jsonl evals/ragas/chunking_cases.jsonl
 Replace the example case with real JSONL rows. Each row should include a `query` plus `reference_context_ids`, `reference_contexts`, or both. Stable reference IDs use the citation format returned by search: `s3://documents/path/to/source.md#chunk-0`. Optional `prefix`, `documentId`, `metadata`, and `limit` fields use the same meaning as `documents.search`.
 The local `chunking_cases.jsonl` file is ignored because gold cases can include private source excerpts.
 
-Run it through the repo target, which reads the cluster Postgres credentials and opens a temporary port-forward:
+Run it through the repo target with an approved session supplied privately as `RAGAS_API_COOKIE` or `RAGAS_API_AUTHORIZATION`, and the observed external HTTPS root in `RAGAS_API_URL`. It does not fetch cluster credentials or open port-forwards:
 
 ```bash
 make ragas-chunking-eval RAGAS_ARGS="--min-id-recall 0.8 --min-context-recall 0.8"
@@ -91,49 +92,20 @@ The script prints per-case RAGAS scores and returns a non-zero exit code when a 
 
 ```mermaid
 flowchart LR
-  U[User in browser] --> UI[ui]
-  UI -->|browse/search/control actions| EXT[external]
-  UI -->|chat/memory/proposals/audit| ASSIST[assistant]
-  A[Agent / MCP client] --> MCP[mcp]
-
-  EXT --> ORCH[orchestrator]
-  EXT --> ASSIST
-  ASSIST -->|read-only RAG tool call| MCP
-  ASSIST -->|approved file proposals| ORCH
-  MCP --> ORCH
-  ASSIST -->|chat, memory, proposal state| PG
-
-  subgraph Storage
-    MINIO[MinIO on svartalfheim]
-    PG[Postgres CNPG]
-    OS[OpenSearch]
-    AIGW[Envoy AI Gateway]
-  end
-
-  subgraph Async execution
-    NATS[NATS JetStream]
-    PROC[processor]
-    KEDA[KEDA]
-  end
-
-  ORCH -->|reconcile raw objects| MINIO
-  ORCH -->|create/edit/revert text objects| MINIO
-  ORCH -->|edit existing text objects| MINIO
-  ORCH -->|upsert inventory and state| PG
-  ORCH -->|append file change audit| PG
-  ORCH -->|append queued lifecycle history| PG
-  ORCH -->|enqueue processing work| NATS
-  NATS --> PROC
-  NATS -->|document lifecycle notifications| MCP
-  KEDA -. scales .-> PROC
-  PROC -->|read referenced text object| MINIO
-  PROC -->|index extracted text| OS
-  OS -->|model inference via configured connector| AIGW
-  PROC -->|append processing lifecycle history| PG
-
-  EXT -->|query inventory, history, audit state| PG
-  MCP -->|query inventory and history state| PG
-  EXT -->|neural retrieval| OS
-  MCP -->|neural retrieval| OS
-  ASSIST -->|chat completions| AIGW
+  UI[React UI] --> EXT[external]
+  MCP[Labiraus MCP: retained document tools] --> EXT
+  EXT -->|canon, governance, stories| PG[PostgreSQL]
+  EXT -->|scoped evidence, candidate generation| PROC[processor / LangGraph]
+  PROC --> AIGW[Envoy AI Gateway]
+  EXT -->|document control| ORCH[orchestrator]
+  ORCH -->|read outbox / immutable snapshots| PG
+  ORCH --> NATS[NATS JetStream]
+  NATS -->|canon projection| ORCH
+  ORCH --> OS[OpenSearch derived indexes]
+  ORCH --> MINIO[Private MinIO on svartalfheim]
+  NATS -->|document processing| PROC
+  PROC --> MINIO
+  PROC --> OS
 ```
+
+Diagram describes source capabilities; Worldbuilder flags are disabled until LAN validation. MCP world-tool delegation is a remaining access-boundary gate, not implied by existing document tools.

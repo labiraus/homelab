@@ -1,0 +1,182 @@
+---
+- name: Validate required credentials without logging their values
+  ansible.builtin.assert:
+    that:
+      - lookup('ansible.builtin.env', item.access_key_env) | length > 0
+      - lookup('ansible.builtin.env', item.secret_key_env) | length > 0
+    fail_msg: Supply all SEAWEED credentials in the local ansible/.env file.
+  loop: "{{ seaweedfs_identities }}"
+  no_log: true
+
+- name: Resolve the release architecture
+  ansible.builtin.set_fact:
+    seaweedfs_arch: "{{ {'aarch64': 'arm64', 'x86_64': 'amd64'}.get(ansible_architecture, 'unsupported') }}"
+
+- name: Validate the architecture and data directory separation
+  ansible.builtin.assert:
+    that:
+      - seaweedfs_arch in seaweedfs_checksums
+      - seaweedfs_volume_dir.startswith(seaweedfs_mount + '/seaweedfs/')
+      - not seaweedfs_metadata_dir.startswith(seaweedfs_mount + '/')
+      - seaweedfs_s3_bind not in ['0.0.0.0', '::', '', '127.0.0.1', 'localhost']
+
+- name: Require the external disk to be mounted before creating data directories
+  ansible.builtin.command:
+    argv: [mountpoint, -q, "{{ seaweedfs_mount }}"]
+  changed_when: false
+  check_mode: false
+
+- name: Resolve the systemd mount unit
+  ansible.builtin.command:
+    argv: [systemd-escape, --path, --suffix=mount, "{{ seaweedfs_mount }}"]
+  register: seaweedfs_mount_unit
+  changed_when: false
+  check_mode: false
+
+- name: Install archive and S3 bootstrap dependencies
+  ansible.builtin.apt:
+    name: [ca-certificates, tar, python3-boto3, systemd]
+    state: present
+    update_cache: true
+
+- name: Create native-filesystem config and metadata directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ seaweedfs_service_user }}"
+    group: "{{ seaweedfs_service_group }}"
+    mode: '0700'
+  loop:
+    - /etc/seaweedfs
+    - "{{ seaweedfs_metadata_dir }}"
+    - "{{ seaweedfs_metadata_dir }}/master"
+    - "{{ seaweedfs_metadata_dir }}/filer"
+
+# The NTFS disk is already mounted with oliver ownership. Do not chown its contents.
+- name: Create the separate SeaweedFS volume directory
+  ansible.builtin.file:
+    path: "{{ seaweedfs_volume_dir }}"
+    state: directory
+
+- name: Download the verified SeaweedFS release
+  ansible.builtin.get_url:
+    url: "https://github.com/seaweedfs/seaweedfs/releases/download/{{ seaweedfs_version }}/linux_{{ seaweedfs_arch }}.tar.gz"
+    dest: "/var/cache/seaweedfs-{{ seaweedfs_version }}-{{ seaweedfs_arch }}.tar.gz"
+    checksum: "sha256:{{ seaweedfs_checksums[seaweedfs_arch] }}"
+    mode: '0644'
+
+- name: Install the SeaweedFS binary
+  ansible.builtin.unarchive:
+    src: "/var/cache/seaweedfs-{{ seaweedfs_version }}-{{ seaweedfs_arch }}.tar.gz"
+    dest: /usr/local/bin
+    remote_src: true
+    include: [weed]
+    owner: root
+    group: root
+    mode: '0755'
+  notify: Restart SeaweedFS
+
+- name: Configure authenticated S3 identities
+  ansible.builtin.template:
+    src: s3.json.j2
+    dest: /etc/seaweedfs/s3.json
+    owner: "{{ seaweedfs_service_user }}"
+    group: "{{ seaweedfs_service_group }}"
+    mode: '0600'
+  no_log: true
+  notify: Restart SeaweedFS
+
+- name: Configure persistent filer metadata
+  ansible.builtin.template:
+    src: filer.toml.j2
+    dest: /etc/seaweedfs/filer.toml
+    owner: "{{ seaweedfs_service_user }}"
+    group: "{{ seaweedfs_service_group }}"
+    mode: '0600'
+  notify: Restart SeaweedFS
+
+- name: Install the service with a disk mount dependency
+  ansible.builtin.template:
+    src: seaweedfs.service.j2
+    dest: /etc/systemd/system/seaweedfs.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart SeaweedFS
+
+- name: Apply pending service changes before bootstrapping buckets
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable SeaweedFS
+  ansible.builtin.systemd:
+    name: seaweedfs
+    daemon_reload: true
+    enabled: true
+    state: started
+
+# SeaweedFS uses the S3 bind address for its internal gRPC listener too.
+# Forward only HTTP/S3, leaving every SeaweedFS listener on loopback.
+- name: Install the private S3 socket proxy
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - seaweedfs-s3-proxy.socket
+    - seaweedfs-s3-proxy.service
+  notify: Restart SeaweedFS S3 proxy
+
+- name: Apply pending socket proxy changes
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable the private S3 listener
+  ansible.builtin.systemd:
+    name: seaweedfs-s3-proxy.socket
+    daemon_reload: true
+    enabled: true
+    state: started
+
+- name: Wait for the private S3 listener
+  ansible.builtin.wait_for:
+    host: "{{ seaweedfs_s3_bind }}"
+    port: "{{ seaweedfs_s3_port }}"
+    timeout: 60
+  when: not ansible_check_mode
+
+- name: Create the local generated-secret directory
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/../out/seaweedfs"
+    state: directory
+    mode: '0700'
+  delegate_to: localhost
+  become: false
+
+- name: Render new cluster credentials without applying them
+  ansible.builtin.template:
+    src: k8s-secrets.yaml.j2
+    dest: "{{ playbook_dir }}/../out/seaweedfs/k8s-secrets.yaml"
+    mode: '0600'
+  delegate_to: localhost
+  become: false
+  no_log: true
+
+- name: Install the bucket bootstrap helper
+  ansible.builtin.copy:
+    src: bootstrap_buckets.py
+    dest: /etc/seaweedfs/bootstrap_buckets.py
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Create missing buckets and enable documents versioning
+  ansible.builtin.command:
+    argv: "{{ ['/usr/bin/python3', '/etc/seaweedfs/bootstrap_buckets.py', 'http://127.0.0.1:' ~ (seaweedfs_s3_port | string)] + seaweedfs_buckets }}"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ lookup('ansible.builtin.env', 'SEAWEED_ADMIN_ACCESS_KEY') }}"
+    AWS_SECRET_ACCESS_KEY: "{{ lookup('ansible.builtin.env', 'SEAWEED_ADMIN_SECRET_KEY') }}"
+  register: seaweedfs_bucket_result
+  changed_when: "'changed=true' in seaweedfs_bucket_result.stdout"
+  no_log: true
+  when: not ansible_check_mode

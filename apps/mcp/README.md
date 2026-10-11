@@ -2,8 +2,12 @@
 
 `mcp` is the AI-native public front door for agents and MCP-compatible clients.
 
+Worldbuilder delegation preserves exact signed date tokens in arguments and structured replies. Its `at` filter accepts an integer or decimal string; JavaScript clients should send strings outside the safe integer range and preserve tokens when reading numeric replies. Proposal `from`/`until` fields follow the [date wire contract](../../docs/worldbuilder/API.md). Request-bound signing and the human review boundary remain unchanged.
+
 Externally, this service should be treated as the Labiraus MCP server even though the repo and Kubernetes objects still use the `mcp` app name internally.
 It is a primary product surface of this repo alongside the browser UI, and should stay aligned with the same Postgres-backed document state and orchestrator-owned control flows.
+
+CI stamps the published image tag into `pkg/base.BuildVersion` using the Docker `BUILD_VERSION` argument (local builds default to `local`). Discovery and MCP initialization expose this version. After MCP image/chart publication, Public Endpoint Validation waits for that exact version through verified public HTTPS; an older healthy deployment does not satisfy the check. Public availability/version evidence still does not establish authenticated tool behavior or the status of every Flux release.
 
 It exposes one MCP entrypoint that fronts:
 
@@ -113,3 +117,7 @@ The current event sequence is:
 `documents.events.minio.stored` is emitted by the browser-facing upload path after the raw object is written to MinIO. Notification fan-out is best-effort and does not block the underlying document upload, queue, or processing path.
 
 Lifecycle events are also appended to `rag.document_lifecycle_events` when the orchestrator queues work and when the processor starts, completes, or fails a processing attempt. `documents.inventory.list` still exposes the latest event summary from `rag.documents.last_event_*`, while `documents.history.list` exposes the full recorded timeline.
+
+## Worldbuilder tools (opt-in)
+
+`worldbuilder.worlds`, `.canon`, `.search`, `.record` and `.propose` are advertised only with `WORLDBUILDER_MCP_ENABLED=true`. A dedicated `WORLDBUILDER_MCP_KEY` (at least 32 cryptographically random bytes) signs the current authenticated actor and exact request to external’s narrow delegation endpoint. Raw user-ID context is insufficient. External rechecks active identity and membership; proposal tools create drafts only, never submit/review/publish or read private stories. See [contracts](../../docs/worldbuilder/API.md) and [LAN activation gates](../../docs/worldbuilder/LAN-RUNBOOK.md). The chart requires `worldbuilder.delegationSecret` and nonempty exact `worldbuilder.trustedEdgePrincipals`; both transports must be verified before activation. No secrets or canon database credentials belong in MCP source.

@@ -1,0 +1,82 @@
+name: Storage Migration Acceptance
+on:
+  workflow_call:
+    inputs:
+      commit_sha:
+        type: string
+        required: false
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Commit SHA to test
+        type: string
+        required: false
+  push:
+    paths:
+      - 'scripts/storage/**'
+      - 'sql/rag/schema.pgsql'
+      - 'sql/assistant/schema.pgsql'
+      - 'scripts/seaweedfs-smoke.py'
+      - 'ansible/roles/seaweedfs/**'
+      - 'helm/apps/external/values*.yaml'
+      - 'helm/apps/orchestrator/values*.yaml'
+      - 'helm/apps/processor/values*.yaml'
+      - 'helm/data/postgres/**'
+      - 'values/velero*.yaml'
+      - '.github/workflows/storage-acceptance.yml'
+  pull_request:
+    paths:
+      - 'scripts/storage/**'
+      - 'sql/rag/schema.pgsql'
+      - 'sql/assistant/schema.pgsql'
+      - 'scripts/seaweedfs-smoke.py'
+      - 'ansible/roles/seaweedfs/**'
+      - 'helm/apps/external/values*.yaml'
+      - 'helm/apps/orchestrator/values*.yaml'
+      - 'helm/apps/processor/values*.yaml'
+      - 'helm/data/postgres/**'
+      - 'values/velero*.yaml'
+      - 'apps/orchestrator/**'
+      - 'apps/pkg/minioutil/**'
+      - 'apps/processor/**'
+permissions:
+  contents: read
+jobs:
+  storage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4.1.1
+        with:
+          ref: ${{ inputs.commit_sha || github.sha }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.6'
+          cache: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: azure/setup-helm@v4.2.0
+      - name: Install test dependencies
+        run: |
+          python3 -m pip install -r scripts/storage/requirements.txt
+          npm ci --prefix apps/processor
+          python3 scripts/storage/install_test_server.py "$RUNNER_TEMP/seaweedfs-bin"
+          echo "$RUNNER_TEMP/seaweedfs-bin" >> "$GITHUB_PATH"
+      - name: Verify archive refusal boundaries
+        run: python3 -m unittest discover -s scripts/storage -p 'test_*.py'
+      - name: Install disposable reference database transport
+        run: sudo apt-get update && sudo apt-get install -y socat postgresql-client
+      - name: Verify read-only reference export and migration coverage
+        run: bash scripts/storage/test-reference-postgres.sh
+      - name: Verify source defaults and prepared target overlays
+        run: |
+          for app in external orchestrator processor; do
+            helm dependency build "helm/apps/$app"
+          done
+          python3 scripts/storage/check_charts.py
+      - name: Verify disposable S3 migration and actual Go/Node clients
+        run: python3 scripts/seaweedfs-smoke.py --application-clients --large-migration

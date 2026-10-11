@@ -1,8 +1,22 @@
 # ui
 
-This is a small Vite and React frontend used to verify routing to the public API from one place.
+Container builds copy `package-lock.json` and run `npm ci`, matching CI's dependency resolution. Local `node_modules`, generated output and environment files are excluded from the Docker context.
 
-Externally, the UI should present itself as Labiraus even though the repo keeps the app under `apps/ui/`.
+Before chart publication, CI runs `browser/image-smoke.py` against the published image with networking disabled, checking Nginx configuration and fetching the actual index and compiled JS/CSS over the container's own loopback. Browser/database acceptance remains a separate pre-build gate.
+
+Worldbuilder date reads and edits preserve the complete signed 64-bit tick range. The UI retains large dates as decimal strings and requires browser JSON reviver source-context support for numeric date responses; unsupported browsers show an update-required error. See the [date wire contract](../../docs/worldbuilder/API.md).
+
+Wiki links to unloaded records retain the displayed revision, timeline and exact submitted fictional-time filter. Unsaved filter edits do not change the scope of a record being inspected.
+
+Expand **Relationship graph** or **Chronology** in the wiki to explore the loaded published scope. Graph arrows follow typed subject/target relationships, including reverse/self edges; choose an entity to focus, and follow node/edge/source links into the same inspected scope. The diagram caps at 24 nodes/36 edges for readability; its table retains every loaded relationship in the chosen focus. Chronology orders events by exact signed start tick and stable ID, with half-open end dates and source/participant links. Both views show loaded/total coverage and search/time/revision/timeline scope. **Load more canon records** extends them; editor drafts, private stories and the independently loaded editor reference catalog do not enter these views. Calendar presentation remains a separate follow-up.
+
+The authenticated Worlds tab (`Worldbuilder.jsx`) provides world creation, membership, wiki/history, structured record staging, independent review/publication, pinned story sessions, turn persistence and outcome proposals. AI candidates remain explicit drafts or provisional turns. The API is disabled until its LAN gate, and the UI reports that condition. Existing Labiraus document tools below remain available.
+
+`WorldHistory.jsx` adds paginated published history, complete record diffs, compensating restore drafts and explicit original/current/proposed reconciliation for proposals and private story outcomes. The preview's revision and story version are preserved on save; conflicts require a choice and fresh independent review. Manual staged changes retain their original revision when canon is refreshed. `WorldRecordEditor.jsx` loads complete existing records, edits multi-field schemas and relationship declarations, preserves attributes and provides typed fact/rule inputs. Editor reference choices load all bounded reference pages at one revision independently of wiki filters. Load-more controls cover worlds, canon, proposals, sessions and turns; links resolve unloaded records through the scoped record API.
+
+This is the Vite/React frontend for Worldbuilder and retained Labiraus operator/document tools.
+
+Worldbuilder is the worldbuilding product within the existing Labiraus host and authentication shell. Keep infrastructure names and legacy route identifiers stable.
 
 ## What It Does
 
@@ -84,3 +98,25 @@ The generated `dist/` output is local build artifact only. It should not be comm
 ## Container Build
 
 The production image is built from `apps/ui/dockerfile`. It builds the Vite app with Node and serves the output with Nginx.
+
+`WorldAdministration.jsx` lists members and provides reasoned, version-checked owner actions for membership, transfer and archive/reopen. Names/default timelines/settings use the structured canonical record editor and independent publication review. Archived worlds retain readable canon and story history. Newly opened worlds use the published default timeline.
+
+Dependency versions and security checks are recorded in [Worldbuilder dependency validation](../../docs/worldbuilder/DEPENDENCIES.md). CI runs build/tests and rejects high/critical npm advisories before publishing.
+
+The rule editor supports scoped relationship cardinality, exclusive boolean predicates and life-bound exception predicates with fictional validity intervals. These remain proposed canon until reviewed and published.
+
+Wiki queries use the membership-scoped search API with pinned pagination. AI answers display selected/total evidence counts when only part of a large timeline was inspected.
+
+Generation details show the request correlation, reported model, duration and allocated allowance. The allowance is explicitly distinguished from a provider invoice.
+
+`WorldStorySetup.jsx` creates/reuses private immutable definitions at their canon pin, preserves IDs on uncertain retries, and retains generated premise scope. Sessions display provisional summary coverage and offered choices. Generated turns retain the inspected session version when saved.
+
+The Worlds reasoning panel lists private durable generations, queues up to four narrative parts, refreshes progress, cancels remaining work and inspects preserved partial results. Background generation must be enabled server-side. Retried queue submissions retain their UUID; inspected results retain their original canon/session versions before human save.
+
+The review queue explains independent human approval and offers proposal consistency checks at the inspected base revision. Advisory findings show severity, uncertainty, scoped evidence and deterministic-check metadata; partial evidence and an empty finding list never claim complete semantic consistency.
+
+Wiki connection browsing follows explicit forward/back references with pinned revision/timeline/fictional time and pagination. Browser acceptance uses pinned Playwright Chromium with the production UI build and disposable real canon API/PostgreSQL, driving independent editor/reviewer publication and private story resume. See [offline acceptance](../../docs/worldbuilder/OFFLINE-ACCEPTANCE.md); test identities exist only in Go test code, and browser requests are restricted to the fixture origin.
+
+The canonical settings editor supports reviewed fictional calendars with custom months, repeating leap cycles, weekdays and exact subday ticks. Wiki/graph/chronology dates use calendar metadata from their pinned canon response and show original ticks. Typed date facts use signed decimal strings. See [calendar contracts and examples](../../docs/worldbuilder/CALENDARS.md).
+
+The settings editor configures 1–5 independent human approvals through review. The queue displays each proposal’s required/current count, immutable decisions and invalidated membership authority, and disables publication below quorum. Three-identity browser acceptance proves a two-reviewer change cannot publish after only one vote. See [review policy](../../docs/worldbuilder/REVIEW-POLICY.md).
