@@ -1,10 +1,18 @@
 # Worldbuilder implementation status
 
+## Increment 19 — locked dependencies in published Node images
+
+UI and both processor Docker stages now copy the committed lockfile and use `npm ci`; processor runtime dependencies omit development packages. Docker contexts exclude local dependencies/output/environment files. Hosted release jobs now test the actual images before publishing their charts: processor checks the source lockfile hash, installed package versions/dependency health, compiled imports and exact-date support; UI starts Nginx and serves its index/compiled assets over its own loopback. Both runtime checks disable container networking.
+
+Workflow lint and smoke-script syntax checks pass. Complete local builds were attempted but the Docker worker's Node runtime rejects npm's certificate issuer (`UNABLE_TO_GET_ISSUER_CERT_LOCALLY`), independently reproduced with a direct registry fetch. Processor npm terminated with `Exit handler never called`; the UI retrying build was explicitly cancelled after diagnosing the same trust boundary. No TLS bypass or private workstation CA was added to production images. Hosted CI supplies the required complete-image validation; source/runtime publication evidence is pending observation.
+
 ## Increment 18 — scoped relationship graph and chronology
 
 `WorldViews.jsx` adds interactive directed relationship exploration and exact-tick event chronology to the wiki. Views consume only loaded published records at submitted revision/timeline/time/search scope, display partial coverage, and extend with existing pinned pagination. Entity focus and the complete loaded relationship table complement a bounded, labelled SVG diagram; mouse/keyboard links resolve through the same scoped canon navigation. Chronology uses signed BigInt ordering and ASCII ID ties, with explicit half-open endpoints and source/participant links. Staged edits, provisional stories and the editor catalog remain separate.
 
 LOCAL_VERIFIED (2026-10-11): production UI build and 50 component tests pass, followed by focused rechecks for legacy decimal-filter syntax. The real Chromium/Go/disposable PostgreSQL harness passes graph mouse/keyboard navigation, extreme dates, staged-candidate exclusion, historical revision reads, half-open end filtering (including a leading-zero query) and alternate-timeline isolation, plus existing publication/private-story and migration/restore checks (`/tmp/homelab-canon-views-browser-final.log`). A real browser failure on thin SVG paths led to larger hit areas and visible relationship labels; rerun passed without forced clicks. The fixture view screenshot was inspected. Publication evidence follows CI observation; calendar configuration and full-range life-bound fact semantics remain open.
+
+Source `e140275` is published on main. [UI CI/CD 38132984126](https://github.com/labiraus/homelab/actions/runs/38132984126) and [external CI/CD 38132984108](https://github.com/labiraus/homelab/actions/runs/38132984108) both passed all tests and image/chart publication. This closes the scoped graph/chronology item in the offline audit; calendar functionality remains separate.
 
 ## Increment 17 — exact signed fictional dates
 

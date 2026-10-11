@@ -81,6 +81,13 @@ jobs:
           registry: processor
           tag: uat
 
+      - name: Verify locked runtime image before chart publication
+        env:
+          PROCESSOR_IMAGE: ghcr.io/labiraus/homelab/processor:${{ steps.build.outputs.image_tag }}
+        run: |
+          expected_lock_sha=$(sha256sum apps/processor/package-lock.json | cut -d' ' -f1)
+          docker run --rm -i --network none --env EXPECTED_LOCK_SHA="$expected_lock_sha" --entrypoint node "$PROCESSOR_IMAGE" --input-type=module < apps/processor/test/image-smoke.mjs
+
       - name: Publish Helm chart to GHCR
         uses: ./.github/actions/helm/ghcr
         with:

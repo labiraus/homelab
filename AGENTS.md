@@ -69,6 +69,10 @@ If Codex makes an incorrect assumption about this repo, correct that assumption 
 
 Before adding a Dockerfile tool installer, check whether a configured devcontainer feature already installs it (the Terraform feature includes TFLint). Prefer that single source. For direct binary downloads, use pinned official release assets with architecture-specific checksum verification; avoid floating installer URLs piped into a shell. Validate changes with a complete feature-enabled Dev Containers build, since fixing one expired download can expose another.
 
+## Patch application
+
+For multi-file patches, read exact current headings/anchors first and omit placeholder or no-op updates; one stale anchor rejects the entire patch.
+
 ## CI script execution
 
 On Windows-backed workspaces, local executable permissions do not prove Git stores an executable file mode. For scripts invoked directly by CI, verify `git ls-files --stage` reports `100755`; use an explicit interpreter in CI as well.

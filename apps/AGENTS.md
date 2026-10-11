@@ -53,3 +53,4 @@ If a lesson applies only to one app, add a more specific `AGENTS.md` under that 
 - Interactive SVG links need comfortable hit areas and keyboard access. Verify actual browser clicks without forced actions; a clickable-looking thin path alone does not prove usable navigation.
 
 - Storage SDK replacements must preserve application interfaces, `MINIO_*` compatibility keys, private endpoint/credential scope and error propagation. Use signed HTTP boundary tests plus the disposable actual-client SeaweedFS gate; do not mask vulnerable transitive packages with incompatible module/API overrides or treat a client replacement as storage cutover.
+- Node application images must copy the committed lockfile and use `npm ci` (with `--omit=dev` for production dependencies). Exclude local `node_modules` and generated output from the context so a later `COPY` cannot overwrite the tested dependency tree. Validate complete images when changing their dependency installation.

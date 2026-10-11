@@ -101,6 +101,11 @@ jobs:
           registry: ui
           tag: uat
 
+      - name: Verify static image before chart publication
+        env:
+          UI_IMAGE: ghcr.io/labiraus/homelab/ui:${{ steps.build.outputs.image_tag }}
+        run: python3 apps/ui/browser/image-smoke.py "$UI_IMAGE"
+
       - name: Publish Helm chart to GHCR
         uses: ./.github/actions/helm/ghcr
         with:

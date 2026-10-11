@@ -4,9 +4,9 @@ LABEL org.opencontainers.image.source=https://github.com/labiraus/homelab
 
 WORKDIR /app
 
-COPY package.json ./
+COPY package.json package-lock.json ./
 
-RUN npm install
+RUN npm ci
 
 COPY . .
 
@@ -18,8 +18,8 @@ LABEL org.opencontainers.image.source=https://github.com/labiraus/homelab
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install --omit=dev
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 COPY --from=build /app/dist ./dist
 

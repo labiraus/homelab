@@ -2,6 +2,8 @@
 
 This runbook is for day-two document-platform and assistant operations.
 
+If a local Node image build reports `npm error Exit handler never called!`, verify registry TLS inside that Docker worker before blaming the lockfile. On this offline workstation, `node:24.13.0-bookworm-slim` could be pulled, but its direct fetch of `https://registry.npmjs.org/typescript` failed with `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`. Host/devcontainer npm success does not prove container trust. Use hosted CI's complete image/runtime checks while correcting workstation trust separately; retain `npm ci` and certificate verification. Do not add a private workstation CA or disable TLS verification in production Dockerfiles to bypass a local interception issue.
+
 For Worldbuilder dates outside JavaScript's safe integer range, inspect the raw HTTP JSON before ordinary `response.json()`/`JSON.parse()` converts numbers. The UI/processor preserve original date tokens and send large dates as decimal strings; external keeps exact numeric history. An “Exact fictional dates require … JSON source support” error means the browser needs updating, not that canon should be truncated or rewritten. See the [date wire contract](../docs/worldbuilder/API.md). Calendar formatting and life-bound fact types remain separate from this transport behavior.
 
 Postgres-backed state is authoritative. NATS, SSE, and MCP notifications are delivery paths; do not treat notification absence as proof that the durable state is missing.

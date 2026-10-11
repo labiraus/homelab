@@ -1,5 +1,9 @@
 # ui
 
+Container builds copy `package-lock.json` and run `npm ci`, matching CI's dependency resolution. Local `node_modules`, generated output and environment files are excluded from the Docker context.
+
+Before chart publication, CI runs `browser/image-smoke.py` against the published image with networking disabled, checking Nginx configuration and fetching the actual index and compiled JS/CSS over the container's own loopback. Browser/database acceptance remains a separate pre-build gate.
+
 Worldbuilder date reads and edits preserve the complete signed 64-bit tick range. The UI retains large dates as decimal strings and requires browser JSON reviver source-context support for numeric date responses; unsupported browsers show an update-required error. See the [date wire contract](../../docs/worldbuilder/API.md).
 
 Wiki links to unloaded records retain the displayed revision, timeline and exact submitted fictional-time filter. Unsaved filter edits do not change the scope of a record being inspected.
