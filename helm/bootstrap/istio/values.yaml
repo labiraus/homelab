@@ -5,7 +5,9 @@ meshConfig:
       envoyExtAuthzHttp:
         service: homelab-oauth2-proxy.homelab.svc.cluster.local
         port: "80"
-        pathPrefix: /oauth2/auth
+        # Envoy appends the original path. Put it in an ignored query so the
+        # check reaches the exact auth endpoint, never the UI reverse proxy.
+        pathPrefix: /oauth2/auth?
         includeRequestHeadersInCheck:
           - authorization
           - cookie
@@ -25,6 +27,7 @@ meshConfig:
         headersToDownstreamOnDeny:
           - content-type
           - set-cookie
+          - www-authenticate
   defaultConfig:
     gatewayTopology:
       forwardClientCertDetails: SANITIZE_SET

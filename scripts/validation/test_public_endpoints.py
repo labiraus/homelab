@@ -38,6 +38,15 @@ class PublicEndpointTests(unittest.TestCase):
         self.assertFalse(self.inspect("/api/auth/status", {"mode": "oidc", "valid": True})["ok"])
         self.assertFalse(self.inspect("/api/auth/status", {}, 403)["ok"])
 
+    def test_transport_must_refuse_data_even_when_discovery_is_public(self):
+        for path in smoke.TRANSPORT_PATHS:
+            for status in (401, 403):
+                self.assertTrue(self.inspect(path, {}, status)["ok"])
+            for status in (200, 202, 404, 500, 503):
+                self.assertFalse(self.inspect(path, {}, status)["ok"])
+            self.assertFalse(self.inspect(path, {}, 200, {"Content-Type": "text/event-stream"})["ok"])
+            self.assertTrue(self.inspect(path, {}, 302, {"Location": "/oauth2/start?state=private"})["ok"])
+
     def test_redirect_does_not_leak_query_or_accept_other_origins(self):
         result = self.inspect("/api/auth/status", {}, 302, {"Location": "/oauth2/start?state=private"})
         self.assertTrue(result["ok"])

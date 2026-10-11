@@ -15,6 +15,7 @@ This file applies to everything under `apps/mcp/`.
 - Keep `/.well-known/mcp.json`, OAuth protected-resource metadata, app README, and Helm route values aligned whenever endpoints or advertised transports change.
 - Preserve CI stamping of `pkg/base.BuildVersion` with the immutable MCP image tag. Post-publication checks must observe that exact discovery version; a healthy older release or the default `local` version is not confirmation of the new deployment.
 - Preserve Origin validation and CORS preflight behavior together; browser compatibility should not weaken DNS-rebinding protection.
+- Public discovery is not proof of authentication. Require a Gateway CUSTOM login check on every Streamable HTTP and legacy transport, plus external's registered-user validation before serving those transports. Probe anonymous and forged identity headers against a real read operation; metadata and `/api/auth/status` alone missed an unauthenticated user-count read during LAN recovery. Never trust the gateway's mesh principal as evidence that its caller logged in.
 
 ## Worldbuilder delegation
 

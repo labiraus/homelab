@@ -15,6 +15,7 @@ import urllib.request
 
 BASE = "https://mcp.labiraus.com"
 LIMIT = 512 * 1024
+TRANSPORT_PATHS = ("/mcp", "/sse", "/messages", "/message")
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -27,7 +28,7 @@ def inspect_response(path, status, headers, body):
     result = {"path": path, "status": status, "ok": False}
     content_type = headers.get("Content-Type", "").split(";")[0].strip()
     result["content_type"] = content_type
-    if path == "/api/auth/status":
+    if path == "/api/auth/status" or path in TRANSPORT_PATHS:
         if status in (302, 303, 307):
             location = urllib.parse.urlsplit(headers.get("Location", ""))
             target = urllib.parse.urljoin(BASE + path, headers.get("Location", ""))
@@ -38,13 +39,13 @@ def inspect_response(path, status, headers, body):
                 and parsed.path.startswith("/o/oauth2/"))
             result["redirect_host"] = location.hostname
             result["redirect_path"] = location.path
-        elif status == 200 and content_type == "application/json":
+        elif path == "/api/auth/status" and status == 200 and content_type == "application/json":
             try:
                 data = json.loads(body)
                 result["ok"] = isinstance(data, dict) and data.get("valid") is False and data.get("mode") == "none"
             except (ValueError, TypeError):
                 pass
-        elif status == 401:
+        elif status == 401 or (path in TRANSPORT_PATHS and status == 403):
             result["ok"] = True
         if not result["ok"]:
             result["error"] = "unexpected_anonymous_auth_response"
@@ -136,6 +137,28 @@ def probe():
         except (OSError, urllib.error.URLError) as error:
             result = {"path": path, "ok": False, **error_details(error)}
         report["checks"].append(result)
+    # Probe real read transport requests without consuming or recording data.
+    # Metadata availability alone does not prove that data calls require login.
+    for path in TRANSPORT_PATHS:
+        for forged in (False, True):
+            headers = {"Accept": "application/json, text/event-stream", "Content-Type": "application/json"}
+            if forged:
+                headers.update({"X-Auth-Request-Email": "oliver@labiraus.com", "X-Forwarded-Email": "oliver@labiraus.com",
+                                "X-Forwarded-Client-Cert": 'URI=spiffe://homelab/users/oliver@labiraus.com'})
+            body = None if path == "/sse" else json.dumps({"jsonrpc": "2.0", "id": 1, "method": "resources/read",
+                "params": {"uri": "homelab://mcp/postgres/auth/users/count"}}).encode()
+            req = urllib.request.Request(BASE + path, data=body, headers=headers)
+            try:
+                try:
+                    response = opener.open(req, timeout=10)
+                except urllib.error.HTTPError as error:
+                    response = error
+                with response:
+                    result = inspect_response(path, response.status, response.headers, b"")
+            except (OSError, urllib.error.URLError) as error:
+                result = {"path": path, "ok": False, **error_details(error)}
+            result["identity_probe"] = "forged_headers" if forged else "anonymous"
+            report["checks"].append(result)
     report["ok"] = all(c["ok"] for c in report["checks"])
     return report
 

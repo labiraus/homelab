@@ -1,5 +1,9 @@
 # Public endpoint validation — October 2026
 
+**LAN update, 2026-10-11:** after the operator's DNS correction, the hostname resolves to `31.50.185.136` and verified TLS/discovery/anonymous browser checks pass. The issued certificate covers the correct hostname through 2027-01-09, and MCP discovery reports `0.0.0-uat.38140702302`. The operator confirms Google browser login works. The earlier observations below are historical.
+
+A subsequent real MCP read exposed a separate auth gap: an anonymous request read the registered-user count. A temporary Gateway CUSTOM policy now refuses anonymous and forged-header requests on all four transport paths while preserving discovery. Permanent chart policy, registered-user middleware and the expanded public probe are prepared; CI, live publication and authenticated MCP acceptance are still required. No document writes or Worldbuilder activation were used to diagnose it.
+
 Read-only checks from the development container completed at approximately 19:54 UTC. **Public application functionality remains unverified: this network's Zscaler filter prevented a verified connection to the application.** No credentials were sent, application data changed, cluster commands executed, or feature flags activated.
 
 **Update at 20:10 UTC:** independent GitHub-hosted checks also reject the public endpoint's certificate for a hostname mismatch. MCP image/chart publication succeeded, but the expected deployed version could not be observed. This is now independently confirmed public TLS failure, not merely a local filter diagnosis. Flux reconciliation remains unknown.

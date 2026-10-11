@@ -29,6 +29,8 @@ Public legal pages used by Google Auth Platform:
 
 ## How The Flow Works
 
+MCP's public transport paths additionally require a Gateway CUSTOM authorization check. The provider uses `pathPrefix: /oauth2/auth?`: Envoy appends the original path, so the query delimiter keeps the actual request path exactly `/oauth2/auth`. Without it, `/oauth2/auth/mcp` enters the ordinary reverse proxy and redirects or reaches the UI instead of performing an auth-only check. A direct check against the installed proxy confirmed 401 for the exact auth endpoint and 302 for the old appended path. MCP also validates the authenticated identity against registered users through external. Discovery remains public; bearer/certificate clients need their own accepted edge-authentication configuration and live verification.
+
 1. The browser reaches `ui` or `external` through the shared host.
 2. The public Gateway sends `/`, `/api`, and `/oauth2/*` to `oauth2-proxy`.
 3. If no valid session cookie is present, `oauth2-proxy` redirects the browser to Google.

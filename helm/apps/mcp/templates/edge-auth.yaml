@@ -1,0 +1,21 @@
+{{- if .Values.ingress.enabled }}
+# The gateway's mesh identity alone does not authenticate its public caller.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ include "commonapi.fullname" . }}-edge-auth
+  namespace: ingress
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+  action: CUSTOM
+  provider:
+    name: oauth2-proxy
+  rules:
+    - to:
+        - operation:
+            notMethods: ["OPTIONS"]
+            paths: ["/mcp", "/mcp/*", "/sse", "/sse/*", "/message", "/message/*", "/messages", "/messages/*"]
+{{- end }}

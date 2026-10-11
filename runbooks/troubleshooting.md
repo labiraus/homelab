@@ -36,6 +36,12 @@ f=/etc/pve/priv/authorized_keys; test -e /root/authorized_keys.before-ca-2026101
 
 Verify fresh certificate authentication afterward; no workload restart is required. Never copy the CA private key or passphrase to a host.
 
+## MCP discovery works but transport authentication is missing
+
+The October LAN check read the registered-user count anonymously through `/mcp`: allowing the gateway's mesh identity had not authenticated its caller. A temporary `ingress/mcp-recovery-auth` CUSTOM policy now requires the existing oauth2-proxy provider for `/mcp`, `/sse`, `/message` and `/messages`. It preserves public discovery and preflight. The permanent MCP chart policy and app registered-user check must reconcile before removing the temporary policy. Use `scripts/validation/public-endpoints.py` to verify anonymous/forged-header refusal as well as TLS/discovery, and separately prove authenticated calls. A login redirect is refusal, not successful MCP data access.
+
+Envoy prefixes rather than replaces the auth-check path. `/oauth2/auth/mcp` reaches the proxy's ordinary login/upstream flow; `/oauth2/auth?/mcp` reaches its exact auth-only endpoint. Keep the provider's query delimiter and verify actual 401/202 responses rather than treating a redirect as authenticated-path acceptance.
+
 ## S3 startup fails despite a healthy storage host
 
 On 2026-10-11, `svartalfheim` resolved inside the new orchestrator to Wi-Fi `192.168.8.202`, but the workload's egress policy permits the verified wired address `192.168.8.177/32`. Both host listeners were healthy; the application timed out/reset on the disallowed address. Published application, CNPG and prepared Velero endpoints now use the wired address explicitly. Source MinIO stays on port 9000; SeaweedFS cutover remains a separate port-8333/credential migration. Keep endpoints and egress rules aligned rather than broadening access to the LAN.

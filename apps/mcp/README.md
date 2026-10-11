@@ -76,6 +76,10 @@ When the processor has chunk-level citation hints, such as HTML titles or headin
 
 ## Auth Surface
 
+Every `/mcp`, `/sse`, `/messages` and `/message` request requires edge authentication and a registered identity. The chart attaches an Istio CUSTOM policy to the public Gateway using the existing Google/oauth2-proxy provider. MCP then checks the normalized identity against external's `/api/auth/status`; unknown users, malformed responses and an unavailable identity authority are refused before transport/session handling. Discovery and CORS preflight remain public. The backend never forwards caller cookies or bearer credentials to the identity lookup.
+
+The October LAN recovery found the previous gateway-principal-only rule allowed an anonymous user-count read. A temporary `ingress/mcp-recovery-auth` policy contains that gap until the permanent chart policy and app checks are published and verified; remove only that temporary policy afterward. The public smoke test now checks real read requests and forged identity headers across both transports. Browser Google login is verified; native bearer and dedicated certificate flows still require separate end-to-end acceptance. A certificate file alone does not authenticate against the current shared HTTPS listener, which does not request client certificates.
+
 The current all-or-nothing access model is:
 
 - Google-backed bearer authentication for browser and bearer-token capable clients

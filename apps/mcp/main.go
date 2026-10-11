@@ -47,7 +47,7 @@ func main() {
 		return
 	}
 
-	done := api.Start(ctx, mux, 8080, api.NewAuthMiddleware(api.AuthOptions{}))
+	done := api.Start(ctx, mux, 8080, api.NewAuthMiddleware(api.AuthOptions{}), requireTransportIdentity)
 
 	close(base.Ready)
 	<-done

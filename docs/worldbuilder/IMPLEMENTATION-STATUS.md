@@ -12,7 +12,11 @@ After the user's DNS update, `mcp.labiraus.com` resolves to the observed WAN `31
 
 Further live findings: the new orchestrator resolves `svartalfheim` to Wi-Fi `.202`, outside its permitted wired `.177/32` egress. Application/backup endpoints and cutover overlays now explicitly use `.177`, preserving source/target ports and credentials; 20 storage renders and both Velero configurations pass. OpenSearch's automatic rollback from observed 3.9.0 to 3.7.0 is refused by upgraded node metadata. The chart dependencies are pinned to the already-observed 3.9.0 and its Flux upgrade strategy retries forward; Istiod also retries upgrades after transient worker loss. Installed API dry-runs accept both strategy configurations. Source publication and resulting runtime recovery are still pending.
 
-Exact read-only SQL counts show one registered user, 55 documents and seven assistant conversations. Production restore, actual independent-human identity acceptance, storage migration and staged Worldbuilder activation remain outstanding. See the [recovery runbook](../../runbooks/troubleshooting.md).
+Exact read-only SQL counts show one registered user, 55 documents and seven assistant conversations. The user confirms browser Google login. Live MCP read testing found an anonymous user-count read despite the gateway mesh-principal rule. A temporary `ingress/mcp-recovery-auth` CUSTOM policy now contains that gap. Source adds the permanent gateway policy and external-backed registered-user validation on all transports; nine public-probe tests, MCP Go tests and anonymous/forged-header live refusal checks pass. Native authenticated MCP acceptance remains outstanding.
+
+Istiod recovered through Flux after its live HelmRelease was aligned with the source retry strategy and the corrected auth-only check prefix `/oauth2/auth?`. The old prefix appended `/mcp` to the auth endpoint, entering the ordinary reverse proxy. Direct proxy checks confirmed the difference; the corrected live gateway now returns HTTP 401 for all four MCP paths, both anonymous and forged-header probes. Discovery stays available. Temporary containment must remain until permanent policy publication is verified. vLLM is Ready; its generation smoke test and OpenSearch/processor convergence remain pending.
+
+Production restore, actual independent-human identity acceptance, storage migration and staged Worldbuilder activation remain outstanding. See the [recovery runbook](../../runbooks/troubleshooting.md).
 
 ## Increment 32 — Persistent Prometheus history and snapshot recovery
 
