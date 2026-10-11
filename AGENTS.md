@@ -94,6 +94,8 @@ Use `scripts/worldbuilder/kind-fixture.py` for shared controller/backup lifecycl
 
 NodePort creation does not mean kube-proxy has installed its route: Docker can accept and close an initial connection. Retry bounded preflight connection closure before evaluating database readiness; persistent closure must still fail rather than switch to peer authentication.
 
+For disposable Velero file recovery, assert the actual PV is supported `local` storage rather than kind's default hostPath, require completed PodVolumeBackup/Restore evidence and remove the source data path before comparison. Exclude the source's generated namespace root-CA ConfigMap with the `velero.io/exclude-from-backup=true` **label**, not an annotation; keep fresh destination trust and fail unexplained restore warnings. Use `scripts/worldbuilder/s3-fixture.py` for owned external storage and the target's scoped identity actions.
+
 ## Storage chronology evidence
 
 Treat S3 version IDs as opaque. Retain mixed listing/pagination evidence for timestamp ties, and use `IsLatest` when it proves a unique position: a latest null version is not ambiguous merely because its timestamp ties another version. Refuse null ties only when multiple chronological positions remain possible; never infer order from the provider's placement of null last.

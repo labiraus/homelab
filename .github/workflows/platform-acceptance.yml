@@ -16,12 +16,14 @@ on:
       - 'scripts/worldbuilder/**'
       - 'scripts/storage/requirements.txt'
       - 'ansible/roles/seaweedfs/**'
+      - 'values/velero*.yaml'
       - '.github/workflows/platform-acceptance.yml'
   pull_request:
     paths:
       - 'scripts/worldbuilder/**'
       - 'scripts/storage/requirements.txt'
       - 'ansible/roles/seaweedfs/**'
+      - 'values/velero*.yaml'
       - 'helm/**'
       - '.github/workflows/platform-acceptance.yml'
 permissions:
@@ -141,6 +143,37 @@ jobs:
             ${{ runner.temp }}/backup-acceptance/operator.yaml
             ${{ runner.temp }}/backup-acceptance/cluster.yaml
             ${{ runner.temp }}/backup-acceptance/postgres-inputs.yaml
+          retention-days: 7
+  velero-restore:
+    needs: api-server
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4.1.1
+        with:
+          ref: ${{ inputs.commit_sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: azure/setup-helm@v4.2.0
+        with:
+          version: 'v4.3.0'
+      - name: Install and test recovery fixture dependencies
+        run: |
+          python3 -m pip install -r scripts/worldbuilder/requirements.txt -r scripts/storage/requirements.txt
+          python3 scripts/worldbuilder/test-docker-exec.py
+          python3 scripts/worldbuilder/test-velero-unit.py
+      - name: Verify Velero file and resource restore after source loss
+        run: python3 scripts/worldbuilder/test-velero.py "$RUNNER_TEMP/velero-acceptance"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: offline-velero-result
+          path: |
+            ${{ runner.temp }}/velero-acceptance/*.json
+            ${{ runner.temp }}/velero-acceptance/*.log
+            ${{ runner.temp }}/velero-acceptance/velero-values.yaml
+            ${{ runner.temp }}/velero-acceptance/velero.yaml
           retention-days: 7
   observability:
     needs: api-server

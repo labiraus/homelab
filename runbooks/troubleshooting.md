@@ -316,6 +316,12 @@ CNPG webhook errors may print `Cluster ... is invalid` without an `admission web
 
 A newly created NodePort can briefly accept and close a connection before kube-proxy installs its route. The local `psql` preflight retries this startup condition for a bounded interval; a persistent closed connection still fails, and does not select peer authentication. Hosted CI exposed this race after successful CNPG admission checks; test both recovery on a later connection and persistent-failure refusal.
 
+## Worldbuilder Velero recovery
+
+Use the [Velero fixture](../docs/worldbuilder/VELERO-ACCEPTANCE.md) for disposable file/resource restore, and inspect `velero-state.log`, controller/node-agent/restore logs and the final workflow result. A completed metadata backup is insufficient: require a completed PodVolumeBackup/Kopia snapshot, removed source storage, completed PodVolumeRestore and matching file/resource evidence. Failed, partial or warning-bearing results cannot pass.
+
+Default kind local-path PVCs may produce unsupported hostPath PVs. The fixture requests `volumeType: local` and verifies the actual PV and claim UID. It excludes generated `kube-root-ca.crt` with the `velero.io/exclude-from-backup=true` label so the mapped namespace keeps its own current trust. An annotation with that name does not exclude the resource and produces an existing-ConfigMap mismatch. Do not suppress arbitrary restore warnings or copy stale cluster trust to make the test pass. Shared SeaweedFS fixtures use only the target's scoped `cnpg` or `velero` identity actions.
+
 ## Worldbuilder metrics and dashboard provisioning
 
 For disposable controller failures, use [controller acceptance](../docs/worldbuilder/CONTROLLER-ACCEPTANCE.md) and retain `kind.log`, `pods.log`, `events.log` and the workflow conclusion. A kind bootstrap that appears to finish kubeadm early can be a Docker exec transport failure: this environment returned exit 0 before a delayed command actually exited 7. The fixture now inspects exec IDs to completion and verifies bounded output transfers. A failed/partial copy or timed-out exec must not become a passing gate. Creation and teardown both use generated kubeconfig; do not allow kind cleanup to edit the operator's home config.
