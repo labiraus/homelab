@@ -6,7 +6,7 @@ import tempfile
 import threading
 import unittest
 from unittest.mock import Mock, patch
-from urllib.parse import parse_qs, quote, urlsplit
+from urllib.parse import parse_qs, quote, quote_plus, urlsplit
 import xml.etree.ElementTree as ET
 
 import boto3
@@ -19,13 +19,14 @@ def record(version, latest=False, delete=False, key="folder/café + %2F", modifi
     return dict(key=key, sourceVersion=version, latest=latest, deleteMarker=delete, modified=modified)
 
 
-def wire(records, size, marker=("", ""), truncated=False, encoded=True):
+def wire(records, size, marker=("", ""), truncated=False, encoded=True, dialect="s3"):
     root = ET.Element("ListVersionsResult", xmlns="http://s3.amazonaws.com/doc/2006-03-01/")
 
     def add(parent, name, text):
         ET.SubElement(parent, name).text = str(text)
 
-    encode = (lambda value: quote(value, safe="")) if encoded else (lambda value: value)
+    encoder = quote_plus if dialect == "minio-v2" else quote
+    encode = (lambda value: encoder(value, safe="")) if encoded else (lambda value: value)
     for name, text in (("Name", "documents"), ("MaxKeys", size), ("KeyMarker", encode(marker[0])),
                        ("VersionIdMarker", marker[1]), ("IsTruncated", str(truncated).lower())):
         add(root, name, text)
@@ -37,7 +38,8 @@ def wire(records, size, marker=("", ""), truncated=False, encoded=True):
                            ("IsLatest", str(item["latest"]).lower()), ("LastModified", item["modified"])):
             add(child, name, text)
     if truncated:
-        add(root, "NextKeyMarker", encode(records[-1]["key"]))
+        suffix = "[minio_cache:v2,return:]" if dialect == "minio-v2" else ""
+        add(root, "NextKeyMarker", encode(records[-1]["key"] + suffix))
         add(root, "NextVersionIdMarker", records[-1]["sourceVersion"])
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
@@ -110,6 +112,38 @@ class VersionOrderTests(unittest.TestCase):
             next_body = wire(self.records[1:2], 1, marker, encoded=encoded)
             self.assertEqual(order.parse_page(next_body, "documents", 1, marker)[0], self.records[1:2])
 
+    def test_minio_encoding_and_cache_markers_require_explicit_dialect(self):
+        item = record("version+%2F", True)
+        body = wire([item], 1, truncated=True, dialect="minio-v2")
+        with self.assertRaises(ValueError):
+            order.parse_page(body, "documents", 1, ("", ""))
+        values, marker = order.parse_page(body, "documents", 1, ("", ""), "minio-v2")
+        self.assertEqual(values, [item])
+        self.assertEqual(marker, (item["key"] + "[minio_cache:v2,return:]", item["sourceVersion"]))
+        next_body = wire([record("older")], 1, marker, dialect="minio-v2")
+        self.assertEqual(order.parse_page(next_body, "documents", 1, marker, "minio-v2")[0], [record("older")])
+        # Unencoded literal plus signs and opaque version IDs must never change.
+        plain = wire([item], 1, encoded=False, dialect="minio-v2")
+        self.assertEqual(order.parse_page(plain, "documents", 1, ("", ""), "minio-v2")[0], [item])
+
+    def test_minio_marker_suffix_does_not_relax_boundary_validation(self):
+        item = record("opaque+version", True, key="space + percent% [bracket]")
+        body = wire([item], 1, truncated=True, dialect="minio-v2")
+        suffix = quote_plus("[minio_cache:v2,return:]", safe="").encode()
+        cached = quote_plus("[minio_cache:v2,id:32a30df1-9be0-4def-a23c-3eda417a5b02,p:0,s:1]", safe="").encode()
+        self.assertEqual(order.parse_page(body.replace(suffix, cached), "documents", 1, ("", ""), "minio-v2")[0], [item])
+        for replacement in ("[minio_cache:v3,return:]", "[minio_cache:v2,arbitrary:]",
+                            "[minio_cache:v2,id:invalid,p:0,s:0]", "[minio_cache:v2,return:]junk"):
+            bad = body.replace(suffix, quote_plus(replacement, safe="").encode())
+            with self.subTest(replacement=replacement), self.assertRaises(ValueError):
+                order.parse_page(bad, "documents", 1, ("", ""), "minio-v2")
+        for bad in (body.replace(b"<NextKeyMarker>", b"<NextKeyMarker>wrong"),
+                    body.replace(b"<NextVersionIdMarker>opaque+version", b"<NextVersionIdMarker>wrong")):
+            with self.assertRaises(ValueError):
+                order.parse_page(bad, "documents", 1, ("", ""), "minio-v2")
+        with self.assertRaises(ValueError):
+            order.parse_page(body, "documents", 1, ("", ""), "guessed-provider")
+
     def test_timestamp_offsets_normalize_before_comparing_scans(self):
         entry = record("x", True, modified="2026-10-11T01:00:00+01:00")
         values, _ = order.parse_page(wire([entry], 1), "documents", 1, ("", ""))
@@ -170,6 +204,14 @@ class VersionOrderTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "distinct pagination"):
             order.verify(self.directory, "documents", evidence)
 
+    def test_unknown_or_mixed_evidence_dialects_are_refused(self):
+        for dialects in (("s3", "guessed-provider"), ("s3", "minio-v2")):
+            evidence = self.evidence()
+            for scan, dialect in zip(evidence["scans"], dialects):
+                scan["dialect"] = dialect
+            with self.subTest(dialects=dialects), self.assertRaisesRegex(ValueError, "dialects"):
+                order.verify(self.directory, "documents", evidence)
+
     def test_archive_tie_reordering_refused_before_any_destination_request(self):
         # Delete markers need no bodies; both kinds share the same chronology checker.
         values = [dict(r, deleteMarker=True) for r in self.records]
@@ -202,17 +244,45 @@ class VersionOrderTests(unittest.TestCase):
         client.get_object.assert_not_called()
 
     def test_real_sdk_captures_raw_mixed_xml_and_exact_marker_requests(self):
+        self.real_sdk_listing("s3")
+
+    def test_real_sdk_minio_export_preserves_names_bytes_and_replayable_evidence(self):
+        self.real_sdk_listing("minio-v2", export=True)
+
+    def real_sdk_listing(self, dialect, export=False):
         records, requests = self.records, []
+        suffix = "[minio_cache:v2,return:]" if dialect == "minio-v2" else ""
 
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self):
                 query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+                if "versions" not in query:
+                    # Real SDK GET/tag requests prove key and version identity
+                    # survive encoded listings and cache-marker pagination.
+                    from urllib.parse import unquote
+                    key = unquote(urlsplit(self.path).path.removeprefix("/documents/"))
+                    version = query["versionId"][0]
+                    assert any(r["key"] == key and r["sourceVersion"] == version and not r["deleteMarker"]
+                               for r in records)
+                    if "tagging" in query:
+                        body = b'<Tagging xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><TagSet/></Tagging>'
+                        content_type = "application/xml"
+                    else:
+                        body = (key + "\n" + version).encode()
+                        content_type = "application/octet-stream"
+                    self.send_response(200)
+                    self.send_header("Content-Type", content_type)
+                    self.send_header("Content-Length", str(len(body)))
+                    self.send_header("x-amz-version-id", version)
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
                 requests.append(query)
                 size = int(query["max-keys"][0])
                 marker = query.get("key-marker", [""])[0], query.get("version-id-marker", [""])[0]
                 start = 0 if marker == ("", "") else next(i + 1 for i, r in enumerate(records)
-                         if (r["key"], r["sourceVersion"]) == marker)
-                body = wire(records[start:start+size], size, marker, start + size < len(records))
+                         if (r["key"] + suffix, r["sourceVersion"]) == marker)
+                body = wire(records[start:start+size], size, marker, start + size < len(records), dialect=dialect)
                 self.send_response(200)
                 self.send_header("Content-Type", "application/xml")
                 self.send_header("Content-Length", str(len(body)))
@@ -231,13 +301,23 @@ class VersionOrderTests(unittest.TestCase):
                                   config=Config(retries={"max_attempts": 0}, proxies={}, s3={"addressing_style": "path"}))
             scans = []
             for label, size in (("before", 2), ("after", 3)):
-                values, scan = order.capture(client, "documents", self.directory, label, size)
+                values, scan = order.capture(client, "documents", self.directory, label, size, dialect)
                 self.assertEqual(values, list(reversed(records)))
                 scans.append(scan)
             self.assertEqual(order.verify(self.directory, "documents", dict(format=order.FORMAT, scans=scans)), list(reversed(records)))
-            self.assertEqual(requests[1]["key-marker"], [records[1]["key"]])
+            self.assertEqual(requests[1]["key-marker"], [records[1]["key"] + suffix])
             self.assertEqual(requests[1]["version-id-marker"], [records[1]["sourceVersion"]])
             self.assertTrue(all(r["encoding-type"] == ["url"] for r in requests))
+            if export:
+                directory = self.directory / "export"
+                manifest = migration.export_archive(client, "documents", directory,
+                                                    page_sizes=(2, 3), listing_dialect=dialect)
+                self.assertEqual(migration.check_archive(directory), manifest)
+                self.assertTrue(all(s["dialect"] == dialect for s in manifest["orderEvidence"]["scans"]))
+                for item in manifest["entries"]:
+                    if not item["deleteMarker"]:
+                        self.assertEqual((directory / item["file"]).read_bytes(),
+                                         (item["key"] + "\n" + item["sourceVersion"]).encode())
         finally:
             server.shutdown()
             server.server_close()

@@ -5,7 +5,7 @@ import hashlib
 import os
 from pathlib import Path
 import re
-from urllib.parse import unquote
+from urllib.parse import unquote, unquote_plus
 import uuid
 import xml.etree.ElementTree as ET
 
@@ -13,6 +13,9 @@ FORMAT = "s3-list-object-versions-v1"
 MAX_PAGE_BYTES = 8 * 1024**2
 MAX_PAGES = 100000
 FIELDS = ("key", "sourceVersion", "deleteMarker", "latest", "modified")
+DIALECTS = ("s3", "minio-v2")
+MINIO_CACHE_SUFFIX = re.compile(
+    r"\[minio_cache:v2,(?:return:|id:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12},p:[0-9]+,s:[0-9]+)\]")
 
 
 def stamp(value):
@@ -25,7 +28,9 @@ def stamp(value):
         raise ValueError("Invalid listing timestamp") from error
 
 
-def parse_page(body, bucket, max_keys, marker):
+def parse_page(body, bucket, max_keys, marker, dialect="s3"):
+    if dialect not in DIALECTS:
+        raise ValueError("Unsupported listing dialect")
     if not isinstance(body, bytes) or len(body) > MAX_PAGE_BYTES:
         raise ValueError("Listing page exceeds evidence bound")
     # UTF-8 only, no DTD or entity declarations. Predefined XML escapes remain valid.
@@ -54,12 +59,13 @@ def parse_page(body, bucket, max_keys, marker):
         raise ValueError("Unsupported listing encoding")
 
     def key(value):
-        # Providers may ignore the encoding request. Decode only an explicit
-        # response EncodingType, and never use plus-as-space form decoding.
+        # MinIO's explicit dialect uses form encoding, including + for spaces.
+        # Keep the historical default for existing evidence and other providers.
         if encoding == "url":
             if re.search(r"%(?![0-9A-Fa-f]{2})", value):
                 raise ValueError("Invalid percent-encoded listing key")
-            return unquote(value, encoding="utf-8", errors="strict")
+            decode = unquote_plus if dialect == "minio-v2" else unquote
+            return decode(value, encoding="utf-8", errors="strict")
         return value
 
     if (value(root, "Name") != bucket or int(value(root, "MaxKeys")) != max_keys
@@ -89,7 +95,14 @@ def parse_page(body, bucket, max_keys, marker):
         raise ValueError("Listing exceeds requested page size")
     next_marker = key(value(root, "NextKeyMarker", "")), value(root, "NextVersionIdMarker", "")
     if truncated == "true":
-        if not records or next_marker != (records[-1]["key"], records[-1]["sourceVersion"]) or next_marker == marker:
+        boundary = False
+        if records:
+            last = records[-1]
+            boundary = next_marker == (last["key"], last["sourceVersion"])
+            if dialect == "minio-v2" and next_marker[0].startswith(last["key"]):
+                suffix = next_marker[0][len(last["key"]):]
+                boundary |= bool(MINIO_CACHE_SUFFIX.fullmatch(suffix)) and next_marker[1] == last["sourceVersion"]
+        if not boundary or next_marker == marker:
             raise ValueError("Truncated listing has an invalid continuation boundary")
     elif any(next_marker):
         raise ValueError("Final listing has unexpected continuation markers")
@@ -139,8 +152,9 @@ def chronological(records):
     return result
 
 
-def capture(client, bucket, directory, label, max_keys):
-    if type(max_keys) is not int or not 1 <= max_keys <= 1000 or label not in ("before", "after"):
+def capture(client, bucket, directory, label, max_keys, dialect="s3"):
+    if (type(max_keys) is not int or not 1 <= max_keys <= 1000
+            or label not in ("before", "after") or dialect not in DIALECTS):
         raise ValueError("Invalid listing evidence parameters")
     base = Path(directory) / "order" / label
     base.mkdir(parents=True, mode=0o700)
@@ -165,7 +179,7 @@ def capture(client, bucket, directory, label, max_keys):
             if len(captured) != 1:
                 raise ValueError("Expected exactly one raw listing response")
             body = captured[0]
-            current, next_marker = parse_page(body, bucket, max_keys, marker)
+            current, next_marker = parse_page(body, bucket, max_keys, marker, dialect)
             path = base / f"{len(pages):08d}.xml"
             with path.open("xb") as output:
                 output.write(body)
@@ -178,7 +192,7 @@ def capture(client, bucket, directory, label, max_keys):
             marker = next_marker
     finally:
         client.meta.events.unregister(event_name, unique_id=unique_id)
-    return chronological(records), dict(maxKeys=max_keys, pages=pages)
+    return chronological(records), dict(maxKeys=max_keys, pages=pages, dialect=dialect)
 
 
 def verify(directory, bucket, evidence):
@@ -186,6 +200,9 @@ def verify(directory, bucket, evidence):
             or not isinstance(evidence.get("scans"), list) or len(evidence["scans"]) != 2):
         raise ValueError("Missing/unsupported listing evidence")
     scans = []
+    dialects = [scan.get("dialect", "s3") for scan in evidence["scans"]]
+    if any(d not in DIALECTS for d in dialects) or len(set(dialects)) != 1:
+        raise ValueError("Listing evidence has unsupported or differing dialects")
     for label, scan in zip(("before", "after"), evidence["scans"]):
         max_keys, pages = scan["maxKeys"], scan["pages"]
         if type(max_keys) is not int or not 1 <= max_keys <= 1000 or not isinstance(pages, list) or not 1 <= len(pages) <= MAX_PAGES:
@@ -203,7 +220,7 @@ def verify(directory, bucket, evidence):
                 body = stream.read(MAX_PAGE_BYTES + 1)
             if len(body) > MAX_PAGE_BYTES or len(body) != page["size"] or hashlib.sha256(body).hexdigest() != page["sha256"]:
                 raise ValueError("Listing evidence checksum/size mismatch")
-            current, marker = parse_page(body, bucket, max_keys, marker)
+            current, marker = parse_page(body, bucket, max_keys, marker, scan.get("dialect", "s3"))
             records.extend(current)
         if marker is not None:
             raise ValueError("Listing evidence is missing final pages")

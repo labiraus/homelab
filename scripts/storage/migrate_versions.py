@@ -192,13 +192,13 @@ def write_json(path, value):
         os.fsync(output.fileno())
 
 
-def export_archive(client, bucket, directory, page_sizes=(1000, 127)):
+def export_archive(client, bucket, directory, page_sizes=(1000, 127), listing_dialect="s3"):
     directory = Path(directory)
     directory.mkdir(mode=0o700)  # Never merge/overwrite an existing export.
     (directory / "objects").mkdir(mode=0o700)
     if len(page_sizes) != 2 or page_sizes[0] == page_sizes[1]:
         raise ValueError("Export requires distinct listing page sizes")
-    records, before = version_order.capture(client, bucket, directory, "before", page_sizes[0])
+    records, before = version_order.capture(client, bucket, directory, "before", page_sizes[0], listing_dialect)
     original = json.loads(json.dumps(records))
     for number, record in enumerate(records):
         if record["deleteMarker"]:
@@ -223,7 +223,7 @@ def export_archive(client, bucket, directory, page_sizes=(1000, 127)):
                 raise ValueError("Truncated source body")
         finally:
             response["Body"].close()
-    final, after = version_order.capture(client, bucket, directory, "after", page_sizes[1])
+    final, after = version_order.capture(client, bucket, directory, "after", page_sizes[1], listing_dialect)
     if final != original:
         raise ValueError("Source changed during export; incomplete archive must not be imported")
     manifest = dict(schemaVersion=2, sourceEndpoint=endpoint(client.meta.endpoint_url),
@@ -412,10 +412,14 @@ def main():
     parser.add_argument("--bucket")
     parser.add_argument("--profile")
     parser.add_argument("--region", default="us-east-1")
+    parser.add_argument("--source-listing-dialect", choices=version_order.DIALECTS,
+                        help="Export only: select minio-v2 for verified MinIO form encoding/cache markers")
     parser.add_argument("--writers-quiesced", action="store_true")
     parser.add_argument("--prior-map", type=Path,
                         help="For recovery to a fresh store, compose the prior verified version map")
     args = parser.parse_args()
+    if args.source_listing_dialect and args.operation != "export":
+        parser.error("--source-listing-dialect applies only to export; checks use retained evidence")
     if args.prior_map and args.operation != "import":
         parser.error("--prior-map applies only to import")
     if args.operation == "check":
@@ -430,7 +434,7 @@ def main():
                                 config=Config(signature_version="s3v4", s3={"addressing_style": "path"},
                                               retries={"max_attempts": 0}, connect_timeout=5, read_timeout=120))
         if args.operation == "export":
-            export_archive(client, args.bucket, args.archive)
+            export_archive(client, args.bucket, args.archive, listing_dialect=args.source_listing_dialect or "s3")
         elif args.operation == "import":
             prior = json.loads(args.prior_map.read_text()) if args.prior_map else None
             import_archive(client, args.bucket, args.archive, prior)

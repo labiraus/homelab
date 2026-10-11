@@ -14,6 +14,8 @@ If an MCP document differs only at its boundaries, compare the original bytes, s
 
 For an isolated MCP candidate, a public `Host` override can choose Envoy's `PassthroughCluster` rather than the intended mesh Service. The observed `503 UC`/`connection_termination` occurred before authentication because that route attempted plaintext against STRICT mTLS. Use the actual candidate Service authority with the unchanged public OAuth audience, then validate the public authority through the deployed Gateway. Do not relax mTLS or native credential validation to repair diagnostic routing.
 
+If migration preflight reports `NoSuchVersion` for names containing spaces, or rejects a MinIO continuation marker, compare the raw listing with the requested key first. MinIO `RELEASE.2025-09-07T16-13-09Z` emits form-encoded spaces and v2 cache suffixes. The explicit `minio-v2` export dialect preserves those semantics and records them for offline verification. The initial default-parser preflight falsely reported 79 missing reads; the corrected read-only pass verified all 119 retained source versions and all 116 prior restored references. This is not evidence of source deletion and does not replace the final frozen migration procedure. See [version migration](../docs/StorageVersionMigration.md).
+
 ## SSH CA recovery (2026-10-11)
 
 The workstation SSH login certificate expired on 2026-07-20 and the old signing CA passphrase was unavailable. Recovery used a staged SSH trust rotation, with no VM recreation, kubeadm reset, or storage deletion. See the [rotation procedure](../docs/Setup.md#recovering-a-lost-ssh-ca-passphrase) and [local secret custody](../docs/Secrets.md).

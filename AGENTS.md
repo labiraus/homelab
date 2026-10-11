@@ -112,6 +112,8 @@ For disposable Velero file recovery, assert the actual PV is supported `local` s
 
 Treat S3 version IDs as opaque. Retain mixed listing/pagination evidence for timestamp ties, and use `IsLatest` when it proves a unique position: a latest null version is not ambiguous merely because its timestamp ties another version. Refuse null ties only when multiple chronological positions remain possible; never infer order from the provider's placement of null last.
 
+The observed MinIO source uses form-encoded listing keys and v2 cache suffixes in pagination markers. Use the explicit `minio-v2` source-listing dialect and retain it with both scans; do not globally reinterpret plus signs or strip provider markers before sending them back. Check apparent `NoSuchVersion` failures against the decoded key and actual SDK read before declaring source loss. SeaweedFS/default evidence keeps its existing interpretation.
+
 ## Disposable TSDB history
 
 A healthy scrape or replacement Pod does not prove historical recovery. Stop producers, wait for quiescent raw samples, pin the comparison time, verify PVC identity and the actual `prometheus-db` mount, and compare exact sample labels/timestamps/values after WAL replay and snapshot restore. Delete only owned fixture volumes, prove the old paths are gone and use a fresh PVC after a corrupt-data refusal. Keep the admin API confined to the disposable source and disabled in published storage settings.
