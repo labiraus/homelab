@@ -2,6 +2,8 @@
 
 ## Increment 21 — configurable independent human review
 
+Source `c8d92cd` passed [external CI/CD 38135200973](https://github.com/labiraus/homelab/actions/runs/38135200973), [UI CI/CD 38135200917](https://github.com/labiraus/homelab/actions/runs/38135200917), [orchestrator CI/CD 38135201063](https://github.com/labiraus/homelab/actions/runs/38135201063) and [evaluation adapters 38135200899](https://github.com/labiraus/homelab/actions/runs/38135200899). Tests, storage acceptance and all corresponding image/chart publications succeeded. This closes the offline review-policy item; schema installation, activation and deployed identity checks remain LAN-gated.
+
 Settings now configure 1–5 independent approvals (default one). Each immutable proposal stores the stricter base/proposed threshold, preventing policy reductions from bypassing review. Immutable decisions bind to membership authority identities, rotated on role change or recreated membership; old approvals cannot revive after re-grant. Publication counts distinct currently eligible non-author humans under the world lock and records its exact approval set permanently. Partial quorums, immutable retry semantics, terminal rejection and revoked-count display are covered in API/UI. The ledger caps review history at 100 entries per proposal.
 
 Explicit migration 007 preserves legacy proposal/history/audit checksums, backfills decisions without fabricating unknown timestamps and adds a 17th restored table. Dedicated grants exclude relay from the review ledger. External and generation-worker startup checks require schema 7; runtime flags remain disabled and production installation stays LAN-gated.
