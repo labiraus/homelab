@@ -68,7 +68,7 @@ generatedSecrets:
       NATS_CONSUMER:
         value: processor
       MINIO_ENDPOINT:
-        value: "svartalfheim:8333"
+        value: "svartalfheim:9000"
       MINIO_USE_SSL:
         value: "false"
       MINIO_BUCKET:
@@ -76,12 +76,12 @@ generatedSecrets:
       MINIO_ACCESS_KEY:
         fromSecretRef:
           namespace: homelab
-          name: documents-s3-credentials
+          name: documents-minio-credentials
           key: accessKey
       MINIO_SECRET_KEY:
         fromSecretRef:
           namespace: homelab
-          name: documents-s3-credentials
+          name: documents-minio-credentials
           key: secretKey
       OPENSEARCH_BASE_URL:
         value: "http://labiraus-rag-data.data.svc.cluster.local:9200"
@@ -199,7 +199,7 @@ security:
               cidr: 192.168.8.177/32
         ports:
           - protocol: TCP
-            port: 8333
+            port: 9000
       - to:
           - namespaceSelector:
               matchLabels:

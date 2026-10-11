@@ -293,3 +293,11 @@ Worldbuilder implementation and offline checks are tracked in [implementation st
 ## Worldbuilder disposable PostgreSQL host forwarding
 
 If the test container is healthy but the devcontainer cannot reach its published port, use `WORLDBUILDER_TEST_TRANSPORT=exec bash scripts/worldbuilder/test-postgres.sh`. The local loopback socat bridge uses only the harness's generated test container and cleans up on exit. See [Worldbuilder troubleshooting](../docs/worldbuilder/TROUBLESHOOTING.md). This does not require cluster access or a production database connection.
+
+## Storage publication and historical reverts during migration
+
+App CI publishes the matching Helm chart as well as the image. Keep source endpoint/Secret/egress defaults until the storage gates pass; prepare SeaweedFS settings in explicit cutover overlays. Publishing application code must not implicitly switch object stores. `scripts/storage/check_charts.py` verifies base/GHCR/ECR source and target combinations. A published chart is not evidence of Flux reconciliation or a successful migration.
+
+If an old audit marker cannot be reverted after copying objects, compare the exact bucket/key/version against the verified migration map. New S3 writes assign new IDs; a current-only copy cannot preserve historical reads. Configure both `S3_VERSION_MAP_KEY` and its immutable `S3_VERSION_MAP_VERSION` only after validating the map and restore. The resolver rejects endpoint/bucket mismatch, deleted versions and hash/size mismatch; do not work around those failures by reading the latest object. See [migration/recovery procedure](../docs/StorageVersionMigration.md).
+
+The disposable storage test needs `systemd-socket-activate` and `systemd-socket-proxyd`, plus the role-pinned `weed` binary. Minimal devcontainers may lack the systemd tools even when production hosts have them. CI uses an Ubuntu runner with these tools. SeaweedFS interprets environment variables as flags: an inherited `debug=release` caused startup failure on 2026-10-11. The harness now starts it with a minimal environment and prints the beginning as well as the end of failed startup logs.

@@ -26,6 +26,11 @@ permissions:
 concurrency: ci-processor-docker-pipeline
 
 jobs:
+  storage-acceptance:
+    uses: ./.github/workflows/storage-acceptance.yml
+    with:
+      commit_sha: ${{ github.event.inputs.commit_sha || github.sha }}
+
   test:
     name: "Processor Test"
     runs-on: ubuntu-latest
@@ -54,7 +59,7 @@ jobs:
         working-directory: apps/processor
 
   ghcr:
-    needs: test
+    needs: [test, storage-acceptance]
     name: "Processor Build to GHCR"
     runs-on: ubuntu-latest
     environment: uat

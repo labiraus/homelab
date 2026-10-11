@@ -6,11 +6,11 @@ configuration:
       default: true
       config:
         region: us-east-1
-        s3Url: http://svartalfheim:8333
+        s3Url: http://svartalfheim:9000
         s3ForcePathStyle: "true"
         insecureSkipTLSVerify: "false"
 credentials:
   useSecret: true
-  existingSecret: velero-s3-credentials
+  existingSecret: velero-minio-credentials
 deployNodeAgent: true
 snapshotsEnabled: false

@@ -6,7 +6,9 @@ export interface DocumentStorage {
 	readDocument(bucket: string, objectKey: string): Promise<Buffer>;
 }
 
-export function createDocumentStorage(config: ProcessorConfig): DocumentStorage {
+export function createDocumentStorage(config: Pick<ProcessorConfig,
+	"minioEndpoint" | "minioUseSSL" | "minioAccessKey" | "minioSecretKey" | "minioRegion" | "minioBucket"
+>): DocumentStorage {
 	const endpoint = parseMinioEndpoint(config.minioEndpoint, config.minioUseSSL);
 	const client = new Client({
 		endPoint: endpoint.endPoint,

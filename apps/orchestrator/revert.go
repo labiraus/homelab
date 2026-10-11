@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -134,6 +136,13 @@ func revertDocumentHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func readDocumentObjectVersion(ctx context.Context, bucket string, objectKey string, versionMarker string) ([]byte, error) {
+	mapped, found, err := historicalVersions.resolve(bucket, objectKey, versionMarker)
+	if err != nil {
+		return nil, err
+	}
+	if found {
+		versionMarker = mapped.DestinationVersion
+	}
 	object, err := minioutil.GetObjectFromBucket(ctx, bucket, objectKey, minio.GetObjectOptions{
 		VersionID: versionMarker,
 	})
@@ -142,5 +151,16 @@ func readDocumentObjectVersion(ctx context.Context, bucket string, objectKey str
 	}
 	defer object.Close()
 
-	return io.ReadAll(object)
+	var reader io.Reader = object
+	if found {
+		reader = io.LimitReader(object, mapped.Size+1)
+	}
+	body, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+	if found && (int64(len(body)) != mapped.Size || fmt.Sprintf("%x", sha256.Sum256(body)) != strings.ToLower(mapped.SHA256)) {
+		return nil, fmt.Errorf("migrated object checksum/size mismatch")
+	}
+	return body, nil
 }

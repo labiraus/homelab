@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Test the role's S3 configuration on disposable local data, never a supplied endpoint."""
 import importlib.util
+import argparse
 import json
 import os
 from pathlib import Path
 import shlex
+import shutil
 import subprocess
 import tempfile
 import time
@@ -31,6 +33,9 @@ def denied(operation, **kwargs):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--application-clients", action="store_true")
+    args = parser.parse_args()
     values = yaml.safe_load((ROLE / "defaults/main.yml").read_text())
     fake_env = {}
     for identity in values["seaweedfs_identities"]:
@@ -49,7 +54,7 @@ def main():
             aws_access_key_id="test-" + name, aws_secret_access_key="test-secret-" + name,
             config=Config(signature_version=UNSIGNED if unsigned else "s3v4",
                           s3={"addressing_style": "path"},
-                          retries={"max_attempts": 0}, connect_timeout=2, read_timeout=10),
+                          proxies={}, retries={"max_attempts": 0}, connect_timeout=2, read_timeout=10),
         )
 
     with tempfile.TemporaryDirectory(prefix="homelab-seaweedfs-") as temporary:
@@ -73,11 +78,17 @@ def main():
         command = next(line.removeprefix("ExecStart=") for line in unit.splitlines()
                        if line.startswith("ExecStart="))
         command = command.replace("/etc/seaweedfs/s3.json", str(base / "config/s3.json"))
+        binary = shutil.which("weed")
+        if not binary:
+            raise RuntimeError("Pinned SeaweedFS binary is required")
+        command = command.replace("/usr/local/bin/weed", shlex.quote(binary), 1)
         assert "BindsTo=test.mount" in unit and "AssertPathIsMountPoint=/srv/minio" in unit
         assert "-s3.ip.bind=127.0.0.1" in command
         proxy_unit = template_env.get_template("seaweedfs-s3-proxy.service.j2").render(values)
         proxy_command = next(line.removeprefix("ExecStart=") for line in proxy_unit.splitlines()
                              if line.startswith("ExecStart="))
+        proxy_binary = shutil.which("systemd-socket-proxyd") or "/lib/systemd/systemd-socket-proxyd"
+        proxy_command = proxy_command.replace("/lib/systemd/systemd-socket-proxyd", shlex.quote(proxy_binary), 1)
         socket_unit = template_env.get_template("seaweedfs-s3-proxy.socket.j2").render(values)
         assert "ListenStream=127.0.0.2:8333" in socket_unit
         log = (base / "server.log").open("w+")
@@ -85,7 +96,8 @@ def main():
 
         def start():
             process = subprocess.Popen(shlex.split(command), cwd=base / "config",
-                                       stdout=log, stderr=subprocess.STDOUT)
+                                       stdout=log, stderr=subprocess.STDOUT,
+                                       env={"PATH": os.environ["PATH"], "LANG": "C.UTF-8"})
             try:
                 for _ in range(60):
                     if process.poll() is not None:
@@ -103,7 +115,8 @@ def main():
 
         try:
             server = start()
-            proxy = subprocess.Popen(["systemd-socket-activate", "-l", "127.0.0.2:8333",
+            proxy_environment = ["-E", "LD_LIBRARY_PATH"] if os.environ.get("LD_LIBRARY_PATH") else []
+            proxy = subprocess.Popen(["systemd-socket-activate", *proxy_environment, "-l", "127.0.0.2:8333",
                                       *shlex.split(proxy_command)], stdout=log, stderr=subprocess.STDOUT)
             for attempt in range(10):
                 try:
@@ -168,11 +181,62 @@ def main():
                         raise
                     time.sleep(1)
             assert admin.get_bucket_versioning(Bucket="documents")["Status"] == "Enabled"
+            # Separate synthetic buckets exercise the archive/copy tool without
+            # touching the application's fixtures or accepting a remote endpoint.
+            spec = importlib.util.spec_from_file_location("migration", ROOT / "scripts/storage/migrate_versions.py")
+            migration = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(migration)
+            for bucket in ("migration-source", "migration-target"):
+                admin.create_bucket(Bucket=bucket)
+                admin.put_bucket_versioning(Bucket=bucket, VersioningConfiguration={"Status": "Enabled"})
+            request = dict(Bucket="migration-source", Key="folder/café.txt")
+            original = admin.put_object(**request, Body=b"original", ContentType="text/plain", Metadata={"proof": "kept"}, Tagging="kind=history")
+            time.sleep(1.05)
+            admin.put_object(**request, Body=b"replacement", ContentType="text/plain")
+            time.sleep(1.05)
+            admin.delete_object(**request)
+            admin.put_object(Bucket="migration-source", Key="empty.txt", Body=b"", ContentType="text/plain")
+            archive = base / "archive"
+            migration.export_archive(admin, "migration-source", archive)
+            migration.check_archive(archive)
+            mapping = migration.import_archive(admin, "migration-target", archive)
+            migration.verify_copy(admin, "migration-target", mapping)
+            mapped = next(r for r in mapping["entries"] if r["sourceVersion"] == original["VersionId"])
+            assert admin.get_object(Bucket="migration-target", Key=request["Key"], VersionId=mapped["destinationVersion"])["Body"].read() == b"original"
+            # The source remains byte-for-byte readable after copying.
+            assert admin.get_object(**request, VersionId=original["VersionId"])["Body"].read() == b"original"
+            try:
+                migration.import_archive(admin, "migration-target", archive)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("Nonempty destination accepted")
+            # Recovery after a destination write needs a fresh store and composed
+            # aliases, never an endpoint-only rollback into the populated source.
+            admin.put_object(Bucket="migration-target", Key="new-after-cutover.txt", Body=b"new work", ContentType="text/plain")
+            admin.create_bucket(Bucket="migration-recovery")
+            admin.put_bucket_versioning(Bucket="migration-recovery", VersioningConfiguration={"Status": "Enabled"})
+            recovery_archive = base / "recovery-archive"
+            migration.export_archive(admin, "migration-target", recovery_archive)
+            recovered = migration.import_archive(admin, "migration-recovery", recovery_archive, mapping)
+            migration.verify_copy(admin, "migration-recovery", recovered)
+            old = next(r for r in recovered["entries"] if original["VersionId"] in r.get("aliases", []))
+            assert admin.get_object(Bucket="migration-recovery", Key=request["Key"], VersionId=old["destinationVersion"])["Body"].read() == b"original"
+            assert admin.get_object(Bucket="migration-recovery", Key="new-after-cutover.txt")["Body"].read() == b"new work"
+            print("PASS: version archive/copy, hashes, metadata/tags, delete markers, empty content and source preservation", flush=True)
+            print("PASS: recovery to a fresh store preserves original aliases and post-cutover writes", flush=True)
+            if args.application_clients:
+                test_env = dict(os.environ, SEAWEEDFS_CLIENT_TEST="1")
+                subprocess.run(["go", "test", "-count=1", "-run", "^TestSeaweedFSClients$", "-v", "."],
+                               cwd=ROOT / "apps/orchestrator", env=test_env, check=True, timeout=300)
+                subprocess.run(["node", "--import", "tsx", "--test", "test/storage.integration.test.ts"],
+                               cwd=ROOT / "apps/processor", env=test_env, check=True, timeout=120)
             print("PASS: role templates, S3 socket proxy, idempotent bucket bootstrap, authentication, bucket isolation, metadata, "
                   "versions, copy, range reads, multipart upload, delete markers and restart persistence")
         except Exception:
             log.flush()
-            print((base / "server.log").read_text()[-8000:])
+            details = (base / "server.log").read_text()
+            print(details[:1500] + "\n...\n" + details[-6500:])
             raise
         finally:
             if proxy is not None and proxy.poll() is None:

@@ -43,8 +43,9 @@ sudo apt-get update && sudo apt-get install -y systemd
 ANSIBLE_ROLES_PATH="$PWD/ansible/roles" ansible-playbook \
   -i ansible/inventory/hosts.ini ansible/playbooks/seaweedfs-external-pi-host.yml --syntax-check
 python3 -m venv /tmp/seaweedfs-test-venv
-/tmp/seaweedfs-test-venv/bin/pip install boto3 PyYAML Jinja2
-/tmp/seaweedfs-test-venv/bin/python scripts/seaweedfs-smoke.py
+/tmp/seaweedfs-test-venv/bin/pip install -r scripts/storage/requirements.txt
+npm ci --prefix apps/processor
+/tmp/seaweedfs-test-venv/bin/python scripts/seaweedfs-smoke.py --application-clients
 ```
 
 The smoke test requires the `systemd` package's `systemd-socket-activate` and `systemd-socket-proxyd` utilities. It starts its own `weed` process and S3 socket proxy on loopback with temporary data and synthetic credentials, tests bucket isolation and version history, and removes the temporary data on completion. Run it in a disposable container with no published ports. It does not verify the Pi's systemd service lifecycle, NTFS or backup restore behavior.

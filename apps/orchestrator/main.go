@@ -52,6 +52,19 @@ func main() {
 			slog.ErrorContext(ctx, "minio bootstrap failed", "error", err)
 			return
 		}
+		endpoint := base.GetEnv("MINIO_ENDPOINT", "")
+		if !strings.Contains(endpoint, "://") {
+			scheme := "http://"
+			if strings.EqualFold(base.GetEnv("MINIO_USE_SSL", "false"), "true") {
+				scheme = "https://"
+			}
+			endpoint = scheme + endpoint
+		}
+		if err := loadVersionMap(ctx, endpoint, base.GetEnv("MINIO_BUCKET", "documents"),
+			base.GetEnv("S3_VERSION_MAP_KEY", ""), base.GetEnv("S3_VERSION_MAP_VERSION", "")); err != nil {
+			slog.ErrorContext(ctx, "historical S3 version map failed", "error", err)
+			return
+		}
 	} else {
 		slog.InfoContext(ctx, "minio config not provided; bucket scan endpoint will be unavailable")
 	}

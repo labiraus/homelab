@@ -10,7 +10,7 @@ The authoritative product target is [Worldbuilder architecture](../docs/worldbui
 - Processor owns bounded LangGraph reasoning through Envoy AI Gateway. Story state is provisional and pinned to a canon revision; outcomes require ordinary human review.
 - Orchestrator relays transactional outbox events to JetStream and projects immutable snapshots into a rebuildable OpenSearch index. PostgreSQL queries remain the initial wiki/search authority.
 - Existing document/assistant APIs and MinIO source objects remain compatible source tooling, never an alternate canon store.
-- Flux OCI delivery, authentication, observability, CNPG and Longhorn remain. SeaweedFS on external `svartalfheim` is the new storage target; see [migration plan](../docs/SeaweedFSMigration.md). Devcontainer and target Ansible/Helm configuration are prepared; live data migration, version-reference handling and backup restores remain required before cutover.
+- Flux OCI delivery, authentication, observability, CNPG and Longhorn remain. SeaweedFS on external `svartalfheim` is the new storage target; see [migration plan](../docs/SeaweedFSMigration.md). Devcontainer/Ansible and explicit Helm cutover overlays are prepared. Routine CI/CD publication retains source-storage defaults until cutover. Version archive/copy tooling, a pinned historical-revert resolver and disposable actual-client CI acceptance are implemented; production reference coverage, data migration and backup restores remain required.
 
 ## LAN validation and remaining priorities
 

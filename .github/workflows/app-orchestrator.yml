@@ -27,6 +27,11 @@ permissions:
 concurrency: ci-orchestrator-docker-pipeline
 
 jobs:
+  storage-acceptance:
+    uses: ./.github/workflows/storage-acceptance.yml
+    with:
+      commit_sha: ${{ github.event.inputs.commit_sha || github.sha }}
+
   test:
     name: "Orchestrator Test"
     runs-on: ubuntu-latest
@@ -57,7 +62,7 @@ jobs:
         working-directory: apps/orchestrator
 
   ghcr:
-    needs: test
+    needs: [test, storage-acceptance]
     name: "Orchestrator Build to GHCR"
     runs-on: ubuntu-latest
     environment: uat

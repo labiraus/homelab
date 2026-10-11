@@ -137,6 +137,8 @@ Optional fields:
 - `conversationId`
 - `proposalId`
 
+Historical object versions copied between S3 stores can be resolved through a verified map without rewriting inventory or audit history. Optional `S3_VERSION_MAP_KEY` and `S3_VERSION_MAP_VERSION` must both identify an immutable mapping-object version in `MINIO_BUCKET`. Startup validates the map's schema, endpoint, bucket and version identities; mapped revert reads verify SHA-256/size and reject delete markers. With both unset, existing native version reads are unchanged. New writes always use destination-native IDs. See [version migration and offline client acceptance](../../docs/StorageVersionMigration.md) for the archive/copy tool, limits and controlled activation.
+
 ## Reprocess Contract
 
 `POST /documents/reprocess` queues an existing inventory row for a newer processing version.

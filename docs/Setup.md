@@ -5,6 +5,7 @@ This guide is only for bringing up and maintaining the Kubernetes environment. R
 - node labels and worker capability classification: [NodeClassification.md](/workspaces/homelab/docs/NodeClassification.md)
 - dedicated Minecraft VM provisioning and in-guest management: [MinecraftVM.md](/workspaces/homelab/docs/MinecraftVM.md)
 - external MinIO and Samba host bootstrap on `svartalfheim`: [StorageBootstrap.md](/workspaces/homelab/docs/StorageBootstrap.md)
+- SeaweedFS cutover and offline version/client acceptance: [SeaweedFSMigration.md](SeaweedFSMigration.md) and [StorageVersionMigration.md](StorageVersionMigration.md)
 - generated local secrets and Ansible secret handling: [Secrets.md](/workspaces/homelab/docs/Secrets.md)
 
 ## Local

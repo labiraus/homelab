@@ -137,7 +137,7 @@ There is no separate query API, ingestion application, or standalone assistant s
 
 The devcontainer is the preferred local working environment.
 
-The storage target is now SeaweedFS. The devcontainer includes `weed` instead of MinIO `mc`; the new Ansible bootstrap and application/backup Helm defaults are prepared for private `svartalfheim:8333`. This source change does not migrate live objects or backups. Follow [SeaweedFS migration](docs/SeaweedFSMigration.md) before publishing the changed charts.
+The storage target is SeaweedFS. The devcontainer includes `weed` instead of MinIO `mc`; Ansible bootstrap and explicit application/backup cutover overlays are prepared for private `svartalfheim:8333`. Routine CI/CD publication retains source-storage defaults until migration and restore gates pass. [Version migration tooling](docs/StorageVersionMigration.md) and disposable Go/Node client acceptance preserve historical references without rewriting audits. Follow [SeaweedFS migration](docs/SeaweedFSMigration.md) before activating the target overlays.
 
 Secret handling is intentionally split into three local-only classes:
 
