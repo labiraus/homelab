@@ -66,9 +66,22 @@ def inspect_response(path, status, headers, body):
             version = server.get("version") if isinstance(server, dict) else None
             if isinstance(version, str) and len(version) <= 100:
                 result["mcp_version"] = version
-        else:
-            result["ok"] = data.get("resource") == BASE + "/mcp" and (
-                "https://accounts.google.com" in data.get("authorization_servers", []))
+        elif path == "/.well-known/oauth-protected-resource":
+            result["ok"] = (data.get("resource") == BASE + "/mcp"
+                            and data.get("authorization_servers") == [BASE]
+                            and "mcp" in data.get("scopes_supported", []))
+        elif path == "/.well-known/oauth-authorization-server":
+            endpoints = {"authorization_endpoint": "/api/mcp-oauth/authorize",
+                         "token_endpoint": "/mcp-oauth/token",
+                         "registration_endpoint": "/mcp-oauth/register",
+                         "revocation_endpoint": "/mcp-oauth/revoke"}
+            result["ok"] = (data.get("issuer") == BASE
+                            and all(data.get(key) == BASE + value for key, value in endpoints.items())
+                            and data.get("code_challenge_methods_supported") == ["S256"]
+                            and data.get("response_types_supported") == ["code"]
+                            and data.get("token_endpoint_auth_methods_supported") == ["none"]
+                            and "mcp" in data.get("scopes_supported", [])
+                            and set(data.get("grant_types_supported", [])) == {"authorization_code", "refresh_token"})
         if not result["ok"]:
             result["error"] = "unexpected_discovery_contract"
     except (ValueError, TypeError):
@@ -121,7 +134,8 @@ def probe():
         report["stage"] = stage
         return report
     opener = urllib.request.build_opener(NoRedirect, urllib.request.HTTPSHandler(context=context))
-    for path in ("/.well-known/mcp.json", "/.well-known/oauth-protected-resource", "/api/auth/status"):
+    for path in ("/.well-known/mcp.json", "/.well-known/oauth-protected-resource",
+                 "/.well-known/oauth-authorization-server", "/api/auth/status"):
         try:
             req = urllib.request.Request(BASE + path, headers={"Accept": "application/json", "User-Agent": "homelab-public-smoke/1.0"})
             try:

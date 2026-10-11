@@ -30,6 +30,7 @@ Directory-level `AGENTS.md` files currently exist for:
 - When evaluating the deployed project, prefer using the Labiraus MCP server together with other repo-native tools such as local `psql`, Helm/Flux inspection, and app logs so MCP-discovered behavior is checked against the rest of the deployed system.
 - Prefer small, targeted changes that fit the current structure of the repo.
 - Discover existing file paths with `rg --files` before targeted reads; do not infer app, chart or migration-document paths from naming conventions.
+- Read the discovery output before selecting paths: chart templates are not necessarily named after their resource kinds, and workflow filenames may differ from their display names.
 - When changing behavior, config, workflows, or layout, update the relevant human docs in the same task.
 - Do not commit real secrets, kubeconfig material, private keys, or local-only environment files.
 - Prefer repo-native workflows before inventing new ones.

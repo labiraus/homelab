@@ -28,10 +28,26 @@ class PublicEndpointTests(unittest.TestCase):
             self.assertFalse(self.inspect("/.well-known/mcp.json", "block page", status, {"Content-Type": "text/html"})["ok"])
 
     def test_oauth_resource_is_bound_to_our_host(self):
-        data = {"resource": smoke.BASE + "/mcp", "authorization_servers": ["https://accounts.google.com"]}
+        data = {"resource": smoke.BASE + "/mcp", "authorization_servers": [smoke.BASE], "scopes_supported": ["mcp"]}
         self.assertTrue(self.inspect("/.well-known/oauth-protected-resource", data)["ok"])
+        for servers in (["https://accounts.google.com"], [smoke.BASE, "https://unrelated.example"], []):
+            self.assertFalse(self.inspect("/.well-known/oauth-protected-resource", {**data, "authorization_servers": servers})["ok"])
         data["resource"] = "https://unrelated.example/mcp"
         self.assertFalse(self.inspect("/.well-known/oauth-protected-resource", data)["ok"])
+
+    def test_native_issuer_requires_pinned_endpoints_and_pkce(self):
+        data = {"issuer": smoke.BASE, "authorization_endpoint": smoke.BASE + "/api/mcp-oauth/authorize",
+                "token_endpoint": smoke.BASE + "/mcp-oauth/token", "registration_endpoint": smoke.BASE + "/mcp-oauth/register",
+                "revocation_endpoint": smoke.BASE + "/mcp-oauth/revoke", "code_challenge_methods_supported": ["S256"],
+                "response_types_supported": ["code"], "token_endpoint_auth_methods_supported": ["none"],
+                "scopes_supported": ["mcp"], "grant_types_supported": ["authorization_code", "refresh_token"]}
+        path = "/.well-known/oauth-authorization-server"
+        self.assertTrue(self.inspect(path, data)["ok"])
+        for key, value in (("issuer", "https://unrelated.example"), ("token_endpoint", "http://mcp.labiraus.com/mcp-oauth/token"),
+                           ("registration_endpoint", "https://unrelated.example/register"), ("code_challenge_methods_supported", ["plain"]),
+                           ("response_types_supported", ["token"]), ("grant_types_supported", ["authorization_code"]),
+                           ("scopes_supported", [])):
+            self.assertFalse(self.inspect(path, {**data, key: value})["ok"], key)
 
     def test_anonymous_identity_must_not_be_valid(self):
         self.assertTrue(self.inspect("/api/auth/status", {"mode": "none", "valid": False})["ok"])

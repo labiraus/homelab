@@ -38,6 +38,8 @@ Verify fresh certificate authentication afterward; no workload restart is requir
 
 ## MCP discovery works but transport authentication is missing
 
+After native OAuth activation, the public smoke check must require the exact Labiraus issuer and validate its authorization metadata, S256 PKCE and registration/token endpoints. A stale expectation of Google in `authorization_servers` caused `unexpected_discovery_contract` even though authenticated MCP worked. Google remains the browser sign-in provider behind consent. Keep anonymous and forged-header transport refusal checks alongside discovery; do not relax them to make CI pass.
+
 The October LAN check read the registered-user count anonymously through `/mcp`: allowing the gateway's mesh identity had not authenticated its caller. A temporary `ingress/mcp-recovery-auth` CUSTOM policy now requires the existing oauth2-proxy provider for `/mcp`, `/sse`, `/message` and `/messages`. It preserves public discovery and preflight. The permanent MCP chart policy and app registered-user check must reconcile before removing the temporary policy. Use `scripts/validation/public-endpoints.py` to verify anonymous/forged-header refusal as well as TLS/discovery, and separately prove authenticated calls. A login redirect is refusal, not successful MCP data access.
 
 Envoy prefixes rather than replaces the auth-check path. `/oauth2/auth/mcp` reaches the proxy's ordinary login/upstream flow; `/oauth2/auth?/mcp` reaches its exact auth-only endpoint. Keep the provider's query delimiter and verify actual 401/202 responses rather than treating a redirect as authenticated-path acceptance.
