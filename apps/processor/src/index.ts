@@ -97,7 +97,9 @@ async function main(): Promise<void> {
 						buildLifecycleEvent(DOCUMENT_EVENT_SUBJECTS.processorStarted, event),
 					);
 
-					const raw = await storage.readDocument(event.bucket, event.objectKey);
+					const raw = await storage.readDocument(event.bucket, event.objectKey, {
+						versionMarker: event.versionMarker, etag: event.etag,
+					});
 					const extracted = extractDocumentContent(raw, event.contentType);
 					await indexDocumentInOpenSearch(config, event, extracted.segments);
 					await markDocumentIndexed(pool, claim.documentPk, event);

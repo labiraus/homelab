@@ -63,6 +63,33 @@ test("empty objects remain successful empty buffers", async (t) => {
 	assert.deepEqual(await storage(endpoint).readDocument("documents", "empty"), Buffer.alloc(0));
 });
 
+test("queued versions and ETags stay bound to the signed read, including literal null", async (t) => {
+	for (const versionMarker of ["null", "opaque/+?version"]) {
+		const endpoint = await fixture(t, (request, response) => {
+			assert.equal(new URL(request.url!, "http://fixture").searchParams.get("versionId"), versionMarker);
+			assert.equal(request.headers["if-match"], '"expected-etag"');
+			response.end("pinned content");
+		});
+		assert.equal((await storage(endpoint).readDocument("documents", "history.txt", {
+			versionMarker, etag: "expected-etag",
+		})).toString(), "pinned content");
+	}
+});
+
+test("changed source content fails without retrying an unpinned read", async (t) => {
+	let requests = 0;
+	const endpoint = await fixture(t, (request, response) => {
+		requests++;
+		assert.equal(request.headers["if-match"], '"old-etag"');
+		response.writeHead(412, { "content-type": "application/xml" });
+		response.end("<Error><Code>PreconditionFailed</Code><Message>source changed</Message></Error>");
+	});
+	await assert.rejects(storage(endpoint).readDocument("documents", "history.txt", {
+		versionMarker: "null", etag: '"old-etag"',
+	}), { code: "PreconditionFailed" });
+	assert.equal(requests, 1);
+});
+
 test("missing objects and access denial preserve explicit S3 error codes", async (t) => {
 	for (const [status, code] of [[404, "NoSuchKey"], [403, "AccessDenied"]] as const) {
 		const endpoint = await fixture(t, (_request, response) => {

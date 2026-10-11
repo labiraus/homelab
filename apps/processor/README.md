@@ -58,3 +58,7 @@ Canon candidate guidance preserves declared `tick` date facts as exact signed in
 
 
 The default local chat model is Qwen2.5-3B-Instruct-AWQ through Envoy AI Gateway. Canon requests use a workflow-specific JSON schema and an explicit unknown response contract; independent validation still refuses unsupported citations, inconsistent grounding and forbidden operations. See [live gateway acceptance](../../docs/EnvoyAIGateway.md#live-model-acceptance--2026-10-11) for the measured scope and limits.
+
+Factual abstention is scoped to factual queries. Draft edits, advisory checks and provisional stories have separate instructions, with deterministic factual/draft sampling and limited creative sampling. Model input names scoped evidence IDs `citationId` separately from `record.id`. Generated puts carry only the record identity; the adapter derives the existing outer operation ID from it and rejects any explicitly conflicting IDs. Publication remains exclusively external's validated human workflow.
+
+Document workers pass the queued S3 version and ETag to storage. Reads use `VersionId` and `If-Match`, preserving opaque IDs and literal `null` while refusing changed content. They never retry a failed pinned read as a latest-object read. Legacy events without these fields retain their previous behavior; before storage cutover, reconcile current inventory and drain source work so destination jobs carry destination-native current IDs.

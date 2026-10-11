@@ -39,4 +39,63 @@ for (const fixture of cases) {
     console.error(JSON.stringify({case: fixture.name, passed: false, latencyMS: Date.now()-started, error: error.message}));
   }
 }
+const workflowEvidence = (worldId = 'live-workflow-synthetic', colour = 'blue') => ({
+  worldId, revision: 1, timeline: 'main', evidence: [{
+    id: `${worldId}:1:main:gate`, worldId, revision: 1, timeline: 'main',
+    record: {id: 'gate', kind: 'source', label: 'Gate description', description: `The city gate is ${colour}.`},
+  }],
+});
+for (const workflow of ['canon_proposal', 'consistency_check', 'story_turn', 'narrative_generate']) {
+  const base = workflowEvidence();
+  const question = workflow === 'canon_proposal'
+    ? 'Draft an edit to the existing gate source description so the city gate is green. Preserve its source kind and identity.'
+    : workflow === 'consistency_check'
+      ? 'Check the supplied gate description for contradictions.'
+      : 'Write a short provisional scene of a traveller approaching the city gate. Keep its canonical colour, cite the supplied evidence, and do not propose any record changes.';
+  const input = {...base, workflow, question};
+  if (workflow === 'story_turn') input.story = {version: 0, recentTurns: [], memory: {summary: '', throughVersion: 0, choices: []}};
+  const started = Date.now();
+  try {
+    const result = await runCanon(input);
+    assert.equal(result.unknown, false);
+    assert.deepEqual(result.citations, [base.evidence[0].id]);
+    assert.ok(result.answer.trim().length > 0);
+    if (workflow === 'canon_proposal') {
+      assert.equal(result.operations.length, 1);
+      const operation = result.operations[0];
+      assert.equal(operation.action, 'put');
+      assert.equal(operation.id, 'gate');
+      assert.equal(operation.record.id, 'gate');
+      assert.equal(operation.record.kind, 'source');
+      assert.equal(operation.record.label, 'Gate description');
+      assert.match(operation.record.description, /green/i);
+    } else assert.deepEqual(result.operations, []);
+    if (['story_turn', 'narrative_generate'].includes(workflow)) {
+      assert.match(result.answer, /blue|bluish/i);
+      assert.ok(result.answer.split(/\s+/).length >= 15, 'scene is too short for this fixture');
+    }
+    console.log(JSON.stringify({case: workflow, passed: true, latencyMS: Date.now()-started, model: result.model, usage: result.usage}));
+  } catch (error) {
+    failures++;
+    console.error(JSON.stringify({case: workflow, passed: false, error: error.message}));
+  }
+}
+try {
+  const started = Date.now();
+  const colours = ['blue', 'green'];
+  const results = await Promise.all(colours.map((colour, index) => runCanon({
+    ...workflowEvidence(`concurrent-synthetic-${index}`, colour), workflow: 'canon_query', question: 'What colour is the city gate?',
+  })));
+  for (let index = 0; index < results.length; index++) {
+    assert.equal(results[index].unknown, false);
+    assert.match(results[index].answer, new RegExp(colours[index], 'i'));
+    assert.deepEqual(results[index].citations, [`concurrent-synthetic-${index}:1:main:gate`]);
+    assert.deepEqual(results[index].operations, []);
+  }
+  assert.ok(Date.now()-started < 20000, 'concurrent smoke exceeded the request deadline');
+  console.log(JSON.stringify({case: 'two concurrent isolated worlds', passed: true, latencyMS: Date.now()-started}));
+} catch (error) {
+  failures++;
+  console.error(JSON.stringify({case: 'two concurrent isolated worlds', passed: false, error: error.message}));
+}
 assert.equal(failures, 0, `${failures} live semantic checks failed; keep AI activation gated`);

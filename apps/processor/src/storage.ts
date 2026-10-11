@@ -3,7 +3,7 @@ import { GetObjectCommand, S3Client, S3ServiceException } from "@aws-sdk/client-
 import type { ProcessorConfig } from "./config.js";
 
 export interface DocumentStorage {
-	readDocument(bucket: string, objectKey: string): Promise<Buffer>;
+	readDocument(bucket: string, objectKey: string, reference?: { versionMarker?: string; etag?: string }): Promise<Buffer>;
 }
 
 export function createDocumentStorage(config: Pick<ProcessorConfig,
@@ -23,10 +23,15 @@ export function createDocumentStorage(config: Pick<ProcessorConfig,
 	});
 
 	return {
-		async readDocument(bucket: string, objectKey: string): Promise<Buffer> {
+		async readDocument(bucket: string, objectKey: string, reference?: { versionMarker?: string; etag?: string }): Promise<Buffer> {
 			const resolvedBucket = bucket || config.minioBucket;
+			const version = reference?.versionMarker?.trim() || undefined;
+			const etag = reference?.etag?.trim();
 			try {
-				const response = await client.send(new GetObjectCommand({ Bucket: resolvedBucket, Key: objectKey }));
+				const response = await client.send(new GetObjectCommand({
+					Bucket: resolvedBucket, Key: objectKey, VersionId: version,
+					IfMatch: etag ? JSON.stringify(etag.replace(/^"|"$/g, "")) : undefined,
+				}));
 				if (!response.Body) throw new Error("S3 response did not include an object body");
 				return Buffer.from(await response.Body.transformToByteArray());
 			} catch (error) {

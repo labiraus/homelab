@@ -74,6 +74,13 @@ After deployment, reconcile current inventory through that normal workflow,
 verify derived processing, and take a fresh frozen reference export. This is
 not permission to rewrite immutable audit markers or claim cutover complete.
 
+Processor jobs now pass their queued version marker and ETag into S3 reads.
+Opaque and literal-null versions remain explicit, and a changed object fails
+its conditional read without falling back to the newest content. Legacy events
+without source pins retain their existing behavior. Drain source work before
+cutover, reconcile mutable inventory against destination-native current IDs,
+and verify derived processing before exporting final coverage evidence.
+
 ## Check against the verified migration map
 
 Finish the [archive/copy verification](StorageVersionMigration.md) first. The

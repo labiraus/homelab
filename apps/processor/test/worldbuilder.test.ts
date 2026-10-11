@@ -199,6 +199,22 @@ test("story and proposal workflows return candidates only", async () => {
     assert.equal(result.operations.length, 1);
   }
 });
+test("generated puts derive their target from the single record identity", async () => {
+  const result = await runCanon({ ...request, workflow: "canon_proposal" }, response({
+    operations: [{ action: "put", record: { id: "gate", kind: "source" } }],
+  }));
+  assert.deepEqual(result.operations, [{ action: "put", id: "gate", record: { id: "gate", kind: "source" } }]);
+});
+test("draft operations reject citation IDs substituted for record identity", async () => {
+  const input = { ...request, workflow: "canon_proposal" as const };
+  for (const operation of [
+    { action: "put", id: "scope:revision:record", record: { id: "record", kind: "source" } },
+    { action: "put", id: "record" },
+    { action: "delete", id: "record", record: { id: "record", kind: "source" } },
+  ]) {
+    await assert.rejects(runCanon(input, response({ operations: [operation] })), /invalid proposal operation/);
+  }
+});
 test("story summaries and choices stay provisional and bounded", async () => {
   const story = {
     version: 2,
