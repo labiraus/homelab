@@ -366,6 +366,10 @@ If relay logs report `nats: context and timeout can not both be set`, the client
 
 OpenSearch access is also overridden by `bootstrap/flux-data` HelmRelease values: include the orchestrator in both parent and child allowlists. After reconciliation, inspect the live ingress and egress policy. A Pod that failed the former one-shot startup remains unready until replaced; the current startup retries twelve checks before refusing readiness.
 
+## Worldbuilder AI allowance startup
+
+If external refuses startup with `invalid inference budget setting WORLDBUILDER_AI_DAILY_MICROS`, inspect the rendered environment value. Flux's JSON values transport rendered the approved `1000000` allowance as `1e+06`; the integer parser correctly rejected it. The chart now formats numeric allowances as explicit integers, and the manifest gate renders actual parent values through JSON into the child. Deploy the chart fix through normal app publication and verify the replacement Pod and exact limits before calling AI activation complete.
+
 ## Worldbuilder generation broker configuration
 
 An `incompatible generation stream` startup error now includes durability drift: inspect subjects, file storage, three replicas and seven-day limits retention. A consumer replica mismatch also stops startup. Do not delete or silently recreate existing streams/consumers to bypass the error; inspect and back up their pending work before controlled repair. The [disposable broker drill](../docs/worldbuilder/BROKER-RECOVERY.md) verifies leader loss, quorum loss and restart locally; installed topology and storage remain LAN checks.

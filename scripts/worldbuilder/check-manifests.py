@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Local render/build checks. Never invokes cluster discovery, apply or reconciliation."""
-import argparse, pathlib, subprocess, tempfile, sys
+import argparse, json, pathlib, subprocess, tempfile, sys
 import yaml
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--output',type=pathlib.Path,help='New directory for render artifacts')
@@ -100,6 +100,26 @@ if subprocess.run(ai,capture_output=True).returncode==0:failures.append('AI acti
 result=subprocess.run(ai+['--set','worldbuilder.aiBudget.requestMicros=100','--set','worldbuilder.aiBudget.dailyMicros=1000','--set','worldbuilder.aiBudget.currency=TST','--set','worldbuilder.aiBudget.gatewayRoute=offline-fixture'],capture_output=True,text=True)
 save_render(out/'external-ai-budget-enabled.yaml',result)
 if result.returncode:failures.append('AI explicit allowance template')
+# Flux passes parent values through JSON; large numbers can reach Helm as floats.
+# Exercise the composed child, since --set integer fixtures miss this boundary.
+for overlay in ['values', 'values-ghcr', 'values-ecr']:
+    parent=out/('bootstrap-flux-apps-'+overlay+'.template')
+    if not parent.exists(): continue
+    release=next(r for r in yaml.safe_load_all(parent.read_text()) if r and r.get('kind')=='HelmRelease' and r['metadata']['name']=='external')
+    values=release['spec'].get('values',{})
+    if not values.get('worldbuilder',{}).get('aiSecret'): continue
+    effective=out/('external-parent-'+overlay+'.json')
+    effective.write_text(json.dumps(values))
+    result=subprocess.run(['helm','template','homelab-external',str(root/'helm/apps/external'),'-f',str(effective),'--set','global.allowMissingGeneratedSecretRefs=true'],capture_output=True,text=True)
+    save_render(out/('external-composed-'+overlay+'.template'),result)
+    if result.returncode:
+        failures.append('external composed AI render: '+overlay)
+        continue
+    deployment=next(r for r in yaml.safe_load_all(result.stdout) if r and r.get('kind')=='Deployment')
+    env={item['name']:item.get('value') for item in deployment['spec']['template']['spec']['containers'][0]['env']}
+    for field,suffix in [('dailyRequests','DAILY_REQUESTS'),('concurrent','CONCURRENT'),('requestMicros','REQUEST_MICROS'),('dailyMicros','DAILY_MICROS')]:
+        if env.get('WORLDBUILDER_AI_'+suffix)!=str(values['worldbuilder']['aiBudget'][field]):
+            failures.append('external composed AI integer setting: '+overlay+' '+field)
 # Background workers require a separately scoped credential and exact mesh identity.
 allowance=['--set','worldbuilder.aiBudget.requestMicros=100','--set','worldbuilder.aiBudget.dailyMicros=1000','--set','worldbuilder.aiBudget.currency=TST','--set','worldbuilder.aiBudget.gatewayRoute=offline-fixture']
 for chart in ['external','orchestrator']:
