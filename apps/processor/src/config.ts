@@ -21,6 +21,7 @@ export interface ProcessorConfig {
 	openSearchModelId: string;
 	openSearchVectorDimensions: number;
 	openSearchChunkTokenLimit: number;
+	openSearchChunkCharLimit?: number;
 	openSearchChunkOverlapRate: number;
 	postgresConnectionString: string;
 }
@@ -62,6 +63,7 @@ export function loadConfig(): ProcessorConfig {
 		openSearchModelId: openSearchModelId || requireEnv("OPENSEARCH_RAG_MODEL_ID"),
 		openSearchVectorDimensions: Number(process.env.OPENSEARCH_VECTOR_DIMENSIONS ?? "1024"),
 		openSearchChunkTokenLimit: Number(process.env.OPENSEARCH_CHUNK_TOKEN_LIMIT ?? "384"),
+		openSearchChunkCharLimit: Number(process.env.OPENSEARCH_CHUNK_CHAR_LIMIT ?? "480"),
 		openSearchChunkOverlapRate: Number(process.env.OPENSEARCH_CHUNK_OVERLAP_RATE ?? "0.15"),
 		postgresConnectionString: buildPostgresConnectionString(),
 	};

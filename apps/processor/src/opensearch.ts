@@ -18,6 +18,17 @@ export async function ensureOpenSearchResources(config: ProcessorConfig): Promis
 	if (!config.openSearchModelId) {
 		throw new Error("OPENSEARCH_RAG_MODEL_ID or AI_EMBEDDING_MODEL is required");
 	}
+	const model = await fetch(
+		config.openSearchBaseUrl.replace(/\/+$/, "") + `/_plugins/_ml/models/${encodeURIComponent(config.openSearchModelId)}`,
+		{ headers: buildHeaders(config), signal: AbortSignal.timeout(10_000) },
+	);
+	if (!model.ok) {
+		throw new Error(`Configured OpenSearch embedding model is unavailable: HTTP ${model.status}`);
+	}
+	const modelState = await model.json() as { model_state?: string };
+	if (modelState.model_state !== "DEPLOYED") {
+		throw new Error("Configured OpenSearch embedding model must be deployed before document consumption");
+	}
 	await putOpenSearchJSON(config, `/${encodeURIComponent(config.openSearchIndex)}`, buildIndexPayload(config));
 	await putOpenSearchJSON(
 		config,
@@ -113,33 +124,58 @@ export function buildIndexPayload(config: ProcessorConfig): Record<string, unkno
 }
 
 export function buildIngestPipelinePayload(config: ProcessorConfig): Record<string, unknown> {
+	const charLimit = config.openSearchChunkCharLimit ?? 480;
+	if (!Number.isInteger(charLimit) || charLimit < 2 ||
+		!Number.isFinite(config.openSearchChunkOverlapRate) || config.openSearchChunkOverlapRate < 0 ||
+		config.openSearchChunkOverlapRate > 0.5) {
+		throw new Error("Chunk character limit must be an integer >= 2 and overlap must be between 0 and 0.5");
+	}
 	return {
 		description: "Chunk source text and generate chunk embeddings through the configured OpenSearch ML model.",
 		processors: [
+			{
+				script: {
+					lang: "painless",
+					params: { char_limit: charLimit, overlap_rate: config.openSearchChunkOverlapRate },
+					// Bound analyzer input and model tokens without splitting UTF-16
+					// surrogate pairs (the native fixed_char_length processor can).
+					source: `String text = ctx.body;
+int limit = params.char_limit;
+int overlap = (int)(limit * params.overlap_rate);
+def chunks = new ArrayList();
+int start = 0;
+while (start < text.length()) {
+  int end = (int)Math.min(start + limit, text.length());
+  int last = (int)text.charAt(end - 1);
+  if (end < text.length() && last >= 55296 && last <= 56319) { end--; }
+  chunks.add(text.substring(start, end));
+  if (end == text.length()) { break; }
+  int next = end - overlap;
+  int first = (int)text.charAt(next);
+  if (next > start && first >= 56320 && first <= 57343) { next--; }
+  start = next > start ? next : end;
+}
+ctx.bounded_chunks = chunks;`,
+				},
+			},
 			{
 				text_chunking: {
 					algorithm: {
 						fixed_token_length: {
 							token_limit: config.openSearchChunkTokenLimit,
 							overlap_rate: config.openSearchChunkOverlapRate,
+							max_chunk_limit: -1,
 						},
 					},
-					field_map: {
-						body: "passage_chunk",
-					},
+					field_map: { bounded_chunks: "passage_chunk" },
 				},
 			},
 			{
-				foreach: {
-					field: "passage_chunk",
-					processor: {
-						set: {
-							field: "_ingest._value",
-							value: {
-								text: "{{_ingest._value}}",
-							},
-						},
-					},
+				script: {
+					lang: "painless",
+					// Preserve raw strings: Mustache interpolation escapes quotes,
+					// backslashes and newlines before assigning the chunk text.
+					source: "ctx.remove('bounded_chunks'); def chunks = new ArrayList(); for (def text : ctx.passage_chunk) { chunks.add(['text': text]); } ctx.passage_chunk = chunks;",
 				},
 			},
 			{
@@ -150,12 +186,12 @@ export function buildIngestPipelinePayload(config: ProcessorConfig): Record<stri
 							model_id: config.openSearchModelId,
 							input_map: [
 								{
-									inputText: "_ingest._value.text",
+									input: "_ingest._value.text",
 								},
 							],
 							output_map: [
 								{
-									embedding: "_ingest._value.embedding",
+									"_ingest._value.embedding": "data[0].embedding",
 								},
 							],
 						},
@@ -181,12 +217,12 @@ export function buildSearchPipelinePayload(config: ProcessorConfig): Record<stri
 					model_id: config.openSearchModelId,
 					input_map: [
 						{
-							inputText: "query.ext.ml_inference.params.query_text",
+							input: "ext.ml_inference.params.query_text",
 						},
 					],
 					output_map: [
 						{
-							embedding: "query.ext.ml_inference.params.query_embedding",
+							"ext.ml_inference.params.query_embedding": "data[0].embedding",
 						},
 					],
 				},

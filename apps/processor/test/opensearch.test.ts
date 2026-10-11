@@ -32,6 +32,21 @@ test("builds ingest and search pipelines using OpenSearch-native chunking and in
 	assert.match(searchText, /ml_inference/);
 	assert.match(searchText, /query_text/);
 	assert.match(searchText, /query_embedding/);
+	const inference = (ingest.processors as any[]).find((step) => step.foreach).foreach.processor.ml_inference;
+	assert.deepEqual(inference.input_map, [{ input: "_ingest._value.text" }]);
+	assert.deepEqual(inference.output_map, [{ "_ingest._value.embedding": "data[0].embedding" }]);
+	const queryInference = (search.request_processors as any[])[0].ml_inference;
+	assert.deepEqual(queryInference.input_map, [{ input: "ext.ml_inference.params.query_text" }]);
+	assert.deepEqual(queryInference.output_map, [{ "ext.ml_inference.params.query_embedding": "data[0].embedding" }]);
+});
+
+test("refuses chunk settings that cannot make bounded Unicode-safe progress", () => {
+	for (const charLimit of [0, 1, 3.5, NaN]) {
+		assert.throws(() => buildIngestPipelinePayload({ ...testConfig(), openSearchChunkCharLimit: charLimit }), /character limit/);
+	}
+	for (const overlap of [-0.1, 0.51, 1, NaN]) {
+		assert.throws(() => buildIngestPipelinePayload({ ...testConfig(), openSearchChunkOverlapRate: overlap }), /overlap/);
+	}
 });
 
 test("builds an OpenSearch document from extracted segments", () => {
@@ -61,6 +76,9 @@ test("ensureOpenSearchResources tolerates an existing index", async () => {
 	globalThis.fetch = (async (input: string | URL | Request) => {
 		calls.push(String(input));
 		if (calls.length === 1) {
+			return new Response(JSON.stringify({ model_state: "DEPLOYED" }), { status: 200 });
+		}
+		if (calls.length === 2) {
 			return new Response(
 				JSON.stringify({
 					error: {
@@ -78,8 +96,26 @@ test("ensureOpenSearchResources tolerates an existing index", async () => {
 		globalThis.fetch = originalFetch;
 	}
 
-	assert.equal(calls.length, 3);
-	assert.match(calls[0], /rag-documents$/);
+	assert.equal(calls.length, 4);
+	assert.match(calls[0], /_plugins\/_ml\/models\/model-123$/);
+	assert.match(calls[1], /rag-documents$/);
+});
+
+test("an absent or undeployed model prevents pipeline creation and worker readiness", async () => {
+	const originalFetch = globalThis.fetch;
+	try {
+		for (const [status, state] of [[404, undefined], [200, "REGISTERED"], [200, "DEPLOY_FAILED"], [200, undefined]] as const) {
+			let calls = 0;
+			globalThis.fetch = (async () => {
+				calls++;
+				return new Response(JSON.stringify({ model_state: state }), { status });
+			}) as typeof fetch;
+			await assert.rejects(ensureOpenSearchResources(testConfig()), /embedding model/);
+			assert.equal(calls, 1);
+		}
+	} finally {
+		globalThis.fetch = originalFetch;
+	}
 });
 
 function testConfig(): ProcessorConfig {

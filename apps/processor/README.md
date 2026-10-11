@@ -30,6 +30,10 @@ The worker publishes `documents.events.processor.started`, `documents.events.pro
 
 OpenSearch stores nested chunk text and vectors. `OPENSEARCH_RAG_MODEL_ID` should identify an OpenSearch ML Commons model whose connector routes inference through Envoy AI Gateway.
 
+Startup now requires that exact model to exist in `DEPLOYED` state before creating pipelines, starting document consumption or reporting readiness. A placeholder, unavailable or undeployed model keeps startup in its existing retry loop. This check establishes model registration/deployment only; the operator acceptance below must still prove actual inference and indexing.
+
+The connector contract is OpenAI-compatible embeddings: model input `input`, with output at `data[0].embedding`. Ingest output maps target the destination chunk field; search inference uses root `ext.ml_inference.params`, outside `query`. Text first receives an `OPENSEARCH_CHUNK_CHAR_LIMIT` cap (default 480), then optional further word splitting before the 512-token BGE model. OpenSearch's word tokenizer cannot bound WordPiece tokens, and analyzing an entire long document can exceed its 10,000-token limit. The first Painless stage preserves UTF-16 surrogate pairs; OpenSearch's native character splitter can cut an emoji in half. The later native word stage disables excess-text merging into a final oversized chunk. Raw chunk strings are wrapped with Painless instead of Mustache, which escaped quotes, backslashes and newlines in the live processor. The provider must refuse truncation. Follow [document search recovery](../../docs/DocumentSearchRecovery.md) for actual inference, text integrity and indexed retrieval acceptance.
+
 The current ingestion baseline is UTF-8 `text/*`, with HTML-aware extraction for `text/html`. OpenSearch-native chunking may initially carry less precise HTML heading metadata than the previous processor chunker until section metadata is mapped into the ingest pipeline.
 
 Future file-type expansion must still follow `docs/FileTypeExpansion.md`: document extraction rules, failure handling, citation policy, tests, and runtime dependencies before changing the worker container.

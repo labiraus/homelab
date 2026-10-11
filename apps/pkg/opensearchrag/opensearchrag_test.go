@@ -22,9 +22,9 @@ func TestBuildSearchBodyIncludesFiltersAndLexicalChunkQuery(t *testing.T) {
 	for _, expected := range []string{
 		`"query":"ancient tower"`,
 		`"operator":"and"`,
-		`"documentId.keyword":"doc-1"`,
-		`"objectKey.keyword":"campaign/"`,
-		`"metadata.tag.keyword":"runbook"`,
+		`"documentId":"doc-1"`,
+		`"objectKey":"campaign/"`,
+		`"metadata.tag":"runbook"`,
 		`"passage_chunk.text"`,
 	} {
 		if !strings.Contains(text, expected) {

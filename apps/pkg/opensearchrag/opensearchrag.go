@@ -162,10 +162,10 @@ func BuildSearchBody(request SearchRequest) map[string]any {
 		map[string]any{"term": map[string]any{"status": "processed"}},
 	}
 	if strings.TrimSpace(request.DocumentID) != "" {
-		filters = append(filters, map[string]any{"term": map[string]any{"documentId.keyword": request.DocumentID}})
+		filters = append(filters, map[string]any{"term": map[string]any{"documentId": request.DocumentID}})
 	}
 	if strings.TrimSpace(request.Prefix) != "" {
-		filters = append(filters, map[string]any{"prefix": map[string]any{"objectKey.keyword": request.Prefix}})
+		filters = append(filters, map[string]any{"prefix": map[string]any{"objectKey": request.Prefix}})
 	}
 	for key, value := range request.Metadata {
 		key = strings.TrimSpace(key)
@@ -173,9 +173,6 @@ func BuildSearchBody(request SearchRequest) map[string]any {
 			continue
 		}
 		field := "metadata." + key
-		if _, ok := value.(string); ok {
-			field += ".keyword"
-		}
 		filters = append(filters, map[string]any{"term": map[string]any{field: value}})
 	}
 

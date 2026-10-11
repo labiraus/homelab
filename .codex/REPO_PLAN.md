@@ -2,6 +2,18 @@
 
 The authoritative product target is [Worldbuilder architecture](../docs/worldbuilder/01-WORLDBUILDER-ARCHITECTURE.md). The [migration](../docs/worldbuilder/02-WORLDBUILDER-MIGRATION.md) defines M1–M8; [implementation status](../docs/worldbuilder/IMPLEMENTATION-STATUS.md) records actual source readiness, tests and gaps. The [prior document-platform plan](../docs/worldbuilder/archive/PRE-WORLDBUILDER-PLAN.md) is historical.
 
+## Active continuation — 2026-10-11, 22:17 UTC
+
+The actual conversation Labiraus MCP connection works; native OAuth public checks pass. The user explicitly confirmed commits/pushes to main and local AI limits of 100 requests/day, two concurrent requests and internal GBP £0.01/£1 attempt/day allocations. Preserve local environment/SSH files. Jobs/MCP Worldbuilder delegation remain off, and the broader goal is active.
+
+Embeddings is Ready on artifact `38177171222`, running on helheim with its verified persistent model cache. Full single-input OpenSearch acceptance passes with model `5ngJLaEBLxUdHhrBFbbd`: three synthetic documents (1/1/7 chunks), exact source text, five actual application filter cases, semantic pipeline execution and owned cleanup. Processor/source corrections and this model configuration are being prepared for publication. Gateway batch testing separately exposed Envoy's default 32 KiB buffer; source `b7175a8` adds a bounded 256 KiB ClientTrafficPolicy and an eight-item gate. Local 405-resource API acceptance passes; Helm CI `38179718740` is running. No broad source scan before deployed processor/MCP round-trip and gateway batch acceptance.
+
+AI staging `3cb2465` passed CI `38178229892` and reconciled through Flux apps. Processor has the dedicated shared token. External's replacement correctly refused the daily allowance rendered by Helm as `1e+06`; its previous healthy replica remains serving. Source `0b156ee` fixes integer formatting, with a reproduced regression and all 33 render combinations passing. External CI `38179184949` and Helm `38179184876` are running. Authoritative AI/story acceptance remains pending, although all eleven direct live chat workflow checks pass. See the current [recovery handoff](../docs/RecoveryHandoff-2026-10-11.md) for IDs, helpers, owned forwards and broader storage/monitoring gates.
+
+## Prior session handoff — 2026-10-11, 21:43 UTC
+
+The user requested notes before opening a new session. Resume from [the recovery handoff](../docs/RecoveryHandoff-2026-10-11.md): native CLI login and authenticated document bytes are verified, the old conversation MCP bridge still fails before initialize, private embeddings source 7206b91 is pushed with CI/deployment pending, and further processor/shared-search fixes remain uncommitted and need full live inference/retrieval acceptance. Owned temporary embedding bridges and container are stopped; the model cache is retained. The overall goal is incomplete. Do not stage local environment/known-host changes or treat historical activation/suspension checkpoints as current.
+
 ## Current direction
 
 - Existing monorepo apps and infra remain; no separate engine/infra or Cassandra implementation was found locally.

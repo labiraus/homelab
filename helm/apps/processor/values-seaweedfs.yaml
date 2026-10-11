@@ -36,11 +36,13 @@ generatedSecrets:
     OPENSEARCH_RAG_SEARCH_PIPELINE:
       value: rag-neural-search
     OPENSEARCH_RAG_MODEL_ID:
-      value: rag-embedding-model
+      value: 5ngJLaEBLxUdHhrBFbbd
     OPENSEARCH_VECTOR_DIMENSIONS:
       value: '1024'
     OPENSEARCH_CHUNK_TOKEN_LIMIT:
       value: '384'
+    OPENSEARCH_CHUNK_CHAR_LIMIT:
+      value: '480'
     OPENSEARCH_CHUNK_OVERLAP_RATE:
       value: '0.15'
     POSTGRES_HOST:

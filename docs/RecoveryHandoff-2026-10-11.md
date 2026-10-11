@@ -1,0 +1,128 @@
+# Recovery handoff — 2026-10-11
+
+The user requested a handoff to open a new session. The recovery goal is **not complete**. Resume from this note and the root/directory AGENTS instructions. The user already authorised work on and pushes to **main** at `https://github.com/labiraus/homelab`; do not ask again. No subagents are authorised. Midgard is intentionally offline/cordoned.
+
+## Continuation checkpoint — 22:17 UTC
+
+Embeddings is Ready on `38177171222`, now on helheim. The complete model cache was copied from the stopped owned fixture, verified on the actual PVC against SHA256 `69ed3f810d3b6d13f70dff9ca89966f39c0a0e877fb88211be7bcc070df2a2ce`, then atomically promoted. The same pinned runtime image was also copied between node caches; no image or deployment digest changed. Full single-input OpenSearch acceptance passes with model `5ngJLaEBLxUdHhrBFbbd`, connector `2ngJLaEBLxUdHhrBErZZ`: three synthetic documents, chunk counts 1/1/7, five real application filter cases, exact text preservation and semantic pipeline execution, followed by owned cleanup. Gateway three-item batches exposed Envoy's 32 KiB buffer limit; source `b7175a8` adds a bounded 256 KiB ClientTrafficPolicy and an eight-item endpoint gate. All 405 rendered resources pass the disposable API server; Helm CI `38179718740` is in progress. Do not broad-scan source until deployed processor/MCP round-trip and gateway batch checks pass.
+
+AI staging CI `38178229892` passed and Flux apps is on that artifact. Processor has the shared AI secret, but external's new replica correctly refused the daily allowance rendered as `1e+06`; the previous healthy replica still serves. Source `0b156ee` fixes integer formatting and adds a composed parent-to-child JSON regression (failure reproduced, then all 33 combinations pass). External CI `38179184949` and Helm CI `38179184876` are in progress; `/tmp/homelab-live-ai-acceptance.py` has not run. Its cleanup archives only its synthetic world and deletes its unready diagnostic Pod even if archive fails. Live model registration settings/IDs and inspected connector actions are retained under ignored `.local/lan-recovery-20261011/`. Local environment/known-host changes remain excluded. The broader goal is active.
+
+## Earlier continuation checkpoint — 21:57 UTC
+
+The new session's actual conversation MCP tools work. Source `98b857b` fixes the stale Google-issuer public check; hosted runs pass. Source `7206b91` passed all platform/app/Helm gates, and Flux infra now uses `38177171222`. The embeddings Pod on jotunheim has pulled its pinned image and is downloading ONNX data into its bound cache. Full gateway/inference/index acceptance is pending. Source `3cb2465` stages local synchronous AI; CI `38178229892` is in progress, with credentials provisioned through the dedicated `worldbuilder-ai` Secret and the user-confirmed internal allocation defaults recorded in the LAN runbook. The user explicitly reaffirmed commits/pushes to main. The broader goal remains active.
+
+The document-search changes remain uncommitted. Startup now refuses missing/undeployed models; twelve actual OpenSearch chunk-only cases preserve complete text, including >10,000 tokens and UTF-16 boundaries. Processor build/60 tests pass (separate storage test skipped), as do shared Go/external/MCP tests. The owned acceptance helper can use `--chunking-only`; it must still pass full `--model-id` inference/retrieval before source reconciliation. Active operator forwards are loopback 19200 (OpenSearch), 19201 (AI gateway), and 19202 (Prometheus). Private registration preparation is `/tmp/homelab-register-embedding.py` (not executed); authoritative AI acceptance preparation is `/tmp/homelab-live-ai-acceptance.py` (not executed). Current monitoring discovery confirms Prometheus has no PVC or mesh sidecar and has unreachable loopback controller/etcd/kube-proxy metrics plus intentionally offline midgard targets. No monitoring mutation or production model registration has occurred.
+
+## Original immediate next steps
+
+1. Retry the actual conversation MCP connection in the new session. Login is saved; do not ask for another consent unless refresh actually fails. The old conversation cached a startup/network failure, while the actual configured CLI and requests using its saved grant succeeded.
+2. Check the in-flight CI runs below and let Flux deploy the new CPU embedding chart from published OCI artifacts. No manual Helm deployment is needed. Verify the real gateway route and existing chat route before model registration.
+3. Complete the **uncommitted** document-ingestion/search corrections and execute the new owned synthetic operator acceptance against the actual registered model. Do not broad-scan source documents before this passes.
+4. Continue the broader activation, storage migration and recovery gates below; this note is a checkpoint, not a completion claim.
+
+## Committed / published source and CI
+
+Latest pushed main: **7206b91** — private CPU embedding chart, bootstrap activation, endpoint probe and native-login recovery notes. Prior **2931544** fixes the consent page's real Chromium Origin/referrer/CSP callback problems.
+
+At handoff the following runs are still in progress, with no observed failed jobs:
+
+- **38177171222**: Helm All CI/CD; API-server gate passed, controller/backup/observability/TSDB/Velero gates running or queued. This publishes `embeddings` and `flux-infra`.
+- **38177171238**: external (triggered by manifest validation changes).
+- **38177171237**: orchestrator (same).
+- **38177170992**: offline platform acceptance.
+- **38177170991**: evaluation adapters, passed.
+- **38177170990**: public endpoint validation, inspect its final result.
+
+Authenticated GitHub helper: `python3 /tmp/homelab-ci-status.py RUN_ID ...`. It prints pending/failed jobs only; inspect final workflow conclusion as needed. Anonymous GitHub API quota was exhausted. Keep credentials in memory and only on the fixed GitHub API host; do not print them or forward Authorization through redirects.
+
+Flux parent `flux-apps` is **resumed**, Ready on inspected archive **38174973229**, revision 92. MCP remains pinned to **38173624785**. `flux-infra` was still Ready on **38173417526**, revision 10, and there was no embeddings HelmRelease yet. Do not re-suspend parents based on historical notes.
+
+## MCP login — what is actually verified
+
+- Live external **38175617058** passes all eight CI jobs and contains the real-browser consent fix. Live MCP is **38173624785** with native auth enabled.
+- `codex mcp login homelab-mcp` used the user's actual configured server (`https://mcp.labiraus.com/mcp`) and completed successfully, saving normal credentials. Session 22336 exited zero.
+- On 21:30:50 UTC consent GET returned 200; first POST at 21:30:51 returned 303; repeated POST at 21:30:56 returned 403. The user saw `{"error":"invalid_request"}`, but login had already succeeded. Do not weaken CSRF or single-use validation.
+- Using the saved real grant, public HTTPS initialize/initialized, all **15 tools**, document inventory, resource-template listing and a real document resource read pass. Its **42 bytes match source S3 exactly**, SHA256 `d73773c2952d22f4b561ea6f8dd0411013004cbd8f6f68a5574b62941cec0740`.
+- `/tmp/homelab-native-client-read.py` reads only the matching server credential in memory. It is an acceptance helper, not a refresh-capable client; its access token will expire. Let the actual client rotate its stored refresh token. Do not print or copy credentials, cookies or callback codes into notes/chat.
+- The pre-existing conversation's `list_mcp_resources(server="homelab-mcp")` still failed instantly before initialize, including after the user's “try it again.” The tool catalog contained no Labiraus tools. This is **not counted as fixed** by manual protocol acceptance. A new session may reinitialize it.
+- Public DNS and local DNS both resolved **31.50.185.136**; there is no public AAAA record. Local public TLS/protocol requests succeeded.
+- Official app-server docs expose `config/mcpServer/reload`, `mcpServerStatus/list` and resource/tool calls. Local generated schema: `/tmp/homelab-app-server-schema`. However `codex app-server daemon version` found **no** `/home/vscode/.codex/app-server-control/app-server-control.sock`. No daemon was started/restarted, no reload RPC was sent, and no additional agent/inference session was launched.
+- OpenAI Docs skill was read/used. Relevant official page: <https://learn.chatgpt.com/docs/app-server>. Do not start another agent merely to test MCP.
+
+Existing auth boundaries remain intact: browser consent only from exact OAuth proxy identity with registered user, same-origin POST and independent secure CSRF cookie; gateway and MCP independently validate original credentials; opaque scoped tokens with PKCE/resource/client binding, single-use codes and refresh-family replay protection. Dedicated schema 1 runtime has no canon/auth registry writes. Worldbuilder MCP delegation remains separately **off**.
+
+## Embedding runtime — source prepared and real local acceptance passed
+
+New chart `helm/infra/embeddings`:
+
+- TEI image `ghcr.io/huggingface/text-embeddings-inference:cpu-1.9@sha256:2538ea1c9640d3763b15af668039d24172d063b42337b0c27796fc2be180c78d`.
+- Model `BAAI/bge-large-en-v1.5`, revision `d4aa6901d3a41ba39fb536a557fa166f842b0e09`, 1024 dimensions, 512-token model limit.
+- CPU only, no public ingress, UID/GID 1000, drop capabilities, 4 GiB request/limit, one CPU requested/two limited. Warm fixture used about 3.1 GiB.
+- 5 GiB Longhorn cache, single replica/Recreate, bounded one-hour cold startup. First fixture ONNX download took ~11 minutes.
+- ClusterIP 8080; only exact existing Envoy gateway Pod labels/namespace admitted. Internal model-specific AIGatewayRoute shares `vllm-ai-gateway`. Existing chat catchall untouched.
+- **`--auto-truncate false` is essential**: the initial runtime silently truncated oversized input. The fixed non-root fixture passes normalized dimensions, semantic separation (cosine .8163 vs .2630), concurrent stable outputs and oversized refusal.
+- `scripts/validation/embedding-endpoint.py` is committed and must also run against the deployed gateway. Local batch took .853s; two concurrent requests .591/.526s, including the fixture bridge overhead.
+
+Local chart evidence: `/tmp/homelab-embedding-final-render.log` (33 base/overlay combinations), `...-crds.log`, `...-api.log` (**378 accepted resources, 178 built-in/200 custom**) and `...-packaging.log` (overlay/provider parity). All pass. Packaging initially lacked yq in PATH; re-run with `/tmp/homelab-tools` passed.
+
+At handoff, both owned loopback bridge processes were stopped and the owned Docker container **`recovery-embedding-20261011` is stopped**. Keep its named volume **`recovery-embedding-cache-20261011`**, label `homelab.fixture=embedding-20261011`, if more local inference is needed; it contains downloaded public model artifacts. Start the same container to reuse it. `/tmp/homelab-embedding-exec.py` uses the repo's verified exec-ID transport and checks exact name/ownership. `/tmp/homelab-embedding-bridge.py` last listens on loopback **18093** and forwards to container **8080**; it is stopped. Do not rely on Docker attach exit 0. Published Docker loopback forwarding was unreliable.
+
+## Uncommitted document-search work — review and finish
+
+These changes are **not pushed or live**:
+
+- `apps/processor/src/opensearch.ts`: OpenAI input/output field corrections; character cap after native word chunking; Painless raw-string wrapping; corrected search inference paths.
+- `apps/processor/src/config.ts`: optional/default `openSearchChunkCharLimit=480`, env `OPENSEARCH_CHUNK_CHAR_LIMIT`.
+- `helm/apps/processor/values.yaml` and `values-seaweedfs.yaml`: explicit 480 char cap.
+- `apps/processor/README.md`: contract and observed failures.
+- `apps/pkg/opensearchrag/opensearchrag.go` and existing test: filters now address actual keyword fields without the nonexistent `.keyword` suffix.
+- New **`scripts/validation/document-search.py`**: operator acceptance with explicit endpoint/model, real app-generated pipeline/query payloads, uniquely owned synthetic index/pipelines, inference/long-text integrity/scoped lexical/semantic checks and ownership-checked cleanup. Compiles, **not yet run** against an actual model. Review before use; it may reveal more mapping/API incompatibilities.
+
+Verified discoveries:
+
+- Production OpenSearch **3.9**, zero ML models and zero `rag-documents` records. Ready processor/pipeline creation did not prove indexing. `rag-embedding-model` is still a placeholder.
+- Existing input map used `inputText`; output map was reversed. Intended OpenAI connector returns `data[0].embedding`; output-map key must be destination `_ingest._value.embedding`.
+- Old Mustache `{{_ingest._value}}` changed quotes, backslashes and newlines. Actual inline `_simulate` reproduced it. New raw Painless wrapper preserves the exact synthetic text: `/tmp/homelab-opensearch-chunk-audit.py` passes.
+- OpenSearch `fixed_token_length` supports only its standard word tokenizers, **not** `bert-uncased`/`mbert-uncased`; live requests explicitly refused them. A word count does not bound BGE WordPiece tokens. New 480-character second chunk stage is still awaiting full long-text inference acceptance.
+- Live mapping confirms `documentId` and `objectKey` are already **keyword** fields; metadata strings use the keyword dynamic template. Old `.keyword` filtered paths were wrong.
+- Search inference should read root `ext.ml_inference.params.query_text` and write root `ext.ml_inference.params.query_embedding`, not `query.ext...`.
+- Existing external/MCP normal document search is **lexical**, search pipeline disabled. Do not claim Worldbuilder vector discovery is implemented.
+
+Completed for these uncommitted changes: processor TypeScript build; **58 tests pass / one actual-storage test skipped** (59 discovered), `/tmp/homelab-document-ingest-unit.log`; Python compilation; actual inline text-preservation simulation. Shared Go tests and full operator acceptance **not run yet**. No production model registration/settings/index writes occurred in this session.
+
+Next OpenSearch steps after live gateway proof:
+
+1. Preserve current cluster settings, enable private connector access with an **exact** gateway embedding URL in both normal and private trusted endpoint regex lists. Observed `plugins.ml_commons.connector.private_ip_enabled=false`, private allowlist empty, normal allowlist contains upstream defaults. OpenSearch >=3.7 needs both private opt-in and exact private allowlist. Preserve existing entries; no wildcard bypass.
+2. Register a credential-free private HTTP connector to `http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1/embeddings`, model BGE above, then register/deploy ML model. Keep output IDs in reviewed config/docs, not a placeholder. Verify scalar `input` JSON substitution and actual output shape; do not assume the prepared pipeline works.
+3. Run actual prediction and `scripts/validation/document-search.py --base-url http://127.0.0.1:PORT --model-id ID` through an owned explicit port-forward to `data/svc/labiraus-rag-data:9200`. It uses synthetic resources only; it does not scan source data. Do not silently redirect offline tests to production.
+4. Complete docs/tests, publish the processor/model configuration and shared query fix; verify exact deployed artifacts. Only then reconcile source through the normal workflow, maintaining queued VersionId/If-Match pins and immutable audits.
+
+Useful official contracts: [ML ingest mapping](https://docs.opensearch.org/latest/ingest-pipelines/processors/ml-inference/), [OpenAI-compatible connector blueprint](https://github.com/opensearch-project/ml-commons/blob/main/docs/remote_inference_blueprints/standard_blueprints/openai_connector_embedding_standard_blueprint.md), [chunking](https://docs.opensearch.org/latest/ingest-pipelines/processors/text-chunking/), [semantic search template](https://docs.opensearch.org/latest/tutorials/vector-search/semantic-search/long-document/).
+
+## Broader goal still open
+
+- User confirms Google browser login and “Manage users.” Operator `oliver@labiraus.com` is a superuser. Schema 8, self-review/publish/audit and exact browser origin/mesh boundary pass live. Synthetic publication archived. Canon outbox drained through three-replica JetStream and exact OpenSearch projection verified.
+- AI gateway on helheim: RTX2070 8 GiB, vLLM 0.20.2, `Qwen/Qwen2.5-3B-Instruct-AWQ`, revision `3559b226e8ce77211e2c1bd7ddfb7686fec4d6dd`; live eleven-case workflow suite passed **twice**, including concurrent isolation. Do not unnecessarily restart its ephemeral model cache (~14 minute cold load). Processor **38174166216** is live with workflow grounding and version-pinned source reads. AI feature credentials, explicit operator allowance values and browser/job activation remain pending; no AI publication authority.
+- Production storage remains **MinIO `192.168.8.177:9000`**. SeaweedFS 4.48 target is private **8333** on svartalfheim, internals loopback. Target Secrets prepared locally, not production cutover. Never remove MinIO source/rollback data.
+- Source inventory: 116 versions / 115 keys / 575336 bytes, 114 literal-null and two opaque versions. SQL inventory 55 docs; nine current ETag/size mismatches require ordinary reconciliation after processing works. No rewriting immutable audit markers.
+- 33 CNPG backup/WAL objects (95461293 bytes) copied and checksummed on SeaweedFS. Source backup `20261011T190938` restores there with exact rows/roles/ACL/functions; populated host snapshot restores all hashes. Snapshot `.local/lan-recovery-20261011/seaweedfs-after-cnpg-copy.tar.gz`, SHA256 `b7cb4ddf1bdbace1db7d9155be16c79f6941e0185861ea822a70034bfb519530`. This is **not** recurring off-host backup or final cutover.
+- Pre-native-OAuth physical backup **20261011T203021** completed, resource `data/app-db-before-native-oauth-20261011`; newer backup/WAL not included in the old 33-object target copy. Final freeze, refreshed reference export, document version archive/copy/map, complete reference coverage, tail sync, cutover and new target-backed restores remain required.
+- Existing owned restore clones live in `recovery-app-db-20261011`: `app-db-restore`, `app-db-superuser-restore`, `app-db-seaweed-restore`. Do not expose restored OAuth grants without the documented revoke-after-restore reset.
+- No live Velero CRDs/controller yet; install through Flux and prove actual owned file/resource recovery and Longhorn coverage. Offline tested versions: chart 12.2.1, Velero 1.18.2, AWS plugin 1.14.4.
+- Prometheus/Grafana Ready, but live discovery/scraper identity, remaining default scrape failures, persistent TSDB and Worldbuilder monitoring activation are open. Metrics API (`kubectl top`) unavailable. kube-proxy exists; Cilium replacement is false. Midgard intentionally offline.
+- Timeline inheritance, Worldbuilder vector discovery and complete disposable source Cilium/Istio/gateway acceptance remain documented source gaps. No Cassandra removal authorised.
+
+## Local environment and safety reminders
+
+Never stage `.devcontainer/.env` or `.devcontainer/ssh/known_hosts`; both contain local-only recovery changes. Do not expose ignored `.local` credential files, Kubernetes Secrets, stored OAuth grants or private keys. Use local TLS psql via `.devcontainer/.env`/owned forward rather than database Pod exec.
+
+Go cache env used throughout:
+
+```sh
+export GOPATH=/tmp/homelab-lan-go GOMODCACHE=/tmp/homelab-lan-go-mod GOCACHE=/tmp/homelab-lan-go-build
+```
+
+Python with YAML/boto3: `/tmp/homelab-lan-checks/bin/python`. Tools: `/tmp/homelab-tools/yq`, `/tmp/homelab-tools/actionlint`. Playwright: `PLAYWRIGHT_BROWSERS_PATH=/tmp/homelab-playwright` and both extracted library paths `/tmp/homelab-browser-libs/root/usr/lib/x86_64-linux-gnu:/tmp/homelab-browser-libs/root/lib/x86_64-linux-gnu`. Owned database harness: `WORLDBUILDER_TEST_TRANSPORT=exec bash scripts/worldbuilder/test-postgres.sh`.
+
+Full platform helper assets: `/tmp/homelab-lan-browser-platform-verified/{platform-acceptance,assets,schemas}`. Validate generated renders with `KUBECONFIG=/dev/null`. Use fresh output dirs. Sandbox command processes have separate PID namespaces; stopping an owned process from a different command may require escalation, even though its loopback port is visible. Both temporary embedding bridges were positively stopped before this handoff.
