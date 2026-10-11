@@ -16,6 +16,8 @@ on:
     paths:
       - "apps/orchestrator/**"
       - "apps/pkg/**"
+      - "sql/worldbuilder/**"
+      - "scripts/worldbuilder/**"
       - ".github/actions/docker/**"
       - ".github/workflows/app-orchestrator.yml"
 
@@ -60,6 +62,9 @@ jobs:
       - name: unit test
         run: go test ./...
         working-directory: apps/orchestrator
+
+      - name: Canon migrations and generation startup compatibility
+        run: bash scripts/worldbuilder/test-postgres.sh
 
   ghcr:
     needs: [test, storage-acceptance]

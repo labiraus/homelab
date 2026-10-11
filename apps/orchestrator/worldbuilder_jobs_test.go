@@ -16,6 +16,39 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
+type generationStartupProbe struct {
+	nats.JetStreamContext
+	called bool
+	err    error
+}
+
+func (p *generationStartupProbe) StreamInfo(string, ...nats.JSOpt) (*nats.StreamInfo, error) {
+	p.called = true
+	return nil, p.err
+}
+
+func TestGenerationStartupAcceptsInstalledSchema(t *testing.T) {
+	dsn := os.Getenv("WORLDBUILDER_TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Skip("disposable PostgreSQL not configured")
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	t.Setenv("WORLDBUILDER_JOBS_ENABLED", "true")
+	t.Setenv("WORLDBUILDER_JOB_API_URL", "http://127.0.0.1:1")
+	t.Setenv("WORLDBUILDER_JOB_TOKEN", strings.Repeat("k", 32))
+	// Stop at broker discovery: this exercises the real startup/schema query
+	// without launching workers or touching a live endpoint.
+	probe := &generationStartupProbe{err: errors.New("offline broker probe")}
+	if err := startGenerationJobs(ctx, pool, probe); !errors.Is(err, probe.err) || !probe.called {
+		t.Fatalf("worker cannot start against the migrated schema: %v", err)
+	}
+}
+
 func TestGenerationOutboxRetainsUndeliveredOnBrokerFailure(t *testing.T) {
 	dsn := os.Getenv("WORLDBUILDER_TEST_DATABASE_URL")
 	if dsn == "" {
