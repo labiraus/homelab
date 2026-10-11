@@ -37,7 +37,14 @@ external:
       enabled: true
       databaseSecret: worldbuilder-external
       browserPrincipal: cluster.local/ns/homelab/sa/homelab-oauth2-proxy
-      aiSecret: ""
+      aiSecret: worldbuilder-ai
+      aiBudget:
+        dailyRequests: 100
+        concurrent: 2
+        requestMicros: 10000
+        dailyMicros: 1000000
+        currency: GBP
+        gatewayRoute: homelab/vllm-openai/Qwen2.5-3B-Instruct-AWQ
     ingress:
       enabled: false
     security:
@@ -99,6 +106,9 @@ orchestrator:
 processor:
   type: oci
   namespace: homelab
+  values:
+    worldbuilder:
+      aiSecret: worldbuilder-ai
   installDisableWait: true
   upgradeDisableWait: true
   dependsOn:
