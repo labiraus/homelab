@@ -49,7 +49,7 @@ Check that baseline before treating Postgres recovery as covered:
 ```bash
 kubectl -n data get cluster app-db -o yaml
 kubectl -n data get scheduledbackup
-kubectl -n data get backup
+kubectl -n data get backups.postgresql.cnpg.io
 ```
 
 The repo-native shortcut for this baseline is:
@@ -63,6 +63,14 @@ Do not count this baseline as healthy unless:
 - `status.conditions` on `app-db` shows `type=ContinuousArchiving`, `status=True`
 - at least one `ScheduledBackup` exists for `app-db`
 - the current WAL archive logs do not show repeated `SlowDownWrite` / `PutObject` failures against `svartalfheim`
+
+## Production restore rehearsal — 2026-10-11
+
+Source base backup `20261011T175142` completed on the existing MinIO store. An isolated CNPG cluster in `recovery-app-db-20261011` restored that backup to its first consistent point using PostgreSQL 16.13, a new Longhorn PVC and no backup writer configuration. Local psql verified promotion, the vector extension and the legacy application schemas. The source cluster remained available.
+
+A separate private custom-format dump taken with PostgreSQL 16.13 tools restored successfully into a second database on the isolated clone. Full-row hashes matched the physical restore for all 14 application tables: 55 documents, 90 chunks, 90 embeddings, 2,199 lifecycle events, seven conversations, 17 messages, seven tool calls and one user; other tables were empty. Private dumps, credentials and checksums remain local-only. The isolated clone is retained temporarily for migration rehearsal and must be removed afterward. This verifies the current source restore point, not the SeaweedFS destination or Worldbuilder migrations.
+
+When Velero CRDs are installed, unqualified `kubectl get backups` can select Velero rather than CNPG. Use the fully qualified resource above. A successful local psql connection can also close this environment's port-forward; start a fresh scoped tunnel for each subsequent client rather than interpreting a refused connection as database loss.
 
 ## Disposable physical restore acceptance
 

@@ -6,6 +6,8 @@ Use `make ansible-seaweedfs-host` (or `make bootstrap-svartalfheim-storage`) for
 
 Supply the ten `SEAWEED_*` credential inputs in local `ansible/.env`; see [bootstrap](../docs/StorageBootstrap.md). MinIO credential refresh is disabled for this path and defaults off in the generic wrapper. The external mount is required before volume-directory creation and by the systemd unit. Filer/master metadata lives on the native filesystem rather than the NTFS volume disk. The role preserves the existing source service, data and Samba configuration.
 
+If Samba is configured, bootstrap requires `/seaweedfs/` in the `storage` share's `veto files` before creating volume data. The Samba role preserves both `/minio-data/` and `/seaweedfs/` exclusions. For an existing host, update and validate the share configuration and reload it before running SeaweedFS; do not reapply the legacy storage role merely to change this exclusion.
+
 Follow [the migration plan](../docs/SeaweedFSMigration.md) before publishing the application/backup chart changes. A file copy is insufficient for document history: source version markers and backup chains need explicit migration and restore validation.
 
 ## Legacy MinIO reference and other services

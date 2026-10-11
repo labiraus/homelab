@@ -59,6 +59,9 @@ def main(output, stack_chart):
         default_stack = render('observability/prometheus', {}, 'default-stack-' + suffix, overlay, emit=False)
         assert not any(d['kind'] == 'ConfigMap' for d in default_stack)
         default_release = only(default_stack, 'HelmRelease')
+        # The OCI wrapper already occupies flux-system/prometheus.
+        assert default_release['metadata']['name'] == 'prometheus-stack'
+        assert default_release['spec']['releaseName'] == 'prometheus'
         assert default_release['spec']['chart']['spec']['version'] == '*'
         assert set(default_release['spec']['values']['grafana']) == {'grafana.ini'}
         assert 'prometheus' not in default_release['spec']['values']

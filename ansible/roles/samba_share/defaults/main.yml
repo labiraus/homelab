@@ -19,3 +19,4 @@ samba_share_force_user: "{{ samba_share_user }}"
 samba_share_force_group: "{{ samba_share_group }}"
 samba_share_veto_files:
   - /minio-data/
+  - /seaweedfs/

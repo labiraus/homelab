@@ -5,6 +5,7 @@ seaweedfs_checksums:
 seaweedfs_service_user: oliver
 seaweedfs_service_group: oliver
 seaweedfs_mount: /srv/minio
+seaweedfs_samba_share: storage
 seaweedfs_volume_dir: /srv/minio/seaweedfs/volumes
 # Keep LevelDB metadata on the host's native filesystem, not the NTFS share.
 seaweedfs_metadata_dir: /var/lib/seaweedfs

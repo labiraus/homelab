@@ -16,7 +16,11 @@ Exact read-only SQL counts show one registered user, 55 documents and seven assi
 
 Istiod recovered through Flux after its live HelmRelease was aligned with the source retry strategy and the corrected auth-only check prefix `/oauth2/auth?`. The old prefix appended `/mcp` to the auth endpoint, entering the ordinary reverse proxy. Direct proxy checks confirmed the difference; the corrected live gateway now returns HTTP 401 for all four MCP paths, both anonymous and forged-header probes. Discovery stays available. Temporary containment must remain until permanent policy publication is verified. vLLM is Ready; its generation smoke test and OpenSearch/processor convergence remain pending.
 
-Production restore, actual independent-human identity acceptance, storage migration and staged Worldbuilder activation remain outstanding. See the [recovery runbook](../../runbooks/troubleshooting.md).
+The vLLM gateway smoke test now passes a real generation request. Production physical restore from backup `20261011T175142` and a separate logical dump restore match exact rows across all 14 legacy application tables; see [recovery evidence](../RetentionAndRecovery.md#production-restore-rehearsal--2026-10-11). The clone is temporarily retained for migration rehearsal.
+
+The repaired Prometheus archive exposed a parent/child HelmRelease name collision. Its upstream child is now `prometheus-stack`, preserving upstream Helm release name `prometheus`. All 29 chart combinations, monitoring/storage checks and 363 rendered resources pass against the disposable API server with 75 original CRDs. Publication and runtime convergence remain required. SeaweedFS bootstrap now refuses an unprotected Samba volume subtree; the live share exclusion was validated and reloaded before starting bootstrap.
+
+The user requested a superuser class that can register users and approve its own proposals, with their account assigned to it. This explicitly changes the prior all-users independent-review rule; implementation, revocation/audit tests and staged activation are pending. Ordinary users retain independent review. Storage migration, identity isolation and staged Worldbuilder activation remain outstanding. See the [recovery runbook](../../runbooks/troubleshooting.md).
 
 ## Increment 32 — Persistent Prometheus history and snapshot recovery
 

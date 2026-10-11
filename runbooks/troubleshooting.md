@@ -50,6 +50,10 @@ On 2026-10-11, `svartalfheim` resolved inside the new orchestrator to Wi-Fi `192
 
 The October recovery exposed a failed 3.9.0 upgrade followed by an automatic rollback to 3.7.0. The ML node refused its already-upgraded metadata with `cannot downgrade a node`. Preserve the PVCs and retry forward to the observed newer version. The OpenSearch HelmRelease now uses Flux `RetryOnFailure` for upgrades, avoiding automatic binary downgrade. Istiod also retries failed upgrades so a temporary unavailable worker does not permanently stall gateway dependencies. Check the actual installed Flux CRD/controller supports the strategy before publication.
 
+## Prometheus wrapper conflicts with its own HelmRelease
+
+After repairing empty-overlay publication, the live API dry-run revealed a second issue: the Prometheus wrapper rendered `flux-system/prometheus`, the name already occupied by its owning HelmRelease. Applying it would combine the parent's `chartRef` with the child's `chart`, which the installed CRD rejects. The upstream child is now named `prometheus-stack`, while its Helm release name stays `prometheus` so service names and monitor selectors remain stable. Check both Flux objects after publication.
+
 ## Published Helm chart loses defaults with an empty overlay
 
 On 2026-10-11, Flux fetched Prometheus `0.0.0-uat.38152999164`, but install failed at `.Values.worldbuilderObservability.enabled`. `helm show values` on that exact OCI artifact returned no defaults, although source rendering passed. The publication action's old yq expression returned empty output for the zero-byte `values-ghcr.yaml`, then replaced `values.yaml` successfully.

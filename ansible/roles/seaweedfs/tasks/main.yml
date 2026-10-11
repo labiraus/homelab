@@ -26,6 +26,26 @@
   changed_when: false
   check_mode: false
 
+- name: Check for the existing Samba configuration
+  ansible.builtin.stat:
+    path: /etc/samba/smb.conf
+  register: seaweedfs_samba_config
+
+- name: Read the storage share protection before creating volume data
+  ansible.builtin.command:
+    argv: [testparm, -s, "--section-name={{ seaweedfs_samba_share }}", "--parameter-name=veto files"]
+  register: seaweedfs_samba_veto
+  changed_when: false
+  check_mode: false
+  when: seaweedfs_samba_config.stat.exists
+
+- name: Require Samba to deny access to SeaweedFS volume files
+  ansible.builtin.assert:
+    that:
+      - "'/seaweedfs/' in seaweedfs_samba_veto.stdout"
+    fail_msg: Protect the seaweedfs subtree in the existing storage share's veto files before bootstrap.
+  when: seaweedfs_samba_config.stat.exists
+
 - name: Resolve the systemd mount unit
   ansible.builtin.command:
     argv: [systemd-escape, --path, --suffix=mount, "{{ seaweedfs_mount }}"]

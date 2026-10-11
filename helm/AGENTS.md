@@ -49,6 +49,7 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 - `workloads/` is for miscellaneous user workloads that are deployed by Flux but are not considered core platform services
 - values files under `values/` complement this directory and should be checked when chart behavior changes
 - Bootstrap Flux charts create `OCIRepository` and `HelmRelease` resources that point at published chart artifacts, typically using the `ghcr-creds` secret for authenticated GHCR access.
+- A wrapper chart must give its nested HelmRelease a different namespace/name from the wrapper's own HelmRelease. The Prometheus wrapper is `flux-system/prometheus`; its upstream child is `flux-system/prometheus-stack`, retaining Helm release name `prometheus`. Otherwise reconciliation tries to overwrite its own chartRef with a chart spec.
 - The `helm-all.yml` workflow tests charts on non-main branches and publishes them to GHCR on `main` and `dev`.
 - If a chart directory contains `values-ghcr.yaml`, the Helm CI pipeline uses that file for GHCR packaging; otherwise it falls back to `values.yaml`.
 - The upstream NATS chart deployed here uses Helm release name `nats` in namespace `nats`, which yields service DNS like `nats-nats.nats.svc.cluster.local`; do not assume the broker service is `nats.nats.svc.cluster.local`.
