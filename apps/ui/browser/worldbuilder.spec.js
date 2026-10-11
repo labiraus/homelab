@@ -45,6 +45,26 @@ test("independent browser users propose, review, publish and keep private storie
     .getByRole("button", { name: "Stage record", exact: true })
     .click();
   await editor
+    .getByRole("button", { name: "Start a new record", exact: true })
+    .click();
+  await editor
+    .getByRole("combobox", { name: "Record kind", exact: true })
+    .selectOption("event");
+  await editor.getByLabel("Stable ID", { exact: true }).fill("epoch");
+  await editor.getByLabel("Label", { exact: true }).fill("Epoch");
+  await editor
+    .getByRole("combobox", { name: "Source", exact: true })
+    .selectOption("source");
+  await editor
+    .getByLabel("Valid from", { exact: true })
+    .fill("-9223372036854775808");
+  await editor
+    .getByLabel("Valid until", { exact: true })
+    .fill("9223372036854775807");
+  await editor
+    .getByRole("button", { name: "Stage record", exact: true })
+    .click();
+  await editor
     .getByLabel("Reason for change", { exact: true })
     .fill("Browser acceptance pilgrim");
   await editor
@@ -95,6 +115,30 @@ test("independent browser users propose, review, publish and keep private storie
     reviewer.getByRole("complementary", { name: "Canon connections" }),
   ).toContainText("Revision 2, timeline main");
   await editor.getByRole("button", { name: "Load canon", exact: true }).click();
+  await editor.getByRole("button", { name: "Edit Epoch", exact: true }).click();
+  await expect(editor.getByLabel("Valid from", { exact: true })).toHaveValue(
+    "-9223372036854775808",
+  );
+  await expect(editor.getByLabel("Valid until", { exact: true })).toHaveValue(
+    "9223372036854775807",
+  );
+  // The real Go response emits numeric tokens. UI must retain them exactly on
+  // read and during complete-record edits, including a one-tick boundary.
+  await editor
+    .getByLabel("Valid from", { exact: true })
+    .fill("9223372036854775806");
+  await editor
+    .getByRole("button", { name: "Stage record", exact: true })
+    .click();
+  const canonResponse = await editorContext.request.get(
+    `/api/worlds/${world}/records/epoch?revision=2&timeline=main&at=9223372036854775806`,
+  );
+  expect(canonResponse.status()).toBe(200);
+  expect(await canonResponse.text()).toContain('"until":9223372036854775807');
+  const endResponse = await editorContext.request.get(
+    `/api/worlds/${world}/records/epoch?revision=2&timeline=main&at=9223372036854775807`,
+  );
+  expect(endResponse.status()).toBe(404);
   await editor
     .getByLabel("Story title", { exact: true })
     .fill("Private bridge journey");

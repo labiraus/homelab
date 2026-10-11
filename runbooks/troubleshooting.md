@@ -2,6 +2,8 @@
 
 This runbook is for day-two document-platform and assistant operations.
 
+For Worldbuilder dates outside JavaScript's safe integer range, inspect the raw HTTP JSON before ordinary `response.json()`/`JSON.parse()` converts numbers. The UI/processor preserve original date tokens and send large dates as decimal strings; external keeps exact numeric history. An “Exact fictional dates require … JSON source support” error means the browser needs updating, not that canon should be truncated or rewritten. See the [date wire contract](../docs/worldbuilder/API.md). Calendar formatting and life-bound fact types remain separate from this transport behavior.
+
 Postgres-backed state is authoritative. NATS, SSE, and MCP notifications are delivery paths; do not treat notification absence as proof that the durable state is missing.
 
 ## Devcontainer build fails while installing TFLint

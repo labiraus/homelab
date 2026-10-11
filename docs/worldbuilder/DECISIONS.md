@@ -1,5 +1,9 @@
 # Worldbuilder decisions
 
+## Exact fictional date transport
+
+Keep signed int64 ticks and existing numeric canon serialization. Accept decimal strings on record/date-filter input, normalize to int64 before validation/hashing, and preserve unknown-field rejection. JavaScript reads must recover original numeric tokens through JSON reviver source context; unsafe dates remain decimal strings in UI state, edits, evidence and model candidates. Unsupported browsers fail visibly on numeric dates. MCP re-decodes Worldbuilder arguments with `UseNumber` before signing and preserves exact structured replies. This is a transport correction, not a schema/history migration, calendar implementation or redefinition of ordinary number facts. Full-range life-bound fact semantics remain a separate reviewed extension.
+
 ## 2026-10-10 — Adapt to verified monorepo
 
 The target's separate engine/infra repos, Cassandra and Fastify are assumptions, not present implementation. Use existing Go external, Node HTTP processor with LangGraph, React UI, pgx and CNPG. Do not introduce a framework, database, BFF or new service. Keep Labiraus infrastructure/resource identifiers and MCP transport names stable; Worldbuilder is the application direction. No Cassandra removal is justified by local absence.

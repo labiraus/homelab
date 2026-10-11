@@ -1,6 +1,7 @@
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import { timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { parseWorldJSON } from "./worldTicks.js";
 
 export interface Evidence {
   id: string;
@@ -218,7 +219,7 @@ function validateOutput(
   request: CanonRequest,
   response: Awaited<ReturnType<Generate>>,
 ): CanonResult {
-  const value = JSON.parse(response.text) as Record<string, unknown>;
+  const value = parseWorldJSON(response.text) as Record<string, unknown>;
   const keys = new Set([
     "answer",
     "unknown",
@@ -436,7 +437,7 @@ export async function handleCanonRequest(
       chunks.push(Buffer.from(chunk));
     }
     const result = await runCanon(
-      JSON.parse(Buffer.concat(chunks).toString("utf8")),
+      parseWorldJSON(Buffer.concat(chunks).toString("utf8")),
     );
     response.writeHead(200, { "Content-Type": "application/json" });
     response.end(JSON.stringify(result));

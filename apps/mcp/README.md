@@ -2,6 +2,8 @@
 
 `mcp` is the AI-native public front door for agents and MCP-compatible clients.
 
+Worldbuilder delegation preserves exact signed date tokens in arguments and structured replies. Its `at` filter accepts an integer or decimal string; JavaScript clients should send strings outside the safe integer range and preserve tokens when reading numeric replies. Proposal `from`/`until` fields follow the [date wire contract](../../docs/worldbuilder/API.md). Request-bound signing and the human review boundary remain unchanged.
+
 Externally, this service should be treated as the Labiraus MCP server even though the repo and Kubernetes objects still use the `mcp` app name internally.
 It is a primary product surface of this repo alongside the browser UI, and should stay aligned with the same Postgres-backed document state and orchestrator-owned control flows.
 

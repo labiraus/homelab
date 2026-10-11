@@ -1,5 +1,13 @@
 # Worldbuilder implementation status
 
+## Increment 17 — exact signed fictional dates
+
+Record dates now accept equivalent numeric tokens and decimal strings over signed int64 without changing numeric response/history serialization or canonical idempotency. UI and processor parse original date tokens; unsafe values stay strings in editor state, prompts and candidates. MCP preserves numeric tokens before delegated signing and in structured replies, and advertises numeric/string `at` input. Browser date fields use decimal text instead of floating-point number controls. Unknown fields, invalid/overflow dates and unsupported browser source-context support fail visibly.
+
+LOCAL_VERIFIED (2026-10-11): UI build and 45 tests; processor build and 52 existing/new unit tests plus the added real HTTP date test; external and MCP Go suites. Disposable PostgreSQL migration/role/recovery acceptance passed with full-range date publication, numeric/string retry identity, half-open filters, deletion and historical reads. The real production UI/Go/PostgreSQL browser harness passed extreme-date entry, publication, reloading and editing alongside the existing independent-review/private-story acceptance (`/tmp/homelab-exact-ticks-browser.log`). No schema migration, deployment activation or LAN operation was performed. CI publication evidence follows observation.
+
+Calendar configuration/presentation and full-range life-bound fact semantics remain open in [the offline audit](OFFLINE-WORK.md); numeric fact semantics are unchanged by this transport correction.
+
 Execution started 2026-10-10. **The initial remote baseline was verified through increment 15. The continuing goal includes the broader [offline work audit](OFFLINE-WORK.md), which remains open. Tested main-branch publication is authorised; no live cluster observations. Deployment activation and M8 cutover remain LAN-gated.**
 
 Public read-only probing on 2026-10-10 reached DNS/TLS but was blocked by Zscaler with a hostname-mismatched certificate and HTTP 403 diagnostic page. No verified application response or cluster state was obtained; see [public validation evidence and remaining checks](PUBLIC-VALIDATION.md).

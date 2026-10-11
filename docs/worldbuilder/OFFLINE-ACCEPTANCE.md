@@ -15,6 +15,8 @@ The test-only Go server binds loopback, serves the production UI build and actua
 
 A minimal devcontainer may lack desktop libraries/fonts. Prefer the approved Playwright dependency installation in a disposable development environment; temporary extracted libraries may alternatively be supplied with `LD_LIBRARY_PATH` and a private Fontconfig configuration. Do not weaken production authentication or add test identity switches to runtime code to make the test pass.
 
+Date acceptance in the browser/database gate includes both signed int64 extremes, editing a one-tick interval, numeric/string retry equivalence, half-open boundaries and historical reads after deletion. Processor tests additionally inspect exact dates across the real HTTP handler/provider prompt/model-candidate boundary; MCP tests check delegated signatures and structured evidence. These fixtures exercise no LAN services.
+
 ## Custom-resource schemas
 
 ```bash

@@ -48,7 +48,7 @@ function mockApi(
       change.status = "ready_for_review";
       data = change;
     }
-    return { ok: true, json: async () => data };
+    return { ok: true, text: async () => JSON.stringify(data) };
   });
   return calls;
 }
@@ -93,7 +93,7 @@ describe("Worldbuilder", () => {
     global.fetch = vi.fn(async () => ({
       ok: false,
       status: 404,
-      json: async () => ({}),
+      text: async () => "{}",
     }));
     render(<Worldbuilder email="editor@test" />);
     expect(await screen.findByRole("alert")).toHaveTextContent("not enabled");
@@ -208,7 +208,7 @@ describe("Worldbuilder", () => {
               : [{ id: "hero", kind: "entity", type: "person", label: "Hero" }],
         };
       }
-      return { ok: true, json: async () => data };
+      return { ok: true, text: async () => JSON.stringify(data) };
     });
     render(<Worldbuilder email="editor@test" />);
     await screen.findByRole("option", { name: "Novel" });

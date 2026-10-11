@@ -1,5 +1,7 @@
 # processor
 
+Worldbuilder evidence and model candidates preserve original JSON date tokens. Large signed ticks stay decimal strings in prompts/results instead of passing through rounded JavaScript numbers; external validates them and remains the sole canon writer. See the [date wire contract](../../docs/worldbuilder/API.md).
+
 Worldbuilder LangGraph workflows live in `src/worldbuilder.ts`: canon query/proposal, advisory consistency check and story-turn candidates. `/worldbuilder/generate` requires a private `WORLDBUILDER_AI_TOKEN` shared only with external. Evidence is supplied by external; processor has no canon DB access or publication tools. Inference uses only `AI_GATEWAY_BASE_URL`, caps context/response bytes, 768 output tokens, 20 requests/minute and two concurrent calls per process. These are local limits, not a provider billing guarantee. Model usage is returned for external audit. No token means this endpoint is disabled. Existing document/assistant APIs below remain separate.
 
 `processor` is the internal TypeScript service for processor-owned assistant workflows and document-processing jobs.

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { parseWorldJSON } from "./worldTicks.js";
 import { HistoryPanel, ReconciliationPanel } from "./WorldHistory.jsx";
 import WorldRecordEditor from "./WorldRecordEditor.jsx";
 import WorldAdministration from "./WorldAdministration.jsx";
@@ -15,7 +16,15 @@ async function api(path, body) {
       body === undefined ? undefined : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const data = await response.json().catch(() => ({}));
+  const text = await response.text();
+  // Successful responses must never hide a precision/parse failure as empty canon.
+  let data;
+  try {
+    data = parseWorldJSON(text);
+  } catch (error) {
+    if (response.ok) throw error;
+    data = {};
+  }
   if (!response.ok)
     throw new Error(
       data.error ||
@@ -447,7 +456,9 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
               <label>
                 Fictional time
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="-?[0-9]+"
                   value={at}
                   onChange={(e) => setAt(e.target.value)}
                   placeholder="All times"

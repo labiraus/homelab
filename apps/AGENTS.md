@@ -42,6 +42,7 @@ If a lesson applies only to one app, add a more specific `AGENTS.md` under that 
 - When a tool's working directory is already an app directory, pass app-relative paths to formatters and scripts; do not repeat the repository's `apps/<name>/` prefix.
 - Worldbuilder canon credentials belong only to external. Processor and MCP must not receive the schema owner/runtime login or human publication authority. Mesh identity/header isolation must be validated before enabling the feature.
 - A successful source or artifact publication is not evidence of cluster readiness.
+- Fictional record `from`/`until` and query `at` ticks span signed int64. Preserve original JSON number tokens at JavaScript and generic Go boundaries; JavaScript carries unsafe ticks as decimal strings. Never restrict canon to JS safe integers or convert already-rounded Numbers to BigInt. Keep numeric persisted history/hash encoding stable; test both extremes, equivalent quoted/numeric retries and half-open historical reads when changing date handling.
 - AI proposal candidates must retain their generation `baseRevision` when persisted; never replace it with a newly fetched revision to avoid a conflict. Rebase explicitly and obtain fresh review.
 - Manual editor staging must also retain the displayed revision and original before-state. Refreshing canon must not silently change a draft's base revision. Reconciliation creates a fresh draft with explicit conflict choices and independent approval.
 

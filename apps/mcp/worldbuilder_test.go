@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -12,6 +13,43 @@ import (
 	"testing"
 	"time"
 )
+
+func TestWorldbuilderExactTicksThroughToolDelegation(t *testing.T) {
+	t.Setenv("WORLDBUILDER_MCP_ENABLED", "true")
+	key := strings.Repeat("k", 32)
+	t.Setenv("WORLDBUILDER_MCP_KEY", key)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		if _, err := api.VerifyDelegation([]byte(key), r.Header.Get("X-Worldbuilder-Delegation"), "worldbuilder-mcp-v1", r.Method, r.URL.RequestURI(), raw, time.Now()); err != nil {
+			t.Error(err)
+		}
+		if !bytes.Contains(raw, []byte("9223372036854775807")) || bytes.Contains(raw, []byte("9223372036854776000")) {
+			t.Errorf("rounded signed request: %s", raw)
+		}
+		w.Write([]byte(`{"records":[{"id":"epoch","kind":"event","from":-9223372036854775808,"until":9223372036854775807}]}`))
+	}))
+	defer server.Close()
+	t.Setenv("API_BASE_URL", server.URL)
+	ctx := api.WithAuthStatus(context.Background(), api.AuthStatus{Email: "reader@example.test", Mode: api.AuthModeOIDC, Valid: true})
+	for _, params := range []string{
+		`{"name":"worldbuilder.canon","arguments":{"worldId":"world","timeline":"main","at":9223372036854775807}}`,
+		`{"name":"worldbuilder.canon","arguments":{"worldId":"world","timeline":"main","at":"9223372036854775807"}}`,
+		`{"name":"worldbuilder.propose","arguments":{"worldId":"world","id":"test","baseRevision":1,"reason":"exact","operations":[{"action":"put","id":"epoch","record":{"id":"epoch","kind":"event","from":-9223372036854775808,"until":9223372036854775807}}]}}`,
+	} {
+		request := httptest.NewRequest("POST", "/mcp", nil).WithContext(ctx)
+		_, response := handleMCPRequest(ctx, request, jsonRPCRequest{JSONRPC: "2.0", ID: "exact", Method: "tools/call", Params: json.RawMessage(params)})
+		raw, err := json.Marshal(response)
+		if err != nil || response.Error != nil || !bytes.Contains(raw, []byte(`"structuredContent":{"records":[{"from":-9223372036854775808`)) || !bytes.Contains(raw, []byte(`"until":9223372036854775807`)) {
+			t.Fatalf("structured evidence lost precision: %s %v", raw, err)
+		}
+	}
+	resolution, _ := findToolOperationByName("worldbuilder.canon")
+	for _, invalid := range []any{true, 1.5, []any{1}, map[string]any{}} {
+		if err := validateToolArguments(map[string]any{"worldId": "world", "timeline": "main", "at": invalid}, toToolInputSchema(resolution.operation)); err == nil {
+			t.Fatalf("invalid date type accepted: %v", invalid)
+		}
+	}
+}
 
 func TestWorldbuilderCatalogIsOptInAndDraftOnly(t *testing.T) {
 	t.Setenv("WORLDBUILDER_MCP_ENABLED", "false")

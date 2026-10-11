@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { exactTick } from "./worldTicks.js";
 
 const kinds = [
   "entity",
@@ -202,12 +203,7 @@ export default function WorldRecordEditor({
           if (draft[key] === "" || draft[key] === undefined)
             delete candidate[key];
           else {
-            const value = Number(draft[key]);
-            if (!Number.isSafeInteger(value))
-              throw new Error(
-                "Fictional time must be an exact safe integer in the editor.",
-              );
-            candidate[key] = value;
+            candidate[key] = exactTick(draft[key]);
           }
         }
       }
@@ -323,8 +319,9 @@ export default function WorldRecordEditor({
           <label>
             Valid from
             <input
-              type="number"
-              step="1"
+              type="text"
+              inputMode="numeric"
+              pattern="-?[0-9]+"
               required={draft.kind === "event"}
               value={draft.from ?? ""}
               onChange={(e) => set("from", e.target.value)}
@@ -333,8 +330,9 @@ export default function WorldRecordEditor({
           <label>
             Valid until
             <input
-              type="number"
-              step="1"
+              type="text"
+              inputMode="numeric"
+              pattern="-?[0-9]+"
               value={draft.until ?? ""}
               onChange={(e) => set("until", e.target.value)}
             />
@@ -486,8 +484,9 @@ export default function WorldRecordEditor({
                 <label key={key}>
                   {key === "from" ? "Rule valid from" : "Rule valid until"}
                   <input
-                    type="number"
-                    step="1"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="-?[0-9]+"
                     value={draft[key] ?? ""}
                     onChange={(e) => set(key, e.target.value)}
                   />

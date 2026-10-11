@@ -17,6 +17,43 @@ const records = [
 ];
 
 describe("structured canon editing", () => {
+  it("stages and re-edits exact signed boundaries without Number conversion", () => {
+    const onStage = vi.fn();
+    const record = {
+      id: "epoch",
+      kind: "event",
+      label: "Epoch",
+      timeline: "main",
+      source: "source",
+      from: "-9223372036854775808",
+      until: "9223372036854775807",
+    };
+    render(
+      <WorldRecordEditor
+        records={records}
+        timeline="main"
+        record={record}
+        onStage={onStage}
+        onNew={() => {}}
+      />,
+    );
+    expect(screen.getByLabelText("Valid from")).toHaveValue(record.from);
+    fireEvent.click(screen.getByRole("button", { name: "Stage record" }));
+    expect(onStage).toHaveBeenLastCalledWith(expect.objectContaining(record));
+    fireEvent.change(screen.getByLabelText("Valid from"), {
+      target: { value: "9007199254740993" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Stage record" }));
+    expect(onStage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ from: "9007199254740993" }),
+    );
+    fireEvent.change(screen.getByLabelText("Valid until"), {
+      target: { value: "9223372036854775808" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Stage record" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("signed 64-bit range");
+    expect(onStage).toHaveBeenCalledTimes(2);
+  });
   it("preserves the complete schema, relationships and attributes when editing one field", () => {
     const onStage = vi.fn();
     render(

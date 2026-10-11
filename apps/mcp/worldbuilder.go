@@ -54,7 +54,7 @@ func worldbuilderCapability() manifestCapabilitySource {
 			if operation != "worlds" {
 				properties["timeline"] = text
 				properties["revision"] = integer
-				properties["at"] = integer
+				properties["at"] = manifestSchema{AnyOf: []manifestSchema{integer, text}, Description: "Signed 64-bit fictional tick. Use a decimal string outside the JavaScript safe integer range."}
 				required = append(required, "timeline")
 			}
 			if operation == "search" {
