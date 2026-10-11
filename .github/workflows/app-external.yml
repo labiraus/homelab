@@ -16,6 +16,7 @@ on:
     paths:
       - "apps/external/**"
       - "sql/worldbuilder/**"
+      - "sql/mcp/**"
       - "scripts/worldbuilder/**"
       - "apps/pkg/**"
       - ".github/actions/docker/**"

@@ -11,10 +11,17 @@ metadata:
 spec:
   instances: {{ .Values.cluster.instances }}
   imageName: {{ .Values.cluster.image }}
+  {{- $roles := list }}
   {{- if .Values.worldbuilderRoles.enabled }}
+  {{- $roles = concat $roles (list (dict "name" "worldbuilder_owner" "secret" .Values.worldbuilderRoles.ownerSecret "login" .Values.worldbuilderRoles.migrationLogin) (dict "name" "worldbuilder_external" "secret" .Values.worldbuilderRoles.externalSecret "login" true) (dict "name" "worldbuilder_relay" "secret" .Values.worldbuilderRoles.relaySecret "login" true)) }}
+  {{- end }}
+  {{- if .Values.nativeOAuthRole.enabled }}
+  {{- $roles = append $roles (dict "name" "mcp_oauth_runtime" "secret" (required "nativeOAuthRole.passwordSecret is required" .Values.nativeOAuthRole.passwordSecret) "login" true) }}
+  {{- end }}
+  {{- if $roles }}
   managed:
     roles:
-      {{- range $role := list (dict "name" "worldbuilder_owner" "secret" .Values.worldbuilderRoles.ownerSecret "login" .Values.worldbuilderRoles.migrationLogin) (dict "name" "worldbuilder_external" "secret" .Values.worldbuilderRoles.externalSecret "login" true) (dict "name" "worldbuilder_relay" "secret" .Values.worldbuilderRoles.relaySecret "login" true) }}
+      {{- range $role := $roles }}
       - name: {{ $role.name }}
         ensure: present
         login: {{ $role.login }}

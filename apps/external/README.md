@@ -38,7 +38,7 @@ Keep document and assistant workflows on the existing `/api/documents/*` and `/a
 - `/liveness`
 - `/metrics`
 
-The browser-facing path is published through `oauth2-proxy` at `/api/...`, and the service now treats that `/api` prefix as its only public route shape.
+Browser application routes are published through `oauth2-proxy` at `/api/...`. The separately gated native MCP authorization surface also exposes its bounded discovery/registration/token/revocation endpoints; its consent route remains behind the browser proxy.
 
 ## Authentication
 
@@ -151,3 +151,7 @@ Schema 6 adds reviewed calendar projection and exact `tick` facts. Canon/search 
 Schema 7 adds reviewed 1–5 human approval quorums and immutable per-membership decisions. Policy changes require the stricter count; role changes/removal invalidate old votes permanently for future publication. Published approval identities remain historical evidence. See [review policy](../../docs/worldbuilder/REVIEW-POLICY.md).
 
 Schema 8 adds operator-granted superuser accounts, authenticated user registration and audited self-review. The class never bypasses world membership, archival, validation or the configured distinct-human count. Its grants are read-only to the application; identity registration is atomic with an immutable audit and cannot grant the class. Refresh canon grants and the separately owned `auth-grants.sql` before activation. See [account API](../../docs/worldbuilder/API.md#superuser-accounts-schema-8).
+
+## Native MCP authorization
+
+The opt-in `mcpauth/` package supplies native client registration, S256 PKCE, explicit browser consent and resource-bound tokens while preserving Google website login. It requires an independently migrated schema and isolated `mcp_oauth_runtime` connection; all native flags default off. See [activation, tests and restore handling](../../docs/MCPAuthentication.md). The gateway validates tokens through a private route and forwards only the resulting identity. This does not grant canon access or permit native human review/publication.

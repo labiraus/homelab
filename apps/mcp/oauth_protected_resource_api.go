@@ -58,19 +58,15 @@ func oauthProtectedResourceAPI(w http.ResponseWriter, r *http.Request) {
 		AuthorizationServers:  []string{issuerURL},
 		ScopesSupported:       []string{"openid", "email", "profile"},
 		BearerMethods:         []string{"header"},
-		AccessModes: []manifestAuthorizationAccessMode{
-			{
-				Type:        "bearer",
-				Name:        "google-oidc",
-				Description: "Authenticate through the shared Google-backed OIDC flow and present the resulting bearer token to the MCP endpoint.",
-			},
-			{
-				Type:        "client-certificate",
-				Name:        "mtls-client-cert",
-				Description: "Authenticate by presenting a trusted client certificate at the edge so Labiraus receives forwarded certificate identity.",
-			},
-		},
-		AccessRequirement: "one-of",
+		AccessModes:           authorizationAccessModes(),
+		AccessRequirement:     "one-of",
+	}
+
+	if issuer := nativeOAuthIssuer(); issuer != "" {
+		document.Resource = issuer + "/mcp"
+		document.ResourceDocumentation = issuer + "/.well-known/mcp.json"
+		document.AuthorizationServers = []string{issuer}
+		document.ScopesSupported = []string{"mcp"}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -82,6 +82,9 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
+	if err = registerMCPOAuth(ctx, mux); err != nil {
+		return
+	}
 	if err = registerWorldbuilder(ctx, mux); err != nil {
 		return
 	}

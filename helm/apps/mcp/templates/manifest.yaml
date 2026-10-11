@@ -1,3 +1,7 @@
+{{- if .Values.nativeOAuth.enabled }}
+{{- $host := required "nativeOAuth.host is required" .Values.nativeOAuth.host }}
+{{- $_ := set .Values "env" (merge (dict "MCP_OAUTH_ISSUER_URL" (printf "https://%s" $host)) (.Values.env | default dict)) }}
+{{- end }}
 {{- if .Values.worldbuilder.enabled }}
 {{- $secret := required "worldbuilder.delegationSecret is required" .Values.worldbuilder.delegationSecret }}
 {{- $_ := set .Values "env" (merge (dict "WORLDBUILDER_MCP_ENABLED" "true") (.Values.env | default dict)) }}

@@ -117,6 +117,53 @@ for chart in ['external','orchestrator']:
     save_render(out/(chart+'-jobs-enabled.yaml'),result)
     if result.returncode:failures.append(chart+' jobs enabled template')
     if subprocess.run(base+['--set','worldbuilder.enabled=false'],capture_output=True).returncode==0:failures.append(chart+' jobs accepted disabled Worldbuilder')
+# Native OAuth must remain explicitly gated, with a proxy-only consent path and
+# a gateway/MCP-only token check. Rendering the parent provider catches list overrides.
+native=['helm','template','homelab-external',str(root/'helm/apps/external'),'--set','global.allowMissingGeneratedSecretRefs=true','--set','nativeOAuth.enabled=true']
+if subprocess.run(native,capture_output=True).returncode==0:failures.append('native OAuth accepted missing database Secret')
+native+=['--set','nativeOAuth.databaseSecret=oauth-fixture']
+for principal in ['', '*', 'cluster.local/ns/homelab/sa/*', 'cluster.local/ns/ingress/sa/gateway-istio']:
+    if subprocess.run(native+['--set-string','nativeOAuth.browserPrincipal='+principal],capture_output=True).returncode==0:
+        failures.append('native OAuth accepted unverified browser principal: '+principal)
+for key in ['gatewayPrincipal','mcpPrincipal']:
+    for invalid in ['', '*','cluster.local/ns/homelab/sa/homelab-oauth2-proxy']:
+        if subprocess.run(native+['--set','nativeOAuth.browserPrincipal=cluster.local/ns/homelab/sa/homelab-oauth2-proxy','--set-string','nativeOAuth.'+key+'='+invalid],capture_output=True).returncode==0:
+            failures.append('native OAuth accepted unverified '+key+': '+invalid)
+result=subprocess.run(native+['--set','nativeOAuth.browserPrincipal=cluster.local/ns/homelab/sa/homelab-oauth2-proxy'],capture_output=True,text=True)
+save_render(out/'external-native-oauth-enabled.yaml',result)
+if result.returncode:failures.append('native OAuth enabled render')
+else:
+    resources=[r for r in yaml.safe_load_all(result.stdout) if r]
+    boundary=next(r for r in resources if r['metadata']['name']=='homelab-external-native-oauth-boundaries')
+    expected={('/api/mcp-oauth/authorize',('cluster.local/ns/homelab/sa/homelab-oauth2-proxy',)),('/api/mcp-oauth/check',('cluster.local/ns/ingress/sa/gateway-istio','cluster.local/ns/homelab/sa/homelab-mcp'))}
+    actual={(rule['to'][0]['operation']['paths'][0],tuple(rule['from'][0]['source']['notPrincipals'])) for rule in boundary['spec']['rules']}
+    if actual!=expected:failures.append('native OAuth identity boundary')
+    route=next(r for r in resources if r['kind']=='HTTPRoute')
+    public={match['path']['value'] for rule in route['spec']['rules'] for match in rule['matches']}
+    if public!={'/.well-known/oauth-authorization-server','/mcp-oauth/register','/mcp-oauth/token','/mcp-oauth/revoke'}:
+        failures.append('native OAuth exposes private consent/check directly')
+result=subprocess.run(['helm','template','homelab-mcp',str(root/'helm/apps/mcp'),'--set','global.allowMissingGeneratedSecretRefs=true','--set','nativeOAuth.enabled=true'],capture_output=True,text=True)
+save_render(out/'mcp-native-oauth-enabled.yaml',result)
+if result.returncode:failures.append('native MCP enabled render')
+else:
+    policy=next(r for r in yaml.safe_load_all(result.stdout) if r and r.get('kind')=='AuthorizationPolicy' and r['spec'].get('action')=='CUSTOM')
+    if policy['spec']['provider']['name']!='mcp-oauth':failures.append('native MCP lacks validated token provider')
+parent=subprocess.run(['helm','template','homelab-bootstrap',str(root/'helm/bootstrap/flux-bootstrap'),'--set','image.repository=ghcr.io/labiraus/homelab'],capture_output=True,text=True)
+if parent.returncode:failures.append('native OAuth bootstrap render')
+else:
+    release=next(r for r in yaml.safe_load_all(parent.stdout) if r and r.get('kind')=='HelmRelease' and r['metadata']['name']=='istio')
+    values=out/'native-oauth-istio-parent-values.yaml';values.write_text(yaml.safe_dump(release['spec']['values']))
+    result=subprocess.run(['helm','template','homelab-istio',str(root/'helm/bootstrap/istio'),'-f',str(values)],capture_output=True,text=True)
+    save_render(out/'native-oauth-istio-composed.template',result)
+    if result.returncode:failures.append('native OAuth composed Istio render')
+    else:
+        release=next(r for r in yaml.safe_load_all(result.stdout) if r and r.get('kind')=='HelmRelease' and r['metadata']['name']=='istiod')
+        providers=release['spec']['values']['meshConfig']['extensionProviders']
+        provider=next((p['envoyExtAuthzHttp'] for p in providers if p['name']=='mcp-oauth'),{})
+        if provider.get('failOpen') is not False or provider.get('timeout')!='5s' or provider.get('statusOnError')!='503' or provider.get('pathPrefix')!='/api/mcp-oauth/check?' or provider.get('service')!='homelab-external.homelab.svc.cluster.local' or provider.get('headersToUpstreamOnAllow')!=['x-auth-request-email','x-auth-request-user','x-forwarded-email']:
+            failures.append('native OAuth provider lost or trusts unvalidated identity')
+        if not any(p['name']=='oauth2-proxy' for p in providers):failures.append('native OAuth removed website provider')
+
 # Dedicated database identities must remain unprivileged and the owner closed
 # outside an explicit migration session. Exercise the opt-in CRD fields too.
 roles=['helm','template','homelab-postgres',str(root/'helm/data/postgres'),'--set','worldbuilderRoles.enabled=true']
@@ -136,6 +183,16 @@ else:
 for key in ['ownerSecret','externalSecret','relaySecret']:
     if subprocess.run(roles+['--set','worldbuilderRoles.'+key+'='],capture_output=True).returncode==0:
         failures.append('PostgreSQL accepted missing '+key)
+native_roles=['helm','template','homelab-postgres',str(root/'helm/data/postgres'),'--set','nativeOAuthRole.enabled=true']
+if subprocess.run(native_roles,capture_output=True).returncode==0:failures.append('native OAuth role accepted missing password Secret')
+result=subprocess.run(native_roles+['--set','nativeOAuthRole.passwordSecret=oauth-fixture'],capture_output=True,text=True)
+save_render(out/'postgres-native-oauth-enabled.yaml',result)
+if result.returncode:failures.append('native OAuth role render')
+else:
+    cluster=next(r for r in yaml.safe_load_all(result.stdout) if r and r.get('kind')=='Cluster')
+    managed=cluster['spec']['managed']['roles']
+    if len(managed)!=1 or managed[0]['name']!='mcp_oauth_runtime' or not managed[0]['login'] or managed[0]['inRoles'] or any(managed[0][p] for p in ['inherit','superuser','createdb','createrole','replication','bypassrls']):
+        failures.append('native OAuth role isolation')
 print(f'{len(checked)} base/overlay combinations checked; local artifacts: {out}')
 print('Failures: '+(', '.join(failures) if failures else 'none'))
 sys.exit(bool(failures))

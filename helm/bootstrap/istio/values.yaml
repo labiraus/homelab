@@ -1,6 +1,24 @@
 meshConfig:
   accessLogFile: /dev/stdout
   extensionProviders:
+    - name: mcp-oauth
+      envoyExtAuthzHttp:
+        service: homelab-external.homelab.svc.cluster.local
+        port: '80'
+        pathPrefix: /api/mcp-oauth/check?
+        timeout: 5s
+        failOpen: false
+        statusOnError: "503"
+        includeRequestHeadersInCheck:
+        - authorization
+        - cookie
+        headersToUpstreamOnAllow:
+        - x-auth-request-email
+        - x-auth-request-user
+        - x-forwarded-email
+        headersToDownstreamOnDeny:
+        - content-type
+        - www-authenticate
     - name: oauth2-proxy
       envoyExtAuthzHttp:
         service: homelab-oauth2-proxy.homelab.svc.cluster.local

@@ -32,7 +32,9 @@ The database-backed identity model is the shared `auth.users` table. The histori
 3. `apps/pkg/api` resolves the auth mode and normalized email.
 4. `apps/external` validates the email against Postgres `auth.users`.
 5. The UI reads `/api/auth/status` and shows the current status.
-6. `apps/mcp` can consume the same trusted identity headers when they are forwarded, so proxied upstream requests can carry a normalized user identity even though browser login is still centered on `ui` and `external`.
+6. `apps/mcp` requires transport authentication and registered-user validation. Its opt-in native OAuth mode independently validates the original bearer token or browser cookie with external before forwarding the normalized identity.
+
+Native clients use the separate [MCP authorization flow](MCPAuthentication.md), which reuses Google website sign-in for explicit client consent. Google discovery alone does not support Codex dynamic client registration. The native issuer, isolated credential store and exact mesh boundaries must be activated in the documented order; browser sign-in is not evidence that native login works.
 
 ## Google Login Button
 

@@ -47,3 +47,9 @@ networkPolicy:
       podSelector:
         matchLabels:
           app.kubernetes.io/instance: homelab-mcp
+
+
+# Separate native-client authorization identity; never owns canon or user registry.
+nativeOAuthRole:
+  enabled: false
+  passwordSecret: ""

@@ -31,3 +31,7 @@ Use numbered additive migrations; never rewrite immutable revision history or si
 Superuser grants are operator-owned rows, not PostgreSQL superuser roles. The application can only read them and acquire a grant lock through a fixed-search-path function. Apply `worldbuilder/auth-grants.sql` separately as the existing auth table owner/operator; never give the canon migration owner the legacy app role. User registration preserves existing rows and appends an audit in the same transaction. Never run the destructive legacy `auth.pgsql` seed against a populated registry.
 
 `CREATE SCHEMA IF NOT EXISTS` still requires database CREATE privilege even when the migration schema already exists. Grant the independent migration owner CREATE on the intended database for the explicit migration session, then revoke it; precreating the owned schema alone is insufficient. Rehearse against a production restore with actual separate legacy ownership.
+
+## Native MCP authorization
+
+`sql/mcp/` is separate from canon migrations. Its runtime owns no tables and cannot write `auth.users` or read canon. Apply grants explicitly; never seed or truncate the existing registry. Before exposing any restored OAuth database, run its credential-revocation script to prevent resurrection of previously revoked access. Ordinary app replacement preserves valid credentials.

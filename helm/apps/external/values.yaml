@@ -326,3 +326,14 @@ worldbuilder:
     enabled: false
     delegationSecret: ""
     principal: "" # Observed MCP service-account principal, never browser/processor.
+
+# Separate, explicitly migrated authorization store; remains off until native
+# client protocol and exact gateway/browser identities have been verified.
+nativeOAuth:
+  enabled: false
+  databaseSecret: ""
+  host: mcp.labiraus.com
+  browserPrincipal: ""
+  gatewayPrincipal: cluster.local/ns/ingress/sa/gateway-istio
+  mcpPrincipal: cluster.local/ns/homelab/sa/homelab-mcp
+  proxyRelease: homelab-oauth2-proxy

@@ -1,3 +1,9 @@
+{{- if .Values.nativeOAuth.enabled }}
+{{- $secret := required "nativeOAuth.databaseSecret is required" .Values.nativeOAuth.databaseSecret }}
+{{- $host := required "nativeOAuth.host is required" .Values.nativeOAuth.host }}
+{{- $_ := set .Values "env" (merge (dict "MCP_OAUTH_ENABLED" "true" "MCP_OAUTH_ISSUER_URL" (printf "https://%s" $host) "MCP_OAUTH_COOKIE_AUTH_URL" (printf "http://%s.%s.svc.cluster.local/oauth2/auth" .Values.nativeOAuth.proxyRelease .Values.namespace)) (.Values.env | default dict)) }}
+{{- $_ := set .Values "envFromSecrets" (append .Values.envFromSecrets $secret) }}
+{{- end }}
 {{- if .Values.worldbuilder.enabled }}
 {{- $_ := set .Values "env" (merge (dict "WORLDBUILDER_ENABLED" "true") (.Values.env | default dict)) }}
 {{- $_ := set .Values "envFromSecrets" (append .Values.envFromSecrets .Values.worldbuilder.databaseSecret) }}

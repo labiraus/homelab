@@ -1,0 +1,127 @@
+{{- if .Values.nativeOAuth.enabled }}
+{{- $browser := required "nativeOAuth.browserPrincipal must be verified" .Values.nativeOAuth.browserPrincipal }}
+{{- $gateway := required "nativeOAuth.gatewayPrincipal must be verified" .Values.nativeOAuth.gatewayPrincipal }}
+{{- $mcp := required "nativeOAuth.mcpPrincipal must be verified" .Values.nativeOAuth.mcpPrincipal }}
+{{- if or (contains "*" $browser) (contains "*" $gateway) (contains "*" $mcp) (eq $browser $gateway) (eq $browser $mcp) (eq $gateway $mcp) }}
+{{- fail "native OAuth principals must be exact and distinct" }}
+{{- end }}
+{{- $name := include "commonapi.fullname" . }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $name }}-native-oauth
+  namespace: {{ .Values.namespace }}
+spec:
+  parentRefs:
+    - name: gateway
+      namespace: ingress
+      sectionName: https
+  hostnames: [{{ .Values.nativeOAuth.host | quote }}]
+  rules:
+    - matches:
+        - path: {type: Exact, value: /.well-known/oauth-authorization-server}
+        - path: {type: Exact, value: /mcp-oauth/register}
+        - path: {type: Exact, value: /mcp-oauth/token}
+        - path: {type: Exact, value: /mcp-oauth/revoke}
+      backendRefs:
+        - name: {{ $name }}
+          port: 80
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ $name }}-native-oauth-gateway
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "commonapi.selectorLabels" . | nindent 6 }}
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: [{{ $gateway | quote }}]
+      to:
+        - operation:
+            ports: ["8080"]
+            paths: ["/.well-known/oauth-authorization-server", "/mcp-oauth/register", "/mcp-oauth/token", "/mcp-oauth/revoke", "/api/mcp-oauth/check"]
+    - from:
+        - source:
+            principals: [{{ $mcp | quote }}]
+      to:
+        - operation:
+            ports: ["8080"]
+            paths: ["/api/mcp-oauth/check"]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ $name }}-native-oauth-boundaries
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "commonapi.selectorLabels" . | nindent 6 }}
+  action: DENY
+  rules:
+    - from:
+        - source:
+            notPrincipals: [{{ $browser | quote }}]
+      to:
+        - operation:
+            paths: ["/api/mcp-oauth/authorize", "/api/mcp-oauth/authorize/*"]
+    - from:
+        - source:
+            notPrincipals: [{{ $gateway | quote }}, {{ $mcp | quote }}]
+      to:
+        - operation:
+            paths: ["/api/mcp-oauth/check", "/api/mcp-oauth/check/*"]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ $name }}-native-oauth-cookie-check
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Values.nativeOAuth.proxyRelease }}
+      app.kubernetes.io/name: oauth2-proxy
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: [{{ printf "cluster.local/ns/%s/sa/%s" .Values.namespace $name | quote }}]
+      to:
+        - operation:
+            methods: ["GET"]
+            ports: ["4180"]
+            paths: ["/oauth2/auth"]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-native-oauth
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "commonapi.selectorLabels" . | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: ingress}
+          podSelector:
+            matchLabels: {gateway.networking.k8s.io/gateway-name: gateway}
+      ports:
+        - {protocol: TCP, port: 8080}
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Values.nativeOAuth.proxyRelease }}
+              app.kubernetes.io/name: oauth2-proxy
+      ports:
+        - {protocol: TCP, port: 4180}
+{{- end }}

@@ -12,7 +12,7 @@ spec:
       name: gateway
   action: CUSTOM
   provider:
-    name: oauth2-proxy
+    name: {{ ternary "mcp-oauth" "oauth2-proxy" .Values.nativeOAuth.enabled }}
   rules:
     - to:
         - operation:

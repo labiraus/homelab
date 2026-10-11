@@ -187,6 +187,33 @@ export GOCACHE="${GOCACHE:-/tmp/worldbuilder-go-cache}"
 export GOMODCACHE="${GOMODCACHE:-/tmp/worldbuilder-go-mod}"
 (cd "$repo_dir/apps/external" && go test -timeout=120s -race -count=1 ./worldbuilder)
 (cd "$repo_dir/apps/orchestrator" && go test -timeout=120s -race -count=1 -run '^Test(Canon|Generation)' .)
+# Native MCP OAuth uses an independent database and a non-owner identity. Never
+# grant the MCP authorization service canon privileges or use a production DSN.
+docker exec "$container_name" createdb -U postgres mcp_oauth_test
+oauth_sql() { docker exec -i "$container_name" psql -X -U postgres -d mcp_oauth_test -v ON_ERROR_STOP=1 "$@"; }
+oauth_sql <<'SQL'
+CREATE SCHEMA auth;
+CREATE TABLE auth.users(email text PRIMARY KEY, display_name text NOT NULL);
+INSERT INTO auth.users VALUES ('owner@example.test','Fixture owner');
+CREATE SCHEMA worldbuilder;
+REVOKE ALL ON SCHEMA worldbuilder FROM PUBLIC;
+CREATE ROLE mcp_oauth_runtime LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD 'offline-oauth-only';
+SQL
+oauth_sql < "$repo_dir/sql/mcp/001_up.sql"
+oauth_sql < "$repo_dir/sql/mcp/001_up.sql"
+oauth_sql < "$repo_dir/sql/mcp/grants.sql"
+MCP_OAUTH_TEST_DATABASE_URL="postgres://mcp_oauth_runtime:offline-oauth-only@${test_host}:${port}/mcp_oauth_test?sslmode=disable&connect_timeout=5" \
+MCP_OAUTH_TEST_ADMIN_DATABASE_URL="postgres://postgres:offline-test-only@${test_host}:${port}/mcp_oauth_test?sslmode=disable&connect_timeout=5" \
+  bash -c 'cd "$1/apps/external" && go test -timeout=120s -race -count=1 ./mcpauth && go test -timeout=120s -race -count=1 -run TestMCPOAuthStartup .' _ "$repo_dir"
+# Restored credential state can precede revocation. Preserve the source and
+# invalidate only the independently restored OAuth database before exposing it.
+docker exec "$container_name" createdb -U postgres mcp_oauth_restore
+docker exec "$container_name" pg_dump -U postgres -d mcp_oauth_test -Fc -f /tmp/mcp-oauth.dump
+docker exec "$container_name" pg_restore -U postgres -d mcp_oauth_restore --exit-on-error /tmp/mcp-oauth.dump
+docker exec "$container_name" psql -X -U postgres -d mcp_oauth_restore -v ON_ERROR_STOP=1 -c "DO \$\$ BEGIN IF NOT EXISTS(SELECT 1 FROM mcp_oauth.token WHERE NOT revoked AND expires_at>now()) THEN RAISE EXCEPTION 'restore test has no valid source grant'; END IF; END \$\$;"
+docker exec -i "$container_name" psql -X -U postgres -d mcp_oauth_restore -v ON_ERROR_STOP=1 < "$repo_dir/sql/mcp/revoke-after-restore.sql"
+docker exec "$container_name" psql -X -U postgres -d mcp_oauth_restore -v ON_ERROR_STOP=1 -c "DO \$\$ BEGIN IF EXISTS(SELECT 1 FROM mcp_oauth.token WHERE NOT revoked) OR EXISTS(SELECT 1 FROM mcp_oauth.authorization) OR EXISTS(SELECT 1 FROM mcp_oauth.code) THEN RAISE EXCEPTION 'restored credential remains usable'; END IF; IF NOT EXISTS(SELECT 1 FROM mcp_oauth.client WHERE approved) THEN RAISE EXCEPTION 'approved client identity lost'; END IF; END \$\$;"
+echo 'PASS: native MCP authorization database restore requires fresh consent and retains client identities'
 if sql < "$repo_dir/sql/worldbuilder/001_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated schema down migration succeeded'; exit 1; fi
 if sql < "$repo_dir/sql/worldbuilder/002_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated lifecycle down migration succeeded'; exit 1; fi
 if sql < "$repo_dir/sql/worldbuilder/003_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated inference down migration succeeded'; exit 1; fi

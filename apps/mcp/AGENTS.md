@@ -24,3 +24,4 @@ World tools require validated AuthStatus and a signed exact-request assertion to
 - Current MCP operation bindings proxy storage/database/search through external; unused legacy helpers and leftover live Secret keys do not establish direct backend consumption. Trace bindings and startup before proposing direct credentials or broader egress.
 
 - Verify native MCP authentication from the actual configured client. Browser Google login and public discovery do not prove OAuth client registration, callback or resource-bound token support. Google discovery alone failed Codex dynamic registration; never count advertised bearer/certificate modes as implemented without end-to-end login and a document read.
+- Native mode must independently validate the original credential with the fixed private authority, even after gateway authorization. Do not trust forwarded identity headers or propagate the short validation deadline into long-lived SSE handlers.

@@ -604,6 +604,9 @@ func buildManifest(r *http.Request) manifestDocument {
 
 func newManifestDocument(r *http.Request) manifestDocument {
 	baseURL := requestBaseURL(r)
+	if issuer := nativeOAuthIssuer(); issuer != "" {
+		baseURL = issuer
+	}
 
 	return manifestDocument{
 		Version: base.BuildVersion,
@@ -615,18 +618,7 @@ func newManifestDocument(r *http.Request) manifestDocument {
 			Type: "bearer",
 			Meta: &manifestAuthorizationMeta{
 				ResourceMetadataURL: baseURL + oauthProtectedResourcePath,
-				AccessModes: []manifestAuthorizationAccessMode{
-					{
-						Type:        "bearer",
-						Name:        "google-oidc",
-						Description: "Browser and bearer-token capable clients can authenticate through the shared Google-backed OIDC flow.",
-					},
-					{
-						Type:        "client-certificate",
-						Name:        "mtls-client-cert",
-						Description: "MCP clients can also authenticate with a trusted client certificate presented at the edge and forwarded as normalized certificate identity.",
-					},
-				},
+				AccessModes: authorizationAccessModes(),
 				Requirement: "one-of",
 			},
 		},

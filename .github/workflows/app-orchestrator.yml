@@ -17,6 +17,7 @@ on:
       - "apps/orchestrator/**"
       - "apps/pkg/**"
       - "sql/worldbuilder/**"
+      - "sql/mcp/**"
       - "scripts/worldbuilder/**"
       - ".github/actions/docker/**"
       - ".github/workflows/app-orchestrator.yml"

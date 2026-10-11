@@ -22,9 +22,13 @@ func requireTransportIdentity(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		if nativeOAuthIssuer() != "" {
+			serveNativeIdentity(next, w, r)
+			return
+		}
 		status, ok := api.AuthStatusFromContext(r.Context())
 		if !ok || !status.Valid || status.Email == "" || (status.Mode != api.AuthModeOIDC && status.Mode != api.AuthModeCertificate) {
-			w.Header().Set("WWW-Authenticate", `Bearer resource_metadata="https://mcp.labiraus.com/.well-known/oauth-protected-resource"`)
+			w.Header().Set("WWW-Authenticate", transportChallenge())
 			http.Error(w, "Authentication required", http.StatusUnauthorized)
 			return
 		}
@@ -57,4 +61,43 @@ func requireTransportIdentity(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// Validate the credential at its authority independently of edge path matching
+// and forwarded identity headers. Only this fixed private authority receives it.
+func serveNativeIdentity(next http.Handler, w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	endpoint := strings.TrimRight(base.GetEnv("API_BASE_URL", defaultAPIBaseURL), "/") + "/api/mcp-oauth/check"
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		http.Error(w, "Identity validation unavailable", 503)
+		return
+	}
+	for _, name := range []string{"Authorization", "Cookie"} {
+		if value := r.Header.Get(name); value != "" {
+			request.Header.Set(name, value)
+		}
+	}
+	client := *mcpHTTPClient
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	response, err := client.Do(request)
+	if err != nil {
+		http.Error(w, "Identity validation unavailable", 503)
+		return
+	}
+	defer response.Body.Close()
+	if response.StatusCode == 401 || response.StatusCode == 403 {
+		w.Header().Set("WWW-Authenticate", transportChallenge())
+		http.Error(w, "Authentication required", 401)
+		return
+	}
+	email := strings.ToLower(strings.TrimSpace(response.Header.Get("X-Auth-Request-Email")))
+	if response.StatusCode != 200 || email == "" {
+		http.Error(w, "Identity validation unavailable", 503)
+		return
+	}
+	ctx = api.WithAuthStatus(r.Context(), api.AuthStatus{Mode: api.AuthModeOIDC, Email: email, Valid: true})
+	ctx = api.WithUserID(ctx, email)
+	next.ServeHTTP(w, r.WithContext(ctx))
 }
