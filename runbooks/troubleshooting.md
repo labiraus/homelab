@@ -310,6 +310,8 @@ For a structural parser error on a bare `=` in a public CRD enum, use the reposi
 
 ## Worldbuilder metrics and dashboard provisioning
 
+For disposable controller failures, use [controller acceptance](../docs/worldbuilder/CONTROLLER-ACCEPTANCE.md) and retain `kind.log`, `pods.log`, `events.log` and the workflow conclusion. A kind bootstrap that appears to finish kubeadm early can be a Docker exec transport failure: this environment returned exit 0 before a delayed command actually exited 7. The fixture now inspects exec IDs to completion and verifies bounded output transfers. A failed/partial copy or timed-out exec must not become a passing gate. Creation and teardown both use generated kubeconfig; do not allow kind cleanup to edit the operator's home config.
+
 Use the two acceptance commands in [observability](../docs/worldbuilder/OBSERVABILITY.md) before activation. Empty panels require separate checks of the configured datasource UID, application namespace, `worldbuilder-external` job, monitor/Service selection and actual scrape health. A rendered ServiceMonitor alone does not establish discovery or mTLS. Keep STRICT authentication and use the observed scraper identity; do not open the endpoint to all Pods to make a scrape pass. The disposable fixture uses an internal Docker network and needs no reachable published host ports.
 
 Grafana file provisioning does not resolve manual-import `__inputs`. The chart binds UIDs and namespace explicitly, supplies the provider and mounts its ConfigMap. Inspect both the selected upstream chart's volume/provider render and Grafana's provisioned dashboard API. Keep one dashboard JSON source under the Prometheus chart; avoid a separate docs copy drifting from the published artifact.
