@@ -10,12 +10,55 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+func TestCanonIndexStartupRecoversAfterUnavailableService(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodHead || r.URL.Path != "/worldbuilder-canon-v1" {
+			t.Errorf("unexpected startup request %s %s", r.Method, r.URL.Path)
+		}
+		if calls.Add(1) < 3 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}
+	}))
+	defer server.Close()
+	index := &canonIndex{endpoint: server.URL, client: server.Client()}
+	if err := index.ensureWithRetry(context.Background(), 3, time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	if calls.Load() != 3 {
+		t.Fatalf("expected recovery after three real HTTP checks; got %d", calls.Load())
+	}
+}
+
+func TestCanonIndexStartupRefusesPersistentFailureAndCancels(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+	index := &canonIndex{endpoint: server.URL, client: server.Client()}
+	if err := index.ensureWithRetry(context.Background(), 2, time.Millisecond); err == nil || calls.Load() != 2 {
+		t.Fatalf("persistent refusal must exhaust finite attempts: %v, %d", err, calls.Load())
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	if err := index.ensureWithRetry(ctx, 12, time.Hour); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("shutdown must interrupt startup delay: %v", err)
+	}
+	before := calls.Load()
+	if err := index.ensureWithRetry(ctx, 12, time.Hour); !errors.Is(err, context.DeadlineExceeded) || calls.Load() != before {
+		t.Fatalf("canceled startup issued another request: %v", err)
+	}
+}
 
 func TestCanonProjectionRetainsScope(t *testing.T) {
 	raw, err := projection("world", 3, []byte(`{"hero":{"id":"hero","kind":"entity","label":"Hero"},"fact":{"id":"fact","kind":"fact","timeline":"alternate","value":true}}`))

@@ -40,6 +40,28 @@ for chart in charts:
                 (out/(name+'.kustomize')).write_text(result.stdout+result.stderr)
                 if result.returncode:failures.append(name+' kustomize')
         checked.append(name)
+# Render OpenSearch with the parent's actual values: parent arrays replace child
+# defaults and previously removed the live relay's ingress grant on publication.
+for overlay in ['values', 'values-ghcr', 'values-ecr']:
+    parent=out/('bootstrap-flux-data-'+overlay+'.template')
+    if not parent.exists(): continue
+    resources=list(yaml.safe_load_all(parent.read_text()))
+    releases=[r for r in resources if r and r.get('kind')=='HelmRelease' and r['metadata']['name']=='opensearch']
+    if len(releases)!=1:
+        failures.append('OpenSearch parent release missing: '+overlay)
+        continue
+    effective=out/('opensearch-parent-'+overlay+'.yaml')
+    effective.write_text(yaml.safe_dump(releases[0]['spec'].get('values',{})))
+    result=subprocess.run(['helm','template','data-opensearch',str(root/'helm/data/opensearch'),'-f',str(effective)],capture_output=True,text=True)
+    save_render(out/('opensearch-composed-'+overlay+'.template'),result)
+    if result.returncode:
+        failures.append('OpenSearch composed render: '+overlay)
+        continue
+    policies=[r for r in yaml.safe_load_all(result.stdout) if r and r.get('kind')=='NetworkPolicy']
+    clients=[peer for policy in policies for rule in policy['spec'].get('ingress',[]) if any(p.get('port')==9200 for p in rule.get('ports',[])) for peer in rule.get('from',[])]
+    if not any(peer.get('namespaceSelector',{}).get('matchLabels',{}).get('kubernetes.io/metadata.name')=='homelab' and peer.get('podSelector',{}).get('matchLabels',{}).get('app.kubernetes.io/instance')=='homelab-orchestrator' for peer in clients):
+        failures.append('OpenSearch composed ingress excludes relay: '+overlay)
+
 # Explicit activation render and missing/wildcard principal refusal. No secret values used.
 for chart in ['external','orchestrator']:
     directory=root/'helm/apps'/chart

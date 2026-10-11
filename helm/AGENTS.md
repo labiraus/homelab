@@ -92,3 +92,5 @@ If a lesson is specific to one chart family, add a more local `AGENTS.md` under 
 - Prometheus persistence remains opt-in and requires an exact observed stack version, explicit storage class, capacity and retention. Preserve upstream storage defaults while disabled and keep the admin API disabled in published settings. Validate composed dashboard/storage renders and the separate synthetic WAL/snapshot recovery gate; a scrape or Pod restart alone cannot prove retained history.
 
 - Istiod 1.30.5 supports this repository’s nested `pilot` values through its `zzy_descope_legacy.yaml` helper. Rendering the actual chart preserves `autoscaleMax: 3` and the alpha-Gateway environment flag. Do not infer that legacy inputs are ignored merely because a deployment template reads top-level fields; inspect compatibility helpers and compare effective renders before migrating values.
+
+- Parent HelmRelease values replace child allowlist arrays. When granting a new service access to OpenSearch, update and render both `data/opensearch` and `bootstrap/flux-data`, then inspect the effective live policy. A correct child chart alone was overwritten during relay recovery.

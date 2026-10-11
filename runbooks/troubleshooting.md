@@ -362,6 +362,8 @@ Worldbuilder implementation and offline checks are tracked in [implementation st
 
 If relay logs report `nats: context and timeout can not both be set`, the client rejected the publish before sending it. Keep pending PostgreSQL events intact and deploy the shared context-deadline publisher fix; do not mark events delivered manually. Verify the dedicated relay can reach OpenSearch through both ingress and egress policies, then compare outbox delivery, three-replica stream/consumer acknowledgements and the indexed revision with PostgreSQL.
 
+OpenSearch access is also overridden by `bootstrap/flux-data` HelmRelease values: include the orchestrator in both parent and child allowlists. After reconciliation, inspect the live ingress and egress policy. A Pod that failed the former one-shot startup remains unready until replaced; the current startup retries twelve checks before refusing readiness.
+
 ## Worldbuilder generation broker configuration
 
 An `incompatible generation stream` startup error now includes durability drift: inspect subjects, file storage, three replicas and seven-day limits retention. A consumer replica mismatch also stops startup. Do not delete or silently recreate existing streams/consumers to bypass the error; inspect and back up their pending work before controlled repair. The [disposable broker drill](../docs/worldbuilder/BROKER-RECOVERY.md) verifies leader loss, quorum loss and restart locally; installed topology and storage remain LAN checks.

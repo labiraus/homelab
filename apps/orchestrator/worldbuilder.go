@@ -113,7 +113,7 @@ func startWorldbuilder(ctx context.Context) error {
 		return err
 	}
 	index := &canonIndex{pool: pool, endpoint: endpoint, client: &http.Client{Timeout: 10 * time.Second}}
-	if err = index.ensure(ctx); err != nil {
+	if err = index.ensureWithRetry(ctx, 12, 5*time.Second); err != nil {
 		pool.Close()
 		nc.Close()
 		return err
@@ -214,6 +214,33 @@ func (i *canonIndex) request(ctx context.Context, method, path string, body []by
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 65536))
 	return resp.StatusCode, raw, err
 }
+
+// OpenSearch and its network route may become ready after this Pod. Keep startup
+// unready and retry within a finite budget before starting any worker goroutines.
+func (i *canonIndex) ensureWithRetry(ctx context.Context, attempts int, delay time.Duration) error {
+	var err error
+	for attempt := 0; attempt < attempts; attempt++ {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err = i.ensure(ctx); err == nil {
+			return nil
+		}
+		if attempt+1 == attempts {
+			break
+		}
+		slog.WarnContext(ctx, "canon index startup check failed", "error", err, "attempt", attempt+1)
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return fmt.Errorf("canon index unavailable after %d attempts: %w", attempts, err)
+}
+
 func (i *canonIndex) ensure(ctx context.Context) error {
 	status, _, err := i.request(ctx, "HEAD", "/worldbuilder-canon-v1", nil)
 	if err != nil {
