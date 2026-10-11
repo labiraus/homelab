@@ -8,6 +8,6 @@ imagePullSecret:
     name: ghcr-creds
 
 mcp:
-  # Verified native OAuth build; keep an exact pin during staged client recovery.
-  # Advance/remove only after observing the replacement artifact's auth checks.
-  chartVersion: 0.0.0-uat.38173624785
+  # Native OAuth, shared identity/delegation and platform CI passed for this build.
+  # Keep an exact pin while verifying the staged Worldbuilder tool activation.
+  chartVersion: 0.0.0-uat.38179885575

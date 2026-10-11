@@ -2,7 +2,11 @@
 
 The authoritative product target is [Worldbuilder architecture](../docs/worldbuilder/01-WORLDBUILDER-ARCHITECTURE.md). The [migration](../docs/worldbuilder/02-WORLDBUILDER-MIGRATION.md) defines M1–M8; [implementation status](../docs/worldbuilder/IMPLEMENTATION-STATUS.md) records actual source readiness, tests and gaps. The [prior document-platform plan](../docs/worldbuilder/archive/PRE-WORLDBUILDER-PLAN.md) is historical.
 
-## Active continuation — 2026-10-11, 22:17 UTC
+## Active continuation — 2026-10-11, 22:34 UTC
+
+Latest: gateway chart `38179718740` is deployed and the full eight-item/concurrency/semantic/oversize-refusal gate passes; chat still works with its Pod UID unchanged. Processor `38179885531` is deployed and Ready. Actual MCP upload, exact text retrieval, lifecycle history and reprocessing to generation 2 pass for one owned synthetic document; scoped filters await the new external rollout. External `38179885497` and MCP `38179885575` passed all CI gates and published. External reconciliation is in progress; the MCP parent pin is advancing through source to that verified replacement. Source `c260fc3` stages signed Worldbuilder MCP reads/drafts using the dedicated key and observed certificate principals; parent CI `38180301946` is running. Legacy SSE also passes a real authenticated inventory read. Synchronous AI/story/concurrency acceptance and the Worldbuilder tool denial matrix remain prepared, not executed. Retained document history baseline: 2,199 rows through ID 2200, fingerprint `4905c033579662ce1e9ce401216ae3eb`. No broad source scan yet.
+
+The following 22:17 checkpoint is retained for context and superseded by the update above.
 
 The actual conversation Labiraus MCP connection works; native OAuth public checks pass. The user explicitly confirmed commits/pushes to main and local AI limits of 100 requests/day, two concurrent requests and internal GBP £0.01/£1 attempt/day allocations. Preserve local environment/SSH files. Jobs/MCP Worldbuilder delegation remain off, and the broader goal is active.
 
