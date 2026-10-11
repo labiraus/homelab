@@ -35,3 +35,5 @@ Superuser grants are operator-owned rows, not PostgreSQL superuser roles. The ap
 ## Native MCP authorization
 
 `sql/mcp/` is separate from canon migrations. Its runtime owns no tables and cannot write `auth.users` or read canon. Apply grants explicitly; never seed or truncate the existing registry. Before exposing any restored OAuth database, run its credential-revocation script to prevent resurrection of previously revoked access. Ordinary app replacement preserves valid credentials.
+
+Privilege audits across inaccessible schemas should use catalog OIDs and check schema USAGE separately. Name-based `has_table_privilege` lookup can raise a schema-permission error before a SQL filter excludes that schema; do not broaden the operator or runtime grants merely to collect fingerprints.

@@ -26,6 +26,13 @@ external:
     - orchestrator
     - processor
   values:
+    nativeOAuth:
+      enabled: true
+      databaseSecret: native-oauth-external
+      host: mcp.labiraus.com
+      browserPrincipal: cluster.local/ns/homelab/sa/homelab-oauth2-proxy
+      gatewayPrincipal: cluster.local/ns/ingress/sa/gateway-istio
+      mcpPrincipal: cluster.local/ns/homelab/sa/homelab-mcp
     worldbuilder:
       enabled: true
       databaseSecret: worldbuilder-external
