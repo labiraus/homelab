@@ -38,6 +38,20 @@ spec:
       {{- include "commonapi.selectorLabels" . | nindent 6 }}
   action: ALLOW
   rules:
+    # Introducing an ALLOW policy changes Istio's default for the entire workload.
+    # Preserve existing non-OAuth routes; their NetworkPolicies and dedicated
+    # Worldbuilder DENY boundaries continue to govern callers.
+    - to:
+        - operation:
+            ports: ["8080"]
+            notPaths: ["/.well-known/oauth-authorization-server", "/mcp-oauth/*", "/api/mcp-oauth/*"]
+    - from:
+        - source:
+            principals: [{{ $browser | quote }}]
+      to:
+        - operation:
+            ports: ["8080"]
+            paths: ["/api/mcp-oauth/authorize"]
     - from:
         - source:
             principals: [{{ $gateway | quote }}]

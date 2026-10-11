@@ -12,6 +12,8 @@ The gateway's `mcp-oauth` provider checks tokens through `/api/mcp-oauth/check`.
 
 `mcp_oauth_runtime` is a separate non-owner login with no inheritance, elevated database privileges, canon access or user-registry writes. It can read registered users, operate its own credential tables and read its schema version. External refuses startup with the wrong role or schema. Neither startup nor Helm installs SQL.
 
+The new external ALLOW policy preserves existing non-OAuth paths, whose existing NetworkPolicies and Worldbuilder DENY boundaries still apply. Consent has an explicit browser-proxy allowance. Without these rules, adding the first ALLOW policy would silently deny the website and retained service APIs.
+
 ## Activation order
 
 1. Pass `WORLDBUILDER_TEST_TRANSPORT=exec bash scripts/worldbuilder/test-postgres.sh` when local Docker forwarding requires the existing exec bridge. The owned fixture covers protocol bindings, consent refusal, replay/concurrency, expiry, revocation, replacement and role isolation. Run MCP/app tests and the composed manifest/API-server gate too.

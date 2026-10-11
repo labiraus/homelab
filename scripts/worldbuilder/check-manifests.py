@@ -138,6 +138,12 @@ else:
     expected={('/api/mcp-oauth/authorize',('cluster.local/ns/homelab/sa/homelab-oauth2-proxy',)),('/api/mcp-oauth/check',('cluster.local/ns/ingress/sa/gateway-istio','cluster.local/ns/homelab/sa/homelab-mcp'))}
     actual={(rule['to'][0]['operation']['paths'][0],tuple(rule['from'][0]['source']['notPrincipals'])) for rule in boundary['spec']['rules']}
     if actual!=expected:failures.append('native OAuth identity boundary')
+    allowance=next(r for r in resources if r['metadata']['name']=='homelab-external-native-oauth-gateway')
+    preserved=[rule for rule in allowance['spec']['rules'] if 'from' not in rule]
+    if len(preserved)!=1 or preserved[0]['to']!=[{'operation':{'ports':['8080'],'notPaths':['/.well-known/oauth-authorization-server','/mcp-oauth/*','/api/mcp-oauth/*']}}]:
+        failures.append('native OAuth changed existing non-OAuth route access')
+    if not any(rule.get('from')==[{'source':{'principals':['cluster.local/ns/homelab/sa/homelab-oauth2-proxy']}}] and rule['to']==[{'operation':{'ports':['8080'],'paths':['/api/mcp-oauth/authorize']}}] for rule in allowance['spec']['rules']):
+        failures.append('native OAuth denied browser consent')
     route=next(r for r in resources if r['kind']=='HTTPRoute')
     public={match['path']['value'] for rule in route['spec']['rules'] for match in rule['matches']}
     if public!={'/.well-known/oauth-authorization-server','/mcp-oauth/register','/mcp-oauth/token','/mcp-oauth/revoke'}:
