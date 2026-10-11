@@ -57,6 +57,8 @@ def main():
     cosine = lambda a, b: sum(x*y for x, y in zip(a, b))
     related, unrelated = cosine(vectors[0], vectors[1]), cosine(vectors[0], vectors[2])
     assert related > unrelated + 0.1, "synthetic semantic retrieval did not separate relevant text"
+    batch, max_batch_seconds = request([texts[0]] * 8)
+    assert all(max(abs(a-b) for a, b in zip(row, vectors[0])) < 0.001 for row in batch), "maximum batch output drift"
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(lambda text: request([text]), [texts[0], texts[2]]))
     for (rows, _), original in zip(results, [vectors[0], vectors[2]]):
@@ -70,6 +72,7 @@ def main():
     print(json.dumps({"status": "PASS", "model": args.model, "dimensions": args.dimensions,
                       "relatedCosine": round(related, 4), "unrelatedCosine": round(unrelated, 4),
                       "batchSeconds": round(batch_seconds, 3),
+                      "maxBatchSize": 8, "maxBatchSeconds": round(max_batch_seconds, 3),
                       "concurrentSeconds": [round(result[1], 3) for result in results],
                       "oversizedInput": "refused"}))
 

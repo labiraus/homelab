@@ -46,6 +46,19 @@ spec:
           from: Same
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: ClientTrafficPolicy
+metadata:
+  name: {{ .Values.aiGateway.gatewayName }}-buffer
+  namespace: {{ .Values.namespace }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.aiGateway.gatewayName }}
+  connection:
+    bufferLimit: {{ .Values.aiGateway.clientBufferLimit | quote }}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: Backend
 metadata:
   name: {{ .Values.aiGateway.backendName }}

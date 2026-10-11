@@ -370,6 +370,10 @@ OpenSearch access is also overridden by `bootstrap/flux-data` HelmRelease values
 
 If external refuses startup with `invalid inference budget setting WORLDBUILDER_AI_DAILY_MICROS`, inspect the rendered environment value. Flux's JSON values transport rendered the approved `1000000` allowance as `1e+06`; the integer parser correctly rejected it. The chart now formats numeric allowances as explicit integers, and the manifest gate renders actual parent values through JSON into the child. Deploy the chart fix through normal app publication and verify the replacement Pod and exact limits before calling AI activation complete.
 
+## Private AI gateway embedding batches
+
+If TEI logs successful inference but the caller gets HTTP 500, inspect Envoy's response details. `response_payload_too_large` reproduced with three 1,024-dimensional vectors while one vector succeeded. The private vLLM gateway chart now sets a bounded 256 KiB client buffer instead of Envoy's default 32 KiB. Preserve the runtime's eight-item batch cap and oversized-input refusal; verify the full `scripts/validation/embedding-endpoint.py` gate through the gateway after Flux deploys it. A direct runtime test does not cover this limit.
+
 ## Worldbuilder generation broker configuration
 
 An `incompatible generation stream` startup error now includes durability drift: inspect subjects, file storage, three replicas and seven-day limits retention. A consumer replica mismatch also stops startup. Do not delete or silently recreate existing streams/consumers to bypass the error; inspect and back up their pending work before controlled repair. The [disposable broker drill](../docs/worldbuilder/BROKER-RECOVERY.md) verifies leader loss, quorum loss and restart locally; installed topology and storage remain LAN checks.

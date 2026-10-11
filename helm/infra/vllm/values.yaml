@@ -77,5 +77,6 @@ aiGateway:
   envoyProxyName: vllm-ai-gateway
   envoyServiceName: homelab-vllm-ai-gateway
   envoyServiceType: ClusterIP
+  clientBufferLimit: 256Ki
   backendName: vllm
   routeName: vllm-openai
