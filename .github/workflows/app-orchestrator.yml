@@ -66,6 +66,9 @@ jobs:
       - name: Canon migrations and generation startup compatibility
         run: bash scripts/worldbuilder/test-postgres.sh
 
+      - name: Three-node JetStream quorum and recovery
+        run: bash scripts/worldbuilder/test-jetstream.sh
+
   ghcr:
     needs: [test, storage-acceptance]
     name: "Orchestrator Build to GHCR"

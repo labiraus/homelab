@@ -82,16 +82,10 @@ func startGenerationJobs(ctx context.Context, pool *pgxpool.Pool, js nats.JetStr
 	if err = pool.QueryRow(ctx, `SELECT max(version) FROM worldbuilder.schema_version`).Scan(&version); err != nil || version != 7 {
 		return fmt.Errorf("generation jobs require schema version 7")
 	}
-	info, err := js.StreamInfo(generationStream)
-	if errors.Is(err, nats.ErrStreamNotFound) {
-		_, err = js.AddStream(&nats.StreamConfig{Name: generationStream, Subjects: []string{generationSubject}, Storage: nats.FileStorage, Retention: nats.LimitsPolicy, Replicas: 3, MaxAge: 7 * 24 * time.Hour})
-	} else if err == nil && (len(info.Config.Subjects) != 1 || info.Config.Subjects[0] != generationSubject) {
-		err = fmt.Errorf("incompatible generation stream")
-	}
-	if err != nil {
+	if err = ensureGenerationStream(js); err != nil {
 		return err
 	}
-	sub, err := js.PullSubscribe(generationSubject, "worldbuilder-generation-v1", nats.BindStream(generationStream), nats.ManualAck(), nats.AckExplicit(), nats.AckWait(2*time.Minute), nats.MaxAckPending(10))
+	sub, err := subscribeGeneration(js)
 	if err != nil {
 		return err
 	}
@@ -147,4 +141,20 @@ func startGenerationJobs(ctx context.Context, pool *pgxpool.Pool, js nats.JetStr
 		}
 	}()
 	return nil
+}
+
+func ensureGenerationStream(js nats.JetStreamContext) error {
+	info, err := js.StreamInfo(generationStream)
+	if errors.Is(err, nats.ErrStreamNotFound) {
+		_, err = js.AddStream(&nats.StreamConfig{Name: generationStream, Subjects: []string{generationSubject}, Storage: nats.FileStorage, Retention: nats.LimitsPolicy, Replicas: 3, MaxAge: 7 * 24 * time.Hour})
+	} else if err == nil && (len(info.Config.Subjects) != 1 || info.Config.Subjects[0] != generationSubject ||
+		info.Config.Storage != nats.FileStorage || info.Config.Replicas != 3 ||
+		info.Config.Retention != nats.LimitsPolicy || info.Config.MaxAge != 7*24*time.Hour) {
+		err = fmt.Errorf("incompatible generation stream")
+	}
+	return err
+}
+
+func subscribeGeneration(js nats.JetStreamContext) (*nats.Subscription, error) {
+	return js.PullSubscribe(generationSubject, "worldbuilder-generation-v1", nats.BindStream(generationStream), nats.ManualAck(), nats.AckExplicit(), nats.AckWait(2*time.Minute), nats.MaxAckPending(10), nats.ConsumerReplicas(3))
 }

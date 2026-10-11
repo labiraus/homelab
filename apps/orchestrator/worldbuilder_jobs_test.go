@@ -22,6 +22,41 @@ type generationStartupProbe struct {
 	err    error
 }
 
+type generationStreamProbe struct {
+	nats.JetStreamContext
+	config nats.StreamConfig
+}
+
+func (p *generationStreamProbe) StreamInfo(string, ...nats.JSOpt) (*nats.StreamInfo, error) {
+	return &nats.StreamInfo{Config: p.config}, nil
+}
+
+func TestGenerationStreamRejectsDurabilityDrift(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		edit func(*nats.StreamConfig)
+	}{
+		{"subject", func(c *nats.StreamConfig) { c.Subjects = []string{"foreign"} }},
+		{"extra subject", func(c *nats.StreamConfig) { c.Subjects = append(c.Subjects, "foreign") }},
+		{"memory storage", func(c *nats.StreamConfig) { c.Storage = nats.MemoryStorage }},
+		{"single replica", func(c *nats.StreamConfig) { c.Replicas = 1 }},
+		{"work queue retention", func(c *nats.StreamConfig) { c.Retention = nats.WorkQueuePolicy }},
+		{"short retention", func(c *nats.StreamConfig) { c.MaxAge = time.Hour }},
+		{"unbounded retention", func(c *nats.StreamConfig) { c.MaxAge = 0 }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := &generationStreamProbe{config: nats.StreamConfig{Name: generationStream, Subjects: []string{generationSubject}, Storage: nats.FileStorage, Replicas: 3, Retention: nats.LimitsPolicy, MaxAge: 7 * 24 * time.Hour}}
+			if err := ensureGenerationStream(p); err != nil {
+				t.Fatal(err)
+			}
+			tc.edit(&p.config)
+			if err := ensureGenerationStream(p); err == nil {
+				t.Fatal("accepted incompatible stream")
+			}
+		})
+	}
+}
+
 func (p *generationStartupProbe) StreamInfo(string, ...nats.JSOpt) (*nats.StreamInfo, error) {
 	p.called = true
 	return nil, p.err
