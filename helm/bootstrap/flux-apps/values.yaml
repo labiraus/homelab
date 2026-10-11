@@ -26,6 +26,11 @@ external:
     - orchestrator
     - processor
   values:
+    worldbuilder:
+      enabled: true
+      databaseSecret: worldbuilder-external
+      browserPrincipal: cluster.local/ns/homelab/sa/homelab-oauth2-proxy
+      aiSecret: ""
     ingress:
       enabled: false
     security:
