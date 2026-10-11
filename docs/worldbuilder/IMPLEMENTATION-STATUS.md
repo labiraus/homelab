@@ -10,6 +10,10 @@ Calendar configuration/presentation and full-range life-bound fact semantics rem
 
 Follow-up audit found the orchestrator's derived index text also passed through `float64`. It now retains raw JSON field tokens, with a full-range projection regression and the complete orchestrator Go suite passing. This keeps date search terms exact while preserving canonical reconciliation; it changes neither index schema nor authority. Core source `a1e7c92` is published; application CI and projection publication are being observed.
 
+Wiki navigation audit also identified that links to unloaded records omitted the submitted `at` filter. They now preserve exact fictional time with the displayed revision/timeline, independently of unsaved filter inputs; component acceptance covers the minimum signed tick and unsaved edits to all three controls. UI build and all 46 component tests pass.
+
+Core publication `a1e7c92` passed [MCP CI/CD 38131962137](https://github.com/labiraus/homelab/actions/runs/38131962137), [UI CI/CD 38131962242](https://github.com/labiraus/homelab/actions/runs/38131962242) and [processor CI/CD 38131962494](https://github.com/labiraus/homelab/actions/runs/38131962494), including the browser/database and actual-client storage gates. External tests and projection `fa754b8` orchestrator tests/storage gates pass; their image/chart jobs are still being observed. Navigation follow-up publication is tracked separately.
+
 Execution started 2026-10-10. **The initial remote baseline was verified through increment 15. The continuing goal includes the broader [offline work audit](OFFLINE-WORK.md), which remains open. Tested main-branch publication is authorised; no live cluster observations. Deployment activation and M8 cutover remain LAN-gated.**
 
 Public read-only probing on 2026-10-10 reached DNS/TLS but was blocked by Zscaler with a hostname-mismatched certificate and HTTP 403 diagnostic page. No verified application response or cluster state was obtained; see [public validation evidence and remaining checks](PUBLIC-VALIDATION.md).

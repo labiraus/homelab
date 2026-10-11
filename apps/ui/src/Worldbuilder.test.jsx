@@ -56,6 +56,74 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("Worldbuilder", () => {
+  it("keeps unloaded record navigation at the submitted revision, timeline and exact time", async () => {
+    const currentWorld = { ...world, revision: 3 };
+    const calls = [];
+    global.fetch = vi.fn(async (url) => {
+      calls.push(new URL(url, "https://test.local"));
+      const parsed = calls.at(-1);
+      let data = [];
+      if (parsed.pathname === "/api/worlds") data = [currentWorld];
+      if (parsed.pathname.endsWith("/canon"))
+        data = {
+          world: currentWorld,
+          revision: Number(parsed.searchParams.get("revision") || 3),
+          timeline: "main",
+          total: 1,
+          records: parsed.searchParams.has("kind")
+            ? []
+            : [
+                {
+                  id: "edge",
+                  kind: "relationship",
+                  subject: "hidden",
+                  target: "other",
+                  predicate: "friend",
+                  timeline: "main",
+                },
+              ],
+        };
+      if (parsed.pathname.endsWith("/records/hidden"))
+        data = {
+          revision: 2,
+          record: { id: "hidden", kind: "entity", label: "Hidden" },
+        };
+      return { ok: true, text: async () => JSON.stringify(data) };
+    });
+    render(<Worldbuilder email="editor@test" />);
+    await screen.findByRole("option", { name: "Novel" });
+    fireEvent.change(screen.getByLabelText("Open world"), {
+      target: { value: "w" },
+    });
+    await screen.findByRole("link", { name: "hidden" });
+    fireEvent.change(screen.getByLabelText("Historical revision"), {
+      target: { value: "2" },
+    });
+    fireEvent.change(screen.getByLabelText("Fictional time"), {
+      target: { value: "-9223372036854775808" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Load canon" }));
+    await screen.findByText(/Showing 1 of 1 records at revision 2/);
+    fireEvent.change(screen.getByLabelText("Historical revision"), {
+      target: { value: "3" },
+    });
+    fireEvent.change(screen.getByLabelText("Timeline", { exact: true }), {
+      target: { value: "unsubmitted" },
+    });
+    fireEvent.change(screen.getByLabelText("Fictional time"), {
+      target: { value: "0" },
+    });
+    fireEvent.click(screen.getByRole("link", { name: "hidden" }));
+    await screen.findByRole("complementary", { name: "Linked canon record" });
+    const linked = calls.find((url) =>
+      url.pathname.endsWith("/records/hidden"),
+    );
+    expect(Object.fromEntries(linked.searchParams)).toEqual({
+      revision: "2",
+      timeline: "main",
+      at: "-9223372036854775808",
+    });
+  });
   it("uses scoped search and identifies limited AI coverage", async () => {
     const calls = mockApi();
     render(<Worldbuilder email="editor@test" />);

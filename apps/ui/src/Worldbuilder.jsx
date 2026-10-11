@@ -405,10 +405,12 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
           else if (canon)
             void run(async () => {
               const recordId = a.getAttribute("href").slice("#canon-".length);
+              const applied = new URLSearchParams(canonFilters);
               const params = new URLSearchParams({
-                timeline: canon.timeline || timeline,
+                timeline: canon.timeline || applied.get("timeline"),
                 revision: String(canon.revision),
               });
+              if (applied.has("at")) params.set("at", applied.get("at"));
               setLinkedRecord(
                 await api(
                   `${path}/records/${encodeURIComponent(recordId)}?${params}`,
