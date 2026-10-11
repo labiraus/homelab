@@ -90,6 +90,8 @@ For disposable kind work, set the generated `KUBECONFIG` for creation and deleti
 
 Docker exec attach can terminate early with exit 0 while its command is still running, and archive-copy acknowledgements can lack the expected files in a proxied kind environment. Do not infer command completion from that client status. Use the fixture-scoped exec-ID transport in `scripts/worldbuilder/docker-exec.py`, verify terminal status and output/postconditions, and keep ownership checks and timeout failure intact. Never redirect an offline fixture to production to bypass transport failures.
 
+Use `scripts/worldbuilder/kind-fixture.py` for shared controller/backup lifecycle and loopback mappings. CNPG webhook refusals can appear as ordinary `Cluster is invalid` messages without the words `admission webhook`; prove invalid-input rejection and unavailable-webhook refusal/recovery rather than requiring that prefix. Database fixture fallback is for unavailable local transport, never authentication or SQL failures.
+
 ## Storage chronology evidence
 
 Treat S3 version IDs as opaque. Retain mixed listing/pagination evidence for timestamp ties, and use `IsLatest` when it proves a unique position: a latest null version is not ambiguous merely because its timestamp ties another version. Refuse null ties only when multiple chronological positions remain possible; never infer order from the provider's placement of null last.

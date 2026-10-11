@@ -308,6 +308,12 @@ New CRDs can initially have absent/null status conditions; the harness waits for
 
 For a structural parser error on a bare `=` in a public CRD enum, use the repository's Kubernetes-aware safe loader. It preserves this legal string while rejecting unsafe YAML tags; do not rewrite the upstream CRD or skip its validation. The disposable API-server gate must also pass the original source.
 
+## Worldbuilder physical backup acceptance
+
+The [CNPG backup fixture](../docs/worldbuilder/BACKUP-ACCEPTANCE.md) verifies base backup/WAL and latest/PITR recovery after removing only its synthetic source Cluster/Pods/PVCs. Do not reuse those deletion commands against an operator context. Inspect its `backup-result.json` together with the final workflow conclusion and cleanup logs; a configured/completed backup alone does not prove restore. The fixture tests all 17 populated tables and refuses wrong S3 credentials.
+
+CNPG webhook errors may print `Cluster ... is invalid` without an `admission webhook` prefix. The acceptance harness checks the CNPG rejection and separately stops/restarts its own operator to prove fail-closed admission and recovery. Local database fallback only follows a transport failure; password, SQL and certificate errors must not be bypassed by switching to peer authentication.
+
 ## Worldbuilder metrics and dashboard provisioning
 
 For disposable controller failures, use [controller acceptance](../docs/worldbuilder/CONTROLLER-ACCEPTANCE.md) and retain `kind.log`, `pods.log`, `events.log` and the workflow conclusion. A kind bootstrap that appears to finish kubeadm early can be a Docker exec transport failure: this environment returned exit 0 before a delayed command actually exited 7. The fixture now inspects exec IDs to completion and verifies bounded output transfers. A failed/partial copy or timed-out exec must not become a passing gate. Creation and teardown both use generated kubeconfig; do not allow kind cleanup to edit the operator's home config.

@@ -64,6 +64,10 @@ Do not count this baseline as healthy unless:
 - at least one `ScheduledBackup` exists for `app-db`
 - the current WAL archive logs do not show repeated `SlowDownWrite` / `PutObject` failures against `svartalfheim`
 
+## Disposable physical restore acceptance
+
+The [CNPG backup drill](worldbuilder/BACKUP-ACCEPTANCE.md) verifies physical base backup, archived WAL and latest/named point-in-time recovery against authenticated external SeaweedFS with synthetic Worldbuilder data. It removes the source Pods/PVCs before recovery and checks every populated table, permissions, immutable triggers and sequence behavior. CI requires the drill before app/chart publication. This prepares the target recovery mechanism; actual production backup inventory, all application schemas, migration-chain coverage and the LAN restore rehearsal above remain required.
+
 ## Verification
 
 After recovery:

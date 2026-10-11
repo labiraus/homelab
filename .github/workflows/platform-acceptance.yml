@@ -14,10 +14,14 @@ on:
   push:
     paths:
       - 'scripts/worldbuilder/**'
+      - 'scripts/storage/requirements.txt'
+      - 'ansible/roles/seaweedfs/**'
       - '.github/workflows/platform-acceptance.yml'
   pull_request:
     paths:
       - 'scripts/worldbuilder/**'
+      - 'scripts/storage/requirements.txt'
+      - 'ansible/roles/seaweedfs/**'
       - 'helm/**'
       - '.github/workflows/platform-acceptance.yml'
 permissions:
@@ -100,6 +104,43 @@ jobs:
             ${{ runner.temp }}/controller-acceptance/*.log
             ${{ runner.temp }}/controller-acceptance/stack-values.yaml
             ${{ runner.temp }}/controller-acceptance/stack.yaml
+          retention-days: 7
+  backup-restore:
+    needs: api-server
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4.1.1
+        with:
+          ref: ${{ inputs.commit_sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: azure/setup-helm@v4.2.0
+        with:
+          version: 'v4.3.0'
+      - uses: actions/download-artifact@v4
+        with:
+          name: offline-platform-evidence
+          path: ${{ runner.temp }}/platform-evidence
+      - name: Install backup fixture dependencies
+        run: |
+          python3 -m pip install -r scripts/worldbuilder/requirements.txt -r scripts/storage/requirements.txt
+          command -v psql || sudo apt-get install -y postgresql-client
+          python3 scripts/worldbuilder/test-docker-exec.py
+          python3 scripts/worldbuilder/test-backups-unit.py
+      - name: Verify CNPG physical backup, WAL and point-in-time restore
+        run: python3 scripts/worldbuilder/test-backups.py "$RUNNER_TEMP/backup-acceptance" "$RUNNER_TEMP/platform-evidence/schemas"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: offline-backup-result
+          path: |
+            ${{ runner.temp }}/backup-acceptance/*.json
+            ${{ runner.temp }}/backup-acceptance/*.log
+            ${{ runner.temp }}/backup-acceptance/operator.yaml
+            ${{ runner.temp }}/backup-acceptance/cluster.yaml
+            ${{ runner.temp }}/backup-acceptance/postgres-inputs.yaml
           retention-days: 7
   observability:
     needs: api-server
