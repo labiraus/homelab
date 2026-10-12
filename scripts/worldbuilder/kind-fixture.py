@@ -71,20 +71,22 @@ class Fixture:
         self.kubectl('apply', '--server-side', '--field-manager=offline-acceptance', '-f', '-',
                      data=yaml.safe_dump_all(documents).encode())
 
-    def create(self):
+    def create(self, cni_installer=None):
         config = self.private / 'kind.yaml'
+        networking = {'apiServerAddress': '127.0.0.1', 'ipFamily': 'ipv4'}
+        if cni_installer is not None:
+            if not callable(cni_installer): raise ValueError('Fixture CNI installer must be callable')
+            networking['disableDefaultCNI'] = True
         config.write_text(yaml.safe_dump({'kind': 'Cluster', 'apiVersion': 'kind.x-k8s.io/v1alpha4',
-            'networking': {'apiServerAddress': '127.0.0.1', 'ipFamily': 'ipv4'},
+            'networking': networking,
             'nodes': [{'role': 'control-plane', 'extraPortMappings': [
                 {'containerPort': port, 'hostPort': 0, 'listenAddress': '127.0.0.1', 'protocol': 'TCP'}
                 for port in self.ports]}]}))
         with (self.output / 'kind.log').open('w') as log:
             subprocess.run([str(self.kind), 'create', 'cluster', '--name', self.name,
                 '--image', module('install-kind').NODE, '--config', str(config),
-                '--kubeconfig', self.env['KUBECONFIG'], '--wait', '180s', '--retain'],
+                '--kubeconfig', self.env['KUBECONFIG'], '--wait', '0s' if cni_installer else '180s', '--retain'],
                 env=self.env, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=480)
-        self.kubectl('wait', 'nodes', '--all', '--for=condition=Ready', '--timeout=180s')
-        self.kubectl('-n', 'kube-system', 'rollout', 'status', 'deployment/coredns', '--timeout=180s')
         if bundle := os.environ.get('WORLDBUILDER_TEST_CA_BUNDLE'):
             data = Path(bundle).read_bytes()
             if len(data) > 1024**2 or b'PRIVATE KEY' in data:
@@ -93,6 +95,10 @@ class Fixture:
             self.execute(['sh', '-c', 'cat >> /etc/ssl/certs/ca-certificates.crt && systemctl restart containerd'], data)
             (self.output / 'registry-trust.json').write_text(json.dumps({
                 'sha256': hashlib.sha256(data).hexdigest(), 'tlsVerification': True}) + '\n')
+        if cni_installer is not None:
+            cni_installer(self)
+        self.kubectl('wait', 'nodes', '--all', '--for=condition=Ready', '--timeout=180s')
+        self.kubectl('-n', 'kube-system', 'rollout', 'status', 'deployment/coredns', '--timeout=180s')
         # These checks catch early-return Docker proxies before controller tests.
         before = time.monotonic()
         code, out, err = self.execute(['sh', '-c',

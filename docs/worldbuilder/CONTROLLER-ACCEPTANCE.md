@@ -20,6 +20,8 @@ The installer verifies architecture-specific official SHA-256 checksums for [kin
 
 The test renders kube-prometheus-stack 92.3.0, installs its unmodified CRDs and operator resources, and waits for real Ready nodes, CoreDNS, operator and Prometheus Pods. Unrelated monitoring components are disabled. Admission remains enabled with TLS and `failurePolicy: Fail`; the fixture executes the original certificate-generation and CA-patching hook Jobs in order. Their extended disposable TTL retains evidence until teardown. The test applies the repository-rendered ServiceMonitor with only its scrape interval/timeout shortened. A synthetic Python endpoint serves metrics emitted by the real external Go registry/handlers.
 
+Initial Prometheus readiness allows up to ten minutes for cold image downloads. An observed four-minute timeout occurred while the pinned image was still downloading; it did not establish a reconciliation failure. Exhausting the longer bound still fails the run and retains events. Admission, scrape selection, refusal and replacement assertions are unchanged.
+
 Required observations:
 
 - Real admission accepts a valid PrometheusRule and coerces numeric annotations to strings; malformed PromQL and an AlertmanagerConfig with a missing receiver are rejected for their semantic errors.

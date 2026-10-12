@@ -218,6 +218,39 @@ jobs:
             ${{ runner.temp }}/velero-acceptance/velero-values.yaml
             ${{ runner.temp }}/velero-acceptance/velero.yaml
           retention-days: 7
+  mesh:
+    needs: api-server
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4.1.1
+        with:
+          ref: ${{ inputs.commit_sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: azure/setup-helm@v4.2.0
+        with:
+          version: 'v4.3.0'
+      - uses: actions/download-artifact@v4
+        with:
+          name: offline-platform-evidence
+          path: ${{ runner.temp }}/platform-evidence
+      - name: Install and verify disposable transport dependencies
+        run: |
+          python3 -m pip install -r scripts/worldbuilder/requirements.txt
+          python3 scripts/worldbuilder/test-docker-exec.py
+      - name: Verify source network, mesh identity and authenticated Gateway boundaries
+        run: python3 scripts/worldbuilder/test-mesh.py "$RUNNER_TEMP/mesh-acceptance" "$RUNNER_TEMP/platform-evidence/schemas"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: offline-mesh-result
+          path: |
+            ${{ runner.temp }}/mesh-acceptance/*.json
+            ${{ runner.temp }}/mesh-acceptance/*.log
+            ${{ runner.temp }}/mesh-acceptance/*.yaml
+          retention-days: 7
   observability:
     needs: api-server
     runs-on: ubuntu-latest

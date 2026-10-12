@@ -100,6 +100,8 @@ Use `scripts/worldbuilder/kind-fixture.py` for shared controller/backup lifecycl
 
 Rendered Helm metadata can contain explicit null annotations. Treat absent/null annotation maps as empty when classifying hook resources; execute certificate-generation and CA-patching Jobs in their intended order before claiming webhook acceptance.
 
+For disposable controller cold-start timeouts, inspect Pod events and image-download progress before attributing failure to admission, networking or reconciliation. Keep startup waits bounded, retain the failed run and verify owned cleanup before retrying. A partial bootstrap or continuing download is not passing acceptance.
+
 Select controller Pods using the Deployment's actual selector when testing replacement or shutdown. Prometheus admission hook Pods share the operator's `app.kubernetes.io/name`; that label alone includes completed certificate Jobs and makes deletion waits or single-Pod assertions incorrect.
 
 NodePort creation does not mean kube-proxy has installed its route: Docker can accept and close an initial connection. Retry bounded preflight connection closure before evaluating database readiness; persistent closure must still fail rather than switch to peer authentication.

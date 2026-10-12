@@ -1,5 +1,11 @@
 # Worldbuilder implementation status
 
+## Increment 34 — disposable source-policy mesh gate (under verification)
+
+The new [mesh gate](MESH-ACCEPTANCE.md) installs Cilium and Istio in an owned kind cluster and exercises the rendered external/MCP network, exact workload identity, native-auth and TLS Gateway policies. Synthetic backends keep these controller checks independent of production credentials and application-level OAuth tests. The matrix includes positive controls, spoof/plaintext/refused-role checks, metrics isolation, auth-backend outage and controller replacement. Hosted platform CI now requires this gate before dependent publication.
+
+Verification remains pending. Nine transport tests, all 33 source manifest combinations, Python compilation and actionlint pass. The first local Cilium bootstrap and default-controller regression timed out during cold image downloads; both cleaned up their owned clusters. The default regression had passed admission/trust/refusal/recovery before its Prometheus download timeout. Bounded startup allowances were extended; complete local and hosted results must be recorded before this item closes. The physical Pi API/SSH outage still blocks live cutover and candidate deployment work.
+
 ## LAN recovery and chart publication repair — 2026-10-11
 
 The control plane is reachable again. Existing `helheim` VM 3103 booted after a scoped corosync restart on its Proxmox host released abnormal memory usage; quorum and replacement SSH certificate authentication were verified. Five Kubernetes nodes are Ready; `midgard` remains cordoned/offline. All seven Longhorn volumes are attached/healthy and three NATS members Ready. Local read-only psql confirms the legacy schemas, no Worldbuilder schema, and current successful WAL archiving with zero failures since PostgreSQL restarted. These checks do not establish a production restore or application acceptance.

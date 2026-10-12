@@ -186,7 +186,7 @@ def monitor_drill(f, fixture_directory, metrics):
     wait_for('operator creates the Prometheus Pod', lambda: bool(json.loads(f.kubectl(
         '-n', STACK_NAMESPACE, 'get', 'pods', '-l', 'prometheus=' + PROMETHEUS, '-o', 'json'))['items']))
     f.kubectl('-n', STACK_NAMESPACE, 'wait', 'pod', '-l', 'prometheus=' + PROMETHEUS,
-              '--for=condition=Ready', '--timeout=240s')
+              '--for=condition=Ready', '--timeout=600s', timeout=630)
     labels = monitor['spec']['selector']['matchLabels']
     serve = '''from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
