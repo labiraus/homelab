@@ -96,6 +96,11 @@ class Fixture:
             (self.output / 'registry-trust.json').write_text(json.dumps({
                 'sha256': hashlib.sha256(data).hexdigest(), 'tlsVerification': True}) + '\n')
         if cni_installer is not None:
+            # kind creates CoreDNS before a custom CNI can make the node Ready.
+            # Its default progress deadline otherwise expires during cold CNI
+            # downloads and rollout fails immediately when scheduling resumes.
+            self.kubectl('-n', 'kube-system', 'patch', 'deployment/coredns', '--type=merge',
+                         '-p', '{"spec":{"progressDeadlineSeconds":1800}}')
             cni_installer(self)
         self.kubectl('wait', 'nodes', '--all', '--for=condition=Ready', '--timeout=180s')
         self.kubectl('-n', 'kube-system', 'rollout', 'status', 'deployment/coredns', '--timeout=180s')

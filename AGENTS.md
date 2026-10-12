@@ -102,6 +102,8 @@ Rendered Helm metadata can contain explicit null annotations. Treat absent/null 
 
 For disposable controller cold-start timeouts, inspect Pod events and image-download progress before attributing failure to admission, networking or reconciliation. Keep startup waits bounded, retain the failed run and verify owned cleanup before retrying. A partial bootstrap or continuing download is not passing acceptance.
 
+In custom-CNI kind fixtures, CoreDNS exists while nodes await CNI installation. Set its disposable Deployment progress deadline before cold CNI downloads; a longer later rollout wait cannot repair an already exceeded deadline. Still require actual node/DNS readiness, and keep default-networking fixtures unchanged.
+
 Select controller Pods using the Deployment's actual selector when testing replacement or shutdown. Prometheus admission hook Pods share the operator's `app.kubernetes.io/name`; that label alone includes completed certificate Jobs and makes deletion waits or single-Pod assertions incorrect.
 
 NodePort creation does not mean kube-proxy has installed its route: Docker can accept and close an initial connection. Retry bounded preflight connection closure before evaluating database readiness; persistent closure must still fail rather than switch to peer authentication.
