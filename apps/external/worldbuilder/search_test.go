@@ -62,6 +62,20 @@ func TestDiscoveryAgainstDisposableOpenSearch(t *testing.T) {
 			t.Fatalf("scope bypass: %+v %v", d, err)
 		}
 	}
+	// Unique terms prove visibility and revision refusal in the actual engine,
+	// independently of tie scores among matching parent documents.
+	for _, extra := range []struct{ id, body, query string }{
+		{"draft", `{"worldId":"world","revision":2,"visibility":"draft","records":[{"id":"draft-record","kind":"entity","text":"UnpublishedOnly"}]}`, "UnpublishedOnly"},
+		{"future", `{"worldId":"world","revision":3,"visibility":"canon","records":[{"id":"future-record","kind":"entity","text":"FutureOnly"}]}`, "FutureOnly"},
+	} {
+		if code := request("PUT", index+"/_doc/"+extra.id+"?refresh=true", extra.body); code != 201 {
+			t.Fatalf("index negative fixture: %d", code)
+		}
+		d, err = discover(context.Background(), "world", "main", 2, extra.query)
+		if err != nil || len(d.IDs) != 0 {
+			t.Fatalf("visibility/revision bypass for %s: %+v %v", extra.id, d, err)
+		}
+	}
 }
 
 func TestDiscoveryQueryScopesAndReturnsOnlyIDs(t *testing.T) {

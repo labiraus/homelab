@@ -6,6 +6,8 @@ Optional Worldbuilder outbox relay and canon projection live in `worldbuilder.go
 
 Canon index startup retries twelve checks with five-second gaps while remaining unready; each HTTP request retains its ten-second timeout and shutdown cancels the wait. Persistent refusal still fails startup. Keep the OpenSearch ingress allowlist aligned in both its child chart and the Flux data parent.
 
+Run `python3 scripts/worldbuilder/test-canon-index.py /tmp/canon-index-result` from the repository root for actual disposable PostgreSQL → JetStream → OpenSearch acceptance, including duplicate delivery, stale-event refusal and reconstruction after index loss. See [canon index acceptance](../../docs/worldbuilder/INDEX-ACCEPTANCE.md) for isolation, evidence and remaining semantic-search scope.
+
 Generation startup refuses an existing stream unless it uses three replicas, file storage and seven-day limits retention with the expected subject. Its durable consumer explicitly requires three replicas. Run `bash scripts/worldbuilder/test-jetstream.sh` from the repository root for the CI-gated, disposable three-node leader/quorum/restart drill. See [broker recovery](../../docs/worldbuilder/BROKER-RECOVERY.md) for coverage and remaining LAN gates.
 
 `orchestrator` is the internal Go control-plane service.

@@ -201,16 +201,35 @@ func TestCanonLiveTransportAndIndex(t *testing.T) {
 		}
 	}
 	payload, _ := json.Marshal(canonEvent{eventID, w, 2, 1})
+	if _, err = pool.Exec(ctx, `INSERT INTO worldbuilder.outbox(id,world_id,revision,payload) VALUES($1,$2,2,$3)`, eventID, w, payload); err != nil {
+		t.Fatal(err)
+	}
+	// The production relay must record delivery only after the real broker ACK.
+	worked, err := relayCanonOnce(ctx, pool, func(id string, body []byte) error {
+		msg := nats.NewMsg(subject)
+		msg.Data = body
+		msg.Header.Set("Nats-Msg-Id", id)
+		_, e := publishWorldbuilderEvent(ctx, js, msg)
+		return e
+	})
+	if err != nil || !worked {
+		t.Fatalf("actual outbox relay: %v %v", worked, err)
+	}
+	var delivered bool
+	if err = pool.QueryRow(ctx, `SELECT delivered_at IS NOT NULL FROM worldbuilder.outbox WHERE id=$1`, eventID).Scan(&delivered); err != nil || !delivered {
+		t.Fatalf("durable delivery missing: %v %v", delivered, err)
+	}
 	// JetStream acknowledges duplicate message IDs without creating duplicate events.
 	msg := nats.NewMsg(subject)
 	msg.Data = payload
 	msg.Header.Set("Nats-Msg-Id", eventID)
-	if _, err = publishWorldbuilderEvent(context.Background(), js, msg); err != nil {
-		t.Fatal(err)
-	}
 	ack, err := publishWorldbuilderEvent(context.Background(), js, msg)
 	if err != nil || !ack.Duplicate {
 		t.Fatalf("duplicate acknowledgement: %v %v", ack, err)
+	}
+	info, err := js.StreamInfo(stream)
+	if err != nil || info.State.Msgs != 1 {
+		t.Fatalf("duplicate produced another durable event: %+v %v", info, err)
 	}
 	sub, err := js.PullSubscribe(subject, "index-test", nats.BindStream(stream))
 	if err != nil {
@@ -221,11 +240,19 @@ func TestCanonLiveTransportAndIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var event canonEvent
+	if err = json.Unmarshal(messages[0].Data, &event); err != nil || event.EventID != eventID || event.WorldID != w || event.Revision != 2 {
+		t.Fatalf("relayed event mismatch: %+v %v", event, err)
+	}
 	index := &canonIndex{pool, searchURL, &http.Client{Timeout: 10 * time.Second}}
+	status, _, err := index.request(ctx, "HEAD", "/worldbuilder-canon-v1", nil)
+	if err != nil || status != http.StatusNotFound {
+		t.Fatalf("refusing to reuse an existing index: %d %v", status, err)
+	}
 	if err = index.ensure(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err = index.project(ctx, w, 2); err != nil {
+	if err = index.project(ctx, event.WorldID, event.Revision); err != nil {
 		t.Fatal(err)
 	}
 	if err = messages[0].AckSync(); err != nil {
@@ -246,7 +273,41 @@ func TestCanonLiveTransportAndIndex(t *testing.T) {
 	if err = json.Unmarshal(body, &doc); err != nil || doc.Source.Revision != 2 {
 		t.Fatalf("stale overwrite: %s %v", body, err)
 	}
+	// Rebuild must recover lost derived data, not merely update an intact index.
+	status, _, err = index.request(ctx, "DELETE", "/worldbuilder-canon-v1", nil)
+	if err != nil || status != http.StatusOK {
+		t.Fatalf("remove disposable index: %d %v", status, err)
+	}
+	if err = index.ensure(ctx); err != nil {
+		t.Fatal(err)
+	}
 	if err = index.rebuild(ctx); err != nil {
 		t.Fatal(err)
+	}
+	status, body, err = index.request(ctx, "GET", "/worldbuilder-canon-v1/_doc/"+w, nil)
+	if err != nil || status != http.StatusOK {
+		t.Fatalf("rebuilt document absent: %d %v", status, err)
+	}
+	var restored struct {
+		Source struct {
+			WorldID    string `json:"worldId"`
+			Revision   int64  `json:"revision"`
+			Visibility string `json:"visibility"`
+			Records    []struct {
+				ID   string `json:"id"`
+				Text string `json:"text"`
+			} `json:"records"`
+		} `json:"_source"`
+	}
+	if err = json.Unmarshal(body, &restored); err != nil {
+		t.Fatal(err)
+	}
+	r := restored.Source
+	if r.WorldID != w || r.Revision != 2 || r.Visibility != "canon" || len(r.Records) != 1 || r.Records[0].ID != "hero" {
+		t.Fatalf("rebuilt scope mismatch: %s", body)
+	}
+	var record map[string]any
+	if err = json.Unmarshal([]byte(r.Records[0].Text), &record); err != nil || record["label"] != "Revision 2" {
+		t.Fatalf("rebuilt canonical content mismatch: %s %v", body, err)
 	}
 }

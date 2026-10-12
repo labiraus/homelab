@@ -240,4 +240,6 @@ Offline acceptance and operations: `docs/worldbuilder/OFFLINE-ACCEPTANCE.md`, `O
 
 Disposable source-policy mesh acceptance: `scripts/worldbuilder/test-mesh.py`, synthetic HTTP endpoints in `mesh-fixture.py`, artifact-boundary regressions in `test-mesh-artifacts.py`, and `docs/worldbuilder/MESH-ACCEPTANCE.md`. It uses the shared owned kind lifecycle with Cilium and Istio; check the recorded full matrix and publication status before treating it as verified.
 
+Disposable canon projection/discovery: `scripts/worldbuilder/test-canon-index.py`, ownership refusal tests in `test-canon-index-unit.py`, and `docs/worldbuilder/INDEX-ACCEPTANCE.md`. Real PostgreSQL/NATS/OpenSearch execute the relay and reconstruction after index loss; the harness rejects skipped tests and verifies owned cleanup. Canon semantic discovery remains a separate gap.
+
 Canonical graph/chronology presentation is in `apps/ui/src/WorldViews.jsx`, with shared UI styling in `styles.css`. It consumes the loaded published scope from `Worldbuilder.jsx`; `worldTicks.js` preserves exact date transport/ordering. Component and real-browser fixtures verify scope, precision, navigation and separation from editor drafts.

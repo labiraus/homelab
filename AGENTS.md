@@ -92,6 +92,8 @@ Docker-outside-Docker published ports can become unreachable despite a healthy c
 
 Finite commands in the disposable PostgreSQL fixture also require the labelled, fixture-scoped exec-ID transport in `scripts/worldbuilder/docker-exec.py`; plain Docker attach may return success before `createdb`, migrations or restores finish. Preserve the original streaming CLI only for the loopback database bridge.
 
+Real canon index acceptance needs PostgreSQL, NATS and OpenSearch together. Use `scripts/worldbuilder/test-canon-index.py`; routine Go success with skipped endpoint-dependent tests is not relay/discovery evidence. Require index deletion before rebuild comparison, and exact generated container names, ownership labels and `network=none` for its loopback bridges.
+
 ## Disposable controller transport
 
 For disposable kind work, set the generated `KUBECONFIG` for creation and deletion; cleanup must not lock or edit the operator's home configuration. The controller harness supplies both explicit arguments and environment settings.

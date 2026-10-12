@@ -4,6 +4,8 @@ Fictional record dates accept exact decimal strings as well as legacy integer JS
 
 External now contains the default-disabled Worldbuilder canon engine, authorised wiki/history, proposal/review/publication, bounded reasoning proxy and persistent story APIs under `/api/worlds`. See [API contract](../../docs/worldbuilder/API.md). `WORLDBUILDER_ENABLED=true` requires schema version 8 and a dedicated `worldbuilder_external` login supplied through `WORLDBUILDER_DATABASE_URL`. Startup never migrates. Existing document and assistant routes below remain compatible.
 
+Canon search uses canonical lexical ranking with bounded OpenSearch candidate diagnostics; semantic-only retrieval is not implemented. The [disposable canon index gate](../../docs/worldbuilder/INDEX-ACCEPTANCE.md) runs actual OpenSearch discovery and relay/rebuild acceptance without production endpoints.
+
 Revision lists/diffs, proposal and story reconciliation, and compensating restore are available through the same authenticated API. Reconciliation compares original/current/proposed records, requires explicit conflict decisions and creates a freshly validated draft; it never transfers approval or changes a session pin. Audit records preserve lineage and exact retry requests. The current runtime requires the additive version-2 migration. Canon lists also accept a validated comma-separated `kind` filter before pagination, allowing complete editor reference catalogs without widening world/timeline/revision scope.
 
 `external` is the public Go HTTP API for the homelab app stack.

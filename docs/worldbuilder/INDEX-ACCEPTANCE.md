@@ -1,0 +1,23 @@
+# Canon index acceptance
+
+Run `python3 scripts/worldbuilder/test-canon-index.py /tmp/canon-index-result` from the repository root with Docker, Go 1.25.6 and Python 3 available. Use a fresh output directory. The platform workflow requires this gate before dependent publication.
+
+The fixture creates PostgreSQL 16.13, NATS 2.11.9 and OpenSearch 3.9.0 containers with `network=none`. Generated loopback bridges reach only their exact labelled container identities. Finite database commands use the inspected exec-ID transport; a streaming Docker CLI result never establishes migration completion. No host ports, operator endpoints, environment files or production credentials are used. Fixture credentials and records are synthetic.
+
+The gate applies the actual canon migrations to separate disposable databases, then requires the selected Go tests to pass without skips:
+
+- Real nested OpenSearch discovery returns only bounded IDs with world, timeline, visibility and revision scope. Canonical search still checks the authoritative snapshot and creates its own citations.
+- The production outbox relay publishes to real JetStream and records durable acknowledgement. A repeated event ID is deduplicated; the consumed event drives actual projection.
+- Delivering an older revision cannot replace the current document.
+- After deletion of the entire disposable index, the actual rebuild recreates the latest canonical scope and record content from PostgreSQL.
+- All owned containers and anonymous volumes are removed, and removal is verified before the report can pass.
+
+Inspect `index-result.json`, both Go logs and the container logs together. The report records immutable image IDs. Ownership refusal tests cover incorrect fixture names, roles, labels and attached networks. Test failure, skipped coverage, persistent startup failure and cleanup failure cannot pass.
+
+## Scope and remaining work
+
+This closes a coverage gap in routine CI, where the existing real transport/index tests skipped without their three disposable endpoints. Local and hosted acceptance of the new harness are pending.
+
+Canon search currently ranks a complete authorized snapshot lexically. OpenSearch candidate IDs only contribute reconciliation diagnostics; they do not include semantic-only records or change pagination. Historical queries bypass the current projection. The document embedding pipeline is separate and does not establish canon semantic retrieval.
+
+A future configurable vector adapter needs an explicit model/dimension/index contract, bounded inference under the approved allowance, semantic-only recall, canonical world/revision/timeline/time reconciliation and clear pagination/fallback semantics. An index mapping or a successful embedding response alone cannot close that requirement. Optional timeline inheritance, live provider quality, installed topology/authentication, multi-node loss and physical storage recovery remain separate gates.
