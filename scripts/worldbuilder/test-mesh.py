@@ -221,7 +221,9 @@ def identity_matrix(f, fixtures):
     paths = {'browser': '/api/worlds', 'mcp': '/api/worldbuilder-tools/read', 'worker': '/api/worldbuilder-jobs/run'}
     for client in ('browser', 'mcp', 'worker', 'processor', 'spoof-browser'):
         for owner, path in paths.items():
-            expect(f, client, path, 200 if client == owner else 403, 'external' if client == owner else None)
+            for method in ('GET', 'POST'):
+                expect(f, client, path, 200 if client == owner else 403,
+                       'external' if client == owner else None, method=method)
     forged = {'X-Forwarded-Client-Cert': 'URI=spiffe://cluster.local/ns/homelab/sa/homelab-oauth2-proxy',
               'X-Auth-Request-Email': 'operator@example.invalid'}
     expect(f, 'spoof-browser', '/api/worlds', 403, headers=forged)
@@ -308,10 +310,12 @@ def gateway_matrix(f, address, certificate):
     untrusted = probe(f, 'web-client', '/mcp', headers=authorized,
                       **dict(kwargs, certificate=unrelated.read_text()))
     assert untrusted == {'status': 0, 'error': 'SSLCertVerificationError'}, untrusted
-    for path in ('/mcp', '/sse', '/messages', '/message'):
+    for path, method in (('/mcp', 'GET'), ('/mcp', 'POST'), ('/sse', 'GET'),
+                         ('/messages', 'GET'), ('/messages', 'POST'),
+                         ('/message', 'GET'), ('/message', 'POST')):
         for headers in ({}, {'Authorization': 'Bearer invalid'}, {'X-Auth-Request-Email': 'forged@example.invalid'}):
-            expect(f, 'web-client', path, 401, **kwargs, headers=headers)
-        response = expect(f, 'web-client', path, 200, 'mcp', **kwargs, headers=authorized)
+            expect(f, 'web-client', path, 401, **kwargs, headers=headers, method=method)
+        response = expect(f, 'web-client', path, 200, 'mcp', **kwargs, headers=authorized, method=method)
         assert json.loads(response['body'])['email'] == 'member@example.invalid', response
     for path in ('/api/worlds', '/api/worldbuilder-tools/read', '/api/worldbuilder-jobs/run', '/api/mcp-oauth/check'):
         result = probe(f, 'web-client', path, headers=authorized, **kwargs)
