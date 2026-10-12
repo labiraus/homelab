@@ -28,6 +28,22 @@ type canonEvent struct {
 	SchemaVersion int    `json:"schemaVersion"`
 }
 
+func parseCanonEvent(raw []byte) (canonEvent, error) {
+	var wire struct {
+		EventID       string `json:"eventId"`
+		WorldID       string `json:"worldId"`
+		Revision      *int64 `json:"revision"`
+		SchemaVersion int    `json:"schemaVersion"`
+	}
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return canonEvent{}, err
+	}
+	if wire.SchemaVersion != 1 || wire.Revision == nil || *wire.Revision < 0 || wire.EventID == "" || wire.WorldID == "" {
+		return canonEvent{}, fmt.Errorf("unsupported canon event")
+	}
+	return canonEvent{wire.EventID, wire.WorldID, *wire.Revision, wire.SchemaVersion}, nil
+}
+
 // relayCanonOnce marks delivery only after a JetStream acknowledgement. A crash between
 // acknowledgement and commit resends the same event ID; consumers must be idempotent.
 func relayCanonOnce(ctx context.Context, pool *pgxpool.Pool, publish func(string, []byte) error) (bool, error) {
@@ -178,13 +194,9 @@ func startWorldbuilder(ctx context.Context) error {
 				continue
 			}
 			for _, msg := range messages {
-				var event canonEvent
-				if err = json.Unmarshal(msg.Data, &event); err == nil {
-					if event.SchemaVersion != 1 || event.Revision < 1 || event.EventID == "" {
-						err = fmt.Errorf("unsupported canon event")
-					} else {
-						err = projectWithHeartbeat(ctx, msg.InProgress, func(work context.Context) error { return index.project(work, event.WorldID, event.Revision) })
-					}
+				event, err := parseCanonEvent(msg.Data)
+				if err == nil {
+					err = projectWithHeartbeat(ctx, msg.InProgress, func(work context.Context) error { return index.project(work, event.WorldID, event.Revision) })
 				}
 				if err != nil {
 					slog.ErrorContext(ctx, "canon projection failed", "error", err)

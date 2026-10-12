@@ -22,6 +22,8 @@ The user authorized separate background limits: one batch at a time, at most 32 
 
 On initial enablement or profile changes, run the existing explicit `WORLDBUILDER_REBUILD_ON_START=true` recovery path, then disable it after current revision coverage is verified. Earlier profile indexes are retained; configuration changes do not authorize their deletion. Live controller/route readiness and exact gateway access must be verified before activation.
 
+New worlds enqueue revision 0 atomically with creation, so their initial settings/timeline enter the normal index workflow without waiting for a subsequent reviewed change. Exact creation retries preserve one event. Existing revision-0 worlds created before that behavior need the same explicit rebuild as other missing projections.
+
 ## Interactive allowance and AI context
 
 Standalone search reserves workflow `canon_search` in the existing durable inference ledger. The approved limits remain 100 requests per user per UTC day, two concurrent requests, £0.01 internal allocation per attempt and £1 per day across worlds/replicas. They are usage limits for local inference, not provider pricing. The immutable request hash binds normalized scope, page inputs and model profile. Failure/cancellation does not refund a reservation; completion uses its independent bounded database context.

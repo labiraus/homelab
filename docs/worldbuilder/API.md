@@ -79,6 +79,8 @@ Current projections have typed/reference/time columns in `worldbuilder.record`; 
 
 ## Atomic publication and events
 
+World creation atomically queues its initial published snapshot at revision 0 in the same outbox used for later reviewed changes. A repeated successful creation request does not add another event; an outbox failure rolls back the new world, membership, snapshot, projection and audit together. Initial events omit `changeId`. The relay accepts explicit revision 0 and rejects missing/null or negative revisions. Existing worlds without an initial event are covered by the explicit latest-snapshot rebuild.
+
 Within one transaction external locks the world, rechecks current membership/approval/revision, revalidates the complete result, replaces projections, appends immutable revision/audit, advances the world and marks the proposal published, then inserts an outbox event. Any failure rolls the entire transaction back. History triggers reject UPDATE/DELETE. Rollback is a new reviewed compensating proposal, never history rewrite.
 
 Outbox payload version 1: `{eventId, worldId, revision, changeId, schemaVersion: 1}`. Orchestrator uses `FOR UPDATE SKIP LOCKED`, publishes subject `worldbuilder.canon.published` to JetStream stream `worldbuilder-canon`, waits for broker acknowledgement and only then sets `delivered_at`. A crash can redeliver; `Nats-Msg-Id` and idempotent projection handle it. The dedicated consumer is `worldbuilder-index-v1`. The first runtime creates a file-backed stream with three replicas and seven-day transport retention; immutable PostgreSQL snapshots remain recovery authority.

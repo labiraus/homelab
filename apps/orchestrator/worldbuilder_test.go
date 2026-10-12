@@ -241,8 +241,8 @@ func TestCanonLiveTransportAndIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var event canonEvent
-	if err = json.Unmarshal(messages[0].Data, &event); err != nil || event.EventID != eventID || event.WorldID != w || event.Revision != 2 {
+	event, err := parseCanonEvent(messages[0].Data)
+	if err != nil || event.EventID != eventID || event.WorldID != w || event.Revision != 2 {
 		t.Fatalf("relayed event mismatch: %+v %v", event, err)
 	}
 	index := &canonIndex{pool: pool, endpoint: searchURL, client: &http.Client{Timeout: 10 * time.Second}}
@@ -393,6 +393,59 @@ func TestCanonLiveTransportAndIndex(t *testing.T) {
 	}
 	if ready, e := index.vector.Ready(ctx, w, 3); e != nil || !ready {
 		t.Fatalf("new owner recovery failed: %v %v", ready, e)
+	}
+	initial, initialEvent := uuid.NewString(), uuid.NewString()
+	if _, err = pool.Exec(ctx, `INSERT INTO worldbuilder.world(id,name) VALUES($1,'Initial world')`, initial); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `INSERT INTO worldbuilder.revision(world_id,revision,snapshot,actor,reason) VALUES($1,0,'{"main":{"id":"main","kind":"timeline","label":"Main"},"world_settings":{"id":"world_settings","kind":"world_settings","label":"Initial world","timeline":"main"}}','test','created')`, initial); err != nil {
+		t.Fatal(err)
+	}
+	payload, _ = json.Marshal(canonEvent{initialEvent, initial, 0, 1})
+	if _, err = pool.Exec(ctx, `INSERT INTO worldbuilder.outbox(id,world_id,revision,payload) VALUES($1,$2,0,$3)`, initialEvent, initial, payload); err != nil {
+		t.Fatal(err)
+	}
+	worked, err = relayCanonOnce(ctx, pool, func(id string, body []byte) error {
+		m := nats.NewMsg(subject)
+		m.Data = body
+		m.Header.Set("Nats-Msg-Id", id)
+		_, e := publishWorldbuilderEvent(ctx, js, m)
+		return e
+	})
+	if err != nil || !worked {
+		t.Fatalf("initial revision relay: %v %v", worked, err)
+	}
+	messages, err = sub.Fetch(1, nats.MaxWait(5*time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	event, err = parseCanonEvent(messages[0].Data)
+	if err != nil || event.Revision != 0 || event.WorldID != initial {
+		t.Fatalf("initial revision decode: %+v %v", event, err)
+	}
+	if err = projectWithHeartbeat(ctx, messages[0].InProgress, func(work context.Context) error { return index.project(work, event.WorldID, event.Revision) }); err != nil {
+		t.Fatal(err)
+	}
+	if err = messages[0].AckSync(); err != nil {
+		t.Fatal(err)
+	}
+	if ready, e := index.vector.Ready(ctx, initial, 0); e != nil || !ready {
+		t.Fatalf("initial revision not searchable: %v %v", ready, e)
+	}
+}
+
+func TestCanonInitialEventValidation(t *testing.T) {
+	for _, revision := range []int64{-1, 0, 1} {
+		raw, _ := json.Marshal(canonEvent{"event", "world", revision, 1})
+		_, err := parseCanonEvent(raw)
+		if (err == nil) != (revision >= 0) {
+			t.Fatalf("revision %d validation: %v", revision, err)
+		}
+	}
+	for _, raw := range []string{`{}`, `{"eventId":"e","worldId":"w","revision":0,"schemaVersion":2}`, `{"eventId":"e","worldId":"w","schemaVersion":1}`, `{"eventId":"e","worldId":"w","revision":null,"schemaVersion":1}`, `not-json`} {
+		if _, err := parseCanonEvent([]byte(raw)); err == nil {
+			t.Fatal("invalid event accepted")
+		}
 	}
 }
 

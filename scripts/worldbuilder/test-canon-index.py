@@ -162,7 +162,7 @@ def main(output):
                             'WORLDBUILDER_TEST_NATS_URL': 'nats://' + addresses['nats'],
                             'WORLDBUILDER_TEST_OPENSEARCH_URL': 'http://' + addresses['search']})
         cases = [('pkg/canonsearch', '.', '^TestVectorAgainstDisposableOpenSearch$', ['TestVectorAgainstDisposableOpenSearch']),
-                 ('external', './worldbuilder', '^Test(Discovery|Search|Hybrid)', ['TestDiscoveryAgainstDisposableOpenSearch', 'TestHybridSearchActualIndexAuthorizationAllowanceAndEvidence']),
+                 ('external', './worldbuilder', '^Test(Discovery|Search|Hybrid)', ['TestDiscoveryAgainstDisposableOpenSearch', 'TestSearchInitialWorldOutboxAtomicRetry', 'TestHybridSearchActualIndexAuthorizationAllowanceAndEvidence']),
                  ('orchestrator', '.', '^TestCanonLiveTransportAndIndex$', ['TestCanonLiveTransportAndIndex'])]
         for app, package, pattern, required_cases in cases:
             print('Running real ' + app + ' index checks', flush=True)

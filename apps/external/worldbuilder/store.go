@@ -127,6 +127,9 @@ func (s *Store) CreateWorld(ctx context.Context, actor, id, name string) (World,
 	if err = sc.audit(ctx, "world.create", id, map[string]string{"name": name}); err != nil {
 		return World{}, err
 	}
+	if err = sc.enqueueCanon(ctx, 0, ""); err != nil {
+		return World{}, err
+	}
 	return World{ID: id, Name: name, Role: "owner", DefaultTimeline: "main"}, tx.Commit(ctx)
 }
 func (sc *scope) can(roles ...string) bool {
@@ -387,14 +390,22 @@ func (sc *scope) publish(ctx context.Context, id string) (Change, error) {
 	if _, err = sc.tx.Exec(ctx, `UPDATE worldbuilder.change_set SET status='published',published_revision=$3,published_approvals=$4 WHERE world_id=$1 AND id=$2`, sc.world.ID, id, next, c.Approvals); err != nil {
 		return c, err
 	}
-	eventID := uuid.NewString()
-	payload, _ := json.Marshal(map[string]any{"eventId": eventID, "worldId": sc.world.ID, "revision": next, "changeId": id, "schemaVersion": 1})
-	if _, err = sc.tx.Exec(ctx, `INSERT INTO worldbuilder.outbox(id,world_id,revision,payload) VALUES($1,$2,$3,$4)`, eventID, sc.world.ID, next, payload); err != nil {
+	if err = sc.enqueueCanon(ctx, next, id); err != nil {
 		return c, err
 	}
 	c.Status = "published"
 	c.PublishedRevision = &next
 	return c, sc.audit(ctx, "change.publish", id, map[string]any{"revision": next, "reviewer": c.Reviewer, "approvals": c.Approvals, "requiredApprovals": c.RequiredApprovals})
+}
+func (sc *scope) enqueueCanon(ctx context.Context, revision int64, changeID string) error {
+	eventID := uuid.NewString()
+	payload := map[string]any{"eventId": eventID, "worldId": sc.world.ID, "revision": revision, "schemaVersion": 1}
+	if changeID != "" {
+		payload["changeId"] = changeID
+	}
+	raw, _ := json.Marshal(payload)
+	_, err := sc.tx.Exec(ctx, `INSERT INTO worldbuilder.outbox(id,world_id,revision,payload) VALUES($1,$2,$3,$4)`, eventID, sc.world.ID, revision, raw)
+	return err
 }
 func (sc *scope) project(ctx context.Context, s Snapshot) error {
 	if _, err := sc.tx.Exec(ctx, `DELETE FROM worldbuilder.record WHERE world_id=$1`, sc.world.ID); err != nil {

@@ -9,6 +9,7 @@ The gate applies the actual canon migrations to separate disposable databases, t
 - Real nested OpenSearch discovery returns only bounded IDs with world, timeline, visibility and revision scope. Canonical search still checks the authoritative snapshot and creates its own citations.
 - A synthetic loopback embedding model drives actual exact vector scoring, semantic-only recall, cache reuse, mapping/profile refusal and vector reconstruction. External exercises current canon scope, half-open dates, canonical citations, durable search/generation allowances (including failures), ranking tokens and large-world AI reference closure.
 - The production outbox relay publishes to real JetStream and records durable acknowledgement. A repeated event ID is deduplicated; the consumed event drives actual projection.
+- Initial revision 0 is queued atomically on world creation, without duplicate events on exact retries. Injected enqueue failure rolls back creation. The actual broker/parser/projector also processes the initial snapshot without needing a later change publication.
 - Delivering an older revision cannot replace the current document.
 - After deletion of the entire disposable index, the actual rebuild recreates the latest canonical scope and record content from PostgreSQL.
 - All owned containers and anonymous volumes are removed, and removal is verified before the report can pass.

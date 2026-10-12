@@ -77,6 +77,41 @@ func fixture() []Operation {
 	return ops
 }
 func ptr(n int64) *int64 { return &n }
+
+func TestSearchInitialWorldOutboxAtomicRetry(t *testing.T) {
+	h := setup(t)
+	w := h.world()
+	h.call("owner@example.test", "POST", "", map[string]any{"id": w, "name": "Test world"}, 200)
+	var count int
+	var payload []byte
+	if err := h.pool.QueryRow(context.Background(), `SELECT count(*),min(payload::text)::jsonb FROM worldbuilder.outbox WHERE world_id=$1 AND revision=0`, w).Scan(&count, &payload); err != nil || count != 1 {
+		t.Fatalf("initial event retry count=%d error=%v", count, err)
+	}
+	var event struct {
+		EventID       string `json:"eventId"`
+		WorldID       string `json:"worldId"`
+		Revision      int64  `json:"revision"`
+		SchemaVersion int    `json:"schemaVersion"`
+	}
+	if err := json.Unmarshal(payload, &event); err != nil || event.EventID == "" || event.WorldID != w || event.Revision != 0 || event.SchemaVersion != 1 {
+		t.Fatalf("initial event: %s %v", payload, err)
+	}
+	failed := uuid.NewString()
+	ctx := context.Background()
+	if _, err := h.pool.Exec(ctx, `CREATE FUNCTION worldbuilder.test_create_outbox_fail() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.world_id::text = TG_ARGV[0] THEN RAISE EXCEPTION 'injected initial outbox failure'; END IF; RETURN NEW; END $$`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.pool.Exec(ctx, `CREATE TRIGGER test_create_outbox_fail BEFORE INSERT ON worldbuilder.outbox FOR EACH ROW EXECUTE FUNCTION worldbuilder.test_create_outbox_fail('`+failed+`')`); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		h.pool.Exec(context.Background(), `DROP TRIGGER IF EXISTS test_create_outbox_fail ON worldbuilder.outbox; DROP FUNCTION IF EXISTS worldbuilder.test_create_outbox_fail()`)
+	})
+	h.call("owner@example.test", "POST", "", map[string]any{"id": failed, "name": "Must roll back"}, 500)
+	if err := h.pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM worldbuilder.world WHERE id=$1)+(SELECT count(*) FROM worldbuilder.revision WHERE world_id=$1)+(SELECT count(*) FROM worldbuilder.member WHERE world_id=$1)+(SELECT count(*) FROM worldbuilder.audit WHERE world_id=$1)+(SELECT count(*) FROM worldbuilder.outbox WHERE world_id=$1)`, failed).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("failed initial outbox left canonical state: %d %v", count, err)
+	}
+}
 func (h *harness) draft(world string, rev int64, ops []Operation) string {
 	h.t.Helper()
 	id := uuid.NewString()
@@ -110,7 +145,7 @@ func TestPublicationIsolationHistoryAndTemporalQueries(t *testing.T) {
 	h.call("reviewer@example.test", "POST", change+"/publish", map[string]any{}, 200)
 	var count int
 	err := h.pool.QueryRow(context.Background(), `SELECT count(*) FROM worldbuilder.outbox WHERE world_id=$1`, w).Scan(&count)
-	if err != nil || count != 1 {
+	if err != nil || count != 2 {
 		t.Fatalf("outbox %d: %v", count, err)
 	}
 	raw := h.call("reader@example.test", "GET", path+"/canon?timeline=main&revision=0", nil, 200)
