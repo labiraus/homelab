@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Disposable source-policy Cilium/Istio acceptance; never uses a LAN context."""
 import base64
+import copy
 import hashlib
 import importlib.util
 import json
@@ -26,6 +27,31 @@ def module(name):
 common = module('kind-fixture')
 
 
+def public_artifacts(output):
+    def inspect(value, filename):
+        if isinstance(value, dict):
+            if value.get('kind') == 'Secret':
+                for field in ('data', 'stringData'):
+                    assert all(v == '<redacted>' for v in (value.get(field) or {}).values()), \
+                        'Unredacted Secret values in ' + filename
+            for child in value.values(): inspect(child, filename)
+        elif isinstance(value, list):
+            for child in value: inspect(child, filename)
+        elif isinstance(value, str):
+            assert 'PRIVATE KEY-----' not in value, 'Private key in ' + filename
+            try: decoded = base64.b64decode(value, validate=True)
+            except (ValueError, UnicodeError): return
+            assert b'PRIVATE KEY-----' not in decoded, 'Encoded private key in ' + filename
+    files = sorted(p for p in Path(output).glob('*') if p.suffix in ('.yaml', '.json', '.log'))
+    assert files, 'No mesh artifacts to inspect'
+    for path in files:
+        raw = path.read_text()
+        assert 'PRIVATE KEY-----' not in raw, 'Private key in ' + path.name
+        if path.suffix == '.yaml': inspect(list(yaml.safe_load_all(raw)), path.name)
+        elif path.suffix == '.json': inspect(json.loads(raw), path.name)
+    print('PASS: public mesh artifacts contain redacted Secret values and no private keys', flush=True)
+
+
 def render(f, name, chart, namespace, values, repo=None, version=None):
     inputs = f.output / (name + '-values.yaml')
     inputs.write_text(yaml.safe_dump(values))
@@ -34,8 +60,17 @@ def render(f, name, chart, namespace, values, repo=None, version=None):
     if repo: command += ['--repo', repo, '--version', version]
     result = subprocess.run(command, env=f.helm_env, capture_output=True, text=True,
                             check=True, timeout=120)
-    (f.output / (name + '.yaml')).write_text(result.stdout)
-    return [d for d in yaml.safe_load_all(result.stdout) if d]
+    documents = [d for d in yaml.safe_load_all(result.stdout) if d]
+    public = copy.deepcopy(documents)
+    # Upstream Cilium renders disposable CA/TLS private keys in Secrets.
+    # Apply the originals in memory, but never retain them in public artifacts.
+    for resource in public:
+        if resource['kind'] == 'Secret':
+            for field in ('data', 'stringData'):
+                if field in resource:
+                    resource[field] = {key: '<redacted>' for key in resource[field]}
+    (f.output / (name + '.yaml')).write_text(yaml.safe_dump_all(public))
+    return documents
 
 
 def install_cilium(f):
@@ -395,4 +430,6 @@ def main():
     print('PASS: disposable source-policy mesh acceptance and teardown', flush=True)
 
 
-if __name__ == '__main__': main()
+if __name__ == '__main__':
+    if len(sys.argv) == 3 and sys.argv[1] == '--check-artifacts': public_artifacts(sys.argv[2])
+    else: main()

@@ -240,10 +240,15 @@ jobs:
         run: |
           python3 -m pip install -r scripts/worldbuilder/requirements.txt
           python3 scripts/worldbuilder/test-docker-exec.py
+          python3 scripts/worldbuilder/test-mesh-artifacts.py
       - name: Verify source network, mesh identity and authenticated Gateway boundaries
         run: python3 scripts/worldbuilder/test-mesh.py "$RUNNER_TEMP/mesh-acceptance" "$RUNNER_TEMP/platform-evidence/schemas"
-      - uses: actions/upload-artifact@v4
+      - name: Refuse private material in retained mesh artifacts
+        id: mesh-artifacts-safe
         if: always()
+        run: python3 scripts/worldbuilder/test-mesh.py --check-artifacts "$RUNNER_TEMP/mesh-acceptance"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.mesh-artifacts-safe.outcome == 'success'
         with:
           name: offline-mesh-result
           path: |

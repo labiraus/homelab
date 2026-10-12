@@ -7,11 +7,16 @@ The shared fixture disables kind's default CNI only for this test, installs Cili
 Run after preparing the source schema artifacts with `scripts/worldbuilder/test-platform.sh`:
 
 ```bash
+set -euo pipefail
 python3 scripts/worldbuilder/test-docker-exec.py
+python3 scripts/worldbuilder/test-mesh-artifacts.py
 python3 scripts/worldbuilder/test-mesh.py /tmp/worldbuilder-mesh /tmp/platform-evidence/schemas
+python3 scripts/worldbuilder/test-mesh.py --check-artifacts /tmp/worldbuilder-mesh
 ```
 
 Use a fresh output directory. Docker, Python/PyYAML, Helm and OpenSSL are required. The fixture creates its own kubeconfig and deletes only its owned kind cluster. Its private directory contains ephemeral cluster and test TLS keys and is removed on successful cleanup. Retain public render hashes, certificate SAN identities, observed image IDs, synthetic request results, diagnostic logs and `mesh-result.json`; a failed assertion or failed cleanup cannot report success. Cilium startup allows fifteen minutes and synthetic workload readiness ten minutes for cold downloads; expiry still fails acceptance.
+
+Retained render copies redact every Secret `data`/`stringData` value. The unmodified Secret objects are applied directly from memory inside the owned fixture. This is necessary because Cilium's upstream chart itself renders CA and Hubble private keys; excluding the private kubeconfig directory alone does not exclude those keys. Redacted render copies are review evidence, not manifests to reapply. CI independently runs `test-mesh.py --check-artifacts OUTPUT` before upload, even after a failed test; an unredacted Secret or plaintext/base64 private key blocks upload.
 
 The acceptance matrix requires:
 
@@ -24,7 +29,9 @@ The acceptance matrix requires:
 
 `mesh-fixture.py` supplies synthetic HTTP services and a fixed synthetic credential authority only inside the disposable cluster. It does not replace the separate actual-application tests of OAuth, database membership, signed assertions or world authorization. The Gateway uses a ClusterIP because the fixture has no external load balancer; the listeners, route matching and TLS/authentication policies remain source-derived. This gate cannot establish installed policy/CRD parity, real OAuth registration, physical cross-node routing, certificate rotation, production capacity or LAN outage recovery.
 
-Source `51dbe03` passes the complete initial matrix and teardown in the [hosted mesh job](https://github.com/labiraus/homelab/actions/runs/38188329408/job/114615955719), also repeated successfully by the external/orchestrator workflows. This includes workload SANs, network/role/metrics/refusal checks, Gateway trust/authentication, authority outage and all three controller replacements. The final explicit POST extension and complete publication results remain pending; a bootstrap alone is not completed acceptance.
+Source `220b8d4` passes the complete GET/POST matrix and teardown in the [hosted mesh job](https://github.com/labiraus/homelab/actions/runs/38188943164/job/114617694898). This includes workload SANs, network/role/metrics/refusal checks, Gateway trust/authentication, authority outage and all three controller replacements. The preceding `51dbe03` matrix also passed both complete external/orchestrator publication workflows. Final artifact-screening verification and complete publication results remain pending; a bootstrap alone is not completed acceptance.
+
+Artifact review found upstream Cilium private keys in retained render YAML from removed disposable clusters. The corrected renderer keeps originals only in memory and redacts Secret values; the independent pre-upload check has five refusal regressions. An actual pinned Cilium render proves its two private keys remain in functional in-memory resources while public artifact screening passes. Earlier artifacts require sanitised retention and removal before this gate closes.
 
 The shared fixture's default-networking regression passes locally in `/tmp/homelab-mesh-default-controller-v2`: actual admission and trust refusal, source ServiceMonitor selection/metric filtering, removal/restoration, operator and Prometheus replacement, and owned teardown. The standalone hosted observability job encountered a registry HTTP 502 before executing its test; equivalent reusable jobs pass on the same source. Keep that failed startup distinct from mesh acceptance and require the final complete workflow to pass.
 

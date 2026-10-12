@@ -80,6 +80,8 @@ For multi-file patches, read exact current headings/anchors first and omit place
 
 Wait for background formatters or generators to finish before editing their output files, then read the current anchors again. A yielded command may still mutate files even when its tool call has returned.
 
+Reference markdown can contain mixed line endings. If `git diff --check` flags newly added CRLF lines, normalize only the touched lines rather than reformatting unrelated content.
+
 ## CI script execution
 
 On Windows-backed workspaces, local executable permissions do not prove Git stores an executable file mode. For scripts invoked directly by CI, verify `git ls-files --stage` reports `100755`; use an explicit interpreter in CI as well.
@@ -99,6 +101,8 @@ Docker exec attach can terminate early with exit 0 while its command is still ru
 Use `scripts/worldbuilder/kind-fixture.py` for shared controller/backup lifecycle and loopback mappings. CNPG and Prometheus webhook refusals can appear as ordinary Kubernetes `Invalid` messages without a webhook name or `admission webhook` prefix. Check the tested semantic error (for example, conflicting bootstrap or an invalid PromQL expression) and separately prove unavailable-webhook refusal/recovery. Database fixture fallback is for unavailable local transport, never authentication or SQL failures.
 
 Rendered Helm metadata can contain explicit null annotations. Treat absent/null annotation maps as empty when classifying hook resources; execute certificate-generation and CA-patching Jobs in their intended order before claiming webhook acceptance.
+
+Inspect retained upstream Helm renders for Secret values before uploading fixture artifacts. Cilium renders CA/Hubble private keys inside its YAML; excluding a private directory is insufficient. Apply original resources only inside the owned fixture and retain redacted copies for public evidence.
 
 For disposable controller cold-start timeouts, inspect Pod events and image-download progress before attributing failure to admission, networking or reconciliation. Keep startup waits bounded, retain the failed run and verify owned cleanup before retrying. A partial bootstrap or continuing download is not passing acceptance.
 
