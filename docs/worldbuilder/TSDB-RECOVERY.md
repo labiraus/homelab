@@ -44,6 +44,8 @@ The fixture uses the source-rendered claim and retention settings with kind's `s
 
 Read `tsdb-result.json`, `snapshot-manifest.json`, `source-wal.log`, `corrupt-index.log`, runtime/cleanup logs and the final process/workflow conclusion together. The archive parser's 32 MiB compressed / 64 MiB expanded limits are deliberate bounds for synthetic fixtures, not production backup limits or a general restore utility.
 
+Hosted orchestrator run `38189769201` recovered exact history but encountered connection refusal on its first direct request to the new restored Service. API-server Service-proxy reads had already succeeded; they do not prove kube-proxy's ClusterIP route is ready. The admin-isolation check now retries only curl connection failure (exit 7) for at most 45 seconds, then requires Prometheus's explicit disabled-API response. DNS, timeout and TLS errors, malformed responses and an enabled admin API fail immediately. Nine local snapshot/refusal tests pass; the corrected complete hosted gate remains required.
+
 ## Live history checkpoint — 2026-10-11
 
 The installed Prometheus v3.15.0 uses `emptyDir` on `alfheim`; its admin API is disabled. A bounded capture verified the exact Pod UID, container ID and host-mounted TSDB path, paused that task for 0.305 seconds with an independent 20-second resume fallback, copied the files and resumed the same process. Its restart count remained zero. The 260,761,600-byte archive is retained both on the source worker and in local private recovery storage, with SHA-256 `b3ce46d979881a3945030e14847ba4d402f3a579d9c1e8faace51bdae5c373f6`. This is a one-time recovery checkpoint, not a scheduled backup system.

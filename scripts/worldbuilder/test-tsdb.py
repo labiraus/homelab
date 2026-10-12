@@ -54,6 +54,18 @@ class Recovery:
         data = self.matrix()
         return data is not None and any(r['metric'].get('phase') == phase and len(r['values']) >= 5 for r in data)
 
+    def admin_disabled(self, url):
+        code, output, error = self.f.execute(
+            ['curl', '--silent', '--show-error', '--max-time', '10', '-X', 'POST', url], check=False, timeout=20)
+        # API-server Service proxy reads can work before the node's ClusterIP
+        # route exists. Only this connection-refusal case is readiness, never
+        # evidence that Prometheus has disabled its admin API.
+        if code == 7: return False
+        assert code == 0, ('restored admin probe failed', code, error.decode(errors='replace')[-1000:])
+        refusal = json.loads(output)
+        assert refusal['status'] == 'error' and 'disabled' in refusal.get('error', ''), refusal
+        return True
+
     def stop_metrics(self):
         self.f.kubectl('-n', NAMESPACE, 'scale', 'deployment/tsdb-metrics', '--replicas=0')
         self.f.kubectl('-n', NAMESPACE, 'wait', 'pod', '-l', 'fixture=tsdb-metrics', '--for=delete', '--timeout=90s')
@@ -193,8 +205,8 @@ print(json.dumps(actual))
         # The restored server has no scrape jobs or admin API, so it cannot regenerate history.
         restored_service = self.get('service/' + RESTORED)
         admin_url = 'http://' + restored_service['spec']['clusterIP'] + ':9090/api/v1/admin/tsdb/snapshot'
-        _, output, _ = f.execute(['curl', '--silent', '--show-error', '--max-time', '10', '-X', 'POST', admin_url])
-        refusal = json.loads(output); assert refusal['status'] == 'error' and 'disabled' in refusal['error']
+        wait_for('restored admin API explicitly refuses snapshots over the ready Service route',
+                 lambda: self.admin_disabled(admin_url), 45)
         # Corrupt an actual restored block and require Prometheus itself to reject it.
         f.kubectl('-n', NAMESPACE, 'delete', 'pod/' + RESTORED, '--wait=true')
         self.loader(RESTORED)

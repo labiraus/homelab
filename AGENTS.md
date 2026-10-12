@@ -112,6 +112,8 @@ Select controller Pods using the Deployment's actual selector when testing repla
 
 NodePort creation does not mean kube-proxy has installed its route: Docker can accept and close an initial connection. Retry bounded preflight connection closure before evaluating database readiness; persistent closure must still fail rather than switch to peer authentication.
 
+A successful API-server Service-proxy read also does not prove the node's ClusterIP route is ready. For the restored Prometheus admin check, retry only initial connection refusal within a bounded interval, then require the actual disabled-API response. Connection failure must never count as successful administrative isolation.
+
 Webhook Service routing can also lag a Ready replacement Pod. After rollout, require a successful real admission request within a bounded readiness interval before continuing; never replace it with a Pod-ready-only assertion or bypass TLS verification.
 
 Istio's initial validator can have `failurePolicy: Ignore` until its CA is patched. Admission readiness must verify matching rules, nonempty trust and `Fail` before the real request. For Gateway certificate-trust refusal, keep the configured SNI and use an unrelated CA: unknown SNI may reset the connection before any certificate is presented, which does not prove client trust validation.
