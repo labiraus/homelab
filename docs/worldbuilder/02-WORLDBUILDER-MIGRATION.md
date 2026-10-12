@@ -2,7 +2,7 @@
 
 ## Approach
 
-Incremental pivot inside the existing `engine` and `infra` repos. **Inspect before changing**. Preserve working clusters, hardware, toolchains, networking, authentication and Flux release conventions. Avoid broad renaming or unrelated refactoring. Separate source-code readiness from cluster-validated completion. Build milestones in order, using feature flags/adapters to avoid half-migrated flows.
+Incremental pivot inside the existing homelab monorepo. The original target assumed separate `engine` and `infra` repositories, but this checkout already contains PostgreSQL, Go services and a Node HTTP processor. **Inspect before changing**; illustrative paths are not deployment instructions. Preserve working clusters, hardware, toolchains, networking, authentication and Flux release conventions. Avoid broad renaming or unrelated refactoring. Separate source-code readiness from cluster-validated completion. Build milestones in order, using feature flags/adapters to avoid half-migrated flows. The [acceptance matrix](ACCEPTANCE-MATRIX.md) is the current assessment; milestone gates below define requirements rather than asserting current failures.
 
 ## Required initial repository audit (M0)
 
@@ -18,7 +18,7 @@ Incremental pivot inside the existing `engine` and `infra` repos. **Inspect befo
 - Add database connection support, migration tooling, typed DB access, test database and transactional helper patterns in Go.
 - Add PostgreSQL deployment configuration or managed-service configuration consistent with infra conventions; secrets, persistent volume, backup and observability specs.
 - Keep Cassandra operational until consumer migration is verified; write explicit Cassandra data inventory/export plan. Do not discard records by assumption.
-- Gate: migration up/down compatibility tests; code compiles and tests pass; manifests render; **cluster connectivity and storage functionality NOT verified remotely**.
+- Gate: migration up/down compatibility tests; code compiles and tests pass; manifests render. Record actual cluster connectivity, role isolation and storage/restore evidence separately from disposable tests; consult the current acceptance matrix before repeating migration work.
 
 ### M2 — Canon domain
 - Implement world/member, entity type/schema, entity, fact, relationship, event, timeline and rule service/repositories plus API contracts.

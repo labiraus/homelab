@@ -49,6 +49,8 @@ For SSH recovery, check certificate validity and available authorized-key or con
 
 ## Documentation Upkeep
 
+Keep current acceptance summaries separate from historical checkpoint logs. Reconcile changed claims against retained reports and exact publication/deployment evidence; an old failure must not remain the current blocker after a verified recovery, and a prior live success must not imply present health during an outage. Desired restore resource manifests alone do not prove a completed restore.
+
 When Codex changes code, config, workflows, or repository structure, consider whether any of these need updates:
 
 - `README.md`

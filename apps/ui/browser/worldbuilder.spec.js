@@ -328,6 +328,80 @@ test("independent browser users propose, review, publish and keep private storie
     chronology.getByRole("link", { name: "Epoch", exact: true }),
   ).toHaveCount(0);
   await expect(chronology).toContainText("Harbour calendar");
+
+  // A resumed private story becomes canon only through a fresh reviewed draft.
+  await editor.getByLabel("Historical revision", { exact: true }).fill("");
+  await editor.getByLabel("Timeline", { exact: true }).fill("main");
+  await editor.getByRole("button", { name: "Load canon", exact: true }).click();
+  await editor.getByRole("button", { name: "Start a new record", exact: true }).click();
+  await editor.getByRole("combobox", { name: "Record kind", exact: true }).selectOption("event");
+  await editor.getByLabel("Stable ID", { exact: true }).fill("homecoming");
+  await editor.getByLabel("Label", { exact: true }).fill("Homecoming");
+  await editor.getByRole("combobox", { name: "Source", exact: true }).selectOption("source");
+  await editor.getByLabel("Valid from", { exact: true }).fill("42");
+  await editor.getByRole("button", { name: "Stage record", exact: true }).click();
+  await editor.getByLabel("Next narration", { exact: true }).fill("The pilgrim returns home after crossing the bridge.");
+  await editor.getByRole("button", { name: "Save turn with staged changes", exact: true }).click();
+  await expect(editor.getByText(/Pinned revision 2, timeline main, turn 1/)).toBeVisible();
+  const searchPath = `/api/worlds/${world}/search?timeline=main&q=Homecoming&at=42`;
+  async function search(context, revision) {
+    const response = await context.request.get(`${searchPath}&revision=${revision}`);
+    expect(response.status()).toBe(200);
+    return response.json();
+  }
+  expect((await search(reviewerContext, 2)).records).toEqual([]);
+  expect((await reviewerContext.request.get(`/api/worlds/${world}/sessions/${privateStory.id}`)).status()).toBe(404);
+
+  await editor.reload();
+  await editor.getByRole("button", { name: "Worlds", exact: true }).click();
+  await editor.getByLabel("Open world").selectOption(world);
+  await editor.getByRole("button", { name: "Resume Private bridge journey", exact: true }).click();
+  await expect(editor.getByText(/Pinned revision 2, timeline main, turn 1/)).toBeVisible();
+  await expect(editor.getByText("The pilgrim returns home after crossing the bridge.", { exact: true })).toBeVisible();
+  await editor.getByRole("button", { name: "Reconcile story outcome for review", exact: true }).click();
+  await editor.getByLabel("Reconciliation reason", { exact: true }).fill("Adopt the private homecoming outcome");
+  await editor.getByRole("button", { name: "Save reconciled draft", exact: true }).click();
+  await expect(editor.getByRole("status")).toContainText("Reconciled draft saved");
+  const outcomeFor = (page) => page.locator("article").filter({
+    has: page.getByRole("heading", { name: "Adopt the private homecoming outcome", exact: true }),
+  });
+  const outcome = outcomeFor(editor);
+  await outcome.getByRole("button", { name: "Submit for review", exact: true }).click();
+  await expect(outcome).toContainText("ready_for_review");
+  await expect(outcome.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
+  expect((await search(reviewerContext, 2)).records).toEqual([]);
+
+  // The established two-human policy also applies to story outcomes.
+  await reviewer.getByRole("button", { name: "Load canon", exact: true }).click();
+  await reviewer.getByLabel("Review reason", { exact: true }).fill("Checked the homecoming against current canon");
+  await outcomeFor(reviewer).getByRole("button", { name: "Approve", exact: true }).click();
+  await expect(outcomeFor(reviewer)).toContainText("Currently eligible approvals: 1 / 2 required.");
+  await expect(outcomeFor(reviewer).getByRole("button", { name: "Publish approved change", exact: true })).toHaveCount(0);
+  expect((await search(reviewerContext, 2)).records).toEqual([]);
+  await second.getByRole("button", { name: "Load canon", exact: true }).click();
+  await second.getByLabel("Review reason", { exact: true }).fill("Second independent outcome review");
+  await outcomeFor(second).getByRole("button", { name: "Approve", exact: true }).click();
+  await outcomeFor(second).getByRole("button", { name: "Publish approved change", exact: true }).click();
+  await expect(outcomeFor(second)).toContainText("Approvals at publication: 2 / 2 required.");
+  await expect(second.getByText(/canon revision 3/)).toBeVisible();
+
+  await reviewer.getByLabel("Search canon", { exact: true }).fill("Homecoming");
+  await reviewer.getByLabel("Fictional time", { exact: true }).fill("42");
+  await reviewer.getByRole("button", { name: "Load canon", exact: true }).click();
+  await expect(reviewer.getByRole("heading", { name: "Homecoming event", exact: true })).toBeVisible();
+  const published = await search(reviewerContext, 3);
+  expect(published.records.map(r => r.id)).toEqual(["homecoming"]);
+  expect(published.citations.length).toBeGreaterThan(0);
+  expect(published.citations.every(c => c.revision === 3 && c.timeline === "main")).toBe(true);
+  expect((await search(reviewerContext, 2)).records).toEqual([]);
+  expect((await reviewerContext.request.get(`/api/worlds/${world}/records/homecoming?revision=3&timeline=main&at=41`)).status()).toBe(404);
+  const retained = await editorContext.request.get(`/api/worlds/${world}/sessions/${privateStory.id}`);
+  expect(retained.status()).toBe(200);
+  expect(await retained.json()).toMatchObject({ pinnedRevision: 2, version: 1, state: { homecoming: { id: "homecoming" } } });
+  expect((await reviewerContext.request.get(`/api/worlds/${world}/sessions/${privateStory.id}`)).status()).toBe(404);
+  await editor.getByRole("button", { name: "Load canon", exact: true }).click();
+  await expect(editor.getByText(/canon revision 3/)).toBeVisible();
+  await expect(editor.getByText(/Pinned revision 2, timeline main, turn 1/)).toBeVisible();
   await editorContext.close();
   await reviewerContext.close();
   await secondContext.close();

@@ -1,5 +1,13 @@
 # Worldbuilder implementation status
 
+## Acceptance reconciliation and complete browser story outcome — 2026-10-12
+
+The [current matrix](ACCEPTANCE-MATRIX.md) now separates retained live checkpoints from present health and pending source delivery. It reconciles schema 8, actual native authorization, bounded AI/generation recovery, production SQL restore comparisons, document recovery and pre-freeze reference evidence. Earlier assertions that no production installation/restore had been observed are superseded; the physical Pi API/SSH interruption and final cutover remain open. Native MCP inventory still succeeds while the Kubernetes readyz request times out.
+
+The browser acceptance gap for M7 is now closed locally. The existing three-identity flow saves a provisional event in a private story, reloads/resumes it, reconciles a fresh proposal, obtains both configured independent reviews, publishes and finds it through scoped wiki/search. Before publication, with only one review, at the old revision and before the event's fictional time, it remains absent. Publication preserves the original private story pin/state and cross-owner refusal. Narration is human-entered, so this does not claim live model quality or actual multi-human acceptance.
+
+The full disposable schema-8 migration/rollback/upgrade/role/integration/all-table restore harness and all three Chromium flows pass at `/tmp/homelab-story-outcome-browser-v1.log` (SHA-256 `c1326919ba6b61f584c252f265bca0f1d69d96f3eda4e85c6a4ecd15c3a3470c`). Browser result is passed with no failed tests; the owned PostgreSQL fixture is removed. Hosted publication of this expanded test remains pending. No runtime behavior, schema or live deployment is changed by this acceptance update.
+
 ## Reviewed snapshot timeline branches — 2026-10-12
 
 [Snapshot branches](TIMELINE-BRANCHES.md) are implemented locally as complete ordinary proposals: explicit immutable parent/current destination pins, up to 99 timeline records plus the new descriptor, typed-reference remapping, preserved full-range dates and shared world catalog/settings. Parent and child assertions diverge independently. Published origin comes from immutable audit/proposal state, with exact retries, retired-ID refusal, stale publication and partial-rebase refusal. Shared rule closures cannot silently lose their scoped dependencies. No schema change or AI inference is involved.
