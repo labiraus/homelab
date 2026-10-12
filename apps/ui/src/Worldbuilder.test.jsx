@@ -5,7 +5,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, describe, it, expect, vi } from "vitest";
+import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
 import Worldbuilder from "./Worldbuilder.jsx";
 const world = { id: "w", name: "Novel", revision: 1, role: "editor" };
 function mockApi(
@@ -58,6 +58,12 @@ function mockApi(
   });
   return calls;
 }
+beforeEach(() => {
+  window.history.replaceState(null, "", "/");
+});
+async function navigate(name) {
+  fireEvent.click(await screen.findByRole("link", { name, exact: true }));
+}
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -65,13 +71,31 @@ describe("Worldbuilder", () => {
   it("allows an editor with superuser status to review their own proposal", async () => {
     world.superuser = true;
     try {
-      const calls = mockApi({ id: "c", reason: "Own proposal", status: "ready_for_review", author: "editor@test", operations: [], reviews: [] });
+      const calls = mockApi({
+        id: "c",
+        reason: "Own proposal",
+        status: "ready_for_review",
+        author: "editor@test",
+        operations: [],
+        reviews: [],
+      });
       render(<Worldbuilder email="editor@test" />);
-      fireEvent.change(await screen.findByLabelText("Open world"), { target: { value: "w" } });
-      fireEvent.change(await screen.findByLabelText("Review reason"), { target: { value: "Explicit self review" } });
+      fireEvent.change(await screen.findByLabelText("Open world"), {
+        target: { value: "w" },
+      });
+      await navigate("Drafts & Proposals");
+      fireEvent.change(await screen.findByLabelText("Review reason"), {
+        target: { value: "Explicit self review" },
+      });
       fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
-      await waitFor(() => expect(calls.some(([url]) => url.endsWith("/changes/c/review"))).toBe(true));
-    } finally { delete world.superuser; }
+      await waitFor(() =>
+        expect(calls.some(([url]) => url.endsWith("/changes/c/review"))).toBe(
+          true,
+        ),
+      );
+    } finally {
+      delete world.superuser;
+    }
   });
 
   it("displays proposal quorum, prevents duplicate approvals and blocks publication after revocation", async () => {
@@ -109,6 +133,7 @@ describe("Worldbuilder", () => {
       fireEvent.change(screen.getByLabelText("Open world"), {
         target: { value: "w" },
       });
+      await navigate("Drafts & Proposals");
       await screen.findByText("Quorum proposal");
       expect(
         screen.getByText(/Currently eligible approvals: 1 \/ 2/),
@@ -124,7 +149,9 @@ describe("Worldbuilder", () => {
       ).toHaveTextContent("Membership authority changed");
       change.reviews[0].eligible = false;
       change.approvals = [];
+      await navigate("Explore");
       fireEvent.click(screen.getByRole("button", { name: "Load canon" }));
+      await navigate("Drafts & Proposals");
       await screen.findByText(/Currently eligible approvals: 0 \/ 2/);
       expect(
         screen.getByRole("button", { name: "Approve", exact: true }),
@@ -172,6 +199,7 @@ describe("Worldbuilder", () => {
     fireEvent.change(screen.getByLabelText("Open world"), {
       target: { value: "w" },
     });
+    await navigate("Explore");
     await screen.findByRole("heading", { name: "edge relationship" });
     fireEvent.change(screen.getByLabelText("Historical revision"), {
       target: { value: "2" },
@@ -216,6 +244,7 @@ describe("Worldbuilder", () => {
     fireEvent.change(screen.getByLabelText("Open world"), {
       target: { value: "w" },
     });
+    await navigate("Explore");
     await screen.findByText("Novel · canon revision 1");
     fireEvent.change(screen.getByLabelText("Search canon"), {
       target: { value: "Hero" },
@@ -231,10 +260,11 @@ describe("Worldbuilder", () => {
         ),
       ).toBe(true),
     );
+    await navigate("Workspace");
     fireEvent.change(screen.getByLabelText("Question or creative direction"), {
       target: { value: "Who is Hero?" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Generate candidate" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     expect(
       await screen.findByText(/25 selected canon records out of 200/),
     ).toBeVisible();
@@ -249,32 +279,74 @@ describe("Worldbuilder", () => {
       calls.push([url, options]);
       let data = [];
       if (url === "/api/worlds") data = [enabled];
-      else if (url.includes("/canon?")) data = { world: enabled, revision: 1, total: 1, records: [{ id: "main", kind: "timeline", label: "Main" }] };
+      else if (url.includes("/canon?"))
+        data = {
+          world: enabled,
+          revision: 1,
+          total: 1,
+          records: [{ id: "main", kind: "timeline", label: "Main" }],
+        };
       else if (url.endsWith("/search")) {
         const request = JSON.parse(options.body);
-        data = { world: enabled, revision: 1, mode: "hybrid", searchToken: "rank-token", total: 2,
-          records: [{ id: request.offset ? "second" : "first", kind: "entity", label: request.offset ? "Second match" : "Ferry captain" }] };
+        data = {
+          world: enabled,
+          revision: 1,
+          mode: "hybrid",
+          searchToken: "rank-token",
+          total: 2,
+          records: [
+            {
+              id: request.offset ? "second" : "first",
+              kind: "entity",
+              label: request.offset ? "Second match" : "Ferry captain",
+            },
+          ],
+        };
       }
       return { ok: true, text: async () => JSON.stringify(data) };
     });
     render(<Worldbuilder email="editor@test" />);
     await screen.findByRole("option", { name: "Novel" });
-    fireEvent.change(screen.getByLabelText("Open world"), { target: { value: "w" } });
+    fireEvent.change(screen.getByLabelText("Open world"), {
+      target: { value: "w" },
+    });
+    await navigate("Explore");
     await screen.findByText("Novel · canon revision 1");
-    fireEvent.change(screen.getByLabelText("Search canon"), { target: { value: "crossing water" } });
-    fireEvent.change(screen.getByLabelText("Fictional time"), { target: { value: "-9223372036854775808" } });
-    fireEvent.change(screen.getByLabelText("Search method"), { target: { value: "hybrid" } });
+    fireEvent.change(screen.getByLabelText("Search canon"), {
+      target: { value: "crossing water" },
+    });
+    fireEvent.change(screen.getByLabelText("Fictional time"), {
+      target: { value: "-9223372036854775808" },
+    });
+    fireEvent.change(screen.getByLabelText("Search method"), {
+      target: { value: "hybrid" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Load canon" }));
     await screen.findByText("Ferry captain");
     const first = calls.find(([url]) => url.endsWith("/search"));
     expect(first[1].method).toBe("POST");
-    expect(JSON.parse(first[1].body)).toMatchObject({ revision: 1, timeline: "main", query: "crossing water", at: "-9223372036854775808", offset: 0 });
-    fireEvent.change(screen.getByLabelText("Search canon"), { target: { value: "unsaved input" } });
-    fireEvent.change(screen.getByLabelText("Search method"), { target: { value: "lexical" } });
+    expect(JSON.parse(first[1].body)).toMatchObject({
+      revision: 1,
+      timeline: "main",
+      query: "crossing water",
+      at: "-9223372036854775808",
+      offset: 0,
+    });
+    fireEvent.change(screen.getByLabelText("Search canon"), {
+      target: { value: "unsaved input" },
+    });
+    fireEvent.change(screen.getByLabelText("Search method"), {
+      target: { value: "lexical" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /Load more canon/i }));
     await screen.findByText("Second match");
     const second = calls.filter(([url]) => url.endsWith("/search"))[1];
-    expect(JSON.parse(second[1].body)).toMatchObject({ query: "crossing water", searchToken: "rank-token", at: "-9223372036854775808", offset: 1 });
+    expect(JSON.parse(second[1].body)).toMatchObject({
+      query: "crossing water",
+      searchToken: "rank-token",
+      at: "-9223372036854775808",
+      offset: 1,
+    });
   });
   it("shows unavailable activation without fabricating worlds", async () => {
     global.fetch = vi.fn(async () => ({
@@ -292,6 +364,7 @@ describe("Worldbuilder", () => {
     fireEvent.change(screen.getByLabelText("Open world"), {
       target: { value: "w" },
     });
+    await navigate("Drafts & Proposals");
     await screen.findByText("Novel · canon revision 1");
     fireEvent.click(screen.getByRole("button", { name: "Submit for review" }));
     await waitFor(() =>
@@ -315,6 +388,7 @@ describe("Worldbuilder", () => {
     fireEvent.change(screen.getByLabelText("Open world"), {
       target: { value: "w" },
     });
+    await navigate("Drafts & Proposals");
     await screen.findByText("Own proposal");
     expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
     world.role = "editor";
@@ -326,6 +400,7 @@ describe("Worldbuilder", () => {
     fireEvent.change(screen.getByLabelText("Open world"), {
       target: { value: "w" },
     });
+    await navigate("Explore");
     fireEvent.click(
       await screen.findByRole("button", { name: "Propose removal" }),
     );
@@ -333,6 +408,7 @@ describe("Worldbuilder", () => {
     try {
       fireEvent.click(screen.getByRole("button", { name: "Load canon" }));
       await screen.findByText("Novel · canon revision 2");
+      await navigate("Drafts & Proposals");
       fireEvent.change(screen.getByLabelText("Reason for change"), {
         target: { value: "Remove timeline" },
       });
@@ -402,7 +478,10 @@ describe("Worldbuilder", () => {
     fireEvent.change(screen.getByLabelText("Open world"), {
       target: { value: "w" },
     });
+    await navigate("Explore");
+    await navigate("Drafts & Proposals");
     await screen.findByRole("option", { name: "Person" });
+    await navigate("Explore");
     fireEvent.change(screen.getByLabelText("Search canon"), {
       target: { value: "Unsubmitted search" },
     });

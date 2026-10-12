@@ -1,4 +1,6 @@
-# ui
+# Worldbuilder frontend
+
+Worlds open into a conversation workspace, with Explore, Drafts & Proposals, Stories and World Settings alongside it. The existing Vite/React stack, host theme and OAuth session remain. See the [AI-first specification](../../docs/worldbuilder/05-AI-FIRST-UI.md) and [implementation and validation](../../docs/worldbuilder/UI-IMPLEMENTATION.md).
 
 Container builds copy `package-lock.json` and run `npm ci`, matching CI's dependency resolution. Local `node_modules`, generated output and environment files are excluded from the Docker context.
 
@@ -14,7 +16,7 @@ Record and branch identifiers use browser-native character validation as well as
 
 Expand **Relationship graph** or **Chronology** in the wiki to explore the loaded published scope. Graph arrows follow typed subject/target relationships, including reverse/self edges; choose an entity to focus, and follow node/edge/source links into the same inspected scope. The diagram caps at 24 nodes/36 edges for readability; its table retains every loaded relationship in the chosen focus. Chronology orders events by exact signed start tick and stable ID, with half-open end dates and source/participant links. Both views show loaded/total coverage and search/time/revision/timeline scope. **Load more canon records** extends them; editor drafts, private stories and the independently loaded editor reference catalog do not enter these views. Dates use the calendar metadata from the same published scope.
 
-The authenticated Worlds tab (`Worldbuilder.jsx`) provides world creation, membership, wiki/history, structured record staging, independent review/publication, pinned story sessions, turn persistence and outcome proposals. AI candidates remain explicit drafts or provisional turns. The API is disabled until its LAN gate, and the UI reports that condition. Existing Labiraus document tools below remain available.
+The authenticated Worlds tab (`Worldbuilder.jsx`) provides world creation, membership, wiki/history, structured record staging, independent review/publication, pinned story sessions, turn persistence and outcome proposals. AI candidates remain explicit drafts or provisional turns. The UI reports unavailable or unauthorized API capabilities; source availability does not establish deployed health. Retained Labiraus document tools remain available in the header’s Document tools menu.
 
 `WorldHistory.jsx` adds paginated published history, complete record diffs, compensating restore drafts and explicit original/current/proposed reconciliation for proposals and private story outcomes. The preview's revision and story version are preserved on save; conflicts require a choice and fresh independent review. Manual staged changes retain their original revision when canon is refreshed. `WorldRecordEditor.jsx` loads complete existing records, edits multi-field schemas and relationship declarations, preserves attributes and provides typed fact/rule inputs. Editor reference choices load all bounded reference pages at one revision independently of wiki filters. Load-more controls cover worlds, canon, proposals, sessions and turns; links resolve unloaded records through the scoped record API.
 
@@ -26,8 +28,8 @@ Worldbuilder is the worldbuilding product within the existing Labiraus host and 
 
 The UI exposes:
 
-- a GitHub-style top bar with an Overview tab and a Documents tab for authenticated users
-- an authenticated Assistant tab backed by `/api/assistant/...` for RAG chat, explicit memories, file proposals, and audit/revert views
+- a Worldbuilder header with Worlds, retained Overview diagnostics, a secondary Document tools menu and account/theme controls; authenticated root visits open Worlds
+- a retained Document assistant backed by `/api/assistant/...` for RAG chat, explicit memories, file proposals, and audit/revert views
 - an auth status menu backed by `/api/auth/status` and `/api/auth/providers`
 - sign-in and sign-out actions from the header auth menu
 - `/api/users/count`
@@ -115,7 +117,7 @@ Generation details show the request correlation, reported model, duration and al
 
 `WorldStorySetup.jsx` creates/reuses private immutable definitions at their canon pin, preserves IDs on uncertain retries, and retains generated premise scope. Sessions display provisional summary coverage and offered choices. Generated turns retain the inspected session version when saved.
 
-The Worlds reasoning panel lists private durable generations, queues up to four narrative parts, refreshes progress, cancels remaining work and inspects preserved partial results. Background generation must be enabled server-side. Retried queue submissions retain their UUID; inspected results retain their original canon/session versions before human save.
+The workspace’s **Long-running generation** disclosure lists private durable generations, queues up to four narrative parts, refreshes progress, cancels remaining work and inspects preserved partial results. Background generation must be enabled server-side. Retried queue submissions retain their UUID; inspected results retain their original canon/session versions before human save.
 
 The review queue explains independent human approval and offers proposal consistency checks at the inspected base revision. Advisory findings show severity, uncertainty, scoped evidence and deterministic-check metadata; partial evidence and an empty finding list never claim complete semantic consistency.
 
@@ -125,4 +127,31 @@ The canonical settings editor supports reviewed fictional calendars with custom 
 
 The settings editor configures 1–5 independent human approvals through review. The queue displays each proposal’s required/current count, immutable decisions and invalidated membership authority, and disables publication below quorum. Three-identity browser acceptance proves a two-reviewer change cannot publish after only one vote. See [review policy](../../docs/worldbuilder/REVIEW-POLICY.md).
 
-The Worlds screen includes **Superuser · Manage users** for the operator-granted class. It registers Google emails as ordinary users; world membership is assigned separately. Superusers can explicitly approve their own proposals, with a required reason and a visible self-approval label. Configured approval counts still apply, and ordinary users retain independent review. The UI reflects server permission; it never grants authority itself. See [superuser accounts](../../docs/worldbuilder/API.md#superuser-accounts-schema-8).
+Worlds → **Account administration** includes **Superuser · Manage users** for the operator-granted class. It registers Google emails as ordinary users; world membership is assigned separately. Superusers can explicitly approve their own proposals, with a required reason and a visible self-approval label. Configured approval counts still apply, and ordinary users retain independent review. The UI reflects server permission; it never grants authority itself. See [superuser accounts](../../docs/worldbuilder/API.md#superuser-accounts-schema-8).
+
+## AI workspace and local acceptance
+
+Ask/Create/Change/Play share one composer. Explicit intent can override conservative intent detection; ambiguous assertions ask an inline clarification. Cited answers open a scoped source inspector. **Ask AI about this** attaches a removable record reference. Relationships/chronology reuse the loaded published scope. Type-filtered word browsing uses the existing canon endpoint; ranked/hybrid search is available without a type filter.
+
+Conversations are held only in memory while a world stays mounted, cleared by world/account changes and reloads. Only the last three user requests and up to eight explicit references are added to the bounded reasoning question; AI prose is never canonical evidence. There is no world chat persistence/streaming API. **Stop waiting** cancels the browser request, not a guarantee of upstream cancellation or an allowance refund. Durable generations retain their existing server cancellation and uncertainty semantics.
+
+Generated structured changes can be edited using the existing record editor or explicitly saved as immutable drafts. The original base revision and before-state are retained. Review, approval and publication remain separate server-authorized actions; stale proposals require reconciliation. Narration can be edited and saved as a private turn at the generated session version, with choices and freeform continuation in the workspace. Use Stories to resume durable sessions and reconcile outcomes.
+
+Hash links use `#/worlds/{world}/{workspace|explore|drafts|stories|settings}`. Source links include `record`, `revision`, `timeline` and optional exact `at`; proposal links use `proposal`; story links use `session`. Authentication loading preserves the link. In-memory conversation state survives section navigation, but is not a shareable conversation URL.
+
+Run from `apps/ui`:
+
+```sh
+npm ci
+npm test
+npm run build
+npm run test:workspace
+```
+
+`test:workspace` starts a loopback Vite server and runs desktop/mobile HTTP-fixture Chromium journeys. Install the pinned Playwright Chromium and its OS dependencies first. It covers conversation/citations, generated draft editing/submission, ambiguity/failure, isolation and private story resume. These fixtures are only browser tests. For actual API/SQL governance, build first, then run from the repository root:
+
+```sh
+WORLDBUILDER_TEST_TRANSPORT=exec WORLDBUILDER_BROWSER_TEST=1 bash scripts/worldbuilder/test-postgres.sh
+```
+
+This uses only owned disposable PostgreSQL and test identities, never a LAN DSN. Browser screenshots/traces go to `WORLDBUILDER_BROWSER_ARTIFACTS` or `/tmp/worldbuilder-browser-artifacts`. Production model quality, actual human accounts, deployed responsive/accessibility acceptance and provider cancellation require separate LAN checks; this UI task does not deploy.

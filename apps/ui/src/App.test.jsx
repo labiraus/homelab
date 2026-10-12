@@ -36,6 +36,38 @@ class MockEventSource {
 }
 
 describe("App", () => {
+	beforeEach(() => { window.history.replaceState(null, "", "/#/overview"); });
+	test("preserves a world deep link while authentication is loading", async () => {
+		window.history.replaceState(null, "", "/#/worlds/w/explore?record=hero&revision=2&timeline=alternate");
+		let resolveAuth;
+		global.fetch = vi.fn(async path => {
+			if (path === "/api/auth/status") return new Promise(resolve => {resolveAuth = resolve;});
+			const world = {id:"w",name:"Novel",revision:2,role:"reader",defaultTimeline:"alternate"};
+			let data = [];
+			if (path === "/api/auth/providers") data = {providers:[]};
+			if (path === "/api/worlds") data = [world];
+			if (path.includes("/canon?")) data = {world,revision:2,timeline:"alternate",records:[],total:0};
+			if (path.includes("/records/hero")) data = {record:{id:"hero",kind:"entity",label:"Hero"},revision:2,timeline:"alternate"};
+			return {ok:true,json:async()=>data,text:async()=>JSON.stringify(data)};
+		});
+		render(<App/>);
+		expect(window.location.hash).toContain("record=hero");
+		await act(async () => resolveAuth({ok:true,json:async()=>({valid:true,email:"reader@test"})}));
+		expect(await screen.findByRole("complementary",{name:"Source inspector"})).toHaveTextContent("Revision 2 · alternate");
+		expect(await screen.findByRole("heading",{name:"Hero"})).toBeVisible();
+		expect(screen.getByRole("link",{name:"Explore",exact:true})).toHaveAttribute("aria-current","page");
+		expect(global.fetch.mock.calls.filter(([p])=>p.includes("/canon?")).every(([p])=>p.includes("timeline=alternate"))).toBe(true);
+	});
+	test("opens Worlds for an authenticated root visit", async () => {
+		window.history.replaceState(null,"","/");
+		global.fetch=vi.fn(async path => {
+			const data=path==="/api/auth/status"?{valid:true,email:"reader@test"}:path==="/api/auth/providers"?{providers:[]}:[];
+			return {ok:true,json:async()=>data,text:async()=>JSON.stringify(data)};
+		});
+		render(<App/>);
+		expect(await screen.findByLabelText("Open world")).toBeVisible();
+		expect(window.location.hash).toBe("#/worlds");
+	});
 	afterEach(() => {
 		vi.restoreAllMocks();
 		window.location.hash = "";
@@ -184,7 +216,7 @@ describe("App", () => {
 			});
 
 		render(<App />);
-		expect(await screen.findByRole("button", { name: /^assistant$/i })).toBeInTheDocument();
+		expect(await screen.findByRole("button", { name: /^document assistant$/i })).toBeInTheDocument();
 		expect(await screen.findByRole("button", { name: /^documents$/i })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /^search$/i })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /^inventory$/i })).toBeInTheDocument();
@@ -268,7 +300,7 @@ describe("App", () => {
 			});
 
 		render(<App />);
-		await user.click(await screen.findByRole("button", { name: /^assistant$/i }));
+		await user.click(await screen.findByRole("button", { name: /^document assistant$/i }));
 		await screen.findByRole("heading", { name: /talk to labiraus/i });
 		await user.type(screen.getByLabelText(/^message$/i), "Which runbook?");
 		await user.click(screen.getByRole("button", { name: /^send$/i }));
@@ -372,7 +404,7 @@ describe("App", () => {
 			});
 
 		render(<App />);
-		await user.click(await screen.findByRole("button", { name: /^assistant$/i }));
+		await user.click(await screen.findByRole("button", { name: /^document assistant$/i }));
 		await screen.findByText("Tighten wording");
 		await user.click(screen.getByRole("button", { name: /^approve$/i }));
 
@@ -471,7 +503,7 @@ describe("App", () => {
 			});
 
 		render(<App />);
-		await user.click(await screen.findByRole("button", { name: /^assistant$/i }));
+		await user.click(await screen.findByRole("button", { name: /^document assistant$/i }));
 		await screen.findByText("Tighten wording");
 		await user.type(
 			screen.getByRole("textbox", { name: /rejection reason for runbooks\/process\.md/i }),

@@ -40,6 +40,7 @@ function pageFromHash() {
 	if (typeof window === "undefined") {
 		return "overview";
 	}
+	if (window.location.hash.startsWith("#/worlds/")) return "worlds";
 	switch (window.location.hash) {
 		case "#/worlds":
 			return "worlds";
@@ -1047,8 +1048,15 @@ function App() {
 	}, []);
 
 	useEffect(() => {
+		if (!authLoading && documentsEnabled && ["", "#/"].includes(window.location.hash)) {
+			window.location.hash = "#/worlds";
+			setPage("worlds");
+		}
+	}, [authLoading, documentsEnabled]);
+
+	useEffect(() => {
 		if (
-			!documentsEnabled &&
+			!authLoading && !documentsEnabled &&
 			(page === "worlds" || page === "assistant" || page === "documents" || page === "inventory" || page === "search")
 		) {
 			setPage("overview");
@@ -1056,7 +1064,7 @@ function App() {
 				window.location.hash = "#/";
 			}
 		}
-	}, [documentsEnabled, page]);
+	}, [documentsEnabled, page, authLoading]);
 
 	useEffect(() => {
 		if (page !== "documents" || !documentsEnabled) {
@@ -2298,12 +2306,13 @@ function App() {
 						L
 					</div>
 					<div className="brand-copy">
-						<p className="brand-label">Labiraus</p>
-						<p className="brand-subtitle">Authenticated storage and control plane</p>
+						<p className="brand-label">Worldbuilder</p>
+						<p className="brand-subtitle">Worlds, stories and shared canon</p>
 					</div>
 				</div>
 
 				<nav className="topbar-nav" aria-label="Primary">
+				{documentsEnabled ? <button type="button" className={`topbar-tab ${page === "worlds" ? "active" : ""}`} onClick={() => navigateToPage("worlds")}>Worlds</button> : null}
 					<button
 						type="button"
 						className={`topbar-tab ${page === "overview" ? "active" : ""}`}
@@ -2311,13 +2320,14 @@ function App() {
 					>
 						Overview
 					</button>
+					<details className="document-tools-menu" open={page !== "worlds"}><summary>Document tools</summary><div className="document-tools-items">
 					{documentsEnabled ? (
 						<button
 							type="button"
 							className={`topbar-tab ${page === "assistant" ? "active" : ""}`}
 							onClick={() => navigateToPage("assistant")}
 						>
-							Assistant
+							Document assistant
 						</button>
 					) : null}
 					{documentsEnabled ? (
@@ -2347,7 +2357,7 @@ function App() {
 							Documents
 						</button>
 					) : null}
-				{documentsEnabled ? <button type="button" className={`topbar-tab ${page === "worlds" ? "active" : ""}`} onClick={() => navigateToPage("worlds")}>Worlds</button> : null}
+					</div></details>
 				</nav>
 
 				<div className="topbar-actions">
@@ -2459,7 +2469,7 @@ function App() {
 			</header>
 
 			<div className="workspace">
-				{page === "worlds" && documentsEnabled ? <Worldbuilder email={authStatus.email}/> : page === "overview" ? (
+				{page === "worlds" && documentsEnabled ? <Worldbuilder key={authStatus.email} email={authStatus.email}/> : page === "overview" ? (
 					<section className="workspace-shell">
 						<header className="workspace-header">
 							<div>

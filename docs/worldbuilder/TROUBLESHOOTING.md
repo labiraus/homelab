@@ -1,5 +1,14 @@
 # Worldbuilder migration troubleshooting
 
+## AI workspace navigation and generation recovery (2026-10-12)
+
+A disappeared conversation after reload or a world/account switch is expected: world-chat persistence is not supported by the API. Saved proposals and private stories remain available from their libraries. A stopped/failed synchronous request may have consumed an allowance; retry explicitly. Resume the original story or generate afresh when a candidate reports an earlier/different turn. Resolve stale proposals through the comparison flow, preserving the original base revision.
+
+The redesign fixes authentication loading that previously reset deep hash links before auth status resolved. It also preserves submitted scope on save-triggered refresh, uses snapshot-pinned source links, and reuses request IDs after uncertain manual saves. Do not replace a generation’s revision/session version to bypass a conflict. Historical source questions retain their source pin until **Use displayed world context** is selected. Response cards stay mounted across local conversation switches so editable content, retry IDs and already-saved state are not reset.
+
+Browser test navigation must wait for the world navigation container to be attached before deciding whether to open the mobile drawer. An immediate visibility check after world selection falsely treated a loading desktop as mobile and waited forever for a hidden toggle. Actual Chromium traces established this race; the helper now waits for the DOM container’s attachment (hidden links are absent from role queries). Native selects use accessible combobox roles, since label text can include option text. Keep fixture responses sensitive to the current request, not accidentally to retained follow-up context.
+
+
 Use [implementation status](IMPLEMENTATION-STATUS.md) for exact check results and [platform troubleshooting](../../runbooks/troubleshooting.md) for existing operations; do not duplicate legacy incident logs here.
 
 - Missing engine/infra or Cassandra: audit actual paths before following illustrative target names. Do not create replacement services or remove storage based on assumptions.

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { RecordSummary } from "./WorldResponse.jsx";
 
 function useRequestId() {
   const last = useRef(null);
@@ -12,7 +13,7 @@ function useRequestId() {
 
 function RecordValue({ record }) {
   if (!record) return <span>Absent</span>;
-  return <pre>{JSON.stringify(record, null, 2)}</pre>;
+  return <RecordSummary record={record} />;
 }
 
 export function RecordDiffs({ records }) {

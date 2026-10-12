@@ -8,7 +8,7 @@ Build a collaborative worldbuilding application where **the world, not the LLM, 
 
 | Component | Decision | Target role |
 |---|---|---|
-| Existing UI SPA | Keep, redesign features | World dashboard, wiki, structured editor, AI chat, review queue, story experiences, timelines and graphs |
+| Existing UI SPA | Keep, redesign features | AI conversation workspace with supporting wiki, structured editor, review queue, story experiences, timelines and graphs |
 | `external` (Go) | Expand | AuthZ, worlds, canonical queries, typed data contracts, change sets, atomic publication, story persistence |
 | `processor` (TypeScript; audited implementation uses Node HTTP) | Refactor | LangGraph workflows, grounded retrieval, AI proposals, consistency reasoning, narrative generation |
 | `orchestrator` (Go) + NATS JetStream | Keep | Durable background indexing, import, bulk consistency, longer generation |
@@ -76,6 +76,8 @@ Use Envoy AI Gateway for all supported model calls, including embeddings where p
 Illustrative only: `/worlds`, `/worlds/{id}/entities`, `/facts`, `/relationships`, `/events`, `/timelines`, `/rules`, `/change-sets`, `/reviews`, `/revisions`, `/stories`, `/story-sessions`, `/turns`, `/outcomes`, `/search`. Match existing route conventions; avoid incompatible wholesale route renames. Contracts need pagination, filtering, stable IDs, world authZ, concurrency token/expected version, typed validation errors and idempotency keys on important writes.
 
 ## Frontend target
+
+The [AI-first specification](05-AI-FIRST-UI.md) governs the interaction design. The [local implementation](UI-IMPLEMENTATION.md) retains Vite/React, the existing hash/auth shell and external API contracts. Conversation is the default world workspace; Explore, Drafts & Proposals, Stories and World Settings support it. Chat is currently ephemeral; persisted stories and reviewed canon retain their independent authority.
 
 - World browser + member/settings UI; structured entity/wiki pages and full-text search.
 - Entity, fact, relationship, event and timeline editor; no AI needed for basic CRUD.

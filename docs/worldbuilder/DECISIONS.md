@@ -1,5 +1,11 @@
 # Worldbuilder decisions
 
+## 2026-10-12 — Conversation-first frontend within existing contracts
+
+Keep React/Vite, shared theme tokens, hash routes, OAuth handling and the external-only API boundary. Split conversation, response cards and source inspection into reusable components, while keeping validated wiki/editor/review/history/story components mounted across section navigation. Discard ephemeral chat on world/account changes and reload; no unrelated document-conversation storage is reused. Bounded earlier user requests and explicit references are untrusted context, never canonical evidence. Ambiguous assertions ask for intent before inference.
+
+Source links preserve exact world/revision/timeline/time; draft and story saves preserve generation pins and stable retry IDs. Existing server authorization, quorum, deterministic validation and atomic publication stay authoritative. Kind-filtered word browsing uses canon because ranked search does not support kind filtering. Browser cancellation promises only to stop waiting. No invented streaming, persistence, story mode or inference-preference endpoint is exposed. See [implementation and remaining dependencies](UI-IMPLEMENTATION.md).
+
 ## Canon graph and chronology views
 
 Use the wiki's loaded published response and submitted revision/timeline/time/search filters as the single source for both views. Explicit relationship endpoints form the graph; chronology sorts event starts with BigInt and ASCII stable-ID ties. The diagram is bounded for readability, with entity focus and a complete loaded relationship table; coverage and existing pinned pagination remain visible. Follow node/edge/event/source links through the same scoped record resolver. Do not merge staged edits, private sessions or an independent editor reference catalog into canonical views. Real Chromium interaction tests must exercise actual SVG click targets and keyboard links as well as scope/history behavior.

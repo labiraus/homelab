@@ -48,6 +48,8 @@ Existing product history is preserved at [pre-pivot plan](archive/PRE-WORLDBUILD
 
 ## Reconciliation performed
 
+The 2026-10-12 AI-first frontend task moves the supplied unnumbered brief to `05-AI-FIRST-UI.md`, retaining a compatibility link at `WORLDBUILDER-AI-FIRST-UI.md`. `UI-IMPLEMENTATION.md` separates target requirements, actual local slices, API limitations and validation. Active architecture/migration/index/UI README wording now describes the conversation workspace and retained secondary document tools. Historical checkpoint evidence is preserved; no local source/build result implies publication or deployment.
+
 The 2026-10-12 acceptance audit reconciles the current matrix and offline summary with retained live schema/identity/AI/generation/storage evidence. Historical increment logs retain their original observations. The migration approach now names the actual monorepo; its gates are requirements, not assertions that already verified production installation never happened. Current health remains unverified during the Pi outage, and final cutover plus multi-user/story-outcome acceptance remain open.
 
 The active index, remote deployment guide, Codex execution prompt, concrete LAN runbook and evaluation README now use the same checkpoint distinction. They preserve established activation/managed identities and standing main/LAN recovery authorization, scope initial provisioning to missing/new environments, and retain separate destructive-retirement and new-feature gates. Multi-step mutating shell examples stop on errors. No deployment or permission expansion is implied by this documentation repair.

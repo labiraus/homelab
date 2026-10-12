@@ -1,5 +1,7 @@
 # Worldbuilder AI on Labiraus
 
+The frontend opens worlds into an [AI-first conversation workspace](docs/worldbuilder/05-AI-FIRST-UI.md), with canon exploration, reviewed proposals and persistent private stories. See [local implementation and validation](docs/worldbuilder/UI-IMPLEMENTATION.md) for current source behavior and backend limits; this redesign does not imply a deployment.
+
 This repository combines five related areas for the Labiraus homelab platform:
 
 - Terraform for provisioning Kubernetes worker VMs and dedicated service VMs on Proxmox

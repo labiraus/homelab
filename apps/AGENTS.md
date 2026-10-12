@@ -23,6 +23,7 @@ The goal here is clarity and operability, not unnecessary abstraction.
 - `orchestrator/` is the internal Go document control plane and optional canon outbox/index worker
 - `processor/` is the TypeScript Node HTTP/LangGraph service and NATS JetStream worker
 - `ui/` is the Vite frontend
+- Run UI npm commands from `apps/ui`; there is no root `package.json`.
 - UI styling lives in `apps/ui/src/styles.css`; there is no `App.css`. Scoped canon views consume published records and submitted filters, never staged edits, unsaved inputs or the editor's independent reference catalog.
 - `pkg/` contains shared Go helpers used by application code
 
@@ -80,3 +81,6 @@ If a lesson applies only to one app, add a more specific `AGENTS.md` under that 
 - Snapshot branches copy the complete timeline-scoped set through ordinary reviewed proposals, within the existing operation/world limits. Unscoped catalog/settings remain shared. Resolve typed references, preserve exact historical/time pins and derive creation origin from immutable proposal/audit state, never labels or editable attributes. New identities include retired-ID refusal; stale branch creation requires a fresh complete proposal rather than partial record reconciliation.
 - HTML identifier patterns need a literal escaped hyphen in Unicode-set (`v`) mode, including at the end of a character class. Use a JavaScript string such as `"[a-zA-Z0-9_\\-]{1,64}"` and verify native Chromium `validity.patternMismatch`; a malformed pattern may be ignored even when ordinary component tests pass. Keep the independent server-side identifier validation.
 - Bind branch audit lineage to canonical UUID strings and use the loaded proposal ID in subsequent lookups. Alternate UUID spelling in a request or URL must neither lose historical origin nor bypass the no-partial-rebase rule.
+
+- World conversation state is scoped to the mounted world/account and remains ephemeral until a world-chat backend exists. Never reuse the document assistant’s persistence as world canon/chat storage or present cached model prose as canonical evidence. Preserve submitted scope on background/save refresh, original generation pins on saves and exact source scope in inspector links.
+- World hash deep links must survive pending authentication. Browser navigation helpers wait for the attached world navigation DOM container (hidden links are absent from role queries) before deciding whether a responsive drawer is needed; a loading desktop must not be mistaken for a collapsed mobile navigation.

@@ -11,6 +11,8 @@ This documentation supersedes Evolve's previous document-first product direction
 3. [03-WORLDBUILDER-REMOTE-DEPLOYMENT.md](03-WORLDBUILDER-REMOTE-DEPLOYMENT.md) — source delivery and recovery gates, preserving verified live checkpoints.
 4. [04-CODEX-EXECUTION-PROMPT.md](04-CODEX-EXECUTION-PROMPT.md) — instructions to give Codex inside the checkout.
 
+5. [05-AI-FIRST-UI.md](05-AI-FIRST-UI.md) — AI-first product specification; [local UI implementation](UI-IMPLEMENTATION.md) records working slices and explicit backend limits.
+
 ## Key decisions
 
 - Existing repositories, hardware, GitOps, cluster architecture, authentication, networking and inference entry point remain unless inspection reveals a specific blocker.

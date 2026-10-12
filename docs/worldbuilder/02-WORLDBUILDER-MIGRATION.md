@@ -32,6 +32,7 @@ Incremental pivot inside the existing homelab monorepo. The original target assu
 - Gate: conflict, concurrency, compensating rollback, bypass prevention and atomic failure tests.
 
 ### M4 — Wiki and editor
+- Follow the [AI-first UI specification](05-AI-FIRST-UI.md): conversation is the primary workspace, with existing wiki/editor/review/story tools integrated around it. Track UI-0–UI-6 and API gaps in [UI implementation](UI-IMPLEMENTATION.md); do not replace working domain contracts with mockups.
 - Add world dashboard, structured entity editor, relationship/history navigation, searchable wiki, change diff/review workflow and history.
 - Gate: a user can create a world and progress data from draft through human-approved published wiki entry without AI.
 
