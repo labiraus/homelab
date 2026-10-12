@@ -1,6 +1,6 @@
 # Reviewed snapshot branches
 
-Timeline branches create a fixed copy of timeline-specific canon through the existing proposal, review and publication flow. The working design uses snapshot branching; automatic inheritance from later parent revisions is not implemented. Existing timeline labels and attributes never imply a parent.
+Timeline branches create a fixed copy of timeline-specific canon through the existing proposal, review and publication flow. The user confirmed fixed parent snapshots with reviewed updates on 2026-10-12. Adopting later parent changes requires explicit reviewed proposals against branch records; there is no automatic inheritance. Existing timeline labels and attributes never imply a parent.
 
 ## What is copied
 
