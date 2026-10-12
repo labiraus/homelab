@@ -77,7 +77,7 @@ Illustrative only: `/worlds`, `/worlds/{id}/entities`, `/facts`, `/relationships
 
 ## Frontend target
 
-The [AI-first specification](05-AI-FIRST-UI.md) governs the interaction design. The [local implementation](UI-IMPLEMENTATION.md) retains Vite/React, the existing hash/auth shell and external API contracts. Conversation is the default world workspace; Explore, Drafts & Proposals, Stories and World Settings support it. Chat is currently ephemeral; persisted stories and reviewed canon retain their independent authority.
+The [AI-first specification](05-AI-FIRST-UI.md) governs the interaction design. The [implementation and release record](UI-IMPLEMENTATION.md) retains Vite/React, the existing hash/auth shell and external API contracts. Conversation is the default world workspace; Explore, Drafts & Proposals, Stories and World Settings support it. Chat is currently ephemeral; persisted stories and reviewed canon retain their independent authority.
 
 - World browser + member/settings UI; structured entity/wiki pages and full-text search.
 - Entity, fact, relationship, event and timeline editor; no AI needed for basic CRUD.

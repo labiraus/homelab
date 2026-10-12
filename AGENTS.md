@@ -32,6 +32,8 @@ Directory-level `AGENTS.md` files currently exist for:
 - Discover existing file paths with `rg --files` before targeted reads; do not infer app, chart or migration-document paths from naming conventions.
 - Read the discovery output before selecting paths: chart templates are not necessarily named after their resource kinds, and workflow filenames may differ from their display names.
 - Discover Flux resource namespaces independently of workload namespaces. The current app HelmReleases, including `ui`, live in `flux-system` and target `homelab`; a workload namespace lookup returning NotFound does not establish a missing release.
+- Inspect publication actions before claiming artifact signing. Current GHCR actions stamp source revisions and publish image/chart digests; those facts alone are not signature creation or verification.
+- Public endpoint reports store per-attempt success under `attempts[].ok`, not a top-level `ok`. Their cluster reconciliation and authenticated-functionality fields deliberately remain unverified; substantiate those with separate deployed evidence.
 - When changing behavior, config, workflows, or layout, update the relevant human docs in the same task.
 - Do not commit real secrets, kubeconfig material, private keys, or local-only environment files.
 - Prefer repo-native workflows before inventing new ones.

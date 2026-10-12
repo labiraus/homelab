@@ -43,7 +43,7 @@ kubectl -n homelab logs deployment/homelab-processor --tail=100
 
 Discover possible Cassandra outside this checkout: inspect stateful workloads/PVCs, related image names, Flux sources and known external hosts. List secret **names/metadata only**, never dump secret values into logs. If no Cassandra is found, record the evidence and inventory boundary; do not fabricate an export or delete unused-looking volumes. If found, inventory keyspaces/tables/clients/TTL/tombstones and owners, take consistent snapshots plus schema exports, checksum/count a repeatable transform/import, restore separately, and require a decommission-specific approval before any retirement.
 
-Check Flux source revision/image tags against the CI run and signed image/chart artifacts. CI uses existing signing/publication actions; confirm signatures and registry access rather than assuming they succeeded. Do not run `make vllm-gateway-smoke` yet: it creates a temporary pod and belongs to the authorised test phase, not read-only discovery.
+Check Flux source metadata, image tags/digests and chart digests against the exact CI run. The current GHCR actions stamp source revisions and publish image/chart artifacts; they do not contain signature creation or verification steps. Registry access, digest equality and source labels establish those specific checks, not signing acceptance. Do not run `make vllm-gateway-smoke` yet: it creates a temporary pod and belongs to the authorised test phase, not read-only discovery.
 
 ## 2. Backup and isolation gate — before mutation
 
