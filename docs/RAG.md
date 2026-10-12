@@ -1,6 +1,6 @@
 # Worldbuilder grounding and retained document RAG
 
-Worldbuilder uses authorised PostgreSQL revision snapshots as canonical evidence. Processor LangGraph workflows receive bounded world/timeline/revision-scoped evidence from external and return candidates with resolvable citation IDs. Model outputs cannot publish or approve. The optional OpenSearch canon projection is derived and rebuildable. Current implementation and remaining gates are recorded in [Worldbuilder status](worldbuilder/IMPLEMENTATION-STATUS.md).
+Worldbuilder uses authorised PostgreSQL revision snapshots as canonical evidence. Processor LangGraph workflows receive bounded world/timeline/revision-scoped evidence from external and return candidates with resolvable citation IDs. Model outputs cannot publish or approve. The OpenSearch canon projection is derived and rebuildable. Canon GET discovery remains lexical; optional [metered POST hybrid retrieval](worldbuilder/SEMANTIC-SEARCH.md) adds pinned model embeddings, scoped vector candidates and canonical reconciliation. Its runtime defaults remain off. Current implementation and remaining live gates are recorded in [Worldbuilder status](worldbuilder/IMPLEMENTATION-STATUS.md).
 
 The retained document ingestion/retrieval path is:
 
@@ -23,8 +23,8 @@ The current ingestion slice is reference-based:
 - `rag.documents.status` moves through `pending`, `processing`, and `processed`
 - `processor` reads the raw object from MinIO, extracts text, and indexes it into OpenSearch through an ingest pipeline that performs native text chunking and model inference
 - `external` exposes document inventory for browser operators to inspect reconciliation and processing state
-- `external` exposes semantic search for the UI
-- `mcp` exposes document inventory and semantic search for agents
+- `external` exposes OpenSearch-backed document search for the UI; its ordinary query is lexical and the default search pipeline is empty
+- `mcp` exposes document inventory and the same document search for agents; a separately configured semantic pipeline requires its own acceptance
 - `external` and `mcp` expose context assembly that packages current-version search hits into a cited context block
 - `external` and `mcp` allow retrieval to be narrowed by curated document metadata through exact-match JSON filters backed by a `rag.documents.metadata` JSONB GIN index
 - `orchestrator` exposes document metadata curation for existing inventory rows
@@ -49,7 +49,7 @@ The current ingestion slice is reference-based:
 - `ui` can update curated metadata, perform guarded raw text edits, and queue reprocessing for selected search results through `external` proxy routes
 - `ui` automatically loads version-specific durable lifecycle history after browser actions that queue processing
 - retrieval responses search OpenSearch nested chunk hits for the document's current indexed processing version and include citation objects that identify the source URI and chunk identity for each match
-- OpenSearch owns chunk vectors through `text_chunking`, `ml_inference`, and neural search pipelines; the configured OpenSearch ML model is expected to call Envoy AI Gateway so backend providers can move from local/OpenSearch ML to Bedrock without app code changes
+- OpenSearch ingestion creates chunk vectors through text chunking and model inference using the configured private Envoy AI Gateway route; stored vectors do not establish query-time semantic retrieval or compatibility with another provider
 - known migration gap: OpenSearch-native chunking may initially have less precise HTML heading metadata than the old processor chunker until extracted section metadata is mapped cleanly into the OpenSearch ingest pipeline
 
 File-type expansion beyond the current UTF-8 `text/*` baseline is intentionally gated by `docs/FileTypeExpansion.md`. HTML is now the first implemented extractor beyond plain text: it strips boilerplate markup, preserves visible text, records extraction warnings in lifecycle history, and attaches title/heading citation metadata without breaking existing text citations.
@@ -93,19 +93,22 @@ The script prints per-case RAGAS scores and returns a non-zero exit code when a 
 ```mermaid
 flowchart LR
   UI[React UI] --> EXT[external]
-  MCP[Labiraus MCP: retained document tools] --> EXT
+  MCP[Labiraus MCP: document and scoped world tools] --> EXT
   EXT -->|canon, governance, stories| PG[PostgreSQL]
   EXT -->|scoped evidence, candidate generation| PROC[processor / LangGraph]
   PROC --> AIGW[Envoy AI Gateway]
+  EXT -->|optional metered canon query embedding| AIGW
+  EXT -->|scoped derived search candidates| OS
   EXT -->|document control| ORCH[orchestrator]
   ORCH -->|read outbox / immutable snapshots| PG
   ORCH --> NATS[NATS JetStream]
   NATS -->|canon projection| ORCH
   ORCH --> OS[OpenSearch derived indexes]
+  ORCH -->|optional bounded canon embedding| AIGW
   ORCH --> MINIO[Private MinIO on svartalfheim]
   NATS -->|document processing| PROC
   PROC --> MINIO
   PROC --> OS
 ```
 
-Diagram describes source capabilities; Worldbuilder flags are disabled until LAN validation. MCP world-tool delegation is a remaining access-boundary gate, not implied by existing document tools.
+The diagram describes source capabilities. Each optional route requires its configured feature, exact workload identity and observed acceptance. Signed Worldbuilder MCP delegation has separate authorization checks; current deployed artifacts and outstanding gates are recorded in [implementation status](worldbuilder/IMPLEMENTATION-STATUS.md). SeaweedFS is the target private S3 service; production remains on retained MinIO until the documented migration and restore checks pass.

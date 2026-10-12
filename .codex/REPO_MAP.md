@@ -172,8 +172,8 @@ Current behavior note:
 - Postgres is the source of truth for metadata, workflow state, lifecycle history, and audits.
 - OpenSearch is the active derived chunk/vector retrieval store.
 - NATS JetStream plus KEDA are the async execution layer, not the durable state store.
-- `external` exposes OpenSearch-backed semantic document search for the UI.
-- `mcp` exposes document inventory and OpenSearch-backed semantic search for agents.
+- `external` exposes OpenSearch-backed document search for the UI. Its normal query is lexical; an explicitly configured search pipeline needs separate semantic acceptance.
+- `mcp` exposes document inventory and the same OpenSearch-backed document query for agents; stored vectors alone do not establish semantic retrieval.
 - `external` and `mcp` expose durable document lifecycle history from `rag.document_lifecycle_events`.
 - `processor` stores conversations, per-user memories, tool calls, file proposals, and audit views in Postgres.
 - `rag.document_change_audits` links create/edit/revert operations to actor email, conversation ID, proposal ID, MinIO version markers, and processing versions.
@@ -241,6 +241,6 @@ Offline acceptance and operations: `docs/worldbuilder/OFFLINE-ACCEPTANCE.md`, `O
 
 Disposable source-policy mesh acceptance: `scripts/worldbuilder/test-mesh.py`, synthetic HTTP endpoints in `mesh-fixture.py`, artifact-boundary regressions in `test-mesh-artifacts.py`, and `docs/worldbuilder/MESH-ACCEPTANCE.md`. It uses the shared owned kind lifecycle with Cilium and Istio; check the recorded full matrix and publication status before treating it as verified.
 
-Disposable canon projection/discovery: `scripts/worldbuilder/test-canon-index.py`, ownership refusal tests in `test-canon-index-unit.py`, and `docs/worldbuilder/INDEX-ACCEPTANCE.md`. Real PostgreSQL/NATS/OpenSearch execute the relay and reconstruction after index loss; the harness rejects skipped tests and verifies owned cleanup. Canon semantic discovery remains a separate gap.
+Disposable canon projection/discovery: `scripts/worldbuilder/test-canon-index.py`, ownership refusal tests in `test-canon-index-unit.py`, and `docs/worldbuilder/INDEX-ACCEPTANCE.md`. Real PostgreSQL/NATS/OpenSearch execute the relay, initial revision 0, scoped hybrid retrieval and reconstruction after index loss with a synthetic model; the harness rejects skipped tests and verifies owned cleanup. Real-model smoke and pending live activation have separate evidence in `docs/worldbuilder/SEMANTIC-SEARCH.md`.
 
 Canonical graph/chronology presentation is in `apps/ui/src/WorldViews.jsx`, with shared UI styling in `styles.css`. It consumes the loaded published scope from `Worldbuilder.jsx`; `worldTicks.js` preserves exact date transport/ordering. Component and real-browser fixtures verify scope, precision, navigation and separation from editor drafts.
