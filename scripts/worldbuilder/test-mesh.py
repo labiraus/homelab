@@ -68,7 +68,26 @@ def install_istio(f, schemas):
                                              'limits': {'memory': '256Mi'}}}}
     f.apply(render(f, 'istiod', 'istiod', 'istio-system', values, repo, ISTIO_VERSION))
     f.kubectl('-n', 'istio-system', 'rollout', 'status', 'deployment/istiod', '--timeout=300s', timeout=330)
+    istio_admission(f)
     print('PASS: real Istio control plane with source extension providers', flush=True)
+
+
+def istio_admission(f):
+    policy = {'apiVersion': 'security.istio.io/v1', 'kind': 'PeerAuthentication',
+              'metadata': {'name': 'fixture-admission', 'namespace': 'istio-system'},
+              'spec': {'selector': {'matchLabels': {'app': 'unused-fixture'}}, 'mtls': {'mode': 'STRICT'}}}
+    def available():
+        hooks = json.loads(f.kubectl('get', 'validatingwebhookconfiguration/istiod-default-validator',
+                                    '-o', 'json', timeout=25))['webhooks']
+        assert len(hooks) == 1 and hooks[0]['name'] == 'validation.istio.io'
+        hook = hooks[0]
+        assert not hook.get('namespaceSelector') and not hook.get('objectSelector')
+        assert any('security.istio.io' in r['apiGroups'] and '*' in r['resources'] and
+                   'CREATE' in r['operations'] for r in hook['rules'])
+        if hook['failurePolicy'] != 'Fail' or not hook['clientConfig'].get('caBundle'): return False
+        return f.kubectl('apply', '--dry-run=server', '-f', '-', data=yaml.safe_dump(policy).encode(),
+                         check=False, timeout=25)[0] == 0
+    common.wait_for('real Istio admission accepts a valid policy after rollout', available, 90)
 
 
 def diagnostics(f):
@@ -111,9 +130,9 @@ def pod(name, namespace, account, labels, role='client', injected=True, ports=(8
 
 
 def probe(f, name, path, namespace='homelab', host='homelab-external.homelab.svc.cluster.local',
-          port=80, headers=None, method='GET', certificate=None, certificate_hostname='mcp.labiraus.com'):
+          port=80, headers=None, method='GET', certificate=None):
     config = dict(host=host, port=port, path=path, headers=headers or {}, method=method)
-    if certificate: config.update(certificate=certificate, hostname=certificate_hostname)
+    if certificate: config.update(certificate=certificate, hostname='mcp.labiraus.com')
     raw = f.kubectl('-n', namespace, 'exec', '-i', name, '-c', 'fixture', '--',
                    'python3', '/fixture/mesh-fixture.py', 'request', data=json.dumps(config).encode(), timeout=20)
     result = json.loads(raw)
@@ -254,11 +273,16 @@ print(json.dumps(sorted(set(leaves(d)))))
     print('PASS: actual workload certificate SANs match exact namespace/service-account identities', flush=True)
 
 
-def install_gateway(f):
-    cert, key = f.private / 'gateway.crt', f.private / 'gateway.key'
+def create_certificate(f, name):
+    cert, key = f.private / (name + '.crt'), f.private / (name + '.key')
     subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
                     '-subj', '/CN=mcp.labiraus.com', '-addext', 'subjectAltName=DNS:mcp.labiraus.com',
                     '-keyout', str(key), '-out', str(cert)], check=True, capture_output=True, timeout=20)
+    return cert, key
+
+
+def install_gateway(f):
+    cert, key = create_certificate(f, 'gateway')
     f.apply([{'apiVersion': 'v1', 'kind': 'Secret', 'metadata': {'name': 'mcp-labiraus-com-tls', 'namespace': 'ingress'},
               'type': 'kubernetes.io/tls', 'data': {'tls.crt': base64.b64encode(cert.read_bytes()).decode(),
                                                 'tls.key': base64.b64encode(key.read_bytes()).decode()}}])
@@ -280,8 +304,9 @@ def gateway_matrix(f, address, certificate):
     authorized = {'Authorization': 'Bearer synthetic-native-client', 'X-Auth-Request-Email': 'forged@example.invalid'}
     common.wait_for('actual TLS Gateway authenticates through the source private authority route',
                     lambda: probe(f, 'web-client', '/mcp', headers=authorized, **kwargs)['status'] == 200, 120)
+    unrelated, _ = create_certificate(f, 'unrelated-trust')
     untrusted = probe(f, 'web-client', '/mcp', headers=authorized,
-                      certificate_hostname='wrong.example.invalid', **kwargs)
+                      **dict(kwargs, certificate=unrelated.read_text()))
     assert untrusted == {'status': 0, 'error': 'SSLCertVerificationError'}, untrusted
     for path in ('/mcp', '/sse', '/messages', '/message'):
         for headers in ({}, {'Authorization': 'Bearer invalid'}, {'X-Auth-Request-Email': 'forged@example.invalid'}):
@@ -326,6 +351,7 @@ def recovery_matrix(f, fixtures, address, certificate):
     for namespace, resource in [('istio-system', 'deployment/istiod'), ('kube-system', 'ds/cilium'),
                                 ('ingress', 'deployment/gateway-istio')]:
         restart(f, resource, namespace)
+        if resource == 'deployment/istiod': istio_admission(f)
         common.wait_for(resource + ' preserves actual Gateway traffic',
                         lambda: probe(f, 'web-client', '/mcp', **kwargs)['status'] == 200, 90)
         expect(f, 'spoof-browser', '/api/worlds', 403)

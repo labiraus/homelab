@@ -110,6 +110,8 @@ NodePort creation does not mean kube-proxy has installed its route: Docker can a
 
 Webhook Service routing can also lag a Ready replacement Pod. After rollout, require a successful real admission request within a bounded readiness interval before continuing; never replace it with a Pod-ready-only assertion or bypass TLS verification.
 
+Istio's initial validator can have `failurePolicy: Ignore` until its CA is patched. Admission readiness must verify matching rules, nonempty trust and `Fail` before the real request. For Gateway certificate-trust refusal, keep the configured SNI and use an unrelated CA: unknown SNI may reset the connection before any certificate is presented, which does not prove client trust validation.
+
 For disposable Velero file recovery, assert the actual PV is supported `local` storage rather than kind's default hostPath, require completed PodVolumeBackup/Restore evidence and remove the source data path before comparison. Exclude the source's generated namespace root-CA ConfigMap with the `velero.io/exclude-from-backup=true` **label**, not an annotation; keep fresh destination trust and fail unexplained restore warnings. Use `scripts/worldbuilder/s3-fixture.py` for owned external storage and the target's scoped identity actions.
 
 ## Storage chronology evidence

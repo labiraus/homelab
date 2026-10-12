@@ -18,7 +18,7 @@ The acceptance matrix requires:
 - Positive requests from the exact browser, MCP and generation-worker identities, with cross-role requests denied. Matching Pod labels and forged forwarded identity/certificate headers do not replace the service-account identity.
 - Actual certificate SAN inspection, STRICT plaintext refusal, namespace/Pod selector refusal and source egress scope/port checks. An unrestricted client first proves every tested synthetic destination/port is reachable.
 - A distinct metrics reader allowed only on GET `/metrics`, with forged scraper identity, application routes and other methods denied.
-- The real generated Istio Gateway serving a source-configured TLS hostname with certificate verification and explicit hostname-mismatch refusal. All four source-configured MCP transport paths require the source CUSTOM authorization call; missing/invalid credentials and forged user headers are refused, and accepted identity headers come from the authority.
+- The real generated Istio Gateway serving a source-configured TLS hostname with certificate verification and explicit unrelated-CA refusal. All four source-configured MCP transport paths require the source CUSTOM authorization call; missing/invalid credentials and forged user headers are refused, and accepted identity headers come from the authority.
 - No public route to private worker/delegation/authority operations. Direct browser-to-MCP transport is blocked by source policy.
 - Unavailable authorization backend refusing previously accepted callers, followed by recovery through a replacement backend and real Istio/Cilium/Gateway Pod replacement with positive and negative requests repeated.
 
@@ -27,3 +27,7 @@ The acceptance matrix requires:
 Implementation is under verification; do not treat this document or a successful bootstrap as completed policy acceptance. Record the full local matrix, teardown and hosted publication result before closing the remaining offline mesh gate.
 
 The first complete local bootstrap passed Cilium but exposed CoreDNS's existing progress deadline expiring while the node waited for its CNI. The custom-CNI fixture extends that Deployment deadline before installation, then still requires actual node and DNS readiness. Default-networking fixtures retain their original deadline. The failed run reported `FAIL` and removed its owned cluster; it is not policy acceptance evidence.
+
+Hosted run `38187833959` passes actual certificate SANs, positive routes, STRICT plaintext refusal, namespace/label/egress isolation and browser/MCP/worker/metrics boundaries. It then correctly failed an over-specific test assumption: unknown SNI is reset before the Gateway presents a certificate. The corrected trust-negative check keeps the valid SNI and supplies an unrelated CA, requiring `SSLCertVerificationError`. Istio startup and replacement also require a valid server-side admission request after the validator has a CA and `failurePolicy: Fail`; a Ready Pod or initial `Ignore` webhook alone is insufficient. Full Gateway/outage/replacement acceptance remains pending.
+
+The corrected client trust check passes an independent loopback TLS server test: configured CA accepted, unrelated CA rejected with the exact verification error, then the configured CA accepted again. Hosted Gateway verification must still pass with the actual source listener.
