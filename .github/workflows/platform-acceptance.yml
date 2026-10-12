@@ -45,6 +45,9 @@ jobs:
           cache: false
       - name: Refuse unowned canon-index fixtures
         run: python3 scripts/worldbuilder/test-canon-index-unit.py
+      - name: Verify embedding contract refusals and full-text batching
+        working-directory: apps/pkg/canonsearch
+        run: go test -race -count=1 ./...
       - name: Verify actual canon relay, discovery and index recovery
         run: python3 scripts/worldbuilder/test-canon-index.py "$RUNNER_TEMP/canon-index"
         env:

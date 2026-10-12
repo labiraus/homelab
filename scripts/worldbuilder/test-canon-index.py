@@ -161,18 +161,19 @@ def main(output):
         environment.update({'WORLDBUILDER_TEST_DATABASE_URL': 'postgres://postgres:offline-index-only@' + addresses['postgres'] + '/canon_test?sslmode=disable&connect_timeout=5',
                             'WORLDBUILDER_TEST_NATS_URL': 'nats://' + addresses['nats'],
                             'WORLDBUILDER_TEST_OPENSEARCH_URL': 'http://' + addresses['search']})
-        cases = [('external', './worldbuilder', '^Test(Discovery|Search)', 'TestDiscoveryAgainstDisposableOpenSearch'),
-                 ('orchestrator', '.', '^TestCanonLiveTransportAndIndex$', 'TestCanonLiveTransportAndIndex')]
-        for app, package, pattern, required_case in cases:
+        cases = [('pkg/canonsearch', '.', '^TestVectorAgainstDisposableOpenSearch$', ['TestVectorAgainstDisposableOpenSearch']),
+                 ('external', './worldbuilder', '^Test(Discovery|Search|Hybrid)', ['TestDiscoveryAgainstDisposableOpenSearch', 'TestHybridSearchActualIndexAuthorizationAllowanceAndEvidence']),
+                 ('orchestrator', '.', '^TestCanonLiveTransportAndIndex$', ['TestCanonLiveTransportAndIndex'])]
+        for app, package, pattern, required_cases in cases:
             print('Running real ' + app + ' index checks', flush=True)
             if app == 'orchestrator':
                 environment['WORLDBUILDER_TEST_DATABASE_URL'] = environment['WORLDBUILDER_TEST_DATABASE_URL'].replace('/canon_test?', '/canon_transport?')
-            log = output / (app + '.log')
+            log = output / (app.replace('/', '-') + '.log')
             with log.open('w') as stream:
                 result = subprocess.run(['go', 'test', '-v', '-race', '-count=1', '-timeout=180s', '-run', pattern, package],
                                         cwd=ROOT / 'apps' / app, env=environment, stdout=stream, stderr=subprocess.STDOUT, timeout=600)
             evidence = log.read_text()
-            assert result.returncode == 0 and '--- SKIP:' not in evidence and ('--- PASS: ' + required_case + ' (') in evidence, (app, evidence[-5000:])
+            assert result.returncode == 0 and '--- SKIP:' not in evidence and all(('--- PASS: ' + case + ' (') in evidence for case in required_cases), (app, evidence[-5000:])
         report['checksPassed'] = True
     finally:
         cleanup_errors = []

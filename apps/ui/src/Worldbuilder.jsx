@@ -160,7 +160,8 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
   const [timeline, setTimeline] = useState(initialTimeline),
     [revision, setRevision] = useState(""),
     [at, setAt] = useState(""),
-    [query, setQuery] = useState("");
+    [query, setQuery] = useState(""),
+    [searchMode, setSearchMode] = useState("lexical");
   const [operations, setOperations] = useState([]),
     [reason, setReason] = useState("");
   const [stagedRevision, setStagedRevision] = useState(null);
@@ -189,13 +190,31 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
   const [question, setQuestion] = useState(""),
     [workflow, setWorkflow] = useState("canon_query"),
     [answer, setAnswer] = useState(null);
-  async function reload() {
+  function loadCanonPage(params, token) {
+    if (params.get("mode") === "hybrid" && params.get("q")) {
+      return api(`${path}/search`, {
+        revision: Number(params.get("revision") || canon?.world.revision || 0),
+        timeline: params.get("timeline"),
+        query: params.get("q"),
+        ...(params.has("at") ? { at: params.get("at") } : {}),
+        limit: Number(params.get("limit") || 500),
+        offset: Number(params.get("offset") || 0),
+        ...(token ? { searchToken: token } : {}),
+      });
+    }
+    return api(`${path}/${params.get("q") ? "search" : "canon"}?${params}`);
+  }
+  async function reload(interactive = false) {
     const params = new URLSearchParams({ timeline, limit: "500" });
     if (revision !== "") params.set("revision", revision);
     if (at !== "") params.set("at", at);
-    if (query) params.set("q", query);
+    if (query) {
+      params.set("q", query);
+      // Save callbacks refresh without spending another inference attempt.
+      params.set("mode", interactive === true ? searchMode : "lexical");
+    }
     const [c, d, s] = await Promise.all([
-      api(`${path}/${query ? "search" : "canon"}?${params}`),
+      loadCanonPage(params),
       api(`${path}/changes`),
       api(`${path}/sessions`),
     ]);
@@ -352,9 +371,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
     const params = new URLSearchParams(canonFilters);
     params.set("revision", String(canon.revision));
     params.set("offset", String(canon.records.length));
-    const next = await api(
-      `${path}/${params.get("q") ? "search" : "canon"}?${params}`,
-    );
+    const next = await loadCanonPage(params, canon.searchToken);
     setCanon({ ...canon, records: mergeRows(canon.records, next.records) });
   }
   async function loadMoreList(kind) {
@@ -446,7 +463,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                void run(reload);
+                void run(() => reload(true));
               }}
             >
               <label>
@@ -484,6 +501,15 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                   onChange={(e) => setQuery(e.target.value)}
                 />
               </label>
+              {canon.world.semanticSearch && (
+                <label>
+                  Search method
+                  <select value={searchMode} onChange={(e) => setSearchMode(e.target.value)}>
+                    <option value="lexical">Words</option>
+                    <option value="hybrid">Words and meaning · uses AI allowance</option>
+                  </select>
+                </label>
+              )}
               <button>Load canon</button>
             </form>
             <p>
@@ -491,6 +517,9 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
               {canon.revision}. Fictional validity includes its start and
               excludes its end.
             </p>
+            {canon.mode === "hybrid" && (
+              <p>Combined word matches and up to 100 meaning-based candidates from current canon. Each search or additional page uses one AI attempt.</p>
+            )}
             <WorldViews
               records={records}
               total={canon.total}

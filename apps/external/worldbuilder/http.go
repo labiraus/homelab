@@ -161,7 +161,13 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 	if resource == "members" && r.Method == "GET" {
 		return sc.members(ctx, limit, offset)
 	}
+	if resource == "search" && r.Method == "POST" {
+		return sc.hybridSearch(w, r)
+	}
 	if resource == "search" && r.Method == "GET" {
+		if mode := r.URL.Query().Get("mode"); mode != "" && mode != "lexical" {
+			return nil, bad("hybrid search requires POST with an explicit query and revision")
+		}
 		revision, err := integerQuery(r, "revision", sc.world.Revision)
 		if err != nil {
 			return nil, err

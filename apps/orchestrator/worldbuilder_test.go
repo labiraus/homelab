@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"pkg/canonsearch"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -148,7 +149,7 @@ func TestCanonOutboxRetryAndIndexRebuild(t *testing.T) {
 		wr.WriteHeader(201)
 	}))
 	defer server.Close()
-	index := &canonIndex{pool, server.URL, server.Client()}
+	index := &canonIndex{pool: pool, endpoint: server.URL, client: server.Client()}
 	if err = index.project(ctx, w, 1); err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +245,35 @@ func TestCanonLiveTransportAndIndex(t *testing.T) {
 	if err = json.Unmarshal(messages[0].Data, &event); err != nil || event.EventID != eventID || event.WorldID != w || event.Revision != 2 {
 		t.Fatalf("relayed event mismatch: %+v %v", event, err)
 	}
-	index := &canonIndex{pool, searchURL, &http.Client{Timeout: 10 * time.Second}}
+	index := &canonIndex{pool: pool, endpoint: searchURL, client: &http.Client{Timeout: 10 * time.Second}}
+	var embeddingCalls atomic.Int32
+	var pauseModel atomic.Bool
+	modelStarted := make(chan struct{}, 1)
+	modelCancelled := make(chan struct{}, 1)
+	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		embeddingCalls.Add(1)
+		var b struct {
+			Model string   `json:"model"`
+			Input []string `json:"input"`
+		}
+		if json.NewDecoder(r.Body).Decode(&b) != nil || len(b.Input) > 8 {
+			t.Error("invalid fixture model batch")
+		}
+		r.Body.Close()
+		if pauseModel.Load() {
+			modelStarted <- struct{}{}
+			<-r.Context().Done()
+			modelCancelled <- struct{}{}
+			return
+		}
+		data := []any{}
+		for n := range b.Input {
+			data = append(data, map[string]any{"index": n, "embedding": []float32{1, 0}})
+		}
+		json.NewEncoder(w).Encode(map[string]any{"model": b.Model, "data": data, "usage": map[string]int{"prompt_tokens": len(b.Input) * 4}})
+	}))
+	defer model.Close()
+	index.vector = &canonsearch.Index{Endpoint: searchURL, Model: &canonsearch.Embedder{Endpoint: model.URL + "/v1/embeddings", Profile: canonsearch.Profile{Model: "synthetic-relay", Revision: uuid.NewString(), Dimensions: 2}}}
 	status, _, err := index.request(ctx, "HEAD", "/worldbuilder-canon-v1", nil)
 	if err != nil || status != http.StatusNotFound {
 		t.Fatalf("refusing to reuse an existing index: %d %v", status, err)
@@ -252,7 +281,7 @@ func TestCanonLiveTransportAndIndex(t *testing.T) {
 	if err = index.ensure(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err = index.project(ctx, event.WorldID, event.Revision); err != nil {
+	if err = projectWithHeartbeat(ctx, messages[0].InProgress, func(work context.Context) error { return index.project(work, event.WorldID, event.Revision) }); err != nil {
 		t.Fatal(err)
 	}
 	if err = messages[0].AckSync(); err != nil {
@@ -261,6 +290,9 @@ func TestCanonLiveTransportAndIndex(t *testing.T) {
 	if err = index.project(ctx, w, 1); err != nil {
 		t.Fatal(err)
 	} // stale event must not replace revision 2
+	if ready, e := index.vector.Ready(ctx, w, 2); e != nil || !ready || embeddingCalls.Load() != 1 {
+		t.Fatalf("vector relay/cache stale refusal: %v %v calls=%d", ready, e, embeddingCalls.Load())
+	}
 	status, body, err := index.request(ctx, "GET", "/worldbuilder-canon-v1/_doc/"+w, nil)
 	if err != nil || status != 200 {
 		t.Fatalf("index read: %d %v %s", status, err, body)
@@ -278,11 +310,17 @@ func TestCanonLiveTransportAndIndex(t *testing.T) {
 	if err != nil || status != http.StatusOK {
 		t.Fatalf("remove disposable index: %d %v", status, err)
 	}
+	if status, _, err = index.request(ctx, "DELETE", "/"+index.vector.Name(), nil); err != nil || status != 200 {
+		t.Fatalf("remove vector projection: %d %v", status, err)
+	}
 	if err = index.ensure(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if err = index.rebuild(ctx); err != nil {
 		t.Fatal(err)
+	}
+	if ready, e := index.vector.Ready(ctx, w, 2); e != nil || !ready || embeddingCalls.Load() != 2 {
+		t.Fatalf("vector rebuild: %v %v calls=%d", ready, e, embeddingCalls.Load())
 	}
 	status, body, err = index.request(ctx, "GET", "/worldbuilder-canon-v1/_doc/"+w, nil)
 	if err != nil || status != http.StatusOK {
@@ -309,5 +347,68 @@ func TestCanonLiveTransportAndIndex(t *testing.T) {
 	var record map[string]any
 	if err = json.Unmarshal([]byte(r.Records[0].Text), &record); err != nil || record["label"] != "Revision 2" {
 		t.Fatalf("rebuilt canonical content mismatch: %s %v", body, err)
+	}
+	// Kill only the fixture's exact advisory-lock owner during an actual model
+	// request. The old owner must cancel and a new owner can recover revision 3.
+	if _, err = pool.Exec(ctx, `INSERT INTO worldbuilder.revision(world_id,revision,snapshot,actor,reason) VALUES($1,3,'{"hero":{"id":"hero","kind":"entity","label":"Revision 3"}}','test','owner-loss')`, w); err != nil {
+		t.Fatal(err)
+	}
+	pauseModel.Store(true)
+	work, stop := context.WithTimeout(ctx, 15*time.Second)
+	defer stop()
+	finished := make(chan error, 1)
+	go func() { finished <- index.project(work, w, 3) }()
+	select {
+	case <-modelStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("model request did not start")
+	}
+	var owner int
+	if err = pool.QueryRow(ctx, `SELECT pid FROM pg_locks WHERE locktype='advisory' AND granted AND database=(SELECT oid FROM pg_database WHERE datname=current_database()) AND objid=(hashtextextended('worldbuilder-background-embedding',0)&4294967295)::oid AND classid=((hashtextextended('worldbuilder-background-embedding',0)>>32)&4294967295)::oid`).Scan(&owner); err != nil {
+		t.Fatal(err)
+	}
+	var terminated bool
+	if err = pool.QueryRow(ctx, `SELECT pg_terminate_backend($1)`, owner).Scan(&terminated); err != nil || !terminated {
+		t.Fatalf("fixture ownership termination: %v %v", terminated, err)
+	}
+	select {
+	case err = <-finished:
+		if err == nil {
+			t.Fatal("lost owner completed projection")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("lost owner did not stop")
+	}
+	select {
+	case <-modelCancelled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("model transport did not cancel")
+	}
+	if ready, e := index.vector.Ready(ctx, w, 2); e != nil || !ready {
+		t.Fatalf("interrupted vector projection advanced: %v %v", ready, e)
+	}
+	pauseModel.Store(false)
+	if err = index.project(ctx, w, 3); err != nil {
+		t.Fatal(err)
+	}
+	if ready, e := index.vector.Ready(ctx, w, 3); e != nil || !ready {
+		t.Fatalf("new owner recovery failed: %v %v", ready, e)
+	}
+}
+
+func TestCanonHeartbeatFailureCancelsProjection(t *testing.T) {
+	stopped := make(chan struct{})
+	err := projectWithLease(context.Background(), func(context.Context) error { return errors.New("owner disconnected") }, func(ctx context.Context) error {
+		defer close(stopped)
+		<-ctx.Done()
+		return ctx.Err()
+	}, time.Millisecond)
+	if err == nil || !strings.Contains(err.Error(), "heartbeat") {
+		t.Fatalf("heartbeat loss was ignored: %v", err)
+	}
+	select {
+	case <-stopped:
+	default:
+		t.Fatal("projection continued after heartbeat loss")
 	}
 }

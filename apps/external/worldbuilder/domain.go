@@ -36,6 +36,7 @@ type Operation struct {
 	Record *Record `json:"record,omitempty"`
 }
 type World struct {
+	SemanticSearch  bool   `json:"semanticSearch"`
 	ID              string `json:"id"`
 	Name            string `json:"name"`
 	Revision        int64  `json:"revision"`

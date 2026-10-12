@@ -1,3 +1,4 @@
+{{- include "commonapi.worldbuilderSemanticConfig" . }}
 {{- if .Values.worldbuilder.enabled }}
 {{- $_ := set .Values "env" (merge (dict "WORLDBUILDER_RELAY_ENABLED" "true" "WORLDBUILDER_OPENSEARCH_URL" .Values.worldbuilder.openSearchURL "WORLDBUILDER_REBUILD_ON_START" (.Values.worldbuilder.rebuildOnStart | toString)) (.Values.env | default dict)) }}
 {{- $_ := set .Values "envFromSecrets" (append .Values.envFromSecrets .Values.worldbuilder.databaseSecret) }}

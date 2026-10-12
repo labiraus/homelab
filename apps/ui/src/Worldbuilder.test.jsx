@@ -242,6 +242,40 @@ describe("Worldbuilder", () => {
     expect(screen.getByText(/Request: generation-1/)).toBeVisible();
     expect(screen.getByText(/0.000100 TST/)).toBeVisible();
   });
+  it("meters hybrid search through POST and preserves the submitted page scope", async () => {
+    const calls = [];
+    const enabled = { ...world, semanticSearch: true };
+    global.fetch = vi.fn(async (url, options = {}) => {
+      calls.push([url, options]);
+      let data = [];
+      if (url === "/api/worlds") data = [enabled];
+      else if (url.includes("/canon?")) data = { world: enabled, revision: 1, total: 1, records: [{ id: "main", kind: "timeline", label: "Main" }] };
+      else if (url.endsWith("/search")) {
+        const request = JSON.parse(options.body);
+        data = { world: enabled, revision: 1, mode: "hybrid", searchToken: "rank-token", total: 2,
+          records: [{ id: request.offset ? "second" : "first", kind: "entity", label: request.offset ? "Second match" : "Ferry captain" }] };
+      }
+      return { ok: true, text: async () => JSON.stringify(data) };
+    });
+    render(<Worldbuilder email="editor@test" />);
+    await screen.findByRole("option", { name: "Novel" });
+    fireEvent.change(screen.getByLabelText("Open world"), { target: { value: "w" } });
+    await screen.findByText("Novel · canon revision 1");
+    fireEvent.change(screen.getByLabelText("Search canon"), { target: { value: "crossing water" } });
+    fireEvent.change(screen.getByLabelText("Fictional time"), { target: { value: "-9223372036854775808" } });
+    fireEvent.change(screen.getByLabelText("Search method"), { target: { value: "hybrid" } });
+    fireEvent.click(screen.getByRole("button", { name: "Load canon" }));
+    await screen.findByText("Ferry captain");
+    const first = calls.find(([url]) => url.endsWith("/search"));
+    expect(first[1].method).toBe("POST");
+    expect(JSON.parse(first[1].body)).toMatchObject({ revision: 1, timeline: "main", query: "crossing water", at: "-9223372036854775808", offset: 0 });
+    fireEvent.change(screen.getByLabelText("Search canon"), { target: { value: "unsaved input" } });
+    fireEvent.change(screen.getByLabelText("Search method"), { target: { value: "lexical" } });
+    fireEvent.click(screen.getByRole("button", { name: /Load more canon/i }));
+    await screen.findByText("Second match");
+    const second = calls.filter(([url]) => url.endsWith("/search"))[1];
+    expect(JSON.parse(second[1].body)).toMatchObject({ query: "crossing water", searchToken: "rank-token", at: "-9223372036854775808", offset: 1 });
+  });
   it("shows unavailable activation without fabricating worlds", async () => {
     global.fetch = vi.fn(async () => ({
       ok: false,

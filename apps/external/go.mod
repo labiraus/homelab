@@ -7,6 +7,7 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	pkg/api v0.0.0
 	pkg/base v0.0.0
+	pkg/canonsearch v0.0.0
 	pkg/documentevents v0.0.0
 	pkg/kubernetesutil v0.0.0
 	pkg/minioutil v0.0.0
@@ -108,3 +109,5 @@ replace pkg/natsutil => ../pkg/natsutil
 replace pkg/opensearchrag => ../pkg/opensearchrag
 
 replace pkg/postgresutil => ../pkg/postgresutil
+
+replace pkg/canonsearch => ../pkg/canonsearch

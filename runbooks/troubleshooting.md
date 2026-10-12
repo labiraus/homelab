@@ -479,6 +479,12 @@ A Helm workflow may finish after a newer application commit, then dispatch its o
 Helm dispatch now selects the current branch revision. The shared Docker publisher runs `check-app-publish-source.sh` against current branch content for the app, shared code, app chart/libraries and build/workflow inputs, refusing stale promotion. App workflows retest their selected revision. New images record the actual checkout in `org.opencontainers.image.revision`; charts use `homelab.labiraus.com/source-revision`. The GHCR bootstrap temporarily pins MCP's verified chart with `mcp.chartVersion`; a temporary source-controller suspension holds the known artifact until that durable pin is published, then must be resumed. Advance the pin only after real authentication probes pass on the intended replacement.
 
 
+## Canon hybrid search refuses or appears incomplete
+
+GET canon search is lexical. Optional POST hybrid search requires current revision, a ready matching model profile and an interactive allowance; see [semantic search](../docs/worldbuilder/SEMANTIC-SEARCH.md). A missing/stale index is refused before reservation. Verify the relay's configured profile matches external, and use the explicit rebuild path for a new profile or lost index. Do not use the retained token-hash helper as a fallback or enable a paid endpoint to bypass private-model failure.
+
+Inspect model request counts and partial/failed-attempt metadata without logging narrative text. Query failure after reservation remains charged. A page token conflict requires a fresh first page. OpenSearch sorted nested hits may put scores in `sort` while `_score` is null; preserve the adapter's score/ID validation and complete-shard checks. Do not turn missing scores into zero or bypass canonical scope reconciliation. The owned index harness verifies this behavior with a synthetic model and actual OpenSearch.
+
 ## Native MCP login stops before the browser
 
 `Dynamic client registration not supported` from the configured Codex connection is an OAuth integration failure, not evidence that website Google sign-in is broken. Do not remove transport authentication. The opt-in local issuer reuses website sign-in for explicit client consent and provides MCP registration/PKCE/resource-bound tokens. Follow [native authentication activation](../docs/MCPAuthentication.md); confirm both issuer discovery and the exact client flow. After restoring its database, revoke restored token families before exposing the service so older backups cannot resurrect revoked access.

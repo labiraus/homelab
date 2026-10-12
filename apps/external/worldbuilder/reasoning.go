@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"pkg/canonsearch"
 	"strings"
 	"time"
 )
@@ -154,20 +155,41 @@ func (sc *scope) generate(ctx context.Context, b ReasonInput, fn Reasoner, budge
 		return nil, bad("canon context exceeds inference budget")
 	}
 	provenance := Provenance{Workflow: b.Workflow}
+	semantic := false
+	if sc.vector != nil && budget != nil && b.Revision == sc.world.Revision && evidenceScope.CanonRecordCount > 100 {
+		if err = sc.vectorReady(ctx, b.Revision); err == nil {
+			semantic = true
+		} else {
+			evidenceScope.DiscoveryStatus = "semantic_unavailable_lexical_context"
+		}
+	}
 	if budget != nil {
-		provenance, err = budget.reserve(ctx, sc.actor, b.SessionID, request)
+		intent := request
+		if semantic {
+			intent.ContextScope += ":hybrid:" + sc.vector.Model.Profile.ID()
+		}
+		provenance, err = budget.reserve(ctx, sc.actor, b.SessionID, intent)
 		if err != nil {
 			return nil, err
 		}
 		request.RequestID = provenance.RequestID
 	}
 	started := time.Now()
+	ctx, cancel := context.WithTimeout(ctx, 50*time.Second)
+	defer cancel()
 	var completed ReasonResult
+	var retrieval canonsearch.Usage
 	defer func() {
 		if budget == nil {
 			return
 		}
 		provenance.LatencyMS = time.Since(started).Milliseconds()
+		if semantic {
+			if completed.Usage == nil {
+				completed.Usage = map[string]any{}
+			}
+			completed.Usage["retrieval"] = retrieval
+		}
 		slog.InfoContext(ctx, "worldbuilder inference completed", "requestId", provenance.RequestID, "workflow", b.Workflow, "latencyMs", provenance.LatencyMS, "valid", returnErr == nil)
 		if e := budget.finish(provenance, completed, returnErr == nil); e != nil {
 			slog.ErrorContext(ctx, "inference ledger completion failed", "requestId", provenance.RequestID)
@@ -177,7 +199,37 @@ func (sc *scope) generate(ctx context.Context, b ReasonInput, fn Reasoner, budge
 			}
 		}
 	}()
+	if semantic {
+		lexical, e := sc.lexicalCandidates(ctx, snapshot, b.Revision, b.Timeline, b.Question, nil)
+		if e != nil {
+			return nil, e
+		}
+		d, e := sc.vector.Find(ctx, sc.world.ID, b.Revision, visibleIDs(snapshot, b.Timeline, nil), b.Question, provenance.RequestID)
+		retrieval = d.Usage
+		if e != nil {
+			return nil, &Problem{502, "semantic_unavailable", "semantic evidence retrieval failed; the attempt remains charged to your allowance"}
+		}
+		ranked, e := sc.reciprocalRank(snapshot, lexical, d, b.Question, nil, 20, 0)
+		if e != nil {
+			return nil, e
+		}
+		records, evidenceScope, e = sc.evidenceContextWithSearch(ctx, snapshot, b.Revision, b.Timeline, b.Question, provisional, &ranked, requiredRefs...)
+		if e != nil {
+			return nil, e
+		}
+		request.Evidence = Citations(sc.world.ID, b.Revision, b.Timeline, records)
+		raw, _ = json.Marshal(request)
+		if len(raw) > 100000 {
+			return nil, bad("semantic canon context exceeds inference budget")
+		}
+	}
 	result, err := fn(ctx, request)
+	if semantic {
+		if result.Usage == nil {
+			result.Usage = map[string]any{}
+		}
+		result.Usage["retrieval"] = retrieval
+	}
 	completed = result
 	if err != nil {
 		return nil, err

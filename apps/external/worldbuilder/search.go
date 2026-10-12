@@ -94,6 +94,11 @@ func OpenSearchDiscovery(endpoint, user, password string) Discover {
 }
 
 type SearchResult struct {
+	Mode                 string       `json:"mode"`
+	SearchToken          string       `json:"searchToken,omitempty"`
+	SemanticProfile      string       `json:"semanticProfile,omitempty"`
+	Provenance           *Provenance  `json:"provenance,omitempty"`
+	SemanticCandidates   int          `json:"semanticCandidates,omitempty"`
 	ReviewPolicy         ReviewPolicy `json:"reviewPolicy"`
 	Calendar             *Calendar    `json:"calendar"`
 	World                World        `json:"world"`
@@ -121,7 +126,7 @@ func queryTerms(query string) []string {
 }
 
 func (sc *scope) searchSnapshot(ctx context.Context, s Snapshot, revision int64, timeline, query string, at *int64, limit, offset int64) (SearchResult, error) {
-	result := SearchResult{World: sc.world, Revision: revision, Timeline: timeline, Calendar: snapshotCalendar(s), ReviewPolicy: snapshotReviewPolicy(s), Records: []Record{}, Citations: []Evidence{}, DiscoveryStatus: "postgres_only"}
+	result := SearchResult{Mode: "lexical", World: sc.world, Revision: revision, Timeline: timeline, Calendar: snapshotCalendar(s), ReviewPolicy: snapshotReviewPolicy(s), Records: []Record{}, Citations: []Evidence{}, DiscoveryStatus: "postgres_only"}
 	terms := queryTerms(query)
 	if len(query) > 4000 || len(terms) == 0 || len(terms) > 64 {
 		return result, bad("search requires 1–64 terms and at most 4000 characters")

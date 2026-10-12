@@ -14,6 +14,7 @@ import (
 
 	"external/worldbuilder"
 	"pkg/api"
+	"pkg/canonsearch"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -40,7 +41,11 @@ func registerWorldbuilder(ctx context.Context, mux *http.ServeMux) error {
 	}
 	go func() { <-ctx.Done(); pool.Close() }()
 	store := &worldbuilder.Store{Pool: pool, Reasoner: worldbuilderReasoner(), Discover: worldbuilder.OpenSearchDiscovery(os.Getenv("OPENSEARCH_BASE_URL"), os.Getenv("OPENSEARCH_USERNAME"), os.Getenv("OPENSEARCH_PASSWORD"))}
-	if store.Reasoner != nil {
+	store.Vector, err = canonsearch.FromConfig(os.Getenv, os.Getenv("OPENSEARCH_BASE_URL"))
+	if err != nil {
+		return err
+	}
+	if store.Reasoner != nil || store.Vector != nil {
 		budget := &worldbuilder.InferenceBudget{Currency: os.Getenv("WORLDBUILDER_AI_CURRENCY"), GatewayRoute: os.Getenv("WORLDBUILDER_AI_GATEWAY_ROUTE")}
 		for name, target := range map[string]*int64{"WORLDBUILDER_AI_DAILY_REQUESTS": &budget.DailyRequests, "WORLDBUILDER_AI_CONCURRENT": &budget.Concurrent, "WORLDBUILDER_AI_REQUEST_MICROS": &budget.RequestMicros, "WORLDBUILDER_AI_DAILY_MICROS": &budget.DailyMicros} {
 			*target, err = strconv.ParseInt(os.Getenv(name), 10, 64)

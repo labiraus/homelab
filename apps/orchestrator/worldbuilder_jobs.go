@@ -89,7 +89,7 @@ func startGenerationJobs(ctx context.Context, pool *pgxpool.Pool, js nats.JetStr
 	if err != nil {
 		return err
 	}
-	client := &http.Client{Timeout: 40 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	client := &http.Client{Timeout: 60 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	go func() {
 		for ctx.Err() == nil {
 			sent, err := relayWorldbuilderOutboxOnce(ctx, pool, "generation_outbox", func(id string, body []byte) error {

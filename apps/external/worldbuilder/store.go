@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"pkg/canonsearch"
 	"strings"
 
 	"github.com/google/uuid"
@@ -15,6 +16,7 @@ type Store struct {
 	Pool        *pgxpool.Pool
 	Reasoner    Reasoner
 	Discover    Discover
+	Vector      *canonsearch.Index
 	Budget      *InferenceBudget
 	JobsEnabled bool
 }
@@ -25,6 +27,8 @@ type scope struct {
 	role        string
 	superuser   bool
 	discover    Discover
+	vector      *canonsearch.Index
+	budget      *InferenceBudget
 	jobsEnabled bool
 }
 
@@ -37,7 +41,7 @@ func (s *Store) inWorld(ctx context.Context, world, actor string, fn func(*scope
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-	sc := &scope{tx: tx, actor: actor, discover: s.Discover, jobsEnabled: s.JobsEnabled}
+	sc := &scope{tx: tx, actor: actor, discover: s.Discover, vector: s.Vector, budget: s.Budget, jobsEnabled: s.JobsEnabled}
 	// Serialise membership, publication and session changes within each world.
 	err = tx.QueryRow(ctx, `SELECT id::text,name,revision,default_timeline,archived,admin_version FROM worldbuilder.world WHERE id=$1 FOR UPDATE`, world).Scan(&sc.world.ID, &sc.world.Name, &sc.world.Revision, &sc.world.DefaultTimeline, &sc.world.Archived, &sc.world.AdminVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -54,6 +58,7 @@ func (s *Store) inWorld(ctx context.Context, world, actor string, fn func(*scope
 		return nil, err
 	}
 	sc.world.Role = sc.role
+	sc.world.SemanticSearch = s.Vector != nil && s.Budget != nil
 	// Hold grant rows through the operation so revocation cannot race publication.
 	var authority *string
 	err = tx.QueryRow(ctx, `SELECT worldbuilder.lock_superuser($1)::text`, actor).Scan(&authority)
@@ -80,6 +85,7 @@ func (s *Store) Worlds(ctx context.Context, actor string, limit, offset int64) (
 		if err := rows.Scan(&w.ID, &w.Name, &w.Revision, &w.Role, &w.DefaultTimeline, &w.Archived, &w.AdminVersion); err != nil {
 			return nil, err
 		}
+		w.SemanticSearch = s.Vector != nil && s.Budget != nil
 		result = append(result, w)
 	}
 	return result, rows.Err()

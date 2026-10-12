@@ -105,7 +105,7 @@ Dependency versions and security checks are recorded in [Worldbuilder dependency
 
 The rule editor supports scoped relationship cardinality, exclusive boolean predicates and life-bound exception predicates with fictional validity intervals. These remain proposed canon until reviewed and published.
 
-Wiki queries use the membership-scoped search API with pinned pagination. AI answers display selected/total evidence counts when only part of a large timeline was inspected.
+Wiki queries use the membership-scoped search API with pinned pagination. If the server advertises semantic search, **Search method** offers words-and-meaning queries against current canon. Each explicit search/page uses the approved AI allowance; continuation retains the submitted scope/ranking token. Save-triggered refreshes use lexical reads. See [semantic search](../../docs/worldbuilder/SEMANTIC-SEARCH.md). AI answers display selected/total evidence counts when only part of a large timeline was inspected.
 
 Generation details show the request correlation, reported model, duration and allocated allowance. The allowance is explicitly distinguished from a provider invoice.
 

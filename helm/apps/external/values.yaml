@@ -307,6 +307,14 @@ worldbuilderMonitoring:
 # Off until explicit migration, dedicated grants and browser mTLS identity validation.
 worldbuilder:
   enabled: false
+  semantic:
+    enabled: false
+    embeddingURL: http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1/embeddings
+    model: ""
+    revision: "" # Immutable weights/tokenizer/pooling identity; must match the relay.
+    dimensions: 0
+    queryPrefix: ""
+    tokenSecret: "" # Optional WORLDBUILDER_EMBEDDING_TOKEN, never a literal token.
   databaseSecret: worldbuilder-external
   browserPrincipal: "" # Exact observed browser mTLS identity; wildcards are forbidden.
   aiSecret: ""

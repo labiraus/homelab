@@ -24,15 +24,24 @@ func recordReferences(record Record) []string {
 }
 
 func (sc *scope) evidenceContext(ctx context.Context, s Snapshot, revision int64, timeline, question string, provisional Snapshot, requiredRefs ...string) ([]Record, EvidenceScope, error) {
+	return sc.evidenceContextWithSearch(ctx, s, revision, timeline, question, provisional, nil, requiredRefs...)
+}
+func (sc *scope) evidenceContextWithSearch(ctx context.Context, s Snapshot, revision int64, timeline, question string, provisional Snapshot, ranked *SearchResult, requiredRefs ...string) ([]Record, EvidenceScope, error) {
 	all := Records(s, timeline, "", nil)
 	scope := EvidenceScope{Coverage: "complete_timeline", CanonRecordCount: len(all), EvidenceCount: len(all), DiscoveryStatus: "not_needed"}
 	if len(all) <= 100 {
 		return all, scope, nil
 	}
 	scope.Coverage = "selected_records"
-	search, err := sc.searchSnapshot(ctx, s, revision, timeline, question, nil, 20, 0)
-	if err != nil {
-		return nil, scope, err
+	var search SearchResult
+	if ranked != nil {
+		search = *ranked
+	} else {
+		var err error
+		search, err = sc.searchSnapshot(ctx, s, revision, timeline, question, nil, 20, 0)
+		if err != nil {
+			return nil, scope, err
+		}
 	}
 	scope.SearchMatches, scope.DiscoveryStatus = search.Total, search.DiscoveryStatus
 	selected := Snapshot{}

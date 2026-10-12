@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"pkg/canonsearch"
 	"strconv"
 	"strings"
 	"time"
@@ -113,6 +114,12 @@ func startWorldbuilder(ctx context.Context) error {
 		return err
 	}
 	index := &canonIndex{pool: pool, endpoint: endpoint, client: &http.Client{Timeout: 10 * time.Second}}
+	index.vector, err = canonsearch.FromConfig(os.Getenv, endpoint)
+	if err != nil {
+		pool.Close()
+		nc.Close()
+		return err
+	}
 	if err = index.ensureWithRetry(ctx, 12, 5*time.Second); err != nil {
 		pool.Close()
 		nc.Close()
@@ -176,7 +183,7 @@ func startWorldbuilder(ctx context.Context) error {
 					if event.SchemaVersion != 1 || event.Revision < 1 || event.EventID == "" {
 						err = fmt.Errorf("unsupported canon event")
 					} else {
-						err = index.project(ctx, event.WorldID, event.Revision)
+						err = projectWithHeartbeat(ctx, msg.InProgress, func(work context.Context) error { return index.project(work, event.WorldID, event.Revision) })
 					}
 				}
 				if err != nil {
@@ -195,6 +202,36 @@ type canonIndex struct {
 	pool     *pgxpool.Pool
 	endpoint string
 	client   *http.Client
+	vector   *canonsearch.Index
+}
+
+// Long CPU projections retain their broker lease. Losing the heartbeat cancels
+// inference; the event remains retryable and external versioning fences writes.
+func projectWithHeartbeat(ctx context.Context, heartbeat func(...nats.AckOpt) error, project func(context.Context) error) error {
+	return projectWithLease(ctx, func(work context.Context) error { return heartbeat(nats.Context(work)) }, project, 10*time.Second)
+}
+func projectWithLease(ctx context.Context, heartbeat func(context.Context) error, project func(context.Context) error, interval time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- project(ctx) }()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case err := <-done:
+			return err
+		case <-ctx.Done():
+			<-done
+			return ctx.Err()
+		case <-ticker.C:
+			if err := heartbeat(ctx); err != nil {
+				cancel()
+				<-done
+				return fmt.Errorf("canon projection heartbeat failed: %w", err)
+			}
+		}
+	}
 }
 
 func (i *canonIndex) request(ctx context.Context, method, path string, body []byte) (int, []byte, error) {
@@ -242,6 +279,11 @@ func (i *canonIndex) ensureWithRetry(ctx context.Context, attempts int, delay ti
 }
 
 func (i *canonIndex) ensure(ctx context.Context) error {
+	if i.vector != nil {
+		if err := i.vector.Ensure(ctx); err != nil {
+			return err
+		}
+	}
 	status, _, err := i.request(ctx, "HEAD", "/worldbuilder-canon-v1", nil)
 	if err != nil {
 		return err
@@ -277,6 +319,35 @@ func projection(world string, revision int64, raw []byte) ([]byte, error) {
 	return json.Marshal(map[string]any{"worldId": world, "revision": revision, "visibility": "canon", "records": records})
 }
 func (i *canonIndex) project(ctx context.Context, world string, revision int64) error {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
+	defer cancel()
+	// Serialize background projections across rolling replicas, independently of
+	// the interactive per-user allowance. The transaction releases on owner loss.
+	if i.vector != nil {
+		tx, err := i.pool.Begin(ctx)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			cleanup, stop := context.WithTimeout(context.Background(), 5*time.Second)
+			defer stop()
+			_ = tx.Rollback(cleanup)
+		}()
+		if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('worldbuilder-background-embedding',0))`); err != nil {
+			return err
+		}
+		// Probe the owning session while inference is running. A lost database
+		// connection releases its lock, so its old owner must stop sending work.
+		return projectWithLease(ctx, func(work context.Context) error {
+			probe, stop := context.WithTimeout(work, 2*time.Second)
+			defer stop()
+			_, err := tx.Exec(probe, `SELECT 1`)
+			return err
+		}, func(work context.Context) error { return i.projectSnapshot(work, world, revision) }, time.Second)
+	}
+	return i.projectSnapshot(ctx, world, revision)
+}
+func (i *canonIndex) projectSnapshot(ctx context.Context, world string, revision int64) error {
 	var raw []byte
 	if err := i.pool.QueryRow(ctx, `SELECT snapshot FROM worldbuilder.revision WHERE world_id=$1 AND revision=$2`, world, revision).Scan(&raw); err != nil {
 		return err
@@ -292,6 +363,12 @@ func (i *canonIndex) project(ctx context.Context, world string, revision int64) 
 	}
 	if status != 200 && status != 201 && status != 409 {
 		return fmt.Errorf("canon indexing returned %d", status)
+	}
+	if i.vector != nil {
+		requestID := fmt.Sprintf("canon-index:%s:%d", world, revision)
+		usage, err := i.vector.Publish(ctx, world, revision, raw, requestID)
+		slog.InfoContext(ctx, "canon vector projection", "requestId", requestID, "model", usage.Model, "requests", usage.Requests, "inputTokens", usage.InputTokens, "latencyMs", usage.LatencyMS, "valid", err == nil)
+		return err
 	}
 	return nil
 }

@@ -199,6 +199,14 @@ env:
 
 worldbuilder:
   enabled: false
+  semantic:
+    enabled: false
+    embeddingURL: http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1/embeddings
+    model: ""
+    revision: "" # Immutable weights/tokenizer/pooling identity; must match external.
+    dimensions: 0
+    queryPrefix: ""
+    tokenSecret: "" # Optional WORLDBUILDER_EMBEDDING_TOKEN.
   databaseSecret: worldbuilder-relay
   openSearchURL: http://labiraus-rag-data.data.svc.cluster.local:9200
   rebuildOnStart: false

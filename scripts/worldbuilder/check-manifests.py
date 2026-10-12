@@ -122,6 +122,24 @@ for overlay in ['values', 'values-ghcr', 'values-ecr']:
             failures.append('external composed AI integer setting: '+overlay+' '+field)
 # Background workers require a separately scoped credential and exact mesh identity.
 allowance=['--set','worldbuilder.aiBudget.requestMicros=100','--set','worldbuilder.aiBudget.dailyMicros=1000','--set','worldbuilder.aiBudget.currency=TST','--set','worldbuilder.aiBudget.gatewayRoute=offline-fixture']
+# Semantic configuration is independently gated and never enables paid models.
+for chart in ['external','orchestrator']:
+    base=['helm','template','homelab-'+chart,str(root/'helm/apps'/chart),'--set','global.allowMissingGeneratedSecretRefs=true','--set','worldbuilder.enabled=true','--set','worldbuilder.semantic.enabled=true']
+    if chart=='external': base+=['--set','worldbuilder.browserPrincipal=cluster.local/ns/homelab/sa/browser']+allowance
+    if subprocess.run(base,capture_output=True).returncode==0: failures.append(chart+' semantic accepted missing profile')
+    base+=['--set','worldbuilder.semantic.model=fixture-model','--set','worldbuilder.semantic.revision=immutable-fixture','--set','worldbuilder.semantic.dimensions=2']
+    result=subprocess.run(base,capture_output=True,text=True)
+    save_render(out/(chart+'-semantic-enabled.yaml'),result)
+    if result.returncode: failures.append(chart+' semantic enabled template: '+result.stderr)
+    else:
+        resources=[r for r in yaml.safe_load_all(result.stdout) if r]
+        env={v['name']:v.get('value') for r in resources if r.get('kind')=='Deployment' for c in r['spec']['template']['spec']['containers'] for v in c.get('env',[])}
+        if env.get('WORLDBUILDER_EMBEDDING_DIMENSIONS')!='2': failures.append(chart+' semantic dimensions formatting')
+        policy=next((r for r in resources if r.get('kind')=='NetworkPolicy' and r['metadata']['name'].endswith('-canon-embeddings')),None)
+        if policy is None or policy['spec']['egress'][0]['to'][0]['podSelector']['matchLabels'].get('gateway.envoyproxy.io/owning-gateway-name')!='vllm-ai-gateway': failures.append(chart+' missing scoped semantic egress')
+    for key,value in [('enabled','false'),('semantic.embeddingURL','https://provider.invalid/v1/embeddings'),('semantic.dimensions','0'),('semantic.revision','')]:
+        if subprocess.run(base+['--set','worldbuilder.'+key+'='+value],capture_output=True).returncode==0: failures.append(chart+' semantic accepted invalid '+key)
+    if chart=='external' and subprocess.run(base+['--set','worldbuilder.aiBudget.requestMicros=0'],capture_output=True).returncode==0: failures.append('semantic accepted missing interactive allowance')
 for chart in ['external','orchestrator']:
     base=['helm','template','homelab-'+chart,str(root/'helm/apps'/chart),'--kube-version','1.35.0','--set','global.allowMissingGeneratedSecretRefs=true','--set','worldbuilder.enabled=true','--set','worldbuilder.jobs.enabled=true']
     if chart=='external':

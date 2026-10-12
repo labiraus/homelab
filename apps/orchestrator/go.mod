@@ -7,6 +7,7 @@ require (
 	github.com/minio/minio-go/v7 v7.0.95
 	pkg/api v0.0.0
 	pkg/base v0.0.0
+	pkg/canonsearch v0.0.0
 	pkg/documentevents v0.0.0
 	pkg/minioutil v0.0.0
 	pkg/natsutil v0.0.0
@@ -62,3 +63,5 @@ replace pkg/natsutil => ../pkg/natsutil
 replace pkg/postgresutil => ../pkg/postgresutil
 
 replace pkg/prometheusutil => ../pkg/prometheusutil
+
+replace pkg/canonsearch => ../pkg/canonsearch
