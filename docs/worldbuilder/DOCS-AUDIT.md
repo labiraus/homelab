@@ -50,6 +50,8 @@ Existing product history is preserved at [pre-pivot plan](archive/PRE-WORLDBUILD
 
 The 2026-10-12 acceptance audit reconciles the current matrix and offline summary with retained live schema/identity/AI/generation/storage evidence. Historical increment logs retain their original observations. The migration approach now names the actual monorepo; its gates are requirements, not assertions that already verified production installation never happened. Current health remains unverified during the Pi outage, and final cutover plus multi-user/story-outcome acceptance remain open.
 
+The active index, remote deployment guide, Codex execution prompt, concrete LAN runbook and evaluation README now use the same checkpoint distinction. They preserve established activation/managed identities and standing main/LAN recovery authorization, scope initial provisioning to missing/new environments, and retain separate destructive-retirement and new-feature gates. Multi-step mutating shell examples stop on errors. No deployment or permission expansion is implied by this documentation repair.
+
 The active `.codex/REPO_PLAN.md` now points to Worldbuilder priorities instead of the old 33-phase document product plan; the old plan is preserved with a superseded notice. README, root/app agent rules, RAG diagram, app READMEs, setup and recovery guidance were revised in place. Retained document route names, storage and auth conventions remain accurate. The target architecture's Fastify/Cassandra/Postgres-add assumptions were reconciled against source. Remote guidance records the subsequent main-branch publication authorisation and keeps LAN activation separate.
 
 | Additional source | Disposition | Documentation linkage |

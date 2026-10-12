@@ -2,7 +2,9 @@
 
 ## Important distinction
 
-You currently have no access to the Kubernetes cluster. Work now must be **offline/remote preparatory**: source changes, unit/integration tests with local dependencies if available, chart/schema validation and generated manifest inspection. Do not confuse green local tests with successful deployment. When LAN access is restored, run the cluster verification and controlled activation steps. The user subsequently authorised main-branch CI publication during this session; this supersedes the no-push instruction for source delivery only. Database migration and feature activation remain gated. Concrete commands are in [LAN-RUNBOOK.md](LAN-RUNBOOK.md).
+Use the [current acceptance matrix](ACCEPTANCE-MATRIX.md) and [recovery handoff](../RecoveryHandoff-2026-10-11.md) before selecting a stage. The original remote-only phase was followed by authorized LAN recovery, production schema 8 and verified activation checkpoints for core Worldbuilder, AI, MCP and durable jobs. A later physical Pi API/SSH outage now blocks new cluster acceptance; it does not erase those checkpoints. Preserve existing activation, managed identities and data rather than resetting them to initial defaults.
+
+While cluster access is unavailable, continue source changes, disposable tests and artifact publication. The user explicitly authorizes tested commits/pushes to `main`; do not request that permission again. Green source/CI checks never establish live readiness. When access returns, first rediscover current state, then continue remaining stages within the existing authorization. Concrete procedures and remaining gates are in [LAN-RUNBOOK.md](LAN-RUNBOOK.md).
 
 ## Phase R — remote preparation (execute now)
 
@@ -14,10 +16,10 @@ You currently have no access to the Kubernetes cluster. Work now must be **offli
 - Produce environment-specific values and manifests for review (without credentials), planned ordering and dry-run commands for the LAN stage.
 - Prepare a rollout checklist, backup checklist, test queries and rollback path.
 
-**Forbidden until verified cluster access and approval**
-- `kubectl apply`, `helm upgrade/install/uninstall`, `flux reconcile`, destructive Terraform apply, scale-down or replacement of Cassandra, database/PVC deletion, credential rotation, production schema changes against live DB.
-- Unapproved GitOps publication. For this execution the user has explicitly authorised main-branch CI publication; publish only after offline checks, with Worldbuilder flags disabled. Never equate artifact publication with cluster verification.
-- Any claim that pods, volumes, database connections, inference, ingress or external integrations are working in the cluster.
+**Boundaries for live operations**
+- Do not mutate an unidentified or inaccessible cluster, infer safety from a rendered manifest, or bypass the normal GitOps workflow with ad hoc Helm replacement. Use existing scoped authorization and current evidence for recovery stages; destructive Cassandra/data retirement remains separately approved.
+- Publish tested changes through the authorized main pipeline while preserving verified active configuration. New optional stages, including canon semantic retrieval, retain their own disabled defaults and activation gates. Source delivery alone does not authorize data deletion, credential rotation or storage cutover.
+- Claim live behavior only from actual observations, with its checkpoint and scope. Prior success does not prove present readiness during the outage.
 
 ## Remote verification checklist
 
@@ -29,20 +31,20 @@ You currently have no access to the Kubernetes cluster. Work now must be **offli
 | Helm chart lint and rendered manifests | Environment overlays checked, warnings, saved diffs |
 | Kustomize/Flux object validation | All relevant dev/stable/release overlays, or unavailable tooling |
 | Secret references, env vars, ports, storage claims, probes | Checked against existing values and policies |
-| Database backup/restore plan | Named steps and responsible storage location, **not yet tested on cluster** |
+| Database backup/restore evidence | Named source/checkpoint, actual isolated restore comparison and remaining coverage; a plan or desired manifest alone is insufficient |
 | Rollback checklist | Compatible versions, database recovery and GitOps revert path |
-| GitOps auto-sync safety | Tested main publication is authorised for this execution; confirm default-off flags and distinguish published artifacts from observed readiness |
+| GitOps auto-sync safety | Tested main publication is authorized; preserve established activation, gate new stages and distinguish artifacts from observed readiness |
 
 Document actual status as `LOCAL_VERIFIED`, `NOT_RUN`, `BLOCKED_CLUSTER_ACCESS`, or `FAILED`. No `DEPLOYED` status for offline work.
 
 ## Phase L — LAN / cluster validation (when access returns)
 
-This is a **separate human-authorised execution gate**, not an automatic continuation of remote work. Before any mutating operations:
+Live work requires verified access, identity, recovery evidence and authorization for the particular action. Existing session authorization persists; access returning is not a reason to request it again or repeat completed migrations. Before further mutations:
 
 1. Confirm VPN/LAN, kube-context, namespace, cluster identity, RBAC and active GitOps source branch. Run read-only `kubectl cluster-info`, `kubectl get nodes`, `kubectl get ns`, `flux get all -A` (if available), `kubectl get helmreleases -A` and storage/backup inspection. Record differences from assumptions.
 2. Confirm backup and restore capability for Cassandra (if needed) and persistent resources. Verify free capacity, StorageClass, PVC/PV binding expectations, PostgreSQL operator or Helm chart availability, secrets and network access. Verify zero unexpected pending/destroy operations.
 3. Diff proposed Helm/Flux manifests against live resources. Check image registry availability and whether new tags exist and are signed as required. Review blast radius, monitoring and rollback.
-4. Deploy PostgreSQL in a **nonproduction environment first**, preferably dev namespace/data namespace according to existing conventions. Verify storage mount, DNS, NetworkPolicy, credentials, application connections, migrations and restart persistence. Do not remove Cassandra.
+4. PostgreSQL already exists. Rehearse new schema/configuration on explicitly isolated storage first, verify mounts, DNS, policy, credentials and restart persistence, then inspect the installed schema before deciding whether migration is needed. A branch or namespace named `dev` does not establish isolation. Do not remove Cassandra.
 5. Roll out domain API and other milestones incrementally behind feature flags. Confirm readiness, error budget, request tracing, authN/authZ, OpenSearch sync, NATS delivery and Envoy inference in that order as relevant. Run smoke and end-to-end tests with seeded fictional world fixtures.
 6. Test deliberate failure/recovery and backup restore in an isolated environment. Confirm outbox idempotency and search-index rebuild.
 7. Only after a documented migration reconciliation and explicit go/no-go may the Cassandra decommission plan proceed. Make irreversible steps separate PRs with operator review.

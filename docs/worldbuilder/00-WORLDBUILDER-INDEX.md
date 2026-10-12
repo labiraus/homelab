@@ -8,7 +8,7 @@ This documentation supersedes Evolve's previous document-first product direction
 
 1. [01-WORLDBUILDER-ARCHITECTURE.md](01-WORLDBUILDER-ARCHITECTURE.md) — target architecture, domain boundaries, data model, workflow contracts and acceptance criteria.
 2. [02-WORLDBUILDER-MIGRATION.md](02-WORLDBUILDER-MIGRATION.md) — executable milestones, documentation reconciliation, component migration, test and release gates.
-3. [03-WORLDBUILDER-REMOTE-DEPLOYMENT.md](03-WORLDBUILDER-REMOTE-DEPLOYMENT.md) — explicit remote-now/LAN-later runbook.
+3. [03-WORLDBUILDER-REMOTE-DEPLOYMENT.md](03-WORLDBUILDER-REMOTE-DEPLOYMENT.md) — source delivery and recovery gates, preserving verified live checkpoints.
 4. [04-CODEX-EXECUTION-PROMPT.md](04-CODEX-EXECUTION-PROMPT.md) — instructions to give Codex inside the checkout.
 
 ## Key decisions
@@ -19,7 +19,7 @@ This documentation supersedes Evolve's previous document-first product direction
 - Approved change sets publish atomically in PostgreSQL and produce outbox events. OpenSearch is a rebuildable derived search index.
 - External (Go) owns world/canon APIs and publication. Processor (TypeScript, LangGraph/LangChain) owns AI reasoning; orchestrator (Go/NATS) owns durable async work.
 - Stories use pinned canon revisions and isolated provisional state; outcomes generate proposals, never immediate canon mutations.
-- During remote-only work, **do not assume cluster connectivity or deploy blindly**. Prepare and verify changes locally, then stop at the explicit LAN validation gate.
+- During unavailable cluster access, **do not deploy blindly**. Continue tested source publication, preserve established live activation and resume remaining authorized stages only after current-state discovery.
 
 ## Authority and change discipline
 

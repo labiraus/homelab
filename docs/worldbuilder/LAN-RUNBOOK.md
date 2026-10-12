@@ -2,9 +2,15 @@
 
 The initial implementation was offline. The user subsequently authorised CI publication from `main` and continued LAN recovery; live checks, restore rehearsal and staged progress are recorded in [implementation status](IMPLEMENTATION-STATUS.md). The default-disabled code can be delivered through existing CI/Flux before LAN return; schema installation, secret provisioning, feature activation and data cutover remain separate controlled steps. Do not treat `dev` as an isolated environment: both `main` and `dev` publish the watched `uat` OCI series.
 
+## Current recovery entry point — 2026-10-12
+
+The physical Pi control plane is currently unavailable over API/SSH. Begin with read-only rediscovery after access returns, preserving the verified schema-8/runtime-role, native OAuth, core application, synchronous AI, MCP delegation and durable-job checkpoints. Their managed Secrets and grants already exist; the initial provisioning commands below are procedures for missing/new stages, not instructions to replace current identities or reinstall everything.
+
+Use the [current acceptance matrix](ACCEPTANCE-MATRIX.md) and [recovery handoff](../RecoveryHandoff-2026-10-11.md) for exact evidence and owned cleanup. Remaining work includes the newer MCP payload candidate/rollout, optional canon semantic activation, branch live acceptance, actual multi-human/story-outcome acceptance, production monitoring persistence/discovery and final SeaweedFS freeze/copy/reference/cutover/recovery. Pre-freeze source inventory and earlier SQL restores do not close final migration coverage. Preserve standing authorization; do not request main-publication approval again.
+
 ## 1. Read-only discovery when LAN access returns
 
-The [2026-10-10 public probe](PUBLIC-VALIDATION.md) was blocked by Zscaler with a certificate hostname mismatch. Validate normal public HTTPS, DNS/NAT routing and the installed Gateway certificate before using public application credentials; the probe did not establish application or cluster health.
+The [2026-10-10 public probe](PUBLIC-VALIDATION.md) failed with a certificate hostname mismatch. Later public TLS and native OAuth checks passed; that old failure is superseded, not the current blocker. Revalidate normal HTTPS and expected issuer before using credentials when conditions change; an API outage and a working MCP route are distinct observations.
 
 Run these in order, record the context and results in IMPLEMENTATION-STATUS.md, and stop on unexpected identity/environment. Commands below do not alter cluster resources.
 
@@ -41,17 +47,18 @@ Check Flux source revision/image tags against the CI run and signed image/chart 
 
 ## 2. Backup and isolation gate — before mutation
 
-Require `ContinuousArchiving=True`, recent successful CNPG base backup plus continuous WAL coverage, healthy MinIO private-network writes, bound PVCs and capacity. Existing `SlowDownWrite` history means a configured backup is not proof of recoverability. Restore CNPG into an isolated test environment first using the installed operator version's recovery process; do not overwrite `app-db`.
+Require `ContinuousArchiving=True`, a recent successful CNPG base backup plus continuous WAL coverage, healthy writes to the currently verified backup store, bound PVCs and capacity. Production still uses retained MinIO before cutover; SeaweedFS is the target. Existing `SlowDownWrite` history means a configured backup is not proof of recoverability. Reuse retained restore evidence only for its actual checkpoint; rehearse new recovery points on isolated storage without overwriting `app-db`.
 
 Use the repo-native local `psql` path. `make refresh-postgres-env` refreshes ignored local settings; `make postgres` opens the temporary data/app-db-rw tunnel for an interactive read-only inventory. Inspect `current_user`, schema owners, role memberships and `has_schema_privilege` there. Do not run new SQL through the shared legacy app login. Provision an independent migration owner and nonprivileged NOINHERIT logins `worldbuilder_external` and `worldbuilder_relay` with operator-managed passwords. Processor/MCP/shared app credentials must not inherit these roles. Keep production credentials out of terminal arguments/history and generated docs.
 
-Before production, run the offline harness again and validate the same changes on an explicitly isolated database accessible through local psql. The schema migration has no destructive legacy operations and no CNPG bootstrap/PVC changes.
+Before a new production schema change, run the applicable offline checks and validate it on an explicitly isolated database through local psql. Do not repeat completed schema-8 installation merely because access returned. The existing migrations have no destructive legacy operations or CNPG bootstrap/PVC changes.
 
 ## 3. Separately authorised staged changes
 
 These commands describe the controlled migration procedure; consult implementation status for the environment in which each stage has been verified. Use a private `PGPASSFILE` and verified local psql connection variables populated from the approved operator workflow. `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER` below must describe the intended isolated validation database first, and the independent migration owner. Do not source or paste credentials into this document.
 
 ```bash
+set -euo pipefail
 # Capture a restore-capable logical backup to ignored local storage; also require healthy CNPG WAL/base backups.
 mkdir -p backups
 pg_dump -Fc -f backups/before-worldbuilder.dump
@@ -115,13 +122,14 @@ mcp:
         - "<observed authenticating edge principal>"
 ```
 
-Render the merged configuration and inspect both DENY policies before source publication. Exercise tools/list and one scoped read on both transports; confirm inactive/nonmember actors fail, draft retries return the same draft, canon remains unchanged, and owner assertions cannot invoke review/publication/administration/private sessions. Confirm unsigned, modified, expired and wrong-audience assertions fail, direct `/api/worlds` access from MCP/processor is denied, and clocks differ by no more than the five-second future allowance. Disabling both delegation flags and rotating the key revokes access without changing canon or document tooling. These are prepared LAN tests, not observed results.
+Render the merged configuration and inspect both DENY policies before changing delegation. Exercise tools/list and one scoped read on both transports; confirm inactive/nonmember actors fail, draft retries return the same draft, canon remains unchanged, and owner assertions cannot invoke review/publication/administration/private sessions. Confirm unsigned, modified, expired and wrong-audience assertions fail, direct `/api/worlds` access from MCP/processor is denied, and clocks differ by no more than the five-second future allowance. Disabling both delegation flags and rotating the key is a scoped revocation procedure, not routine acceptance cleanup. Retained live results and remaining candidate checks are recorded separately below.
 
-The October 11 delegation stage is prepared after native client login, authenticated document reads and canon publication/audit acceptance. Live workload certificate SANs confirm `cluster.local/ns/homelab/sa/homelab-mcp` and the authenticating edge `cluster.local/ns/ingress/sa/gateway-istio`. A separately generated `worldbuilder-mcp` Secret contains only `WORLDBUILDER_MCP_KEY`; parent values reference it only from external and MCP. The MCP pin advances to `38179885575` after its native-auth, shared identity/delegation and complete platform gates and publication pass. Deployment, both transport reads, exact draft retries and the denial matrix above remain acceptance gates; source flags alone do not establish them. Durable generation stays disabled until the separate synchronous-AI gate passes.
+The October 11 delegation checkpoint passes after native login, authenticated document reads and canon publication/audit acceptance. Observed workload principals are `cluster.local/ns/homelab/sa/homelab-mcp` and edge `cluster.local/ns/ingress/sa/gateway-istio`. The existing dedicated `worldbuilder-mcp` Secret is shared only by external/MCP. Live artifact `38179885575` passes both transports with 20 tools, scoped reads, exact draft retries and unchanged canon; retain that evidence without claiming a newer artifact is deployed. The payload-preservation candidate and its normal pin update still need acceptance after API recovery. Durable generation subsequently passed its separate activation/recovery gate below.
 
 Publish each approved configuration stage through the existing pipeline, not ad hoc Helm upgrades. Once LAN validation and the stage's approval are recorded:
 
 ```bash
+set -euo pipefail
 python3 scripts/worldbuilder/check-manifests.py
 # Review the exact staged files/diff before each stage.
 git diff --check
@@ -138,11 +146,12 @@ kubectl -n homelab rollout status deployment/homelab-orchestrator --timeout=180s
 
 For AI, first verify provider/model pricing, maximum bounded input/output charges and the actual gateway route. Set explicit `external.values.worldbuilder.aiBudget` fields: `dailyRequests`, `concurrent`, positive `requestMicros`/`dailyMicros`, uppercase three-letter `currency` and a meaningful `gatewayRoute` label. Derive a conservative per-attempt allowance from observed route limits/tariffs; do not treat test fixture amounts or allocated ledger amounts as provider invoices. Confirm multiple external replicas share daily/concurrency limits, failed calls remain allocated, and abandoned leases cease blocking after 60 seconds without refunding that day. Then set `external.values.worldbuilder.aiSecret` and `processor.values.worldbuilder.aiSecret` to the verified shared secret name, publish that separately reviewed stage, and validate `AI_GATEWAY_BASE_URL` and model JSON capability. Run authorised `make vllm-gateway-smoke`, grounded unknown/citation/adversarial tests, usage limits and privacy checks. Test session reload/restart, concurrent turns, provisional-state isolation and story-outcome review/publish/wiki flow. Confirm actual backup restore and outbox/OpenSearch recovery with fixture worlds before broader use.
 
-The October 11 synchronous-AI stage uses only the observed local `homelab/vllm-openai` gateway route and `Qwen/Qwen2.5-3B-Instruct-AWQ`. Its eleven live workflow/grounding/isolation cases pass again before activation. The user confirmed these local AI limits. The staged parent values share `worldbuilder-ai` only between external and processor and set 100 requests per actor per UTC day, two concurrent reservations, GBP 10,000 micros per attempt and 1,000,000 micros per day (£0.01/£1). These are internal allocation limits for local compute, not a tariff or permission to use a paid provider. Actual request/usage attribution, stories and deployment acceptance remain required; durable jobs and MCP delegation remain separately disabled during this stage.
+The October 11 synchronous-AI checkpoint uses only the observed local `homelab/vllm-openai` gateway route and `Qwen/Qwen2.5-3B-Instruct-AWQ`. Eleven direct live workflow/grounding/isolation cases passed before activation, followed by the authoritative external workflow/ledger/story/concurrency checks below. The user approved 100 requests per actor per UTC day, two concurrent reservations, GBP 10,000 micros per attempt and 1,000,000 micros per day (£0.01/£1). Existing parent values share `worldbuilder-ai` only between external and processor. These are internal local-compute limits, not a paid-provider tariff. Broader human quality, actual multi-user acceptance and newer semantic integration remain open; do not disable already verified jobs/MCP merely to return to this earlier stage.
 
 Run the small live semantic gate with synthetic data after building processor:
 
 ```bash
+set -euo pipefail
 npm run build --prefix apps/processor
 # Set a verified private gateway URL (or its temporary loopback port-forward) and the observed model.
 AI_GATEWAY_BASE_URL=http://127.0.0.1:18087/v1 AI_CHAT_MODEL='<observed model>' \
@@ -178,7 +187,7 @@ The external chart rejects missing or wildcard browser principals, including wil
 
 No irreversible cleanup, live schema change or resource deletion is bundled with source publication.
 
-## Schema-v4 compatibility and lifecycle validation
+## Schema-8 compatibility and lifecycle validation
 
 Before enabling current external, verify max schema version 8 and dedicated grants including `record_identity` and restricted inference-ledger writes. Migration 002 must refuse historical same-ID/different-kind conflicts; inventory them and obtain a reviewed reconciliation plan rather than changing immutable history. Validate reviewed name/default-timeline settings, membership removal, owner transfer (exactly one owner), archive write refusal and retained history. Repeat an administration request and confirm its original version/result without another change. Old v1 snapshots remain intact; introduce their first settings record through review.
 
@@ -194,9 +203,9 @@ Parent artifact `38181781184` enables durable jobs using a separate `worldbuilde
 
 Live three-part acceptance preserves the first checkpoint across orchestrator replacement and completes with exactly three successful attempts/30,000 GBP micros. Terminal retries, cancellation and stale story-session refusal add no inference; canon stays unchanged. A separate unready external instance using the deployed binary was killed after its reservation committed: the real worker waited for lease expiry, marked the job `uncertain`, retained its one 10,000-micro reservation and refused inference replay on repeated dispatch/request. The complementary pre-reservation kill also passes: zero ledger attempts before/after termination, then exactly one successful attempt/10,000 micros when the real worker recovers the expired claim. Owned worlds are archived, diagnostic resources removed and generation consumption resumed. A first pre-reservation diagnostic attempt had a batched-psql barrier error and was not counted as acceptance; the corrected barrier executes separate statements with a hard timeout. Legitimate member-revocation acceptance remains separate below.
 
-Apply explicit migrations `005_up.sql`, `006_up.sql`, `007_up.sql` and `008_up.sql` after 001–004, refresh dedicated grants and verify max version 8 before current external activation. Back up and restore all 19 Worldbuilder tables plus the shared auth registry, including generation jobs/outbox and inference ledger; rollback disables flags and preserves populated data. Previous schema-4/5/6 binaries cannot run enabled against schema 8.
+For a new or genuinely incomplete installation, apply migrations 005–008 after 001–004 and refresh dedicated grants; current production already has schema 8. Back up and restore all 19 Worldbuilder tables plus the shared auth registry, including generation jobs/outbox and inference ledger. A necessary rollback disables flags and preserves populated data; previous schema-4/5/6 binaries cannot run enabled against schema 8.
 
-Keep `worldbuilder.jobs.enabled=false` on both charts until synchronous AI, identity and budget checks above pass. Provision one dedicated worker secret through the existing secret workflow (key `WORLDBUILDER_JOB_TOKEN`, at least 32 bytes); reference it as `worldbuilder.jobs.workerSecret` on external and orchestrator. Verify external `worldbuilder.jobs.principal` is the actual orchestrator mesh identity, distinct from browser and MCP. Inspect the conditional ingress/egress policies for orchestrator→external TCP 8080 and test forged/missing token, human browser principal and wrong service principal denial. The configurable orchestrator `worldbuilder.jobs.externalAPIURL` must be the private external service root. Activate these flags only as a separately reviewed main-branch values change.
+For a new environment, keep `worldbuilder.jobs.enabled=false` until synchronous AI, identity and budget checks pass. Production has already passed that stage: preserve its dedicated worker Secret and active settings while rediscovering health. Where provisioning is needed, use one worker token of at least 32 bytes in `WORLDBUILDER_JOB_TOKEN`, referenced only by external/orchestrator. Verify the exact orchestrator principal, conditional TCP 8080 policies, forged/missing-token and wrong-principal refusals, and private external service root. New activation changes follow normal reviewed main publication.
 
 Test a three-part narrative with a worker restart between saved parts, duplicate dispatch, cancellation, revoked member and stale story version. Verify one ledger attempt per executed part and no canonical publication. Kill external after reservation but before checkpoint commit: an expired claim must become `uncertain`, retain any earlier parts and require deliberate new-request action. Kill before reservation: the unstarted part may resume. Compare PostgreSQL job/checkpoint/ledger state with broker pending counts and UI refresh. Observe actual three-replica JetStream quorum and seven-day retention.
 

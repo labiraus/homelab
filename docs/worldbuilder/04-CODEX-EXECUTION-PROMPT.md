@@ -1,6 +1,6 @@
 # Codex execution prompt — Worldbuilder AI pivot
 
-Use this instruction from the audited homelab monorepo root. The initial audit and remote implementation are recorded in [implementation status](IMPLEMENTATION-STATUS.md); read that evidence before repeating completed work. No blanket permission for direct cluster mutation or feature activation is implied.
+Use this instruction from the audited homelab monorepo root. The [acceptance matrix](ACCEPTANCE-MATRIX.md), [implementation status](IMPLEMENTATION-STATUS.md) and [recovery handoff](../RecoveryHandoff-2026-10-11.md) distinguish completed source/live checkpoints from remaining work. Read them before repeating migrations, changing existing activation or replacing credentials. User authorization persists across continuation turns; no blanket permission for destructive retirement is implied.
 
 ---
 
@@ -8,7 +8,9 @@ You are the lead engineer carrying out an incremental architectural pivot of the
 
 ## Operating conditions and hard safety rules
 
-I am currently working remotely and have no cluster network access. You may build, refactor, test and render manifests locally, but **must not attempt cluster mutations or live deployments**. Do not run `kubectl apply`, `helm upgrade`, `flux reconcile`, destructive Terraform, or database/volume destruction. For this execution, the user explicitly superseded the initial no-push rule: work on `main` and publish tested source so the existing CI/GitOps pipeline picks it up, keeping Worldbuilder activation flags disabled. Verify the recorded branch/source behaviour; `dev` is not an isolated deployment environment. Direct cluster validation, production migrations/secrets and feature activation occur separately when LAN access returns. Never mark a deployment successful without live observations. Do not assume secrets, context, storage configuration or registry availability. Ask for intervention only for genuine hard blockers; otherwise continue with safe local implementation and record limitations.
+The original remote-only phase was followed by user-authorized LAN recovery and actual schema/identity/application activation. The current physical Pi API/SSH outage prevents further cluster validation; the native MCP document inventory remains separately reachable. Continue feasible source, disposable acceptance and publication work. Do not blindly mutate the unavailable control plane or reset already verified live stages to the original disabled defaults.
+
+The user explicitly authorizes commits and pushes to `main` so the existing CI/GitOps pipeline can deliver tested source. Preserve approved deployed settings; new optional features retain their own activation gates. `dev` is not an isolated deployment environment. When cluster access returns, rediscover current state and continue authorized recovery from retained checkpoints rather than starting deployment over. Never claim readiness without live observations or infer permission for Cassandra/data destruction. Check actual context, storage, credentials and artifacts before dependent actions. Ask for intervention only for genuine uncovered blockers, without repeating existing authorization requests.
 
 ## First pass — inspect and reconcile (mandatory before implementation)
 
@@ -41,6 +43,6 @@ Run all feasible Go, TypeScript and frontend checks and integration tests agains
 - Continuously update active docs and the project status/decision/troubleshooting logs alongside code; record superseded docs and their replacements.
 - Do not invent repository paths, test passes, provider behaviours or deployed resources.
 - When a milestone cannot safely finish offline, leave a clearly described gated checkpoint and proceed with other independent safe work.
-- Finish with a concise report: files/components changed, implemented milestones, tests run with outcomes, documentation reconciled, unresolved issues, what remains blocked pending LAN access, and explicit ordered commands for read-only cluster assessment and then **separately authorised** staged rollout.
+- Finish with a concise report of changes, verified tests/publication, remaining requirements and concrete blockers. Link the ordered read-only assessment and staged recovery procedure; distinguish already authorized work from any genuinely new permission needed. Keep the continuing goal active until complete or the blocked audit threshold is met.
 
 Start by inspecting the repository and its documentation; then implement the pivot, maintaining a working build at milestone boundaries.
