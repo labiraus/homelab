@@ -792,6 +792,28 @@ function LifecycleHistoryPanel({ historyState, idleMessage }) {
 }
 
 function App() {
+	const topbarRef = useRef(null);
+	const footerRef = useRef(null);
+	const [topbarHeight, setTopbarHeight] = useState(null);
+	const [footerHeight, setFooterHeight] = useState(null);
+	useEffect(() => {
+		const header = topbarRef.current;
+		const measure = () => {
+			const height = Math.ceil(header.getBoundingClientRect().height);
+			if (height > 0) setTopbarHeight(height);
+			const footer = Math.ceil(footerRef.current.getBoundingClientRect().height);
+			if (footer > 0) setFooterHeight(footer);
+		};
+		measure();
+		const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+		observer?.observe(header);
+		observer?.observe(footerRef.current);
+		window.addEventListener("resize", measure);
+		return () => {
+			observer?.disconnect();
+			window.removeEventListener("resize", measure);
+		};
+	}, []);
 	const [page, setPage] = useState(pageFromHash);
 	const [authMenuOpen, setAuthMenuOpen] = useState(false);
 	const [activeRequest, setActiveRequest] = useState(null);
@@ -2280,7 +2302,7 @@ function App() {
 	);
 
 	return (
-		<main className="app-shell">
+		<main className="app-shell" style={{ "--shell-topbar-height": topbarHeight ? `${topbarHeight}px` : undefined, "--shell-footer-height": footerHeight ? `${footerHeight}px` : undefined }}>
 			<div className="toast-stack" aria-live="polite" aria-label="Document notifications">
 				{toasts.map((toast) => (
 					<article key={toast.id} className={`toast-card ${toast.tone}`}>
@@ -2300,7 +2322,7 @@ function App() {
 				))}
 			</div>
 
-			<header className="topbar">
+			<header className="topbar" ref={topbarRef}>
 				<div className="topbar-brand">
 					<div className="brand-mark" aria-hidden="true">
 						L
@@ -4154,7 +4176,7 @@ function App() {
 				)}
 			</div>
 
-			<footer className="legal-footer">
+			<footer className="legal-footer" ref={footerRef}>
 				<a href="/privacy-policy.html">Privacy Policy</a>
 				<a href="/terms-of-service.html">Terms of Service</a>
 			</footer>

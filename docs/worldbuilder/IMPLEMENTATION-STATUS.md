@@ -1,5 +1,13 @@
 # Worldbuilder implementation status
 
+## AI-first frontend publication and scrolling correction — 2026-10-12
+
+Initial source `9927e3e` passes complete [UI CI/CD 38303543096](https://github.com/labiraus/homelab/actions/runs/38303543096): 79 tests, disposable PostgreSQL/browser/restore, dependency audit, all eight platform gates and image/chart publication. Automatic Flux reconciliation installs the exact source; Helm revision 57 is Ready at 20:32 UTC and the replacement UI/sidecar is ready with no restarts. Compiled assets match the local verified build byte-for-byte. Both original desktop/mobile journeys pass against deployed assets with explicit API fixtures; public HTTPS/authentication and authenticated MCP canon/record reads also pass.
+
+Visual follow-up catches an actual scrolling issue those journeys missed: the sticky header obscures the Workspace link, and the grid boundary can push a tall inspector under the header at page end. The new regression fails against the initial deployed bundle; measured header/footer offsets and bounded panel heights pass all three local workspace journeys, including scrolled click-target checks at 1280×720 and 1120×600. The 79-test suite and production build pass; final footer measurement also passes all 21 App tests. Corrective publication and deployed verification remain pending. See [release evidence](UI-IMPLEMENTATION.md#publication-and-deployed-acceptance--2026-10-12).
+
+The control-plane API is available again; this does not establish SSH/root-cause or comprehensive recovery. The user confirms no browser session is available. Real Google-proxy browser-to-backend/model journeys remain blocked; native MCP authorization and fixture identities do not substitute. No production world/data write, manual reconciliation or infrastructure/authentication mutation was used.
+
 ## AI-first frontend source implementation — 2026-10-12
 
 The [UI-0–UI-6 implementation](UI-IMPLEMENTATION.md) now makes conversation the default world workspace, with scoped source inspection, rich draft/story responses, explicit intent clarification, bounded follow-ups and supporting Explore, Drafts & Proposals, Stories and World Settings. Existing React/Vite, auth, theme, API and governed domain components remain. Structured editing, reconciliation, review/publication and persisted story outcomes retain their original revision/version boundaries. World chat remains explicitly ephemeral because no world conversation/streaming endpoint exists.

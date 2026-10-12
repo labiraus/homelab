@@ -9,12 +9,20 @@ The redesign fixes authentication loading that previously reset deep hash links 
 Browser test navigation must wait for the world navigation container to be attached before deciding whether to open the mobile drawer. An immediate visibility check after world selection falsely treated a loading desktop as mobile and waited forever for a hidden toggle. Actual Chromium traces established this race; the helper now waits for the DOM container’s attachment (hidden links are absent from role queries). Native selects use accessible combobox roles, since label text can include option text. Keep fixture responses sensitive to the current request, not accidentally to retained follow-up context.
 
 
+## Deployed UI verification and browser login (2026-10-12)
+
+Testing initial deployed UI `38303543096` found the desktop Workspace link beneath the sticky header after scrolling. The existing journeys passed because Playwright could scroll again before later clicks; `isVisible` did not detect the obstruction. A new `elementFromPoint` regression fails against that release. Header offsets alone fixed the navigation but a tall inspector was still pushed upward by its grid boundary at page end. The fix measures header and footer heights and reserves workspace/layout spacing when bounding both sticky panels. All three local workspace journeys now pass at desktop/mobile sizes, including the scrolled 1280×720 and 1120×600 hit-target checks. Keep the original failure evidence separate from acceptance of the replacement release.
+
+Successful native MCP reads do not supply a browser Google-proxy session. A public `/` request redirecting to sign-in is expected without that session. Authenticated deployed browser acceptance needs a legitimate existing browser session; keep exported Playwright state in ignored/private local storage, never in Git or chat. Do not inject identity headers, mint proxy cookies or substitute native MCP tokens to make a browser test pass. Fixture identities remain confined to disposable loopback tests.
+
+Verify the exact UI source revision in `flux-system/ui` OCI artifact metadata, the Ready HelmRelease in that same namespace, and the image/digest of the available `homelab` Pod. The HelmRelease is not in the workload namespace; a NotFound response from `homelab` was a namespace lookup mistake, not a missing deployment. Check compiled assets from the actual replacement Pod as well as public TLS/authentication behavior. None of these checks substitutes for authenticated user journeys.
+
 Use [implementation status](IMPLEMENTATION-STATUS.md) for exact check results and [platform troubleshooting](../../runbooks/troubleshooting.md) for existing operations; do not duplicate legacy incident logs here.
 
 - Missing engine/infra or Cassandra: audit actual paths before following illustrative target names. Do not create replacement services or remove storage based on assumptions.
 - Git branch creation failed in the restricted sandbox because `.git` is read-only. Tool-approved local `git switch -c feat/worldbuilder-offline-foundation` succeeded. No commits or pushes were made.
 - Do not run `scripts/pg-update.sh`: audit found an unfinished migra placeholder and advisory lock on a short-lived connection. Worldbuilder migrations use the new explicit transactional migration files; existing schemas are untouched.
-- Remote readiness is **BLOCKED_CLUSTER_ACCESS**. Passing local checks never establishes deployed state.
+- The initial remote readiness checkpoint was **BLOCKED_CLUSTER_ACCESS**. API access is verified again during the 2026-10-12 UI release; see the current [acceptance matrix](ACCEPTANCE-MATRIX.md). Passing local checks alone never establishes deployed state.
 
 - Go cache paths `/home/vscode/.cache/go-build` and `/go/pkg/mod` are read-only in the sandbox. Use `GOCACHE=/tmp/worldbuilder-go-cache`, `GOMODCACHE=/tmp/worldbuilder-go-mod`; tools installed with `go run ...@version` also need `GOPATH=/tmp/worldbuilder-gopath` for checksum cache access. Do not disable checksum verification.
 - There is no root Go workspace/module: repository-root `go test ./...` fails. Use `(cd apps/external && go test ./...)` and the equivalent module directories. CI and `apps/AGENTS.md` now encode this rule.

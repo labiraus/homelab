@@ -31,6 +31,7 @@ Directory-level `AGENTS.md` files currently exist for:
 - Prefer small, targeted changes that fit the current structure of the repo.
 - Discover existing file paths with `rg --files` before targeted reads; do not infer app, chart or migration-document paths from naming conventions.
 - Read the discovery output before selecting paths: chart templates are not necessarily named after their resource kinds, and workflow filenames may differ from their display names.
+- Discover Flux resource namespaces independently of workload namespaces. The current app HelmReleases, including `ui`, live in `flux-system` and target `homelab`; a workload namespace lookup returning NotFound does not establish a missing release.
 - When changing behavior, config, workflows, or layout, update the relevant human docs in the same task.
 - Do not commit real secrets, kubeconfig material, private keys, or local-only environment files.
 - Prefer repo-native workflows before inventing new ones.

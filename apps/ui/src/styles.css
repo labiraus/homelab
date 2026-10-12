@@ -1450,7 +1450,9 @@ a {
 .wb-layout { display: grid; grid-template-columns: 180px minmax(0,1fr); align-items: start; gap: 1.5rem; margin-block: 1rem; }
 .wb-layout.has-inspector { grid-template-columns: 160px minmax(0,1fr) minmax(250px, 300px); }
 .wb-main { min-width: 0; }
-.wb-nav { position: sticky; top: 1rem; display: grid; gap: .4rem; padding-block: 1rem; }
+/* Reserve the measured shell and the workspace/layout bottom spacing so the
+   grid boundary cannot push sticky controls underneath the header at page end. */
+.wb-nav { position: sticky; top: calc(var(--shell-topbar-height, 5rem) + 1rem); display: grid; gap: .4rem; padding-block: 1rem; max-height: calc(100dvh - var(--shell-topbar-height, 5rem) - var(--shell-footer-height, 3rem) - 4rem); overflow-y: auto; }
 .wb-nav a { display: flex; align-items: center; padding: .6rem .85rem; border-radius: .5rem; color: var(--muted); text-decoration: none; }
 .wb-nav a[aria-current="page"] { background: var(--bg-accent); color: var(--brand-strong); font-weight: 650; border-left: 3px solid var(--brand); }
 .wb-nav-toggle { display: none; }
@@ -1477,7 +1479,7 @@ a {
 .worldbuilder .wb-primary { background: var(--brand-strong); color: var(--surface); font-weight: 650; }
 .worldbuilder .wb-response-actions { border: 0; padding: 0; }
 .wb-response-actions label { display: flex; }
-.wb-inspector { position: sticky; top: 1rem; max-height: calc(100dvh - 2rem); overflow-y: auto; min-width: 0; padding: 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: .75rem; overflow-wrap: anywhere; }
+.wb-inspector { position: sticky; top: calc(var(--shell-topbar-height, 5rem) + 1rem); max-height: calc(100dvh - var(--shell-topbar-height, 5rem) - var(--shell-footer-height, 3rem) - 4rem); overflow-y: auto; min-width: 0; padding: 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: .75rem; overflow-wrap: anywhere; }
 .wb-facts { display: grid; gap: .6rem; }
 .wb-facts div { display: grid; grid-template-columns: minmax(5rem,1fr) minmax(0,2fr); gap: .5rem; }
 .wb-facts dt { color: var(--muted); }
@@ -1489,7 +1491,7 @@ a {
   .wb-nav-toggle { display: inline-block; }
   .wb-nav { display: none; position: static; }
   .wb-nav.is-open { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); }
-  .wb-inspector { position: fixed; inset: 1rem 1rem 1rem auto; width: min(420px,calc(100vw - 2rem)); z-index: 30; box-shadow: var(--shadow-strong); }
+  .wb-inspector { position: fixed; inset: 1rem 1rem 1rem auto; width: min(420px,calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); z-index: 30; box-shadow: var(--shadow-strong); }
 }
 @media (max-width: 600px) {
   .worldbuilder { padding: 1rem; }

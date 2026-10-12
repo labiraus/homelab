@@ -496,3 +496,5 @@ A stale or repeated consent submission can fail after the client already saved i
 ## Worldbuilder AI workspace
 
 See [workspace recovery notes](../docs/worldbuilder/TROUBLESHOOTING.md#ai-workspace-navigation-and-generation-recovery-2026-10-12) for ephemeral conversations, generation cancellation/allowances, pinned stale drafts and story turns. The AI-first UI preserves deep links during authentication loading; expired membership still requires server authorization.
+
+For a new release, verify the `flux-system/ui` OCI source revision and HelmRelease separately from the `homelab` workload image. Native MCP login does not authenticate the browser; deployed browser tests require an existing Google-proxy session, kept in private local state. See [deployed UI verification](../docs/worldbuilder/TROUBLESHOOTING.md#deployed-ui-verification-and-browser-login-2026-10-12).

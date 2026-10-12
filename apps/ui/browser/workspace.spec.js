@@ -350,3 +350,27 @@ test("mobile keyboard navigation, ambiguity, error recovery and persistent story
     false,
   );
 });
+
+test("scrolled desktop navigation and inspector remain below the sticky header", async ({ page }) => {
+  await fixture(page);
+  await send(page, "Who is Aldric?");
+  await page.getByRole("button", { name: "Open source · aldric", exact: true }).click();
+  for (const size of [{ width: 1280, height: 720 }, { width: 1120, height: 600 }]) {
+    await page.setViewportSize(size);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    for (const target of [
+      page.getByRole("link", { name: "Workspace", exact: true }),
+      page.getByRole("button", { name: "Close inspector", exact: true }),
+    ]) {
+      await expect.poll(() => target.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        const header = document.querySelector(".topbar").getBoundingClientRect();
+        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+        return box.top >= header.bottom && (hit === element || element.contains(hit));
+      })).toBe(true);
+    }
+  }
+  await page.getByRole("button", { name: "Close inspector", exact: true }).click();
+  await page.getByRole("link", { name: "Explore", exact: true }).click();
+  await expect(page.getByRole("link", { name: "Explore", exact: true })).toHaveAttribute("aria-current", "page");
+});

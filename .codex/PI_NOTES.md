@@ -29,3 +29,7 @@ Use this file for durable setup notes about Raspberry Pi hosts when the repo doe
 - `svartalfheim` currently reports a 9.1 TiB NTFS data filesystem on `/dev/sda2` mounted at `/srv/minio`, about 4 TiB used and 5.2 TiB available. MinIO and Samba remain active; SeaweedFS 4.48 was subsequently installed through the dedicated Ansible role. Earlier capacity/MinIO-target notes are historical. The target is now external private SeaweedFS managed by the dedicated Ansible code; follow `docs/SeaweedFSMigration.md` and retain source data until all copy/reference/restore gates pass.
 
 - SeaweedFS 4.48 runs on `svartalfheim` with master/filer/volume and S3 daemon listeners restricted to loopback. A systemd proxy publishes only private wired `192.168.8.177:8333`; Wi-Fi `.202` is outside cluster egress rules. Samba excludes both `/minio-data/` and `/seaweedfs/`. Scoped document version/write/read/delete-marker and cross-bucket denial probes pass; the four target buckets exist. Production applications and CNPG still use retained MinIO on port 9000 pending migration/reference/restore acceptance.
+
+## Control-plane rediscovery (2026-10-12)
+
+- During the authorized frontend release, read-only Kubernetes `/readyz` returned `ok`; app Deployments and Flux releases were available/Ready. The October 11 API interruption is no longer a current access blocker. No SSH probe, console/root-cause diagnosis or new data-integrity/restore check was performed in this frontend task; keep those claims separate. No control-plane recovery mutation was needed.
