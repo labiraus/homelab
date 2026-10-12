@@ -65,7 +65,7 @@ function MapEditor({
             <input
               required
               value={row.name}
-              pattern={identifier ? "[a-zA-Z0-9_-]{1,64}" : undefined}
+              pattern={identifier ? "[a-zA-Z0-9_\\-]{1,64}" : undefined}
               onChange={(e) =>
                 setRows(
                   rows.map((r, i) =>
@@ -296,7 +296,7 @@ export default function WorldRecordEditor({
         <input
           required
           readOnly={!!record}
-          pattern="[a-zA-Z0-9_-]{1,64}"
+          pattern={"[a-zA-Z0-9_\\-]{1,64}"}
           value={draft.id}
           onChange={(e) => set("id", e.target.value)}
         />

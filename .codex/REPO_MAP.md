@@ -102,6 +102,7 @@ Current behavior note:
 - Private story definitions/memory: `apps/external/worldbuilder/story_definition.go`, `apps/ui/src/WorldStorySetup.jsx`, migration `sql/worldbuilder/004_up.sql`.
 - Inference allocation ledger: `apps/external/worldbuilder/budget.go`, `sql/worldbuilder/003_up.sql`; independent of canon transaction rollback.
 - Optional canon vectors: `apps/pkg/canonsearch/` supplies pinned-profile embeddings and exact scoped OpenSearch scoring; `apps/external/worldbuilder/semantic.go` owns metered hybrid reconciliation, with background publication in `apps/orchestrator/worldbuilder.go`. Contract and activation limits: `docs/worldbuilder/SEMANTIC-SEARCH.md`.
+- Snapshot timeline branches: `apps/external/worldbuilder/timeline_branch.go`, `apps/ui/src/WorldTimelineBranch.jsx` and `docs/worldbuilder/TIMELINE-BRANCHES.md`; complete bounded reviewed copies, shared catalog, immutable creation origin and explicit historical pins.
 - MCP entry point: `apps/mcp/main.go`; optional canon delegation: `apps/mcp/worldbuilder.go`, `apps/external/worldbuilder/tools.go`, shared signatures in `apps/pkg/api/delegation.go`
 - Native MCP OAuth: `apps/external/mcpauth/`, `apps/external/mcp_oauth.go`, `apps/mcp/oauth_config.go`, explicit isolated migrations in `sql/mcp/`; activation and credential recovery: `docs/MCPAuthentication.md`.
 - Orchestrator entry point: `apps/orchestrator/main.go`

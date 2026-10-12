@@ -35,6 +35,8 @@ All paths below are relative to `/api/worlds`. JSON bodies reject unknown fields
 | GET `/{world}/revisions` | Published revision metadata (actor, reason, real timestamp), newest first; paginated |
 | GET `/{world}/diff` | Required nonnegative `from`, optional `to` (current); paginated complete before/after records and total across all timelines |
 | POST `/{world}/restore` | `{id: UUID, baseRevision, targetRevision, reason}`; draft compensation for an older revision, up to 100 operations; fresh review required |
+| POST `/{world}/timeline-branches` | `{id: UUID, baseRevision, parentRevision, parentTimeline, timeline, label, reason}`; complete snapshot branch draft, up to 99 copied timeline records plus its descriptor; [shared catalog and governance contract](TIMELINE-BRANCHES.md) |
+| GET `/{world}/timelines/{timeline}/origin` | Optional `revision` (default current); published branch creation request/revision and copied-ID map, or `null` for an ordinary isolated timeline; absent historical timeline returns 404 |
 | GET `/{world}/changes/{id}/diff` | Complete proposal before/after at its immutable base revision |
 | GET `/{world}/changes/{id}/reconciliation` | Original/current/proposed records, record-level conflicts and cross-record validation finding |
 | POST `/{world}/changes/{id}/rebase` | `{id: UUID, baseRevision, reason, resolutions: {recordId: current/proposed}}`; `baseRevision` is the preview current revision; creates a fresh draft |
@@ -73,7 +75,7 @@ A world contains at most 5,000 records initially. An immutable identity registry
 - `relationship_cardinality` rule: `attributes.check=relationship_cardinality`, required record `type`/`timeline`/`predicate`, and string `attributes.min` and/or `max` in 0–5000. Bounds count simultaneous declared relationship edges for each entity of the subject type in that timeline, intersected with rule/entity validity. Missing min is 0 and missing max is 5000. Adjacent intervals do not overlap; a minimum requires coverage throughout the applicable period.
 - `exclusive_facts` rule: required record `type`/`timeline`, `attributes.check=exclusive_facts`, and comma-separated `attributes.predicates` containing 2–20 distinct declared boolean predicates. At most one may be true at any applicable tick for an entity. False values and other timelines do not count. Rule/entity validity narrows the scope. Unknown checks remain rejected; natural-language consistency findings remain advisory.
 
-Fictional `from`/`until` use signed integer ticks and half-open intervals `[from, until)`, unrelated to real `timestamptz` audit timestamps. Missing bounds are unbounded. The API does not assume a Gregorian calendar. Reviewed [fictional calendars](CALENDARS.md) format dates from the requested revision; timeline inheritance and additional rule types remain separate extensions. Cardinality, boolean exclusivity and canonical chronology exceptions are implemented.
+Fictional `from`/`until` use signed integer ticks and half-open intervals `[from, until)`, unrelated to real `timestamptz` audit timestamps. Missing bounds are unbounded. The API does not assume a Gregorian calendar. Reviewed [fictional calendars](CALENDARS.md) format dates from the requested revision. [Snapshot branches](TIMELINE-BRANCHES.md) copy timeline-specific records through review while retaining the shared world catalog; automatic parent inheritance is absent. Cardinality, boolean exclusivity and canonical chronology exceptions are implemented.
 
 Current projections have typed/reference/time columns in `worldbuilder.record`; JSONB holds type schemas, typed scalar values and presentation attributes. Complete immutable snapshots in `worldbuilder.revision` provide historical reads, story pins and compensating revision recovery. The initial projection rewrite is O(world size) and serialises writes per world; measure before optimising.
 
@@ -102,6 +104,8 @@ Session definitions (title, owner, timeline) and pinned revision live in Postgre
 Revision lists and diffs are membership-scoped and read immutable PostgreSQL snapshots, including all timelines. Diff pages are ordered by record ID. Proposal diffs compare against the original base, while reconciliation compares that base with current canon. Deletion and addition use an absent (`null`) side. Changes that already match current canon are omitted from a reconciled draft; an empty result cannot be submitted. Record-level conflict detection intentionally requires review even when edits touch different attributes of one record. Cross-record validation still applies after conflict choices.
 
 Restore creates an ordinary compensating draft against the inspected current revision, with the target recorded in immutable audit. Original snapshots remain unchanged. A stale base returns 409; more than 100 operations returns 422 and requires smaller independently valid proposals. Restore/reconciliation request IDs bind to the complete request and actor, and never imply publication permission.
+
+Branch creation proposals are a deliberate exception to record-by-record reconciliation: prepare a complete new branch draft at the current revision instead. Partial rebase must not omit copies or detach the published branch from its audited origin.
 
 ## Structured editing
 

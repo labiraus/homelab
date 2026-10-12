@@ -137,6 +137,13 @@ func (sc *scope) reconcilePreview(ctx context.Context, kind, id string) (Reconci
 		if err != nil {
 			return Reconciliation{}, err
 		}
+		var branch bool
+		if err = sc.tx.QueryRow(ctx, `SELECT EXISTS(SELECT FROM worldbuilder.audit WHERE world_id=$1 AND resource=$2 AND action='timeline.branch')`, sc.world.ID, c.ID).Scan(&branch); err != nil {
+			return Reconciliation{}, err
+		}
+		if branch {
+			return Reconciliation{}, bad("prepare a new timeline branch proposal against current canon; branch copies cannot be partially rebased")
+		}
 		baseRevision, ops = c.BaseRevision, c.Operations
 	} else {
 		s, err := sc.session(ctx, id)

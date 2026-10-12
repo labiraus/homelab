@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 
 test("independent browser users propose, review, publish and keep private stories isolated", async ({
   browser,
@@ -67,7 +68,10 @@ test("independent browser users propose, review, publish and keep private storie
   await editor
     .getByRole("combobox", { name: "Record kind", exact: true })
     .selectOption("entity");
-  await editor.getByLabel("Stable ID", { exact: true }).fill("pilgrim");
+  const stableID = editor.getByLabel("Stable ID", { exact: true });
+  await stableID.fill("invalid identity");
+  expect(await stableID.evaluate(input => input.validity.patternMismatch)).toBe(true);
+  await stableID.fill("pilgrim");
   await editor.getByLabel("Label", { exact: true }).fill("Pilgrim");
   await editor
     .getByRole("combobox", { name: "Entity type", exact: true })
@@ -359,5 +363,73 @@ test("superuser registers a user and explicitly reviews their own proposal", asy
     await proposal.getByRole("button", { name: "Publish approved change", exact: true }).click();
     await expect(page.getByText(/canon revision 1/)).toBeVisible();
     await expect(proposal).toContainText("published");
+  } finally { await context.close(); }
+});
+
+test("a timeline branch is reviewed before publication and retains its parent snapshot", async ({ browser }) => {
+  const baseURL = process.env.WORLDBUILDER_BROWSER_URL;
+  if (!baseURL) throw new Error("Disposable browser harness required");
+  const context = await browser.newContext({ baseURL, extraHTTPHeaders: { "Test-Actor": "browser-superuser@example.test" } });
+  await context.route("**/*", (route) => new URL(route.request().url()).origin === new URL(baseURL).origin ? route.continue() : route.abort());
+  const world = randomUUID();
+  const path = `/api/worlds/${world}`;
+  async function post(url, data) {
+    const response = await context.request.post(url, { data });
+    expect(response.status(), await response.text()).toBe(200);
+    return response.json();
+  }
+  async function publish(revision, records) {
+    const id = randomUUID();
+    await post(`${path}/changes`, { id, baseRevision: revision, reason: "Browser branch fixture", operations: records.map(record => ({ action: "put", id: record.id, record })) });
+    await post(`${path}/changes/${id}/submit`, {});
+    await post(`${path}/changes/${id}/review`, { decision: "approved", reason: "Fixture superuser review" });
+    await post(`${path}/changes/${id}/publish`, {});
+  }
+  try {
+    await post("/api/worlds", { id: world, name: "Branch browser world" });
+    const fact = { id: "age", kind: "fact", label: "Opening age", subject: "hero", predicate: "age", valueType: "number", value: 20, timeline: "main", source: "source", from: "-9223372036854775808", until: "9223372036854775807" };
+    await publish(0, [
+      { id: "person", kind: "type", label: "Person", fields: { age: "number" } },
+      { id: "hero", kind: "entity", label: "Hero", type: "person" },
+      { id: "source", kind: "source", label: "Notes" },
+      fact,
+    ]);
+    const page = await context.newPage();
+    await page.goto("/");
+    await page.getByRole("button", { name: "Worlds", exact: true }).click();
+    await page.getByLabel("Open world").selectOption(world);
+    await expect(page.getByText(/canon revision 1/)).toBeVisible();
+    await page.getByLabel("Search canon", { exact: true }).fill("unmatchedfilter");
+    await page.getByRole("button", { name: "Load canon", exact: true }).click();
+    await page.getByRole("button", { name: "Prepare timeline branch", exact: true }).click();
+    const timelineInput = page.getByLabel("New timeline ID", { exact: true });
+    await timelineInput.fill("invalid timeline");
+    expect(await timelineInput.evaluate(input => input.validity.patternMismatch)).toBe(true);
+    await timelineInput.fill("fork");
+    expect(await timelineInput.evaluate(input => input.validity.valid)).toBe(true);
+    await page.getByLabel("New timeline name", { exact: true }).fill("Fork history");
+    await page.getByLabel("Branch reason", { exact: true }).fill("Explore the fork");
+    await page.getByRole("button", { name: "Create branch draft", exact: true }).click();
+    await expect(page.getByRole("status")).toContainText("Review and publish");
+    expect((await (await context.request.get(path)).json()).revision).toBe(1);
+    const proposal = page.locator("article").filter({ has: page.getByRole("heading", { name: "Explore the fork", exact: true }) });
+    await proposal.getByRole("button", { name: "Submit for review", exact: true }).click();
+    await page.getByLabel("Review reason", { exact: true }).fill("Reviewed the complete fixed parent snapshot");
+    await proposal.getByRole("button", { name: "Approve", exact: true }).click();
+    await proposal.getByRole("button", { name: "Publish approved change", exact: true }).click();
+    await expect(page.getByText(/canon revision 2/)).toBeVisible();
+    await publish(2, [{ ...fact, value: 30 }]);
+    await page.getByLabel("Timeline", { exact: true }).fill("fork");
+    await page.getByLabel("Search canon", { exact: true }).fill("Opening age");
+    await page.getByLabel("Fictional time", { exact: true }).fill("10");
+    await page.getByRole("button", { name: "Load canon", exact: true }).click();
+    await expect(page.getByText(/canon revision 3/)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Opening age fact", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "View timeline origin", exact: true }).click();
+    await expect(page.getByText(/created from main at revision 1/)).toBeVisible();
+    const result = await (await context.request.get(`${path}/search?timeline=fork&revision=3&q=age&at=10`)).json();
+    expect(result.records.filter(r => r.kind === "fact").map(r => r.value)).toEqual([20]);
+    expect(result.citations.every(c => c.timeline === "fork" && c.revision === 3)).toBe(true);
+    expect((await context.request.get(`${path}/timelines/fork/origin?revision=1`)).status()).toBe(404);
   } finally { await context.close(); }
 });

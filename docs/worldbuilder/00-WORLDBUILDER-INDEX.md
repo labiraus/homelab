@@ -1,6 +1,6 @@
 # Worldbuilder AI — Migration documentation index
 
-Status: **approved target architecture; initial remote baseline verified; broader [offline follow-ups](OFFLINE-WORK.md) in progress; LAN activation/cutover pending, no observed deployment**.
+Status: **approved target architecture; initial baseline and multiple live application checks verified; remaining [offline follow-ups](OFFLINE-WORK.md), physical control-plane recovery and storage cutover remain open**. Use [current implementation status](IMPLEMENTATION-STATUS.md) for exact source, publication and deployed evidence.
 
 This documentation supersedes Evolve's previous document-first product direction for **application behaviour**. It does not automatically supersede infrastructure, security, development, or operations documents.
 
@@ -34,6 +34,8 @@ The existing codebase and deployed manifests are evidence of the **current state
 - [Decisions](DECISIONS.md)
 - [Troubleshooting](TROUBLESHOOTING.md)
 - [API/event contracts](API.md)
+- [Reviewed snapshot timeline branches](TIMELINE-BRANCHES.md)
+- [Optional metered canon semantic search](SEMANTIC-SEARCH.md)
 - [Concrete LAN runbook](LAN-RUNBOOK.md)
 
 - [Operational metrics, dashboard and read-only recovery diagnostics](OBSERVABILITY.md).

@@ -8,7 +8,11 @@ Worldbuilder date reads and edits preserve the complete signed 64-bit tick range
 
 Wiki links to unloaded records retain the displayed revision, timeline and exact submitted fictional-time filter. Unsaved filter edits do not change the scope of a record being inspected.
 
-Expand **Relationship graph** or **Chronology** in the wiki to explore the loaded published scope. Graph arrows follow typed subject/target relationships, including reverse/self edges; choose an entity to focus, and follow node/edge/source links into the same inspected scope. The diagram caps at 24 nodes/36 edges for readability; its table retains every loaded relationship in the chosen focus. Chronology orders events by exact signed start tick and stable ID, with half-open end dates and source/participant links. Both views show loaded/total coverage and search/time/revision/timeline scope. **Load more canon records** extends them; editor drafts, private stories and the independently loaded editor reference catalog do not enter these views. Calendar presentation remains a separate follow-up.
+`WorldTimelineBranch.jsx` prepares a branch proposal from the displayed parent timeline/revision, pins the destination base before editing and preserves exact uncertain retries. All parent timeline records/dates are included regardless of wiki filters, within the 99-record limit; shared world catalog/settings remain shared. The ordinary review queue controls publication. Readers can inspect audited creation origin at the displayed historical revision. The third disposable Chromium flow covers creation, review, parent divergence and scoped origin. See [branch contracts](../../docs/worldbuilder/TIMELINE-BRANCHES.md).
+
+Record and branch identifiers use browser-native character validation as well as the authoritative server checks. Chromium acceptance explicitly rejects embedded spaces; the regex hyphen is escaped for Unicode-set pattern compilation.
+
+Expand **Relationship graph** or **Chronology** in the wiki to explore the loaded published scope. Graph arrows follow typed subject/target relationships, including reverse/self edges; choose an entity to focus, and follow node/edge/source links into the same inspected scope. The diagram caps at 24 nodes/36 edges for readability; its table retains every loaded relationship in the chosen focus. Chronology orders events by exact signed start tick and stable ID, with half-open end dates and source/participant links. Both views show loaded/total coverage and search/time/revision/timeline scope. **Load more canon records** extends them; editor drafts, private stories and the independently loaded editor reference catalog do not enter these views. Dates use the calendar metadata from the same published scope.
 
 The authenticated Worlds tab (`Worldbuilder.jsx`) provides world creation, membership, wiki/history, structured record staging, independent review/publication, pinned story sessions, turn persistence and outcome proposals. AI candidates remain explicit drafts or provisional turns. The API is disabled until its LAN gate, and the UI reports that condition. Existing Labiraus document tools below remain available.
 
@@ -29,7 +33,7 @@ The UI exposes:
 - `/api/users/count`
 - an authenticated Inventory tab backed by `/api/documents/inventory` for Postgres document state
 - an Inventory Scan Bucket action backed by `/api/documents/scan-bucket`
-- an authenticated Search tab backed by `/api/documents/search` for semantic chunk retrieval
+- an authenticated Search tab backed by `/api/documents/search` for document chunk retrieval (lexical by default)
 - a Search-tab context panel backed by `/api/documents/context` for cited context blocks
 - a Search-tab lifecycle panel backed by `/api/documents/history` for retrieved documents
 - a Search-tab document actions panel backed by `/api/documents/curation`, `/api/documents/edit-text`, and `/api/documents/reprocess`
@@ -49,7 +53,7 @@ The authenticated Assistant tab lists saved conversation trails, sends chat mess
 
 Assistant UX work should keep this approval boundary visible: model-suggested file changes remain proposals until an authenticated browser user approves or rejects them, and audit/revert views should make the resulting MinIO and Postgres changes inspectable.
 
-The authenticated Search tab submits natural-language queries to the public API, optionally narrows by object-key prefix or one exact metadata key/value pair, and renders the top matching processed chunks with similarity scores and download links. The same filters can assemble a compact cited context block through `/api/documents/context`. Each search result can also load its durable lifecycle history from `/api/documents/history`, showing processing versions, timestamps, lifecycle subjects, and recorded payload details. Search results can be selected for document actions that update curated metadata, load and save guarded raw text edits, or queue reprocessing through `external`.
+The authenticated Search tab submits natural-language queries to the public API, optionally narrows by object-key prefix or one exact metadata key/value pair, and renders the top matching processed chunks with ranking scores and download links. The same filters can assemble a compact cited context block through `/api/documents/context`. Each search result can also load its durable lifecycle history from `/api/documents/history`, showing processing versions, timestamps, lifecycle subjects, and recorded payload details. Search results can be selected for document actions that update curated metadata, load and save guarded raw text edits, or queue reprocessing through `external`.
 
 Text editing is limited to selected text documents with source object keys. The UI loads the current text through `/api/documents/object`, requires the user to change the text and confirm the raw overwrite, then sends the replacement to `/api/documents/edit-text` so `orchestrator` writes MinIO and queues the next processing version.
 

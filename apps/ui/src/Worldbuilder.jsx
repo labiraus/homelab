@@ -9,6 +9,7 @@ import WorldGenerations from "./WorldGenerations.jsx";
 import WorldConnections from "./WorldConnections.jsx";
 import WorldViews from "./WorldViews.jsx";
 import WorldUsers from "./WorldUsers.jsx";
+import WorldTimelineBranch from "./WorldTimelineBranch.jsx";
 import ProposalFindings, { Findings } from "./WorldFindings.jsx";
 
 const base = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -677,6 +678,15 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
               </button>
             </aside>
           )}
+          <WorldTimelineBranch
+            api={api}
+            path={path}
+            timeline={canon.timeline || new URLSearchParams(canonFilters).get("timeline")}
+            revision={canon.revision}
+            currentRevision={canon.world.revision}
+            canEdit={canEdit}
+            onSaved={reload}
+          />
           <HistoryPanel
             api={api}
             path={path}

@@ -104,6 +104,20 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 		return nil, pageErr
 	}
 	resource := strings.Join(path, "/")
+	if resource == "timeline-branches" && r.Method == "POST" {
+		var body TimelineBranchRequest
+		if err := decode(w, r, &body); err != nil {
+			return nil, err
+		}
+		return sc.branchTimeline(ctx, body)
+	}
+	if len(path) == 3 && path[0] == "timelines" && path[2] == "origin" && r.Method == "GET" {
+		revision, err := integerQuery(r, "revision", sc.world.Revision)
+		if err != nil {
+			return nil, err
+		}
+		return sc.branchOrigin(ctx, path[1], revision)
+	}
 	if resource == "generations" {
 		if r.Method == "GET" {
 			return sc.generations(ctx, limit, offset)

@@ -109,7 +109,7 @@ The app stack under `apps/` is intentionally small:
 - `apps/pkg/*`: shared Go packages for HTTP server startup, logging, metrics, and integrations
 - `evals/ragas`: RAGAS-based retrieval/chunking quality checks against live processed chunks
 
-Worldbuilder is the application target: PostgreSQL canon, independently reviewed atomic publication, revision-scoped wiki and AI, and persistent provisional stories. See the [architecture and migration index](docs/worldbuilder/00-WORLDBUILDER-INDEX.md), [implementation status](docs/worldbuilder/IMPLEMENTATION-STATUS.md), and [LAN rollout gate](docs/worldbuilder/LAN-RUNBOOK.md). The new application is default-disabled pending schema, dedicated credentials and mesh identity validation. CI publication is authorised on `main`; this is not a claim of cluster readiness.
+Worldbuilder is the application target: PostgreSQL canon, reviewed atomic publication, revision-scoped wiki and AI, [snapshot timeline branches](docs/worldbuilder/TIMELINE-BRANCHES.md), and persistent provisional stories. See the [architecture and migration index](docs/worldbuilder/00-WORLDBUILDER-INDEX.md), [implementation status](docs/worldbuilder/IMPLEMENTATION-STATUS.md), and [LAN rollout gate](docs/worldbuilder/LAN-RUNBOOK.md). Application defaults are disabled; activation requires schema, dedicated credentials and mesh identity validation. Current deployed evidence and outstanding recovery work are tracked in status. CI publication is authorised on `main`; publication alone does not prove cluster readiness.
 
 Retained document capabilities:
 
