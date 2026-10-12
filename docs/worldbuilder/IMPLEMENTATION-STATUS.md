@@ -1,6 +1,10 @@
 # Worldbuilder implementation status
 
-## Increment 34 — disposable source-policy mesh gate (under verification)
+## Actual canon projection and discovery — 2026-10-12
+
+Source `5419134` closes a skipped-coverage gap with the [isolated canon index gate](INDEX-ACCEPTANCE.md). All five selected Go tests run without skips against real PostgreSQL, JetStream and OpenSearch: authorized discovery boundaries, durable outbox acknowledgement, duplicate/stale-event refusal and rebuild after deleting the derived index. The downloaded artifact matches its published checksum and confirms owned container/volume removal. All eight platform jobs `38191883197` and complete external/orchestrator image/chart publication `38191883711` / `38191883640` pass. Local acceptance remains pending its slow pinned-image download; the first download timeout cleaned up and is not a test pass. Canon semantic retrieval, optional timeline inheritance and the live recovery/cutover gates remain open.
+
+## Increment 34 — disposable source-policy mesh gate (hosted acceptance verified)
 
 The new [mesh gate](MESH-ACCEPTANCE.md) installs Cilium and Istio in an owned kind cluster and exercises the rendered external/MCP network, exact workload identity, native-auth and TLS Gateway policies. Synthetic backends keep these controller checks independent of production credentials and application-level OAuth tests. The matrix includes positive controls, spoof/plaintext/refused-role checks, metrics isolation, auth-backend outage and controller replacement. Hosted platform CI now requires this gate before dependent publication.
 
@@ -266,7 +270,9 @@ Pre-existing edits were preserved; by the main-branch switch they had been inclu
 6. M6/M7: persistent pinned story sessions, atomic/idempotent turns, outcomes routed to ordinary review.
 7. M8: prepare discovery/export/recovery and controlled rollout; no decommission offline.
 
-## Milestone checkpoints
+## Initial milestone checkpoints (historical)
+
+These pre-LAN checkpoints retain their original scope. Use the latest recovery sections above and [current handoff](../RecoveryHandoff-2026-10-11.md) for observed activation, recovery and remaining blockers.
 
 | Milestone | Source implementation and result | Remaining gate |
 |---|---|---|
