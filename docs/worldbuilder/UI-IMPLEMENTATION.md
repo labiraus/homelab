@@ -1,6 +1,6 @@
 # AI-first frontend implementation
 
-The 13 October signed-in audit and source-only corrections are tracked in [frontend correction acceptance](UI-CORRECTIONS.md). That document supersedes the earlier layout/story presentation claims below; publication evidence here remains historical and does not imply the correction is deployed.
+The 13 October signed-in audit, source corrections and repeated deployed acceptance through Ready revision 60 are tracked in [frontend correction acceptance](UI-CORRECTIONS.md). That document supersedes the earlier layout/story presentation claims below; the 12 October publication evidence here remains historical.
 
 Source work on 2026-10-12 implements the [AI-first specification](05-AI-FIRST-UI.md) inside the existing Vite/React frontend. The original implementation phase made no cluster, GitOps, infrastructure, production data or authentication configuration changes. The subsequent user-authorized publication and deployed checks are tracked separately below.
 

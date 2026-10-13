@@ -4,6 +4,8 @@ Inspected 13 October 2026. Target: https://mcp.labiraus.com. Reference: `C:/User
 
 ## Overall assessment
 
+This signed-in inspection predates the correction releases. The [current deployed-asset assessment](UI-CORRECTIONS.md#deployment-and-repeated-design-review--13-october-2026) records the replacement's viewport, composer, review and saved-scene checks, with production authenticated journeys kept separate. The findings below remain historical evidence.
+
 The deployed application implements a substantial portion of the specification's information architecture and canon-review UI. It opens a selected world in Workspace, provides all five primary sections, uses the specified composer placeholder, exposes revision/timeline context, supports an optional source inspector, and displays readable proposal comparisons. The main remaining gaps are the prominence of the conversation/composer, mobile layout, technical language, and the immersive story experience.
 
 This is a signed-in inspection of deployed UI, not a source-code or backend-security audit. All 12 worlds available in the account's selector were labelled synthetic and archived. The principal inspected world was `Owned live AI acceptance (synthetic)`, revision 1, main timeline. Archived state prevents meaningful verification of creation, publication and new story turns. Disabled write controls in this world are not evidence that those features are missing.

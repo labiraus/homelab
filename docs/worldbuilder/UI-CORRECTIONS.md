@@ -4,11 +4,23 @@ This correction follows the [correction brief](WORLDBUILDER-UI-CORRECTION-BRIEF.
 
 ## Deployment and repeated design review — 13 October 2026
 
-Pushed source `094db4f4fc30428cee48d269938c236654007259` passes complete [UI CI/CD 38402588759](https://github.com/labiraus/homelab/actions/runs/38402588759), including the UI/database browser checks, all eight platform gates, image smoke and chart publication. Automatic Flux reconciliation installs UI Helm revision 59, Ready at 13:21:13 UTC. Its OCI metadata identifies that exact source, chart digest `sha256:0020350a4cb7c2ff5be3817b2c0956b9c21776b61f0ebe04fe97bf027b8e004d` and workload image digest `sha256:66dc0a0dab4732c6ea71fb54d31263ee68c07cfff7462a9d7f1968bbffd2b7ab`; the UI Pod is Ready with zero restarts. Served JS/CSS match the retained correction-build hashes byte-for-byte.
+### Current accepted release
+
+Follow-up source `ee1feba65f1a815398cb7766ed6a812557970f88` passes complete [UI CI/CD 38405146042](https://github.com/labiraus/homelab/actions/runs/38405146042), including the new responsive gate, existing actual API/database browser acceptance, all eight platform gates and image/chart publication. Automatic Flux reconciliation installs Ready Helm revision **60** at 13:39:42 UTC. The exact source is recorded in OCI metadata; chart digest is `sha256:a85e955c97bb514d4576fcf8292977714981ad99c962ee1f7140fbb85e5563fb`, and the UI image digest is `sha256:2d80e57973dcc004d38452cf1d6df0e8c5b678c8bc90d168c6acb7cf062c8817`. UI and mesh sidecar are Ready with zero restarts; the Service has exactly one Ready endpoint pointing to the replacement Pod.
+
+All **nine** workspace journeys pass again against that Pod's compiled assets, and all **ten** served files match the verified build byte-for-byte. Final public TLS/discovery and anonymous/forged-header refusal checks pass independently. The owned loopback forward is closed and its listener is gone. Kubernetes readyz and all five application Deployment availability checks pass; deployed external's source `ceaeb29` has no differences from the tested current external/shared Go code, and its workload image matches its chart's app version. These checks do not establish production Google/model/active-world acceptance.
+
+Retained evidence: [checksum manifest](/tmp/worldbuilder-reevaluation-final-evidence.json), [release/Pod/endpoint identity](/tmp/worldbuilder-reevaluation-final-release.json), [served-asset equality](/tmp/worldbuilder-reevaluation-final-assets.json), [public checks](/tmp/worldbuilder-reevaluation-public-final.json), [terminal CI jobs](/tmp/worldbuilder-reevaluation-final-ci-jobs.json), and screenshots under `/tmp/worldbuilder-reevaluation-deployed-final/`. All browser screenshots use explicit synthetic API fixtures; they contain no production canon.
+
+### Initial rollout and source failure
+
+Initial pushed source `094db4f4fc30428cee48d269938c236654007259` passes complete [UI CI/CD 38402588759](https://github.com/labiraus/homelab/actions/runs/38402588759), including the UI/database browser checks, all eight platform gates, image smoke and chart publication. Automatic Flux reconciliation installs UI Helm revision 59, Ready at 13:21:13 UTC. Its OCI metadata identifies that exact source, chart digest `sha256:0020350a4cb7c2ff5be3817b2c0956b9c21776b61f0ebe04fe97bf027b8e004d` and workload image digest `sha256:66dc0a0dab4732c6ea71fb54d31263ee68c07cfff7462a9d7f1968bbffd2b7ab`; the UI Pod is Ready with zero restarts. Served JS/CSS match the retained correction-build hashes byte-for-byte.
 
 All nine workspace journeys pass against the actual Pod's compiled assets through an owned HTTP loopback forward, with explicit synthetic API fixtures. Required viewport containment, composer bounds, navigation/source focus and continuity, readable archived comparisons, scene-first story/pinned cast and multiline scrolling pass. Desktop/mobile screenshots were inspected. This proves shipped frontend behavior, not authenticated production API/model integration. Public TLS, native discovery and anonymous/forged-header refusal pass independently in `/tmp/worldbuilder-reevaluation-public-before.json`.
 
-Repeated source testing exposes a reduced-height focus failure at 390×500 in Vite, although the same check passes against the deployed production build. The follow-up explicitly brings a focused composer above the visible bottom on resize and updates its height on document scroll. Source checks pass all 84 component tests, the build and all nine workspace journeys. CI now requires that responsive suite before image publication, separately from real API/database journeys; failed traces/screenshots are retained. The workspace config accepts an owned loopback `WORLDBUILDER_BROWSER_URL` for served-asset checks and rejects external fixture hosts. Follow-up publication and rollout remain pending at this checkpoint.
+Repeated source testing exposes a reduced-height focus failure at 390×500 in Vite, although the same check passes against the deployed production build. The follow-up explicitly brings a focused composer above the visible bottom on resize and updates its height on document scroll. Source checks pass all 84 component tests, the build and all nine workspace journeys. CI now requires that responsive suite before image publication, separately from real API/database journeys; failed traces/screenshots are retained. The workspace config accepts an owned loopback `WORLDBUILDER_BROWSER_URL` for served-asset checks and rejects external fixture hosts. The accepted follow-up above supersedes this initial source failure.
+
+### Current design assessment
 
 | Design requirement | Repeated assessment |
 |---|---|
@@ -30,7 +42,7 @@ The user confirms the Google audience has not been changed. Proxy wildcard domai
 4. `WorldStorySetup.jsx`, `Worldbuilder.jsx`: pinned canon entity picker and scene-first saved sessions; player directions use the existing `/reason` `story_turn` contract, manual narration remains authoring.
 5. World configuration and overlay focus: expose supported settings through reviewed drafts; disclose guide/style API gaps, group administration separately, use shared tokens and accessible drawers/sheets.
 
-All tests use local HTTP fixtures or the established owned disposable PostgreSQL/API harness. No production canon, deployment, cluster resources or GitOps state is changed.
+The original source-only implementation used local HTTP fixtures and the established owned disposable PostgreSQL/API harness. Its validation changed no production canon, deployment, cluster resources or GitOps state; the later authorized GitOps releases are recorded above.
 
 ## Contract limits
 
@@ -40,7 +52,7 @@ All tests use local HTTP fixtures or the established owned disposable PostgreSQL
 - Story definitions provide private premise/objective/style/participants. `story_turn` processes player directions at the session's inspected version and returns candidates; explicit save persists private state, not canon. No Sandbox mode, structured location or inventory contract is exposed. Never infer these from prose.
 - Browser cancellation stops waiting; it cannot prove provider cancellation or a refund.
 
-## Validation
+## Original source validation
 
 | Check | Result |
 |---|---|
@@ -70,4 +82,3 @@ These screenshots contain **local synthetic HTTP-fixture content**, not producti
 - A real mobile software keyboard, browser-chrome/safe-area interaction, assistive screen reader and systematic contrast audit. Dynamic visual-viewport sizing, safe-area padding, focus and existing themes are implemented, but resized desktop Chromium is not real-device evidence.
 - Actual provider quality/latency, live player directions, generated turns/proposal consistency and durable provider cancellation. Player-direction contract and version-bound explicit saves have local fixture coverage; the actual API story journey uses human-authored narration.
 - Production authenticated active-world generation, creation/publication, conflicts and outcome review after this correction. The supplied deployed audit covers archived reads; no world was reopened or production canon changed for validation.
-- Production acceptance of these source changes. No commit, push, publication, deployment, cluster mutation or GitOps rollout was initiated. The user's pre-existing devcontainer-lock change and supplied brief/audit files were preserved.

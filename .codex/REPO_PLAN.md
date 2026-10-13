@@ -2,9 +2,9 @@
 
 The authoritative product target is [Worldbuilder architecture](../docs/worldbuilder/01-WORLDBUILDER-ARCHITECTURE.md). The [migration](../docs/worldbuilder/02-WORLDBUILDER-MIGRATION.md) defines M1–M8; [implementation status](../docs/worldbuilder/IMPLEMENTATION-STATUS.md) records actual source readiness, tests and gaps. The [prior document-platform plan](../docs/worldbuilder/archive/PRE-WORLDBUILDER-PLAN.md) is historical.
 
-## Current frontend correction source - 2026-10-13
+## Current frontend correction deployment - 2026-10-13
 
-The signed-in deployed audit confirms archived-world browsing, authentication, proposals and saved-story reads, while identifying mobile overflow, offscreen composition and form-heavy review/stories. Source corrections are local only: viewport containment, compact header/rail history, readable exploration/comparisons, pinned story picker/scene and reviewed configuration. See [correction acceptance](../docs/worldbuilder/UI-CORRECTIONS.md). No production canon, deployment, cluster or GitOps mutation is authorized in this task. Production generation/publication/story-turn, real software-keyboard and dedicated world/style-guide contracts remain separate gates. Earlier release checkpoints below do not establish acceptance of these changes.
+User-authorized deployment verification and repair publishes source `ee1feba` through complete UI CI/CD `38405146042`; automatic Flux reconciliation installs Ready revision 60. Exact source/image/chart, zero-restart UI/mesh containers, one Ready endpoint and ten-file build equality are verified. All nine deployed-asset workspace journeys and separate public TLS/discovery/anonymous/forged-header refusal pass; the owned test forward is closed. Responsive viewport/focus checks now gate publication alongside real disposable API/database and all eight platform gates. See [current correction acceptance](../docs/worldbuilder/UI-CORRECTIONS.md). No production canon is changed or archived world reopened. Production Google/model/active-world, distinct-human, real keyboard/screen-reader/contrast and dedicated guide/style contracts remain separate gates. The Google audience is unchanged and this session has no authenticated Cloud access to change it. Earlier release checkpoints below remain historical.
 
 ## Published release checkpoint — 2026-10-12
 
