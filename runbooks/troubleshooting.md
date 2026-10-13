@@ -24,6 +24,8 @@ An Internal Google OAuth audience restricts sign-in to its Workspace organizatio
 
 ## Worldbuilder composer or mobile overflow
 
+The required viewport suite is `npm run test:workspace`, which must gate UI publication alongside the disposable API browser suite. With `WORLDBUILDER_BROWSER_URL` set to an owned HTTP loopback UI-Pod forward, it checks the deployed bundle instead of starting Vite; close the forward afterward. The workspace config rejects external fixture URLs. A reduced-height resize can leave the focused send control below the viewport in development even when production Chromium scrolls it into view. The explicit resize handler brings the full focused composer above the visible bottom and updates geometry on document scroll. Keep that regression, and require real-device keyboard acceptance separately.
+
 An archived world's paused writes are expected. Horizontal overflow and an offscreen composer are presentation defects; do not reopen worlds or publish proposals to test them. The 13 October correction replaces fixed pane minimum heights with available viewport sizing, constrains intrinsic control widths and reserves composer height. Run the local rendered viewport gate before accepting a replacement UI. A passing image smoke or DOM-only test cannot prove layout, hit targets or real-device keyboard behavior. See [correction acceptance](../docs/worldbuilder/UI-CORRECTIONS.md); these changes remain source-only until a separately authorized deployment.
 
 ## SSH CA recovery (2026-10-11)

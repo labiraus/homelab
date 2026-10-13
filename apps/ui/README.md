@@ -4,7 +4,7 @@ Worlds open into a conversation workspace, with Explore, Drafts & Proposals, Sto
 
 Container builds copy `package-lock.json` and run `npm ci`, matching CI's dependency resolution. Local `node_modules`, generated output and environment files are excluded from the Docker context.
 
-Before chart publication, CI runs `browser/image-smoke.py` against the published image with networking disabled, checking Nginx configuration and fetching the actual index and compiled JS/CSS over the container's own loopback. Browser/database acceptance remains a separate pre-build gate.
+Before chart publication, CI runs `browser/image-smoke.py` against the published image with networking disabled, checking Nginx configuration and fetching the actual index and compiled JS/CSS over the container's own loopback. Both responsive workspace journeys and browser/database acceptance are required pre-build gates, with failed workspace traces/screenshots retained.
 
 Worldbuilder date reads and edits preserve the complete signed 64-bit tick range. The UI retains large dates as decimal strings and requires browser JSON reviver source-context support for numeric date responses; unsupported browsers show an update-required error. See the [date wire contract](../../docs/worldbuilder/API.md).
 
@@ -148,7 +148,9 @@ npm run build
 npm run test:workspace
 ```
 
-`test:workspace` starts a loopback Vite server and runs desktop/mobile HTTP-fixture Chromium journeys. Install the pinned Playwright Chromium and its OS dependencies first. It covers conversation/citations, generated draft editing/submission, ambiguity/failure, isolation and private story resume. These fixtures are only browser tests. For actual API/SQL governance, build first, then run from the repository root:
+`test:workspace` starts a loopback Vite server and runs desktop/mobile HTTP-fixture Chromium journeys. Install the pinned Playwright Chromium and its OS dependencies first. It covers conversation/citations, generated draft editing/submission, ambiguity/failure, isolation and private story resume. Focused composer resizing also covers a reduced 390×500 viewport: the focused form is brought above the visible bottom edge after resize, with scroll measurements kept current. This is not real-device keyboard evidence.
+
+To repeat the same fixtures against deployed assets, start an owned loopback-only forward to the verified UI Pod, then use `WORLDBUILDER_BROWSER_URL=http://127.0.0.1:19473 npm run test:workspace`. This selects the served bundle instead of starting Vite. External fixture URLs are rejected. Close the forward afterward. These fixtures do not authenticate against or exercise production APIs. For actual API/SQL governance, build first, then run from the repository root:
 
 ```sh
 WORLDBUILDER_TEST_TRANSPORT=exec WORLDBUILDER_BROWSER_TEST=1 bash scripts/worldbuilder/test-postgres.sh

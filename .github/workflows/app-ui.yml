@@ -74,6 +74,20 @@ jobs:
         run: npx playwright install --with-deps chromium
         working-directory: apps/ui
 
+      - name: Responsive workspace and design acceptance
+        run: npm run test:workspace
+        working-directory: apps/ui
+        env:
+          WORLDBUILDER_BROWSER_ARTIFACTS: ${{ runner.temp }}/worldbuilder-workspace-artifacts
+
+      - name: Retain failed workspace browser evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worldbuilder-workspace-failure
+          path: ${{ runner.temp }}/worldbuilder-workspace-artifacts
+          if-no-files-found: ignore
+
       - name: Browser acceptance against disposable PostgreSQL
         run: bash scripts/worldbuilder/test-postgres.sh
         env:

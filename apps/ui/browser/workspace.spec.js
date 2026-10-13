@@ -679,6 +679,34 @@ test("saved story opens directly on its scene and character selection uses the s
   ).toBeLessThanOrEqual(390);
 });
 
+test("reduced mobile viewport keeps the focused composer and send control usable", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await fixture(page);
+  const input = page.getByLabel("Question or creative direction");
+  await input.focus();
+  await page.setViewportSize({ width: 390, height: 500 });
+  await input.fill("Who is Aldric?");
+  await page.screenshot({ path: test.info().outputPath("reduced-mobile.png") });
+  await expect
+    .poll(() =>
+      page.locator(".wb-composer").evaluate((node) => {
+        const rect = node.getBoundingClientRect();
+        return rect.top >= 0 && rect.bottom <= window.innerHeight;
+      }),
+    )
+    .toBe(true);
+  await expect(input).toBeFocused();
+  const send = page.getByRole("button", { name: "Send message", exact: true });
+  const box = await send.boundingBox();
+  expect(box.y + box.height).toBeLessThanOrEqual(500);
+  await send.click();
+  await expect(
+    page.getByText("Aldric ruled the northern houses.", { exact: true }),
+  ).toBeVisible();
+});
+
 test("long replies and bounded multiline input preserve the composer and independent scrolling", async ({
   page,
 }) => {

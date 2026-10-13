@@ -1,5 +1,11 @@
 # Worldbuilder implementation status
 
+## Frontend correction deployed and re-evaluated — 2026-10-13
+
+Complete UI CI/CD `38402588759` publishes source `094db4f`; automatic Flux reconciliation reaches Ready Helm revision 59. Exact source/chart/image, zero-restart Pod and compiled-asset equality are verified. All nine workspace journeys pass against deployed assets using explicit loopback API fixtures, and public TLS/discovery/anonymous/forged-header refusal passes separately. The prior 13 October presentation audit describes the earlier bundle; see the [current design assessment and retained limits](UI-CORRECTIONS.md#deployment-and-repeated-design-review--13-october-2026).
+
+Follow-up source hardens the focused composer after a reduced-height resize, adds its regression and makes the responsive suite a required publication gate. Local 84 component tests, build and nine workspace journeys pass; follow-up publication remains pending. Real Google-proxy production journeys, outside-domain sign-in and real mobile keyboard/screen-reader acceptance remain unverified. The user confirms Google audience is unchanged, and this session has no authenticated Google Cloud access. No production canon writes are used.
+
 ## AI-first frontend publication and scrolling correction — 2026-10-12
 
 Initial source `9927e3e` passes complete [UI CI/CD 38303543096](https://github.com/labiraus/homelab/actions/runs/38303543096): 79 tests, disposable PostgreSQL/browser/restore, dependency audit, all eight platform gates and image/chart publication. Automatic Flux reconciliation installs the exact source; Helm revision 57 is Ready at 20:32 UTC and the replacement UI/sidecar is ready with no restarts. Compiled assets match the local verified build byte-for-byte. Both original desktop/mobile journeys pass against deployed assets with explicit API fixtures; public HTTPS/authentication and authenticated MCP canon/record reads also pass.

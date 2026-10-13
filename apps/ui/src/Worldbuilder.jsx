@@ -377,6 +377,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
     const node = layout.current;
     if (!node) return;
     const viewport = window.visualViewport;
+    let resizeFrame;
     const update = () => {
       const bottom = viewport
         ? viewport.height + viewport.offsetTop
@@ -386,17 +387,36 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
         `${Math.max(200, bottom - node.getBoundingClientRect().top - 12)}px`,
       );
     };
+    const resize = () => {
+      update();
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(() => {
+        const composer = document.activeElement?.closest(".wb-composer");
+        if (!composer || !node.contains(composer)) return;
+        const bottom = viewport
+          ? viewport.height + viewport.offsetTop
+          : window.innerHeight;
+        const overflow = composer.getBoundingClientRect().bottom - bottom;
+        if (overflow > 0) {
+          window.scrollBy({ top: overflow + 12, behavior: "instant" });
+          update();
+        }
+      });
+    };
     update();
     const observer =
       typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
     observer?.observe(document.querySelector(".topbar") || node);
-    window.addEventListener("resize", update);
-    viewport?.addEventListener("resize", update);
+    window.addEventListener("resize", resize);
+    window.addEventListener("scroll", update, { passive: true });
+    viewport?.addEventListener("resize", resize);
     viewport?.addEventListener("scroll", update);
     return () => {
       observer?.disconnect();
-      window.removeEventListener("resize", update);
-      viewport?.removeEventListener("resize", update);
+      cancelAnimationFrame(resizeFrame);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("scroll", update);
+      viewport?.removeEventListener("resize", resize);
       viewport?.removeEventListener("scroll", update);
     };
   }, [!!canon, section]);

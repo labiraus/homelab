@@ -77,7 +77,7 @@ To repeat deployed-asset checks, first verify the release/image and start an own
 ```sh
 WORLDBUILDER_BROWSER_URL=http://127.0.0.1:19473 \
 WORLDBUILDER_BROWSER_ARTIFACTS=/tmp/worldbuilder-ui-deployed-check \
-npm run test:browser -- browser/workspace.spec.js
+npm run test:workspace
 ```
 
 Use a fresh artifact directory and close the forward afterward. This command intercepts API requests with test data and never substitutes for the real-session gate. Evidence is retained in `/tmp/worldbuilder-ui-final-evidence.json` (SHA-256 `7a0ff3f15fc4504a8079f2c38e62458d8ee1635a30b053898e026a4a63397329`), containing checksums for the exact release state, CI logs, asset equality report, final public report and browser log. Screenshots and the passing Playwright result are under `/tmp/worldbuilder-ui-final-deployed-fixture-artifacts`.

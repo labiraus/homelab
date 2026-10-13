@@ -1,6 +1,26 @@
 # Frontend correction acceptance — 13 October 2026
 
-This source-only correction follows the [correction brief](WORLDBUILDER-UI-CORRECTION-BRIEF.md), [original specification](05-AI-FIRST-UI.md) and [signed-in deployed audit](WORLDBUILDER-DEPLOYED-UI-AUDIT.md). Historical release checks in UI-IMPLEMENTATION.md describe the earlier deployment, not acceptance of this correction.
+This correction follows the [correction brief](WORLDBUILDER-UI-CORRECTION-BRIEF.md), [original specification](05-AI-FIRST-UI.md) and [signed-in deployed audit](WORLDBUILDER-DEPLOYED-UI-AUDIT.md). Current deployment evidence is below; the original source-only implementation and checks remain historical.
+
+## Deployment and repeated design review — 13 October 2026
+
+Pushed source `094db4f4fc30428cee48d269938c236654007259` passes complete [UI CI/CD 38402588759](https://github.com/labiraus/homelab/actions/runs/38402588759), including the UI/database browser checks, all eight platform gates, image smoke and chart publication. Automatic Flux reconciliation installs UI Helm revision 59, Ready at 13:21:13 UTC. Its OCI metadata identifies that exact source, chart digest `sha256:0020350a4cb7c2ff5be3817b2c0956b9c21776b61f0ebe04fe97bf027b8e004d` and workload image digest `sha256:66dc0a0dab4732c6ea71fb54d31263ee68c07cfff7462a9d7f1968bbffd2b7ab`; the UI Pod is Ready with zero restarts. Served JS/CSS match the retained correction-build hashes byte-for-byte.
+
+All nine workspace journeys pass against the actual Pod's compiled assets through an owned HTTP loopback forward, with explicit synthetic API fixtures. Required viewport containment, composer bounds, navigation/source focus and continuity, readable archived comparisons, scene-first story/pinned cast and multiline scrolling pass. Desktop/mobile screenshots were inspected. This proves shipped frontend behavior, not authenticated production API/model integration. Public TLS, native discovery and anonymous/forged-header refusal pass independently in `/tmp/worldbuilder-reevaluation-public-before.json`.
+
+Repeated source testing exposes a reduced-height focus failure at 390×500 in Vite, although the same check passes against the deployed production build. The follow-up explicitly brings a focused composer above the visible bottom on resize and updates its height on document scroll. Source checks pass all 84 component tests, the build and all nine workspace journeys. CI now requires that responsive suite before image publication, separately from real API/database journeys; failed traces/screenshots are retained. The workspace config accepts an owned loopback `WORLDBUILDER_BROWSER_URL` for served-asset checks and rejects external fixture hosts. Follow-up publication and rollout remain pending at this checkpoint.
+
+| Design requirement | Repeated assessment |
+|---|---|
+| Default conversation, compact world/search header and rail history | Passes against deployed assets; section/world isolation remains asserted |
+| Immediately visible composer, no page overflow, optional inspector | Passes six viewport sizes from 320 to 1440px, multiline replies and focus/return checks; reduced-height source behavior is hardened separately |
+| Plain-language exploration and three-way proposal review | Passes readable blue/green comparison and progressive disclosures; API governance is separately covered by hosted disposable acceptance |
+| Saved story scene and named cast picker | Passes scene-first resume and pinned entity search; actual live model/player quality remains unverified |
+| Supported settings through reviewed drafts | Source/component checks preserve the original revision; dedicated guide/style APIs remain unavailable |
+| Production authentication and safety | Public refusal/discovery checks pass; no legitimate Google-proxy browser session is available for active-world production journeys |
+| Broader product/device capabilities | World-chat persistence/streaming, cross-world search, dedicated guides/style, structured inventory/location and Sandbox mode remain backend gaps; real keyboard/screen-reader/contrast acceptance remains open |
+
+The user confirms the Google audience has not been changed. Proxy wildcard domains and no login `hd` filter are already verified; External audience and registered outside-domain sign-in remain pending. No authenticated Google Cloud console/CLI access is available in this session to make that audience change. No production canon is modified or archived world reopened for this review.
 
 ## Implementation map
 
