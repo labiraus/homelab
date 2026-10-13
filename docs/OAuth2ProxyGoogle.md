@@ -41,7 +41,7 @@ MCP's public transport paths additionally require a Gateway CUSTOM authorization
 6. `oauth2-proxy` forwards trusted identity headers to `external`. The API prefers `X-Forwarded-Email` and also tolerates related proxy user/email header variants so browser auth remains stable across proxy versions and modes.
 7. `external` validates the resulting email against `auth.users`.
 
-When `oauth2-proxy` is fronting mesh-internal services behind Istio, it should not preserve the public browser `Host` header on upstream requests. In this repo, `OAUTH2_PROXY_PASS_HOST_HEADER=false` is important so Istio's outbound HTTP listener matches the request to `homelab-ui` or `homelab-external` instead of falling back to `PassthroughCluster` for `mcp.labiraus.com`.
+Keep `OAUTH2_PROXY_PASS_HOST_HEADER=true` so Worldbuilder can validate same-origin browser writes. The proxy-scoped mesh VirtualService in `helm/infra/oauth2-proxy/templates/upstream-routing.yaml` routes that public Host to `homelab-ui` or `homelab-external` with mTLS. Both settings are required; preserving Host without this route selects `PassthroughCluster` and fails against STRICT mTLS. See [authentication routing](Auth.md#google-login-button).
 
 ## Google Auth Platform Changes
 
@@ -60,7 +60,7 @@ Set these branding/support URLs:
 - Privacy policy: `https://mcp.labiraus.com/privacy-policy.html`
 - Terms of service: `https://mcp.labiraus.com/terms-of-service.html`
 
-For a rough PoC, keep the Google app in testing mode and add your own Google account as a test user.
+For the deployed Worldbuilder app, set the existing Google OAuth project's audience to `External` and publish to production. The proxy accepts all email domains; `external` still requires the Google email to exist in `auth.users`. Follow the [registered-user access procedure and acceptance checks](GoogleOIDCSetup.md#consent-screen-and-test-mode).
 
 ## DNS Changes
 

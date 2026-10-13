@@ -20,6 +20,7 @@ The database-backed identity model is the shared `auth.users` table. The histori
 - Email address is the primary identity key.
 - The only seeded valid user is `oliver@labiraus.com`.
 - Unregistered emails are reported as invalid by the middleware and `/api/auth/status`.
+- Browser sign-in accepts Google accounts from any email domain when their normalized Google email is registered. Keep the proxy's `OAUTH2_PROXY_EMAIL_DOMAINS="*"` and configure the Google OAuth project's audience as `External`; see the [registered-user access procedure](GoogleOIDCSetup.md#consent-screen-and-test-mode). Google authentication does not auto-register users or grant world membership.
 - With Worldbuilder schema 8 enabled, an operator-granted superuser can register ordinary users in **Worlds → Superuser · Manage users**. Registration preserves existing users and records an immutable account audit. Global superuser grants remain operator-owned; the application cannot grant them. See [account API](worldbuilder/API.md#superuser-accounts-schema-8).
 
 ## Runtime Flow

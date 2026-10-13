@@ -49,7 +49,7 @@ Use this checklist when wiring up the PoC:
 1. Create or choose a Google Cloud project.
 2. Configure the OAuth consent screen / Google Auth branding.
 3. Choose `External` audience if you are authenticating personal Google accounts outside a single Google Workspace organization.
-4. Add your own Google account as a test user if the app is still in testing mode.
+4. For the deployed Worldbuilder app, use an `External` audience and publish to production. See the registered-user procedure below; testing has a basic-identity-scope exception.
 5. Create OAuth credentials for a `Web application`.
 6. Add the exact authorized redirect URI used by your upstream auth proxy.
 7. Record the client ID and client secret.
@@ -126,13 +126,22 @@ You usually do not need a JavaScript-origin-only Google client for this repo bec
 
 ## Consent Screen And Test Mode
 
-For a rough PoC:
+Worldbuilder's intended browser access is any Google account whose normalized sign-in email already exists in `auth.users`. Google authenticates the account; the application registry authorizes it. Registration does not grant access to every world: existing world membership and role checks still apply.
 
-- keep the app in testing mode
-- add explicit test users
-- avoid broad publication until redirect URIs, branding, and data usage are settled
+To remove a Google Workspace organization restriction:
 
-If your Google app is unverified or still restricted to test users, sign-in works only for those allowed users.
+1. Open [Google Auth Platform → Audience](https://console.cloud.google.com/auth/audience) in the project owning the OAuth client used by `homelab-oauth2-proxy`. Select the existing client/project rather than creating replacement credentials.
+2. If the user type is `Internal`, change it to `External` using **Make external**. An Internal app cannot authenticate accounts outside its Google Workspace organization.
+3. For the deployed service, use **Publish app** to move the publishing status to production. Follow any branding requirements shown by Google. Keep Data Access limited to `openid email profile` and retain `https://mcp.labiraus.com/oauth2/callback` as the client redirect URI.
+4. In Worldbuilder's superuser **Manage users** screen, register each allowed account's Google sign-in email. Existing accounts need no registration change. Grant world membership separately where needed.
+5. Use a fresh browser session to sign in with a registered account outside `labiraus.com`. Require `/api/auth/status` to return `mode: oidc` and `valid: true`, then verify its permitted world actions.
+6. Separately sign in with an unregistered Google account. Require `valid: false` with `email is not recognized`, and refusal from `/api/worlds`. Successful Google authentication alone must never register the account automatically.
+
+The proxy chart intentionally uses `OAUTH2_PROXY_EMAIL_DOMAINS="*"`. Keep that value: restricting it to `gmail.com` would exclude Google accounts using other domains. The public hostname, cookie domain and redirect allowlist remain `mcp.labiraus.com`; those settings do not restrict the user's email domain. Changing the Google audience on the existing project does not require a chart rollout or credential rotation.
+
+For development, External apps in Testing normally use explicit test users. Google's documented exception allows accounts without test-user enrollment when only `openid`, `email` and `profile` are requested, as this deployment does. Google Workspace administrators can still block an app for their own users regardless of its audience or publishing status. See [Google's OAuth app state overview](https://developers.google.com/identity/protocols/oauth2/production-readiness/overview).
+
+Read-only inspection on 2026-10-13 confirmed the deployed proxy's wildcard email domains and basic identity scopes, and the public login redirect had no `hd` domain filter. The Google project's audience and publishing status were not accessible from this session, and external-account browser acceptance remains pending; these proxy checks alone do not establish a completed audience change.
 
 ## Common Failure Modes
 
