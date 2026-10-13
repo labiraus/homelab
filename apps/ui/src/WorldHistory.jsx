@@ -49,6 +49,10 @@ export function ReconciliationPanel({
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const withId = useRequestId();
+  const panel = useRef(null);
+  useEffect(() => {
+    panel.current?.focus();
+  }, [target.kind, target.id]);
   const sourcePath = `${path}/${target.kind}/${target.id}`;
   async function load() {
     setBusy(true);
@@ -100,7 +104,12 @@ export function ReconciliationPanel({
     }
   }
   return (
-    <fieldset disabled={busy} aria-label="Reconcile changes">
+    <fieldset
+      ref={panel}
+      tabIndex={-1}
+      disabled={busy}
+      aria-label="Reconcile changes"
+    >
       <legend>Reconcile against current canon</legend>
       {error && <p role="alert">{error}</p>}
       <button onClick={onClose}>Close comparison</button>
@@ -123,7 +132,10 @@ export function ReconciliationPanel({
           {preview.records.map((record) => (
             <article key={record.id}>
               <h4>
-                {record.id}
+                {record.proposed?.label ||
+                  record.current?.label ||
+                  record.base?.label ||
+                  record.id}
                 {record.conflict ? " — conflict" : ""}
               </h4>
               <div className="world-diff">

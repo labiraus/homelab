@@ -2,13 +2,14 @@ import { test, expect } from "@playwright/test";
 
 // Isolated UI contract fixtures only. Real authorisation/publication is exercised
 // separately by worldbuilder.spec.js against the owned PostgreSQL Go server.
-async function fixture(page) {
+async function fixture(page, options = {}) {
   const world = {
     id: "fixture-world",
     name: "The Shattered Empire",
     revision: 7,
     defaultTimeline: "main",
     role: "editor",
+    ...options.world,
   };
   const records = [
     {
@@ -35,11 +36,12 @@ async function fixture(page) {
       from: 842,
     },
   ];
+  records.push(...(options.records || []));
   const calls = [],
-    changes = [],
-    sessions = [],
+    changes = options.changes || [],
+    sessions = options.sessions || [],
     definitions = [],
-    turns = [];
+    turns = options.turns || [];
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (url.origin !== new URL(test.info().project.use.baseURL).origin)
@@ -67,8 +69,26 @@ async function fixture(page) {
         world,
         revision: Number(url.searchParams.get("revision") || 7),
         timeline: url.searchParams.get("timeline") || "main",
-        records,
-        total: records.length,
+        records: records.filter(
+          (r) =>
+            (!url.searchParams.get("kind") ||
+              url.searchParams.get("kind").split(",").includes(r.kind)) &&
+            (!url.searchParams.get("q") ||
+              (r.label || "")
+                .toLowerCase()
+                .includes(url.searchParams.get("q").toLowerCase())),
+        ),
+        total: records.filter(
+          (r) =>
+            !url.searchParams.get("kind") ||
+            url.searchParams.get("kind").split(",").includes(r.kind),
+        ).length,
+      };
+    else if (url.pathname.endsWith("/reconciliation"))
+      data = options.comparison || {
+        baseRevision: 7,
+        currentRevision: 7,
+        records: [],
       };
     else if (url.pathname.includes("/records/"))
       data = {
@@ -85,11 +105,12 @@ async function fixture(page) {
       data = {
         baseRevision: body.revision,
         answer:
-          body.workflow === "story_turn"
+          options.answer ||
+          (body.workflow === "story_turn"
             ? "The gates of Ashfall open before you."
             : body.workflow === "canon_proposal"
               ? "A new possibility for the northern houses."
-              : "Aldric ruled the northern houses.",
+              : "Aldric ruled the northern houses."),
         unknown: false,
         citations: [`fixture-world:${body.revision}:main:aldric`],
         operations:
@@ -139,7 +160,13 @@ async function fixture(page) {
       } else data = definitions;
     } else if (url.pathname.endsWith("/sessions")) {
       if (body) {
-        sessions.push({ ...body, version: 0, state: {}, memory: {} });
+        sessions.push({
+          ...body,
+          definition: definitions.find((d) => d.id === body.definitionId),
+          version: 0,
+          state: {},
+          memory: {},
+        });
         data = sessions.at(-1);
       } else data = sessions;
     } else if (url.pathname.endsWith("/turns")) {
@@ -159,7 +186,7 @@ async function fixture(page) {
   await expect(
     page.getByRole("heading", { name: "What happens next?" }),
   ).toBeVisible();
-  return { calls, changes, sessions };
+  return { calls, changes, sessions, world };
 }
 async function nav(page, name) {
   const link = page.getByRole("link", { name, exact: true });
@@ -235,13 +262,13 @@ test("desktop conversation, pinned sources, edited generated draft and human rev
       exact: true,
     }),
   });
-  await expect(proposal).toContainText("draft");
+  await expect(proposal).toContainText("Draft");
   expect(state.changes[0].baseRevision).toBe(7);
   expect(state.changes[0].operations[0].record.label).toBe("The Rival");
   await proposal
     .getByRole("button", { name: "Submit for review", exact: true })
     .click();
-  await expect(proposal).toContainText("ready_for_review");
+  await expect(proposal).toContainText("Ready for review");
   expect(state.calls.some((c) => c.path.endsWith("/publish"))).toBe(false);
   await nav(page, "Workspace");
   await expect(
@@ -293,6 +320,7 @@ test("mobile keyboard navigation, ambiguity, error recovery and persistent story
     "fail please",
   );
   await nav(page, "Stories");
+  await page.getByRole("button", { name: "Create story", exact: true }).click();
   await page
     .getByLabel("Story title", { exact: true })
     .fill("Ashfall adventure");
@@ -300,6 +328,9 @@ test("mobile keyboard navigation, ambiguity, error recovery and persistent story
     .getByLabel("Premise", { exact: true })
     .fill("Arrive at the gates.");
   await page.getByRole("button", { name: "Start at revision 7" }).click();
+  await page
+    .getByText("Characters and session details", { exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Continue story in workspace" })
     .click();
@@ -351,26 +382,335 @@ test("mobile keyboard navigation, ambiguity, error recovery and persistent story
   );
 });
 
-test("scrolled desktop navigation and inspector remain below the sticky header", async ({ page }) => {
+test("scrolled desktop navigation and inspector remain below the sticky header", async ({
+  page,
+}) => {
   await fixture(page);
   await send(page, "Who is Aldric?");
-  await page.getByRole("button", { name: "Open source · aldric", exact: true }).click();
-  for (const size of [{ width: 1280, height: 720 }, { width: 1120, height: 600 }]) {
+  await page
+    .getByRole("button", { name: "Open source · aldric", exact: true })
+    .click();
+  for (const size of [
+    { width: 1280, height: 720 },
+    { width: 1120, height: 600 },
+  ]) {
     await page.setViewportSize(size);
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.evaluate(() =>
+      window.scrollTo(0, document.documentElement.scrollHeight),
+    );
     for (const target of [
       page.getByRole("link", { name: "Workspace", exact: true }),
       page.getByRole("button", { name: "Close inspector", exact: true }),
     ]) {
-      await expect.poll(() => target.evaluate((element) => {
-        const box = element.getBoundingClientRect();
-        const header = document.querySelector(".topbar").getBoundingClientRect();
-        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
-        return box.top >= header.bottom && (hit === element || element.contains(hit));
-      })).toBe(true);
+      await expect
+        .poll(() =>
+          target.evaluate((element) => {
+            const box = element.getBoundingClientRect();
+            const header = document
+              .querySelector(".topbar")
+              .getBoundingClientRect();
+            const hit = document.elementFromPoint(
+              box.x + box.width / 2,
+              box.y + box.height / 2,
+            );
+            return (
+              box.top >= header.bottom &&
+              (hit === element || element.contains(hit))
+            );
+          }),
+        )
+        .toBe(true);
     }
   }
-  await page.getByRole("button", { name: "Close inspector", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Close inspector", exact: true })
+    .click();
   await page.getByRole("link", { name: "Explore", exact: true }).click();
-  await expect(page.getByRole("link", { name: "Explore", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(
+    page.getByRole("link", { name: "Explore", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
+});
+
+test("required viewports contain routes and expose the complete empty composer", async ({
+  page,
+}) => {
+  await fixture(page);
+  for (const size of [
+    { width: 320, height: 844 },
+    { width: 390, height: 844 },
+    { width: 768, height: 900 },
+    { width: 1024, height: 900 },
+    { width: 1366, height: 768 },
+    { width: 1440, height: 900 },
+  ]) {
+    await page.setViewportSize(size);
+    for (const section of [
+      "Workspace",
+      "Explore",
+      "Drafts & Proposals",
+      "Stories",
+      "World Settings",
+    ]) {
+      await nav(page, section);
+      await page.waitForTimeout(100);
+      await page.screenshot({
+        path: test.info().outputPath(`route-${size.width}-${section}.png`),
+      });
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+        .toBeLessThanOrEqual(size.width);
+      if (section === "Workspace") {
+        await page.screenshot({
+          path: test
+            .info()
+            .outputPath(`empty-${size.width}x${size.height}.png`),
+        });
+        await expect
+          .poll(() =>
+            page.locator(".wb-composer").evaluate((node) => {
+              const box = node.getBoundingClientRect();
+              return box.top >= 0 && box.bottom <= window.innerHeight;
+            }),
+          )
+          .toBe(true);
+        await page.screenshot({
+          path: test
+            .info()
+            .outputPath(`empty-${size.width}x${size.height}.png`),
+        });
+      }
+    }
+  }
+});
+
+test("mobile drawer and source sheet trap focus and preserve references across sections", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await fixture(page);
+  await send(page, "Who is Aldric?");
+  const source = page.getByRole("button", { name: "Open source · aldric" });
+  await source.click();
+  const sheet = page.getByRole("dialog", { name: "Source inspector" });
+  await expect(
+    page.getByRole("button", { name: "Close inspector" }),
+  ).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  expect(
+    await sheet.evaluate((node) => node.contains(document.activeElement)),
+  ).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(source).toBeFocused();
+  await source.click();
+  await sheet.getByRole("button", { name: "Ask AI about this" }).click();
+  await expect(
+    page.getByRole("button", { name: /Remove context · King Aldric/ }),
+  ).toBeVisible();
+  const toggle = page.getByRole("button", {
+    name: "World navigation",
+    exact: true,
+  });
+  await toggle.click();
+  const drawer = page.getByRole("dialog", { name: "World", exact: true });
+  await expect(
+    drawer.getByRole("button", { name: "Close navigation" }),
+  ).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  expect(
+    await drawer.evaluate((node) => node.contains(document.activeElement)),
+  ).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(toggle).toBeFocused();
+  await nav(page, "Explore");
+  await nav(page, "Workspace");
+  await expect(
+    page.getByText("Aldric ruled the northern houses.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Remove context · King Aldric/ }),
+  ).toBeVisible();
+});
+
+test("archived proposal compares blue and green without JSON at every required width", async ({
+  page,
+}) => {
+  const gate = {
+    id: "gate",
+    kind: "entity",
+    label: "City gate",
+    attributes: { description: "The city entrance", colour: "blue" },
+  };
+  const proposed = {
+    ...gate,
+    attributes: { ...gate.attributes, colour: "green" },
+  };
+  const state = await fixture(page, {
+    world: {
+      archived: true,
+      name: "An extremely long archived world name that must remain accessible on the narrowest viewport",
+    },
+    records: [
+      gate,
+      {
+        id: "settings",
+        kind: "world_settings",
+        label: "World settings",
+        timeline: "main",
+      },
+    ],
+    changes: [
+      {
+        id: "change",
+        reason: "City gate: blue → green",
+        status: "draft",
+        author: "editor@example.test",
+        baseRevision: 7,
+        operations: [{ action: "put", id: "gate", record: proposed }],
+        approvals: [],
+        requiredApprovals: 1,
+      },
+    ],
+    comparison: {
+      baseRevision: 7,
+      currentRevision: 7,
+      records: [
+        { id: "gate", base: gate, current: gate, proposed, conflict: false },
+      ],
+    },
+  });
+  for (const width of [320, 390, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await nav(page, "Drafts & Proposals");
+    await page
+      .getByRole("button", { name: "Compare proposal with current canon" })
+      .click();
+    const comparison = page.getByRole("group", { name: "Reconcile changes" });
+    await expect(comparison).toContainText("Original");
+    await expect(comparison).toContainText("Current canon");
+    await expect(comparison).toContainText("Proposed");
+    await expect(comparison).toContainText("blue");
+    await expect(comparison).toContainText("green");
+    await expect(
+      page.getByText("0 of 1 required approvals.", { exact: true }),
+    ).toBeVisible();
+    if (width === 390 || width === 1440)
+      await page.screenshot({
+        path: test.info().outputPath(`comparison-${width}.png`),
+        fullPage: true,
+      });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+    await page.getByRole("button", { name: "Close comparison" }).click();
+    await nav(page, "Explore");
+    await expect(
+      page.getByRole("heading", {
+        name: "World settings World settings",
+        exact: true,
+      }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+  }
+  expect(state.calls.some((c) => c.body && !c.path.endsWith("/reason"))).toBe(
+    false,
+  );
+});
+
+test("saved story opens directly on its scene and character selection uses the supported pin", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const session = {
+    id: "saved",
+    title: "Saved journey",
+    pinnedRevision: 3,
+    timeline: "main",
+    version: 4,
+    state: {},
+    memory: {},
+    definition: { premise: "A private premise", participants: ["aldric"] },
+  };
+  const state = await fixture(page, {
+    sessions: [session],
+    turns: [{ version: 4, narration: "You reach the old city gate." }],
+  });
+  await nav(page, "Stories");
+  await page.getByRole("button", { name: "Resume Saved journey" }).click();
+  const scene = page.getByRole("article", { name: "Saved scene" });
+  await expect(scene).toContainText("You reach the old city gate.");
+  const box = await scene.boundingBox();
+  expect(box.y + box.height).toBeLessThan(844);
+  await expect(page.getByLabel("Story title", { exact: true })).toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath("story-mobile.png") });
+  await page.getByLabel("Your action", { exact: true }).fill("Open the gate");
+  await page
+    .getByRole("button", { name: "Continue scene", exact: true })
+    .click();
+  await expect(
+    page
+      .locator("p")
+      .filter({ hasText: /^The gates of Ashfall open before you\.$/ }),
+  ).toBeVisible();
+  expect(
+    state.calls.find((c) => c.path.endsWith("/reason")).body,
+  ).toMatchObject({
+    workflow: "story_turn",
+    revision: 3,
+    sessionId: "saved",
+    expectedVersion: 4,
+  });
+  expect(state.calls.some((c) => c.path.endsWith("/turns") && c.body)).toBe(
+    false,
+  );
+  await page.getByRole("button", { name: "Back to story library" }).click();
+  await page.getByRole("button", { name: "Create story", exact: true }).click();
+  await page.getByLabel("Find characters or places").fill("Aldric");
+  await page.getByRole("checkbox", { name: /King Aldric/ }).check();
+  await expect(
+    page.getByRole("button", { name: "Remove King Aldric" }),
+  ).toBeVisible();
+  expect(
+    state.calls.filter((c) => c.query.kind === "entity").at(-1).query,
+  ).toMatchObject({ revision: "7", timeline: "main", q: "Aldric" });
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(390);
+});
+
+test("long replies and bounded multiline input preserve the composer and independent scrolling", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await fixture(page, { answer: "A grounded fixture paragraph. ".repeat(180) });
+  await send(page, "Who is Aldric?");
+  await expect(
+    page.getByRole("article", { name: "ask response" }),
+  ).toBeVisible();
+  const transcript = page.getByRole("log", { name: "Conversation" });
+  expect(
+    await transcript.evaluate((node) => node.scrollHeight > node.clientHeight),
+  ).toBe(true);
+  await transcript.evaluate((node) => {
+    node.scrollTop = 0;
+  });
+  await page
+    .getByLabel("Question or creative direction")
+    .fill("A line of direction\n".repeat(20));
+  await expect
+    .poll(() =>
+      page
+        .locator(".wb-composer")
+        .evaluate((node) => node.getBoundingClientRect().bottom <= innerHeight),
+    )
+    .toBe(true);
+  expect(
+    await page
+      .getByLabel("Question or creative direction")
+      .evaluate((node) => node.clientHeight < node.scrollHeight),
+  ).toBe(true);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(390);
 });

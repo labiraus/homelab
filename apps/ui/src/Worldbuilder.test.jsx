@@ -136,7 +136,7 @@ describe("Worldbuilder", () => {
       await navigate("Drafts & Proposals");
       await screen.findByText("Quorum proposal");
       expect(
-        screen.getByText(/Currently eligible approvals: 1 \/ 2/),
+        screen.getByText(/1 of 2 required approvals/),
       ).toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: "Publish approved change" }),
@@ -152,7 +152,7 @@ describe("Worldbuilder", () => {
       await navigate("Explore");
       fireEvent.click(screen.getByRole("button", { name: "Load canon" }));
       await navigate("Drafts & Proposals");
-      await screen.findByText(/Currently eligible approvals: 0 \/ 2/);
+      await screen.findByText(/0 of 2 required approvals/);
       expect(
         screen.getByRole("button", { name: "Approve", exact: true }),
       ).toBeInTheDocument();
@@ -200,7 +200,7 @@ describe("Worldbuilder", () => {
       target: { value: "w" },
     });
     await navigate("Explore");
-    await screen.findByRole("heading", { name: "edge relationship" });
+    await screen.findByRole("heading", { name: "edge Relationship" });
     fireEvent.change(screen.getByLabelText("Historical revision"), {
       target: { value: "2" },
     });
@@ -224,7 +224,7 @@ describe("Worldbuilder", () => {
       "Revision 2, timeline main, fictional time -9223372036854775808",
     );
     const article = screen
-      .getByRole("heading", { name: "edge relationship" })
+      .getByRole("heading", { name: "edge Relationship" })
       .closest("article");
     fireEvent.click(within(article).getByRole("link", { name: "hidden" }));
     await screen.findByRole("complementary", { name: "Linked canon record" });

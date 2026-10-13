@@ -1,3 +1,4 @@
+import WorldEntityPicker from "./WorldEntityPicker.jsx";
 import { useEffect, useRef, useState } from "react";
 
 export default function WorldStorySetup({
@@ -15,7 +16,7 @@ export default function WorldStorySetup({
     [premise, setPremise] = useState(""),
     [objective, setObjective] = useState(""),
     [style, setStyle] = useState(""),
-    [cast, setCast] = useState("");
+    [cast, setCast] = useState([]);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [more, setMore] = useState(false);
@@ -53,10 +54,7 @@ export default function WorldStorySetup({
         premise,
         objective,
         style,
-        participants: cast
-          .split(",")
-          .map((x) => x.trim())
-          .filter(Boolean),
+        participants: cast.map((record) => record.id),
         pinnedRevision: premiseCandidate?.revision ?? revision,
         timeline: premiseCandidate?.timeline ?? timeline,
       };
@@ -102,7 +100,7 @@ export default function WorldStorySetup({
     }
   }
   return (
-    <fieldset disabled={busy || archived}>
+    <fieldset disabled={busy}>
       <legend>Private story setup</legend>
       {error && <p role="alert">{error}</p>}
       <label>
@@ -179,13 +177,17 @@ export default function WorldStorySetup({
                 onChange={(e) => setStyle(e.target.value)}
               />
             </label>
-            <label>
-              Cast entity IDs (comma-separated)
-              <input value={cast} onChange={(e) => setCast(e.target.value)} />
-            </label>
+            <WorldEntityPicker
+              api={api}
+              path={path}
+              revision={premiseCandidate?.revision ?? revision}
+              timeline={premiseCandidate?.timeline ?? timeline}
+              value={cast}
+              onChange={setCast}
+            />
           </>
         )}
-        <button>
+        <button disabled={archived}>
           Start at revision{" "}
           {definition?.pinnedRevision ?? premiseCandidate?.revision ?? revision}
         </button>

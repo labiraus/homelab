@@ -33,7 +33,7 @@ describe("canon history and reconciliation", () => {
         onClose={() => {}}
       />,
     );
-    await screen.findByText("hero — conflict");
+    await screen.findByText("Story hero — conflict");
     fireEvent.change(screen.getByLabelText("Reconciliation reason"), {
       target: { value: "Reviewed differences" },
     });

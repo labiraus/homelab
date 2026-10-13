@@ -2,7 +2,11 @@
 
 The authoritative product target is [Worldbuilder architecture](../docs/worldbuilder/01-WORLDBUILDER-ARCHITECTURE.md). The [migration](../docs/worldbuilder/02-WORLDBUILDER-MIGRATION.md) defines M1–M8; [implementation status](../docs/worldbuilder/IMPLEMENTATION-STATUS.md) records actual source readiness, tests and gaps. The [prior document-platform plan](../docs/worldbuilder/archive/PRE-WORLDBUILDER-PLAN.md) is historical.
 
-## Active continuation — 2026-10-12
+## Current frontend correction source - 2026-10-13
+
+The signed-in deployed audit confirms archived-world browsing, authentication, proposals and saved-story reads, while identifying mobile overflow, offscreen composition and form-heavy review/stories. Source corrections are local only: viewport containment, compact header/rail history, readable exploration/comparisons, pinned story picker/scene and reviewed configuration. See [correction acceptance](../docs/worldbuilder/UI-CORRECTIONS.md). No production canon, deployment, cluster or GitOps mutation is authorized in this task. Production generation/publication/story-turn, real software-keyboard and dedicated world/style-guide contracts remain separate gates. Earlier release checkpoints below do not establish acceptance of these changes.
+
+## Published release checkpoint — 2026-10-12
 
 Current frontend release: corrected AI-first source `9c753d5` passes all ten UI CI/CD jobs `38305626270` and is deployed through automatic Flux reconciliation as `0.0.0-uat.38305626270`, Ready Helm revision 58 at 20:52 UTC. Exact source metadata/image/chart, the sole ready Service endpoint, compiled-asset equality, all three deployed-asset fixture journeys, public TLS/auth checks and native MCP canon reads pass. The new scroll hit-target test fails on the initial `9927e3e` release and passes on the replacement, closing the sidebar/inspector overlap. The owned forward is closed and no production fixture data was written. The user confirms no saved browser session is available; real authenticated browser journeys remain blocked, while all feasible release checks are complete. API access has returned; older outage statements below are historical. See [UI release evidence](../docs/worldbuilder/UI-IMPLEMENTATION.md#publication-and-deployed-acceptance--2026-10-12).
 

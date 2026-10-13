@@ -1,4 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import WorldConfiguration from "./WorldConfiguration.jsx";
+import WorldStoryScene from "./WorldStoryScene.jsx";
+import useWorldDialog from "./useWorldDialog.js";
+import { createPortal } from "react-dom";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { parseWorldJSON } from "./worldTicks.js";
 import { createCalendarFormatter } from "./worldCalendar.js";
 import { HistoryPanel, ReconciliationPanel } from "./WorldHistory.jsx";
@@ -8,7 +19,12 @@ import WorldStorySetup from "./WorldStorySetup.jsx";
 import WorldWorkspace from "./WorldWorkspace.jsx";
 import WorldInspector from "./WorldInspector.jsx";
 import { RecordSummary } from "./WorldResponse.jsx";
-import { readWorldRoute, worldHref, sections } from "./worldWorkspace.js";
+import {
+  readWorldRoute,
+  worldHref,
+  sections,
+  humanLabel,
+} from "./worldWorkspace.js";
 import WorldConnections from "./WorldConnections.jsx";
 import WorldViews from "./WorldViews.jsx";
 import WorldUsers from "./WorldUsers.jsx";
@@ -50,6 +66,11 @@ const mergeRows = (before, after, key = "id") => [
   ...new Map([...before, ...after].map((row) => [row[key], row])).values(),
 ];
 export default function Worldbuilder({ email }) {
+  const [headerHost, setHeaderHost] = useState(null);
+  const worldMenu = useRef(null);
+  useLayoutEffect(() => {
+    setHeaderHost(document.getElementById("world-header-tools"));
+  }, []);
   const [worlds, setWorlds] = useState([]),
     [selected, setSelected] = useState(() => readWorldRoute().worldId || ""),
     [name, setName] = useState(""),
@@ -101,6 +122,7 @@ export default function Worldbuilder({ email }) {
     return () => window.removeEventListener("hashchange", sync);
   }, []);
   function selectWorld(value) {
+    if (worldMenu.current) worldMenu.current.open = false;
     setSelected(value);
     window.location.hash = value ? worldHref(value) : "#/worlds";
   }
@@ -119,6 +141,84 @@ export default function Worldbuilder({ email }) {
       setError(e.message);
     }
   }
+  const worldTools = (
+    <div className="wb-world-tools worldbuilder">
+      {error && (
+        <p role="alert">
+          {error}
+          {!available && (
+            <button onClick={() => setListRetry((v) => v + 1)}>
+              Retry worlds
+            </button>
+          )}
+          {available && selected && !selectedWorld && (
+            <button onClick={() => setWorldLookupRetry((v) => v + 1)}>
+              Retry selected world
+            </button>
+          )}
+        </p>
+      )}
+      <details ref={worldMenu} className="wb-world-menu">
+        <summary>World menu</summary>
+        {available && (
+          <details>
+            <summary>Account administration</summary>
+            <WorldUsers api={api} />
+          </details>
+        )}
+        <h3>Create a world</h3>
+        <form onSubmit={create}>
+          <label>
+            World name
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              maxLength={200}
+            />
+          </label>
+          <button disabled={!available}>Create world</button>
+        </form>
+      </details>
+
+      <label>
+        <span className="wb-sr-only">Open world</span>
+        <select
+          title={selectedWorld?.name || "Choose a world"}
+          value={selected}
+          onChange={(e) => selectWorld(e.target.value)}
+        >
+          <option value="">Choose a world</option>
+          {worlds.map((w) => (
+            <option key={w.id} value={w.id}>
+              {w.name}
+              {w.archived ? " (archived)" : ""}
+            </option>
+          ))}
+        </select>
+      </label>
+      {moreWorlds && (
+        <button
+          disabled={worldsBusy}
+          onClick={async () => {
+            setWorldsBusy(true);
+            try {
+              const rows = await api(`?offset=${worldOffset}&limit=100`);
+              setWorlds(mergeRows(worlds, rows));
+              setWorldOffset(worldOffset + rows.length);
+              setMoreWorlds(rows.length === 100);
+            } catch (e) {
+              setError(e.message);
+            } finally {
+              setWorldsBusy(false);
+            }
+          }}
+        >
+          Load more worlds
+        </button>
+      )}
+    </div>
+  );
   return (
     <section className="workspace-shell worldbuilder">
       <header hidden={!!selected}>
@@ -126,80 +226,7 @@ export default function Worldbuilder({ email }) {
         <h1>Worldbuilder</h1>
         <p>A place to imagine, discover and shape your worlds.</p>
       </header>
-      <div className="wb-world-tools">
-        {available && (
-          <details>
-            <summary>Account administration</summary>
-            <WorldUsers api={api} />
-          </details>
-        )}
-        {error && (
-          <p role="alert">
-            {error}
-            {!available && (
-              <button onClick={() => setListRetry((v) => v + 1)}>
-                Retry worlds
-              </button>
-            )}
-            {available && selected && !selectedWorld && (
-              <button onClick={() => setWorldLookupRetry((v) => v + 1)}>
-                Retry selected world
-              </button>
-            )}
-          </p>
-        )}
-        <details open={!selected}>
-          <summary>Create a world</summary>
-          <form onSubmit={create}>
-            <label>
-              World name
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                maxLength={200}
-              />
-            </label>
-            <button disabled={!available}>Create world</button>
-          </form>
-        </details>
-        {!available && !error && <p role="status">Loading your worlds…</p>}
-        <label>
-          Open world
-          <select
-            value={selected}
-            onChange={(e) => selectWorld(e.target.value)}
-          >
-            <option value="">Choose a world</option>
-            {worlds.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-                {w.archived ? " (archived)" : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-        {moreWorlds && (
-          <button
-            disabled={worldsBusy}
-            onClick={async () => {
-              setWorldsBusy(true);
-              try {
-                const rows = await api(`?offset=${worldOffset}&limit=100`);
-                setWorlds(mergeRows(worlds, rows));
-                setWorldOffset(worldOffset + rows.length);
-                setMoreWorlds(rows.length === 100);
-              } catch (e) {
-                setError(e.message);
-              } finally {
-                setWorldsBusy(false);
-              }
-            }}
-          >
-            Load more worlds
-          </button>
-        )}
-      </div>
+      {headerHost ? createPortal(worldTools, headerHost) : worldTools}
       {selected && available && !selectedWorld && !error && (
         <p role="status">Loading selected world…</p>
       )}
@@ -221,11 +248,31 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
     () => readWorldRoute().section || "workspace",
   );
   const [navOpen, setNavOpen] = useState(false);
+  const navigation = useRef(null);
+  const closeNavigation = useCallback(() => setNavOpen(false), []);
+  useWorldDialog(navigation, navOpen, closeNavigation);
+  const [compact, setCompact] = useState(
+    () => window.matchMedia?.("(max-width: 1100px)").matches ?? false,
+  );
+  useEffect(() => {
+    const media = window.matchMedia?.("(max-width: 1100px)");
+    if (!media) return;
+    const update = () => {
+      setCompact(media.matches);
+      setNavOpen(false);
+    };
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  const [railCollapsed, setRailCollapsed] = useState(false);
+  const [historyHost, setHistoryHost] = useState(null);
   const [inspector, setInspector] = useState(null);
   const [references, setReferences] = useState([]);
   const [prompt, setPrompt] = useState(null);
   const [proposalFilter, setProposalFilter] = useState("all");
   const heading = useRef(null);
+  const inspectorReturn = useRef(null);
+  const layout = useRef(null);
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -239,6 +286,10 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
     if (!mounted.current) return;
     setSection(next);
     setNavOpen(false);
+    setInspector(null);
+    setConnectionScope(null);
+    setLinkedRecord(null);
+    window.scrollTo?.(0, 0);
     window.location.hash = worldHref(worldId, next, params);
   }
   useEffect(() => {
@@ -247,6 +298,9 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
       if (route.worldId !== worldId) return;
       setSection(route.section);
       setNavOpen(false);
+      setInspector(null);
+      setConnectionScope(null);
+      setLinkedRecord(null);
       const p = route.params;
       if (
         p.get("record") &&
@@ -276,7 +330,9 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
     return () => window.removeEventListener("hashchange", sync);
   }, [worldId]);
   useEffect(() => {
-    heading.current?.focus();
+    if (section === "workspace" && prompt)
+      layout.current?.querySelector(".wb-composer textarea")?.focus();
+    else heading.current?.focus({ preventScroll: true });
   }, [section]);
   const [canon, setCanon] = useState(null),
     [changes, setChanges] = useState([]),
@@ -310,10 +366,40 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
   });
   const [moreLists, setMoreLists] = useState({});
   const [reviewReason, setReviewReason] = useState("");
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [sceneOpen, setSceneOpen] = useState(false);
   const [session, setSession] = useState(null),
     [turns, setTurns] = useState([]),
     [premiseCandidate, setPremiseCandidate] = useState(""),
     [narration, setNarration] = useState("");
+
+  useEffect(() => {
+    const node = layout.current;
+    if (!node) return;
+    const viewport = window.visualViewport;
+    const update = () => {
+      const bottom = viewport
+        ? viewport.height + viewport.offsetTop
+        : window.innerHeight;
+      node.style.setProperty(
+        "--wb-available-height",
+        `${Math.max(200, bottom - node.getBoundingClientRect().top - 12)}px`,
+      );
+    };
+    update();
+    const observer =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    observer?.observe(document.querySelector(".topbar") || node);
+    window.addEventListener("resize", update);
+    viewport?.addEventListener("resize", update);
+    viewport?.addEventListener("scroll", update);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", update);
+      viewport?.removeEventListener("resize", update);
+      viewport?.removeEventListener("scroll", update);
+    };
+  }, [!!canon, section]);
 
   function loadCanonPage(params, token) {
     if (params.get("kind")) return api(`${path}/canon?${params}`);
@@ -410,7 +496,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
         const params = new URLSearchParams({
           timeline: canon.timeline || timeline,
           revision: String(canon.revision),
-          kind: "type,entity,source,timeline",
+          kind: "type,entity,source,timeline,world_settings",
           limit: "500",
           offset: String(offset),
         });
@@ -448,7 +534,11 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
     }
     if (!operations.length) {
       setStagedRevision(canon.revision);
-      setStagedBefore(Object.fromEntries(canon.records.map((r) => [r.id, r])));
+      setStagedBefore(
+        Object.fromEntries(
+          [...catalog, ...canon.records].map((r) => [r.id, r]),
+        ),
+      );
     }
     setOperations((current) => [
       ...current.filter((op) => op.id !== operation.id),
@@ -472,6 +562,8 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
   async function resume(s) {
     const rows = await api(`${path}/sessions/${s.id}/turns`);
     setSession(s);
+    setSceneOpen(true);
+    setSetupOpen(false);
     setTurns(rows);
     setListOffsets((old) => ({ ...old, turns: rows.length }));
     setMoreLists((old) => ({ ...old, turns: rows.length === 100 }));
@@ -579,6 +671,8 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
   const editorRecords = [...staged.values()];
   return (
     <div
+      className="wb-world"
+      data-section={section}
       aria-busy={busy}
       onClick={(e) => {
         const a = e.target.closest?.('a[href^="#canon-"]');
@@ -622,6 +716,39 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
             Your role: {canon.world.role} · Drafts and story state remain
             separate from published canon.
           </p>
+          {document.getElementById("world-header-search") &&
+            createPortal(
+              <form
+                className="wb-header-search"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  navigate("explore");
+                  void run(() => reload(true));
+                }}
+              >
+                <label>
+                  <span className="wb-sr-only">Search this world</span>
+                  <input
+                    placeholder="Search this world…"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                </label>
+                <button aria-label="Search this world">Search</button>
+              </form>,
+              document.getElementById("world-header-search"),
+            )}
+          {canon.world.archived && (
+            <p className="wb-archive-banner" role="status">
+              This world is archived. You can browse its history; creating or
+              publishing changes is paused.
+              {canon.world.role === "owner" && (
+                <button onClick={() => navigate("settings")}>
+                  Open world administration to reopen
+                </button>
+              )}
+            </p>
+          )}
           <div className="wb-scope-bar">
             <span className="wb-status">
               Published context ·{" "}
@@ -629,28 +756,43 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                 new URLSearchParams(canonFilters).get("timeline")}{" "}
               · revision {canon.revision}
             </span>
-            <button onClick={() => navigate("explore")}>
-              Search / change context
-            </button>
+            <button onClick={() => navigate("explore")}>Change context</button>
             <button onClick={() => navigate("drafts")}>
               Pending approvals ·{" "}
               {changes.filter((c) => c.status === "ready_for_review").length}
             </button>
+            <button
+              className="wb-nav-toggle"
+              aria-expanded={compact ? navOpen : !railCollapsed}
+              aria-controls="world-navigation"
+              onClick={() => {
+                if (window.matchMedia?.("(max-width: 1100px)").matches)
+                  setNavOpen((v) => !v);
+                else setRailCollapsed((v) => !v);
+              }}
+            >
+              World navigation
+            </button>
           </div>
-          <button
-            className="wb-nav-toggle"
-            aria-expanded={navOpen}
-            aria-controls="world-navigation"
-            onClick={() => setNavOpen((v) => !v)}
+          <div
+            ref={layout}
+            className={`wb-layout ${inspector ? "has-inspector" : ""} ${railCollapsed ? "rail-collapsed" : ""}`}
           >
-            World navigation
-          </button>
-          <div className={`wb-layout ${inspector ? "has-inspector" : ""}`}>
             <nav
+              ref={navigation}
+              role={navOpen ? "dialog" : undefined}
+              aria-modal={navOpen || undefined}
+              tabIndex={-1}
               id="world-navigation"
-              className={`wb-nav ${navOpen ? "is-open" : ""}`}
+              className={`wb-nav ${navOpen ? "is-open" : ""} ${railCollapsed ? "is-collapsed" : ""}`}
               aria-label="World"
             >
+              <button
+                className="wb-drawer-close"
+                onClick={() => setNavOpen(false)}
+              >
+                Close navigation
+              </button>
               {Object.entries(sections).map(([key, label]) => (
                 <a
                   key={key}
@@ -664,10 +806,14 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                   {label}
                 </a>
               ))}
+              <div ref={setHistoryHost} />
+              <p className="wb-muted">Your role: {canon.world.role}</p>
             </nav>
             <div className="wb-main">
               <div hidden={section !== "workspace"}>
                 <WorldWorkspace
+                  historyHost={historyHost}
+                  onConversation={() => navigate("workspace")}
                   api={api}
                   path={path}
                   scope={{
@@ -687,7 +833,10 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                   onRemoveReference={(r) =>
                     setReferences((rows) => rows.filter((x) => x !== r))
                   }
-                  onInspect={setInspector}
+                  onInspect={(source) => {
+                    inspectorReturn.current = document.activeElement;
+                    setInspector(source);
+                  }}
                   onExplore={() => navigate("explore")}
                   onStories={(text) => {
                     if (text)
@@ -698,10 +847,14 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                           canon.timeline ||
                           new URLSearchParams(canonFilters).get("timeline"),
                       });
+                    setSetupOpen(true);
+                    setSceneOpen(false);
                     navigate("stories");
                   }}
                   onPremise={(value) => {
                     setPremiseCandidate(value);
+                    setSetupOpen(true);
+                    setSceneOpen(false);
                     navigate("stories");
                   }}
                   onPropose={async (result, candidateReason, requestId) => {
@@ -794,39 +947,12 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                 <fieldset disabled={busy}>
                   <legend>Wiki and history</legend>
                   <form
+                    className="wb-explore-filters"
                     onSubmit={(e) => {
                       e.preventDefault();
                       void run(() => reload(true));
                     }}
                   >
-                    <label>
-                      Timeline
-                      <input
-                        value={timeline}
-                        onChange={(e) => setTimeline(e.target.value)}
-                      />
-                    </label>
-                    <label>
-                      Historical revision
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="Current"
-                        value={revision}
-                        onChange={(e) => setRevision(e.target.value)}
-                      />
-                    </label>
-                    <label>
-                      Fictional time
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="-?[0-9]+"
-                        value={at}
-                        onChange={(e) => setAt(e.target.value)}
-                        placeholder="All times"
-                      />
-                    </label>
                     <label>
                       Search canon
                       <input
@@ -853,11 +979,42 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                           "rule",
                         ].map((kind) => (
                           <option key={kind} value={kind}>
-                            {kind.replaceAll("_", " ")}
+                            {humanLabel(kind)}
                           </option>
                         ))}
                       </select>
                     </label>
+                    <details className="wb-advanced-filters">
+                      <summary>Timeline and history filters</summary>
+                      <label>
+                        Timeline
+                        <input
+                          value={timeline}
+                          onChange={(e) => setTimeline(e.target.value)}
+                        />
+                      </label>
+                      <label>
+                        Historical revision
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="Current"
+                          value={revision}
+                          onChange={(e) => setRevision(e.target.value)}
+                        />
+                      </label>
+                      <label>
+                        Fictional time
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="-?[0-9]+"
+                          value={at}
+                          onChange={(e) => setAt(e.target.value)}
+                          placeholder="All times"
+                        />
+                      </label>
+                    </details>
                     {canon.world.semanticSearch && (
                       <label>
                         Search method
@@ -880,9 +1037,16 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                   </form>
                   <p>
                     Showing {records.length} of {canon.total} records at
-                    revision {canon.revision}. Fictional validity includes its
-                    start and excludes its end.
+                    revision {canon.revision}. Dates show when something is true
+                    in this world.
                   </p>
+                  <details>
+                    <summary>Advanced date help</summary>
+                    <p>
+                      A record applies from its start up to, but not including,
+                      its end.
+                    </p>
+                  </details>
                   {canon.mode === "hybrid" && (
                     <p>
                       Combined word matches and up to 100 meaning-based
@@ -907,15 +1071,24 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                     {records.map((r) => (
                       <article id={`canon-${r.id}`} key={r.id}>
                         <h3>
-                          {r.label || r.id} <small>{r.kind}</small>
+                          {r.label || r.id} <small>{humanLabel(r.kind)}</small>
                         </h3>
+                        {r.attributes?.description && (
+                          <p className="wb-prose">{r.attributes.description}</p>
+                        )}
                         <p>
                           {r.subject && (
-                            <a href={`#canon-${r.subject}`}>{r.subject}</a>
+                            <a href={`#canon-${r.subject}`}>
+                              {catalog.find((x) => x.id === r.subject)?.label ||
+                                r.subject}
+                            </a>
                           )}{" "}
                           {r.predicate}{" "}
                           {r.target && (
-                            <a href={`#canon-${r.target}`}>{r.target}</a>
+                            <a href={`#canon-${r.target}`}>
+                              {catalog.find((x) => x.id === r.target)?.label ||
+                                r.target}
+                            </a>
                           )}{" "}
                           {r.value !== undefined &&
                             (r.valueType === "tick"
@@ -925,7 +1098,10 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                         {r.source && (
                           <p>
                             Source:{" "}
-                            <a href={`#canon-${r.source}`}>{r.source}</a>
+                            <a href={`#canon-${r.source}`}>
+                              {catalog.find((x) => x.id === r.source)?.label ||
+                                r.source}
+                            </a>
                           </p>
                         )}
                         {r.from !== undefined && (
@@ -936,32 +1112,38 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                               : " onwards"}
                           </p>
                         )}
-                        {r.fields && (
-                          <p>
-                            Fields:{" "}
-                            {Object.entries(r.fields)
-                              .map(([k, v]) => `${k} (${v})`)
-                              .join(", ")}
-                          </p>
-                        )}
-                        {r.calendar && (
-                          <p>
-                            Calendar: {r.calendar.name}. Epoch tick{" "}
-                            {r.calendar.epochTick}, year {r.calendar.epochYear};{" "}
-                            {r.calendar.ticksPerDay} ticks per day;{" "}
-                            {r.calendar.cycleYears}-year cycle. Months:{" "}
-                            {r.calendar.months
-                              .map(
-                                (m) =>
-                                  `${m.name}: ${m.days} days${m.leapDays ? ` + ${m.leapDays} in leap years` : ""}`,
-                              )
-                              .join("; ")}
-                            . Leap positions:{" "}
-                            {r.calendar.leapYears?.join(", ") || "none"}.
-                            Weekdays:{" "}
-                            {r.calendar.weekdays?.join(", ") || "none"}; epoch
-                            position {r.calendar.weekdayAtEpoch}.
-                          </p>
+                        {(r.fields || r.calendar) && (
+                          <details>
+                            <summary>Record structure and calendar</summary>
+                            {r.fields && (
+                              <p>
+                                Fields:{" "}
+                                {Object.entries(r.fields)
+                                  .map(([k, v]) => `${k} (${v})`)
+                                  .join(", ")}
+                              </p>
+                            )}
+                            {r.calendar && (
+                              <p>
+                                Calendar: {r.calendar.name}. Epoch tick{" "}
+                                {r.calendar.epochTick}, year{" "}
+                                {r.calendar.epochYear}; {r.calendar.ticksPerDay}{" "}
+                                ticks per day; {r.calendar.cycleYears}-year
+                                cycle. Months:{" "}
+                                {r.calendar.months
+                                  .map(
+                                    (m) =>
+                                      `${m.name}: ${m.days} days${m.leapDays ? ` + ${m.leapDays} in leap years` : ""}`,
+                                  )
+                                  .join("; ")}
+                                . Leap positions:{" "}
+                                {r.calendar.leapYears?.join(", ") || "none"}.
+                                Weekdays:{" "}
+                                {r.calendar.weekdays?.join(", ") || "none"};
+                                epoch position {r.calendar.weekdayAtEpoch}.
+                              </p>
+                            )}
+                          </details>
                         )}
                         {r.kind === "world_settings" && (
                           <p>
@@ -973,12 +1155,13 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                         {r.attributes && (
                           <dl>
                             {Object.entries(r.attributes).map(
-                              ([key, value]) => (
-                                <div key={key}>
-                                  <dt>{key}</dt>
-                                  <dd>{value}</dd>
-                                </div>
-                              ),
+                              ([key, value]) =>
+                                key !== "description" && (
+                                  <div key={key}>
+                                    <dt>{humanLabel(key)}</dt>
+                                    <dd>{value}</dd>
+                                  </div>
+                                ),
                             )}
                           </dl>
                         )}
@@ -1002,7 +1185,8 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                         </button>
                         <span className="wb-status">Published canon</span>
                         <button
-                          onClick={() =>
+                          onClick={() => (
+                            (inspectorReturn.current = document.activeElement),
                             setInspector({
                               worldId,
                               id: r.id,
@@ -1016,7 +1200,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                                 new URLSearchParams(canonFilters).get("at") ||
                                 "",
                             })
-                          }
+                          )}
                         >
                           Inspect {r.label || r.id}
                         </button>
@@ -1114,34 +1298,64 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                 hidden={section !== "settings"}
                 aria-label="World configuration"
               >
-                <p>
-                  World guides, types, calendars and approval rules are
-                  published records. Edit them through a reviewed draft in
-                  Explore.
-                </p>
-                <button onClick={() => navigate("explore")}>
-                  Edit published world settings
-                </button>
-                <WorldTimelineBranch
-                  api={api}
-                  path={path}
-                  timeline={
-                    canon.timeline ||
-                    new URLSearchParams(canonFilters).get("timeline")
+                <WorldConfiguration
+                  record={
+                    catalog.find((r) => r.kind === "world_settings") ||
+                    records.find((r) => r.kind === "world_settings")
                   }
                   revision={canon.revision}
-                  currentRevision={canon.world.revision}
+                  timelines={catalog.filter((r) => r.kind === "timeline")}
                   canEdit={canEdit}
-                  onSaved={reload}
+                  onAdvanced={editRecord}
+                  onExplore={() => navigate("explore")}
+                  onStage={(record, originalRevision) => {
+                    if (originalRevision !== canon.revision)
+                      throw new Error(
+                        "Canon changed while you edited. Load the original revision or begin a fresh edit.",
+                      );
+                    if (
+                      operations.length &&
+                      stagedRevision !== originalRevision
+                    )
+                      throw new Error(
+                        "Save or clear your earlier draft before editing configuration.",
+                      );
+                    stage({ action: "put", id: record.id, record });
+                    setReason(`Update ${record.label}`);
+                    navigate("drafts");
+                  }}
                 />
-                {canon.world.role === "owner" && (
-                  <WorldAdministration
+                <details>
+                  <summary>Advanced timelines and branches</summary>
+                  <WorldTimelineBranch
                     api={api}
                     path={path}
-                    world={canon.world}
+                    timeline={
+                      canon.timeline ||
+                      new URLSearchParams(canonFilters).get("timeline")
+                    }
+                    revision={canon.revision}
+                    currentRevision={canon.world.revision}
+                    canEdit={canEdit}
                     onSaved={reload}
                   />
+                </details>
+                {canon.world.role === "owner" && (
+                  <details id="world-administration">
+                    <summary>
+                      World administration · members, ownership and archive
+                    </summary>
+                    <WorldAdministration
+                      api={api}
+                      path={path}
+                      world={canon.world}
+                      onSaved={reload}
+                    />
+                  </details>
                 )}
+                <button onClick={() => navigate("drafts")}>
+                  View configuration and publication history
+                </button>
               </section>
               <section
                 hidden={section !== "drafts"}
@@ -1251,24 +1465,22 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                     </button>
                   </fieldset>
                 )}
-                {canon.world.archived && (
-                  <p role="status">
-                    This world is archived. History remains readable; an owner
-                    can reopen it.
-                  </p>
-                )}
+
                 <fieldset disabled={busy}>
                   <legend>Review queue</legend>
-                  <p>
-                    Displayed revision policy:{" "}
-                    {canon.reviewPolicy?.requiredApprovals ?? 1} distinct human
-                    approval(s), from owners, admins or reviewers other than the
-                    author. Superusers may approve their own proposals. Each
-                    proposal retains its required count; policy changes use the
-                    stricter count. Publication rechecks current membership
-                    authority, canon revision and deterministic rules; AI cannot
-                    approve.
-                  </p>
+                  <details>
+                    <summary>How approval works</summary>
+                    <p>
+                      Displayed revision policy:{" "}
+                      {canon.reviewPolicy?.requiredApprovals ?? 1} distinct
+                      human approval(s), from owners, admins or reviewers other
+                      than the author. Superusers may approve their own
+                      proposals. Each proposal retains its required count;
+                      policy changes use the stricter count. Publication
+                      rechecks current membership authority, canon revision and
+                      deterministic rules; AI cannot approve.
+                    </p>
+                  </details>
                   <label>
                     Review reason
                     <input
@@ -1330,21 +1542,44 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                             </p>
                           )}
                         <p>
-                          {c.status} · based on revision {c.baseRevision} · by{" "}
-                          {c.author}
+                          <span className="wb-status">
+                            {humanLabel(c.status)}
+                          </span>{" "}
+                          · based on revision {c.baseRevision} · by {c.author}
                         </p>
+                        <div
+                          className="wb-proposal-summary"
+                          aria-label="Proposed changes"
+                        >
+                          {c.operations.map((op, i) => (
+                            <p key={i}>
+                              {op.action === "delete" ? "Remove" : "Update"}{" "}
+                              {op.record?.label ||
+                                catalog.find((r) => r.id === op.id)?.label ||
+                                op.id}
+                              {op.record?.attributes &&
+                                Object.entries(op.record.attributes).map(
+                                  ([key, value]) => (
+                                    <span key={key}>
+                                      {" "}
+                                      · {humanLabel(key)}: {value}
+                                    </span>
+                                  ),
+                                )}
+                            </p>
+                          ))}
+                        </div>
                         <details>
-                          <summary>Inspect operations</summary>
+                          <summary>Advanced operation details</summary>
                           <pre>{JSON.stringify(c.operations, null, 2)}</pre>
                         </details>
                         <p>
                           {c.status === "published"
-                            ? "Approvals at publication"
-                            : "Currently eligible approvals"}
-                          :{" "}
+                            ? "Approvals at publication: "
+                            : ""}
                           {c.approvals?.length ??
                             (c.status === "approved" ? 1 : 0)}{" "}
-                          / {c.requiredApprovals ?? 1} required.
+                          of {c.requiredApprovals ?? 1} required approvals.
                         </p>
                         {c.reviews?.length > 0 && (
                           <ul aria-label={`Reviews for ${c.reason}`}>
@@ -1421,6 +1656,29 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                               {decision === "approved" ? "Approve" : "Reject"}
                             </button>
                           ))}
+                        {c.status === "draft" &&
+                          !canEdit &&
+                          !canon.world.archived && (
+                            <p>
+                              Only an editor with access to this world can
+                              submit their own draft.
+                            </p>
+                          )}
+                        {["ready_for_review", "approved"].includes(c.status) &&
+                          c.author === email &&
+                          !canSelfReview && (
+                            <p>Another reviewer must review your proposal.</p>
+                          )}
+                        {c.status === "approved" && (
+                          <p>
+                            {c.baseRevision !== canon.world.revision
+                              ? "Compare and reconcile with the latest canon before publishing."
+                              : (c.approvals?.length ?? 1) <
+                                  (c.requiredApprovals ?? 1)
+                                ? "More human approvals are needed before publishing."
+                                : "Publication is available to an authorized reviewer."}
+                          </p>
+                        )}
                         {c.status === "approved" &&
                           (canReview ||
                             (canSelfReview && c.author === email)) && (
@@ -1457,103 +1715,63 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                 hidden={section !== "stories"}
                 aria-label="Story library"
               >
-                <fieldset disabled={busy}>
-                  <legend>Interactive stories</legend>
-                  <WorldStorySetup
-                    api={api}
-                    path={path}
-                    revision={canon.revision}
-                    timeline={timeline}
-                    archived={canon.world.archived}
-                    premiseCandidate={premiseCandidate}
-                    onStart={(s) =>
-                      run(async () => {
-                        await resume(s);
-                        await reload();
-                      })
-                    }
-                  />
-                  {!sessions.length && (
-                    <p>
-                      No stories yet. Start with a premise and a published
-                      revision.
-                    </p>
-                  )}
-                  {sessions.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => void run(() => resume(s))}
+                {sceneOpen && session ? (
+                  <>
+                    <WorldStoryScene
+                      key={session.id}
+                      api={api}
+                      path={path}
+                      worldId={worldId}
+                      session={session}
+                      turns={turns}
+                      archived={canon.world.archived}
+                      canEdit={canEdit}
+                      onSaveTurn={(result, requestId) =>
+                        saveTurn(
+                          result.answer,
+                          result.operations,
+                          result,
+                          requestId,
+                        )
+                      }
+                      onInspect={(source) => {
+                        inspectorReturn.current = document.activeElement;
+                        setInspector(source);
+                      }}
+                      onReview={() => {
+                        setReconcileTarget({
+                          kind: "sessions",
+                          id: session.id,
+                        });
+                        navigate("drafts");
+                      }}
+                      onLibrary={() => {
+                        setSceneOpen(false);
+                        setInspector(null);
+                      }}
+                      onWorkspace={() => {
+                        setPrompt({
+                          text: "Continue the story",
+                          intent: "play",
+                        });
+                        navigate("workspace");
+                      }}
+                      moreTurns={listMore("turns", "turns")}
+                    />
+                    <a
+                      href={worldHref(worldId, "stories", {
+                        session: session.id,
+                      })}
                     >
-                      Resume {s.title}
-                    </button>
-                  ))}
-                  {listMore("sessions", "stories")}
-                  {session && (
-                    <>
-                      <h3>{session.title}</h3>
-                      <span className="wb-status">
-                        Private session state · canon-eligible outcomes require
-                        review
-                      </span>
-                      <a
-                        href={worldHref(worldId, "stories", {
-                          session: session.id,
-                        })}
-                      >
-                        Link to story
-                      </a>
-                      <button
-                        onClick={() => {
-                          setPrompt({
-                            text: "Continue the story",
-                            intent: "play",
-                          });
-                          navigate("workspace");
-                        }}
-                      >
-                        Continue story in workspace
-                      </button>
+                      Link to story
+                    </a>
+                    <details>
+                      <summary>Manual narration authoring</summary>
                       <p>
-                        Pinned revision {session.pinnedRevision}, timeline{" "}
-                        {session.timeline}, turn {session.version}. Your
-                        provisional state is private to this session.
+                        Write narration yourself and save it with any staged
+                        provisional changes. This authoring control does not
+                        process a player action.
                       </p>
-                      {session.definition && (
-                        <p>Premise: {session.definition.premise}</p>
-                      )}
-                      {session.memory?.summary && (
-                        <p>
-                          Provisional summary through turn{" "}
-                          {session.memory.throughVersion}:{" "}
-                          {session.memory.summary}
-                        </p>
-                      )}
-                      {session.memory?.choices?.map((choice) => (
-                        <button
-                          key={choice.id}
-                          disabled={canon.world.archived}
-                          onClick={() => {
-                            setPrompt({
-                              text: choice.direction,
-                              intent: "play",
-                            });
-                            navigate("workspace");
-                          }}
-                        >
-                          {choice.label}
-                        </button>
-                      ))}
-                      {[...turns].reverse().map((t) => (
-                        <article key={t.version}>
-                          <h4>Turn {t.version}</h4>
-                          <p>{t.narration}</p>
-                        </article>
-                      ))}
-                      {listMore("turns", "turns")}
-                      <details>
-                        <summary>Provisional state</summary>
-                        <pre>{JSON.stringify(session.state, null, 2)}</pre>
-                      </details>
                       <label>
                         Next narration
                         <textarea
@@ -1568,28 +1786,65 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                       >
                         Save turn with staged changes
                       </button>
-                      {canEdit && (
-                        <button
-                          disabled={!Object.keys(session.state).length}
-                          onClick={() => (
-                            setReconcileTarget({
-                              kind: "sessions",
-                              id: session.id,
-                            }),
-                            navigate("drafts")
-                          )}
-                        >
-                          Reconcile story outcome for review
-                        </button>
-                      )}
-                      <p>
-                        Use the editor to stage provisional facts, relationships
-                        or events before saving a turn. An outcome requires a
-                        reason and independent review.
-                      </p>
-                    </>
-                  )}
-                </fieldset>
+                    </details>
+                  </>
+                ) : (
+                  <>
+                    <h2>Stories</h2>
+                    <p className="wb-muted">
+                      Resume a private story or begin with a published world.
+                    </p>
+                    <div className="wb-story-library">
+                      {sessions.map((s) => (
+                        <article key={s.id}>
+                          <h3>{s.title}</h3>
+                          <p>
+                            Private session state · turn {s.version} · revision{" "}
+                            {s.pinnedRevision}
+                          </p>
+                          <button
+                            disabled={busy}
+                            onClick={() =>
+                              void run(async () =>
+                                resume(await api(`${path}/sessions/${s.id}`)),
+                              )
+                            }
+                          >
+                            Resume {s.title}
+                          </button>
+                        </article>
+                      ))}
+                    </div>
+                    {listMore("sessions", "stories")}
+                    {!sessions.length && <p>No saved stories yet.</p>}
+                    <button
+                      disabled={canon.world.archived}
+                      aria-expanded={setupOpen}
+                      onClick={() => setSetupOpen((v) => !v)}
+                    >
+                      Create story
+                    </button>
+                    <button onClick={() => setSetupOpen(true)}>
+                      Browse story definitions
+                    </button>
+                    <div hidden={!setupOpen}>
+                      <WorldStorySetup
+                        api={api}
+                        path={path}
+                        revision={canon.revision}
+                        timeline={timeline}
+                        archived={canon.world.archived}
+                        premiseCandidate={premiseCandidate}
+                        onStart={(s) =>
+                          run(async () => {
+                            await resume(s);
+                            await reload();
+                          })
+                        }
+                      />
+                    </div>
+                  </>
+                )}
               </section>
             </div>
             {inspector && (
@@ -1598,10 +1853,14 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                 api={api}
                 path={path}
                 scope={inspector}
+                returnFocus={inspectorReturn}
                 canEdit={canEdit}
                 onClose={() => {
                   setInspector(null);
-                  heading.current?.focus();
+                  (inspectorReturn.current?.isConnected
+                    ? inspectorReturn.current
+                    : heading.current
+                  )?.focus({ preventScroll: true });
                 }}
                 onEdit={editRecord}
                 onAsk={(reference) => {

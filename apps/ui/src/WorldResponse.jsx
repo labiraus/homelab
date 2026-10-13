@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Findings } from "./WorldFindings.jsx";
-import { citationScope } from "./worldWorkspace.js";
+import { citationScope, humanLabel } from "./worldWorkspace.js";
 
 export function RecordSummary({ record }) {
   if (!record) return <p>Absent</p>;
@@ -8,20 +8,39 @@ export function RecordSummary({ record }) {
     <>
       <h4>{record.label || record.id}</h4>
       <p>
-        {record.kind}
+        {humanLabel(record.kind)}
         {record.type ? ` · ${record.type}` : ""}
       </p>
       {record.attributes?.description && (
         <p className="wb-prose">{record.attributes.description}</p>
       )}
       <dl className="wb-facts">
+        {Object.entries(record.attributes || {})
+          .filter(([key]) => key !== "description")
+          .map(([key, value]) => (
+            <div key={key}>
+              <dt>{humanLabel(key)}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+      </dl>
+      <dl className="wb-facts">
         {Object.entries(record)
           .filter(
-            ([key]) => !["id", "kind", "label", "attributes"].includes(key),
+            ([key]) =>
+              ![
+                "id",
+                "kind",
+                "label",
+                "attributes",
+                "fields",
+                "relations",
+                "calendar",
+              ].includes(key),
           )
           .map(([key, value]) => (
             <div key={key}>
-              <dt>{key}</dt>
+              <dt>{humanLabel(key)}</dt>
               <dd>
                 {typeof value === "object"
                   ? JSON.stringify(value)
@@ -43,8 +62,8 @@ export function OperationCards({ operations = [] }) {
       {operations.map((op, i) => (
         <article key={`${op.id || op.record?.id}-${i}`}>
           <span className="wb-status">
-            Draft · {op.action === "delete" ? "Remove" : "Set"}{" "}
-            {op.id || op.record?.id}
+            Draft · {op.action === "delete" ? "Remove" : "Update"}{" "}
+            {op.record?.label || op.id || op.record?.id}
           </span>
           {op.record && <RecordSummary record={op.record} />}
         </article>

@@ -1,6 +1,6 @@
 # Worldbuilder frontend
 
-Worlds open into a conversation workspace, with Explore, Drafts & Proposals, Stories and World Settings alongside it. The existing Vite/React stack, host theme and OAuth session remain. See the [AI-first specification](../../docs/worldbuilder/05-AI-FIRST-UI.md) and [implementation and validation](../../docs/worldbuilder/UI-IMPLEMENTATION.md).
+Worlds open into a conversation workspace, with Explore, Drafts & Proposals, Stories and World Settings alongside it. The compact header holds the world selector and world search; the collapsible rail/mobile drawer holds section navigation and in-memory conversation history. The full composer reserves its own bottom row while messages scroll. Resumed stories open directly on their saved scene, with a pin-scoped character picker and explicit provisional turn saves. The existing Vite/React stack, host theme and OAuth session remain. See the [AI-first specification](../../docs/worldbuilder/05-AI-FIRST-UI.md) and [implementation and validation](../../docs/worldbuilder/UI-IMPLEMENTATION.md).
 
 Container builds copy `package-lock.json` and run `npm ci`, matching CI's dependency resolution. Local `node_modules`, generated output and environment files are excluded from the Docker context.
 
@@ -16,7 +16,7 @@ Record and branch identifiers use browser-native character validation as well as
 
 Expand **Relationship graph** or **Chronology** in the wiki to explore the loaded published scope. Graph arrows follow typed subject/target relationships, including reverse/self edges; choose an entity to focus, and follow node/edge/source links into the same inspected scope. The diagram caps at 24 nodes/36 edges for readability; its table retains every loaded relationship in the chosen focus. Chronology orders events by exact signed start tick and stable ID, with half-open end dates and source/participant links. Both views show loaded/total coverage and search/time/revision/timeline scope. **Load more canon records** extends them; editor drafts, private stories and the independently loaded editor reference catalog do not enter these views. Dates use the calendar metadata from the same published scope.
 
-The authenticated Worlds tab (`Worldbuilder.jsx`) provides world creation, membership, wiki/history, structured record staging, independent review/publication, pinned story sessions, turn persistence and outcome proposals. AI candidates remain explicit drafts or provisional turns. The UI reports unavailable or unauthorized API capabilities; source availability does not establish deployed health. Retained Labiraus document tools remain available in the header’s Document tools menu.
+The authenticated Worlds tab (`Worldbuilder.jsx`) provides world creation, membership, wiki/history, structured record staging, independent review/publication, pinned story sessions, turn persistence and outcome proposals. AI candidates remain explicit drafts or provisional turns. The UI reports unavailable or unauthorized API capabilities; source availability does not establish deployed health. Retained Labiraus document tools and Overview remain available in the header account menu’s Document tools disclosure.
 
 `WorldHistory.jsx` adds paginated published history, complete record diffs, compensating restore drafts and explicit original/current/proposed reconciliation for proposals and private story outcomes. The preview's revision and story version are preserved on save; conflicts require a choice and fresh independent review. Manual staged changes retain their original revision when canon is refreshed. `WorldRecordEditor.jsx` loads complete existing records, edits multi-field schemas and relationship declarations, preserves attributes and provides typed fact/rule inputs. Editor reference choices load all bounded reference pages at one revision independently of wiki filters. Load-more controls cover worlds, canon, proposals, sessions and turns; links resolve unloaded records through the scoped record API.
 
@@ -28,7 +28,7 @@ Worldbuilder is the worldbuilding product within the existing Labiraus host and 
 
 The UI exposes:
 
-- a Worldbuilder header with Worlds, retained Overview diagnostics, a secondary Document tools menu and account/theme controls; authenticated root visits open Worlds
+- a Worldbuilder header with world selection/search, a World menu for creation/account administration and account/theme controls; Overview and retained Document tools are in the account menu, and authenticated root visits open Worlds
 - a retained Document assistant backed by `/api/assistant/...` for RAG chat, explicit memories, file proposals, and audit/revert views
 - an auth status menu backed by `/api/auth/status` and `/api/auth/providers`
 - sign-in and sign-out actions from the header auth menu
@@ -127,7 +127,7 @@ The canonical settings editor supports reviewed fictional calendars with custom 
 
 The settings editor configures 1–5 independent human approvals through review. The queue displays each proposal’s required/current count, immutable decisions and invalidated membership authority, and disables publication below quorum. Three-identity browser acceptance proves a two-reviewer change cannot publish after only one vote. See [review policy](../../docs/worldbuilder/REVIEW-POLICY.md).
 
-Worlds → **Account administration** includes **Superuser · Manage users** for the operator-granted class. It registers Google emails as ordinary users; world membership is assigned separately. Superusers can explicitly approve their own proposals, with a required reason and a visible self-approval label. Configured approval counts still apply, and ordinary users retain independent review. The UI reflects server permission; it never grants authority itself. See [superuser accounts](../../docs/worldbuilder/API.md#superuser-accounts-schema-8).
+World menu → **Account administration** includes **Superuser · Manage users** for the operator-granted class. It registers Google emails as ordinary users; world membership is assigned separately. Superusers can explicitly approve their own proposals, with a required reason and a visible self-approval label. Configured approval counts still apply, and ordinary users retain independent review. The UI reflects server permission; it never grants authority itself. See [superuser accounts](../../docs/worldbuilder/API.md#superuser-accounts-schema-8).
 
 ## AI workspace and local acceptance
 
@@ -155,3 +155,9 @@ WORLDBUILDER_TEST_TRANSPORT=exec WORLDBUILDER_BROWSER_TEST=1 bash scripts/worldb
 ```
 
 This uses only owned disposable PostgreSQL and test identities, never a LAN DSN. Browser screenshots/traces go to `WORLDBUILDER_BROWSER_ARTIFACTS` or `/tmp/worldbuilder-browser-artifacts`. The workspace suite also checks actual click targets after desktop scrolling/resizing: sidebar and inspector bounds account for the measured header/footer, preventing controls from slipping under the sticky header at page end. Production model quality, actual human accounts and provider cancellation require separate LAN checks; see [publication and deployed acceptance](../../docs/worldbuilder/UI-IMPLEMENTATION.md#publication-and-deployed-acceptance--2026-10-12) for exact release evidence and browser-session limits.
+
+## Correction acceptance — 13 October 2026
+
+See [frontend corrections](../../docs/worldbuilder/UI-CORRECTIONS.md) for the implementation map, actual checks/screenshots and remaining contracts. World configuration edits stage ordinary reviewed drafts and preserve unrelated settings. Dedicated world/style guides are unsupported; private story premise/style are separate. Manual narration is under authoring controls; **Your action** uses real `story_turn` reasoning and requires explicit candidate save.
+
+`test:workspace` uses local HTTP fixtures and Vite. `test:browser` selects the three actual API journeys and must run through the owned disposable PostgreSQL harness shown above. A resized desktop Chromium viewport verifies layout and focus, not a real mobile software keyboard or screen reader. These source changes are not a deployment.

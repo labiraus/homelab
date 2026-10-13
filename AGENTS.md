@@ -19,6 +19,7 @@ Directory-level `AGENTS.md` files currently exist for:
 - `ansible/`
 - `apps/`
 - `apps/mcp/`
+- `apps/ui/`
 - `components/`
 - `helm/`
 - `sql/`

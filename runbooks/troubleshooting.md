@@ -16,6 +16,10 @@ For an isolated MCP candidate, a public `Host` override can choose Envoy's `Pass
 
 If migration preflight reports `NoSuchVersion` for names containing spaces, or rejects a MinIO continuation marker, compare the raw listing with the requested key first. MinIO `RELEASE.2025-09-07T16-13-09Z` emits form-encoded spaces and v2 cache suffixes. The explicit `minio-v2` export dialect preserves those semantics and records them for offline verification. The initial default-parser preflight falsely reported 79 missing reads; the corrected read-only pass verified all 119 retained source versions and all 116 prior restored references. This is not evidence of source deletion and does not replace the final frozen migration procedure. See [version migration](../docs/StorageVersionMigration.md).
 
+## Worldbuilder composer or mobile overflow
+
+An archived world's paused writes are expected. Horizontal overflow and an offscreen composer are presentation defects; do not reopen worlds or publish proposals to test them. The 13 October correction replaces fixed pane minimum heights with available viewport sizing, constrains intrinsic control widths and reserves composer height. Run the local rendered viewport gate before accepting a replacement UI. A passing image smoke or DOM-only test cannot prove layout, hit targets or real-device keyboard behavior. See [correction acceptance](../docs/worldbuilder/UI-CORRECTIONS.md); these changes remain source-only until a separately authorized deployment.
+
 ## SSH CA recovery (2026-10-11)
 
 The workstation SSH login certificate expired on 2026-07-20 and the old signing CA passphrase was unavailable. Recovery used a staged SSH trust rotation, with no VM recreation, kubeadm reset, or storage deletion. See the [rotation procedure](../docs/Setup.md#recovering-a-lost-ssh-ca-passphrase) and [local secret custody](../docs/Secrets.md).

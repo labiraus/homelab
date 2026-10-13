@@ -12,7 +12,7 @@ describe("Private story setup", () => {
       premise: "Explore",
     };
     const api = vi.fn(async (path, body) =>
-      body ? { ...body, version: 0, state: {} } : [definition],
+      path.includes("/canon?") ? { records: [], total: 0 } : body ? { ...body, version: 0, state: {} } : [definition],
     );
     const onStart = vi.fn();
     render(
@@ -44,6 +44,7 @@ describe("Private story setup", () => {
   it("retains request IDs on an uncertain retry and preserves generated premise scope", async () => {
     let failed = true;
     const api = vi.fn(async (path, body) => {
+      if (path.includes("/canon?")) return { records: [], total: 0 };
       if (!body) return [];
       if (path.endsWith("/sessions") && failed) {
         failed = false;

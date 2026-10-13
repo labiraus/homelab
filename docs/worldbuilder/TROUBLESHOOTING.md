@@ -66,6 +66,10 @@ Delegation negative rendering found that `required` accepted `[]`, emitting an e
 
 Inspect the private job in Worlds and refresh; completed parts remain inspectable. Queueing reserves no future budget, so later parts can stop at allowance or stale-story checks. `uncertain` means a reserved part lost its checkpoint/lease: do not automatically repeat it or refund its allowance. Check dispatch/consumer state and per-part inference attribution using the LAN runbook. Broker retention can require controlled metadata replay; never reset completed steps or reserved inference. A provider call currently holds the world transaction, so cancellation and other same-world operations can wait for its bounded timeout. This serialisation is a measured-load acceptance gate.
 
+## Correction browser gate and viewport checks (2026-10-13)
+
+Keep `test:workspace` (loopback HTTP fixtures) separate from `test:browser` (actual disposable API/SQL governance). The first correction harness timed out while old selectors expected technical labels and administration outside its new menu. Update visible wording/disclosures while retaining exact quorum, privacy, stale-revision and source-pin assertions; inspect retained traces before blaming database transport. Verify owned fixture cleanup before retrying. The software-keyboard acceptance remains a real-device check, independent of the automated viewport matrix.
+
 ## Offline Chromium or Helm schema export fails before application checks
 
 A minimal devcontainer may lack Chromium's NSPR/NSS/X11/DBus libraries and fonts. The first local browser launches failed on `libnspr4.so`, then missing Fontconfig configuration; temporary Debian packages/fonts under `/tmp`, an explicit `LD_LIBRARY_PATH` and `FONTCONFIG_FILE` resolved startup. CI uses Playwright's dependency installer on the disposable runner. Keep fixture identities in `_test.go` and restrict browser requests to the fixture origin.

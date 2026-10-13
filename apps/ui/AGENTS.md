@@ -1,0 +1,10 @@
+# Worldbuilder frontend
+
+Apply `apps/AGENTS.md` and the root policy alongside these UI rules.
+
+- Keep the existing React/Vite stack, shared light/dark tokens, authentication and hash routes. Supporting document routes remain available through the account menu. Close the world-creation menu after successful creation/selection so its overlay cannot obscure primary navigation.
+- Use the correction brief and deployed audit in `docs/worldbuilder/`. Verify rendered document width and complete composer bounds at the specified viewports; DOM visibility or a successful auto-scrolling click does not prove containment. Reserve composer space in the pane and let the transcript scroll. Real software-keyboard acceptance requires a real device or equivalent device environment.
+- Keep conversation cards mounted through section/thread navigation. Source lookup and story character selection retain the submitted revision/timeline/time or immutable story pin. A refreshed world revision must not silently rebase a candidate, manual draft or edited configuration.
+- Drawers/sheets make the global header and other background branches inert, trap focus and restore the invoking control after inert state is removed. Avoid capturing the sheet's autofocus button as the return target.
+- Dedicated world/style guides, Sandbox mode, structured inventory/location, world-chat persistence and streaming are not exposed by current contracts. Do not infer capabilities from generic attributes or narration. Player actions use `/reason` with `story_turn` and inspected `expectedVersion`; manual narration authoring is a separate explicit-save control.
+- Run `test:workspace` for local HTTP-fixture layout/journeys. `test:browser` selects only `worldbuilder.spec.js` and requires the disposable PostgreSQL/API harness. Keep these gates separate so fixture success cannot masquerade as real API acceptance or exhaust the bounded Go browser timeout. Update readable-label/disclosure expectations without weakening authorization, quorum, pin, privacy or conflict assertions.

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import useWorldDialog from "./useWorldDialog.js";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { RecordSummary } from "./WorldResponse.jsx";
 import WorldConnections from "./WorldConnections.jsx";
 import { worldHref } from "./worldWorkspace.js";
@@ -8,6 +9,7 @@ export default function WorldInspector({
   path,
   scope,
   onClose,
+  returnFocus,
   onAsk,
   onEdit,
   canEdit,
@@ -27,20 +29,8 @@ export default function WorldInspector({
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
-  useEffect(() => {
-    if (!sheet) return;
-    const siblings = [...container.current.parentElement.children].filter(
-      (node) => node !== container.current,
-    );
-    const previous = siblings.map((node) => node.inert);
-    siblings.forEach((node) => {
-      node.inert = true;
-    });
-    return () =>
-      siblings.forEach((node, i) => {
-        node.inert = previous[i];
-      });
-  }, [sheet]);
+  const close = useCallback(() => onClose(), [onClose]);
+  useWorldDialog(container, sheet, close, returnFocus);
   useEffect(() => {
     let active = true;
     setData(null);
@@ -70,23 +60,6 @@ export default function WorldInspector({
       aria-modal={sheet || undefined}
       aria-label="Source inspector"
       tabIndex={-1}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
-        if (sheet && e.key === "Tab") {
-          const items = [
-            ...container.current.querySelectorAll(
-              "button:not(:disabled),a[href],input,select,textarea,summary",
-            ),
-          ].filter((node) => node.getClientRects().length);
-          if (e.shiftKey && document.activeElement === items[0]) {
-            e.preventDefault();
-            items.at(-1)?.focus();
-          } else if (!e.shiftKey && document.activeElement === items.at(-1)) {
-            e.preventDefault();
-            items[0]?.focus();
-          }
-        }
-      }}
     >
       <button onClick={onClose} autoFocus>
         Close inspector

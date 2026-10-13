@@ -2301,40 +2301,8 @@ function App() {
 		(proposal) => proposal.status === "pending",
 	);
 
-	return (
-		<main className="app-shell" style={{ "--shell-topbar-height": topbarHeight ? `${topbarHeight}px` : undefined, "--shell-footer-height": footerHeight ? `${footerHeight}px` : undefined }}>
-			<div className="toast-stack" aria-live="polite" aria-label="Document notifications">
-				{toasts.map((toast) => (
-					<article key={toast.id} className={`toast-card ${toast.tone}`}>
-						<div>
-							<p className="toast-title">{toast.title}</p>
-							<p className="toast-copy">{toast.description}</p>
-						</div>
-						<button
-							type="button"
-							className="toast-dismiss"
-							aria-label={`Dismiss ${toast.title}`}
-							onClick={() => dismissToast(toast.id)}
-						>
-							Close
-						</button>
-					</article>
-				))}
-			</div>
-
-			<header className="topbar" ref={topbarRef}>
-				<div className="topbar-brand">
-					<div className="brand-mark" aria-hidden="true">
-						L
-					</div>
-					<div className="brand-copy">
-						<p className="brand-label">Worldbuilder</p>
-						<p className="brand-subtitle">Worlds, stories and shared canon</p>
-					</div>
-				</div>
-
-				<nav className="topbar-nav" aria-label="Primary">
-				{documentsEnabled ? <button type="button" className={`topbar-tab ${page === "worlds" ? "active" : ""}`} onClick={() => navigateToPage("worlds")}>Worlds</button> : null}
+	const documentTools = (
+					<details className="document-tools-menu" open={page !== "worlds"}><summary>Document tools</summary><div className="document-tools-items">
 					<button
 						type="button"
 						className={`topbar-tab ${page === "overview" ? "active" : ""}`}
@@ -2342,7 +2310,7 @@ function App() {
 					>
 						Overview
 					</button>
-					<details className="document-tools-menu" open={page !== "worlds"}><summary>Document tools</summary><div className="document-tools-items">
+
 					{documentsEnabled ? (
 						<button
 							type="button"
@@ -2380,6 +2348,44 @@ function App() {
 						</button>
 					) : null}
 					</div></details>
+	);
+
+	return (
+		<main className={`app-shell ${page === "worlds" && documentsEnabled ? "world-shell" : ""}`} style={{ "--shell-topbar-height": topbarHeight ? `${topbarHeight}px` : undefined, "--shell-footer-height": footerHeight ? `${footerHeight}px` : undefined }}>
+			<div className="toast-stack" aria-live="polite" aria-label="Document notifications">
+				{toasts.map((toast) => (
+					<article key={toast.id} className={`toast-card ${toast.tone}`}>
+						<div>
+							<p className="toast-title">{toast.title}</p>
+							<p className="toast-copy">{toast.description}</p>
+						</div>
+						<button
+							type="button"
+							className="toast-dismiss"
+							aria-label={`Dismiss ${toast.title}`}
+							onClick={() => dismissToast(toast.id)}
+						>
+							Close
+						</button>
+					</article>
+				))}
+			</div>
+
+			<header className="topbar" ref={topbarRef}>
+				<div className="topbar-brand">
+					<div className="brand-mark" aria-hidden="true">
+						L
+					</div>
+					<div className="brand-copy">
+						<p className="brand-label">Worldbuilder</p>
+						<p className="brand-subtitle">Worlds, stories and shared canon</p>
+					</div>
+				</div>
+
+				<nav className="topbar-nav" aria-label="Primary">
+					{page === "worlds" && documentsEnabled ? <><div id="world-header-tools" /><div id="world-header-search" /></> : null}
+				{documentsEnabled ? <button type="button" className={`topbar-tab ${page === "worlds" ? "active" : ""}`} onClick={() => navigateToPage("worlds")}>Worlds</button> : null}
+					{page !== "worlds" && documentTools}
 				</nav>
 
 				<div className="topbar-actions">
@@ -2417,6 +2423,8 @@ function App() {
 										{theme === "dark" ? "Use Light Mode" : "Use Dark Mode"}
 									</button>
 								</div>
+
+								{page === "worlds" && documentTools}
 
 								<div className="auth-meta-grid">
 									<div className="auth-meta-card">

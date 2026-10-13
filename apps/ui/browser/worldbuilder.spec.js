@@ -9,6 +9,22 @@ async function navigate(page, name) {
       .getByRole("button", { name: "World navigation", exact: true })
       .click();
   await link.click();
+  if (
+    name === "Explore" &&
+    !(await page.locator(".wb-advanced-filters").evaluate((node) => node.open))
+  )
+    await page
+      .getByText("Timeline and history filters", { exact: true })
+      .click();
+  if (
+    name === "World Settings" &&
+    !(await page
+      .getByText("Advanced timelines and branches", { exact: true })
+      .evaluate((node) => node.parentElement.open))
+  )
+    await page
+      .getByText("Advanced timelines and branches", { exact: true })
+      .click();
 }
 
 test("independent browser users propose, review, publish and keep private stories isolated", async ({
@@ -46,7 +62,7 @@ test("independent browser users propose, review, publish and keep private storie
     await page.goto("/");
     await page.getByRole("button", { name: "Worlds", exact: true }).click();
     await page.getByLabel("Open world").selectOption(world);
-    await expect(page.getByText(/canon revision 1/)).toBeVisible();
+    await expect(page.locator(".wb-scope-bar")).toContainText("revision 1");
   }
   await open(editor);
   await navigate(editor, "Explore");
@@ -169,7 +185,7 @@ test("independent browser users propose, review, publish and keep private storie
   await proposal
     .getByRole("button", { name: "Submit for review", exact: true })
     .click();
-  await expect(proposal.getByText(/ready_for_review/)).toBeVisible();
+  await expect(proposal.getByText(/Ready for review/)).toBeVisible();
   await expect(
     proposal.getByRole("button", { name: "Approve", exact: true }),
   ).toHaveCount(0);
@@ -185,9 +201,7 @@ test("independent browser users propose, review, publish and keep private storie
     .getByLabel("Review reason", { exact: true })
     .fill("Independently checked typed entity");
   await review.getByRole("button", { name: "Approve", exact: true }).click();
-  await expect(review).toContainText(
-    "Currently eligible approvals: 1 / 2 required.",
-  );
+  await expect(review).toContainText("1 of 2 required approvals.");
   await expect(
     review.getByRole("button", {
       name: "Publish approved change",
@@ -211,14 +225,12 @@ test("independent browser users propose, review, publish and keep private storie
   await secondReview
     .getByRole("button", { name: "Approve", exact: true })
     .click();
-  await expect(secondReview).toContainText(
-    "Currently eligible approvals: 2 / 2 required.",
-  );
+  await expect(secondReview).toContainText("2 of 2 required approvals.");
   await secondReview
     .getByRole("button", { name: "Publish approved change", exact: true })
     .click();
   await expect(secondReview).toContainText(
-    "Approvals at publication: 2 / 2 required.",
+    "Approvals at publication: 2 of 2 required approvals.",
   );
   await navigate(reviewer, "Explore");
   await reviewer
@@ -232,7 +244,10 @@ test("independent browser users propose, review, publish and keep private storie
     .getByRole("button", { name: "Load canon", exact: true })
     .click();
   await expect(
-    reviewer.getByRole("heading", { name: "Pilgrim entity", exact: true }),
+    reviewer.getByRole("heading", {
+      name: "Pilgrim Character or place",
+      exact: true,
+    }),
   ).toBeVisible();
   await reviewer
     .getByRole("button", {
@@ -325,6 +340,9 @@ test("independent browser users propose, review, publish and keep private storie
     .getByRole("region", { name: "Canon visualisations", exact: true })
     .screenshot({ path: test.info().outputPath("canon-views.png") });
   await navigate(editor, "Stories");
+  await editor
+    .getByRole("button", { name: "Create story", exact: true })
+    .click();
   await editor
     .getByLabel("Story title", { exact: true })
     .fill("Private bridge journey");
@@ -427,6 +445,7 @@ test("independent browser users propose, review, publish and keep private storie
     .getByRole("button", { name: "Stage record", exact: true })
     .click();
   await navigate(editor, "Stories");
+  await editor.getByText("Manual narration authoring", { exact: true }).click();
   await editor
     .getByLabel("Next narration", { exact: true })
     .fill("The pilgrim returns home after crossing the bridge.");
@@ -472,7 +491,7 @@ test("independent browser users propose, review, publish and keep private storie
   await navigate(editor, "Stories");
   await editor
     .getByRole("button", {
-      name: "Reconcile story outcome for review",
+      name: "Review story outcomes",
       exact: true,
     })
     .click();
@@ -498,7 +517,7 @@ test("independent browser users propose, review, publish and keep private storie
   await outcome
     .getByRole("button", { name: "Submit for review", exact: true })
     .click();
-  await expect(outcome).toContainText("ready_for_review");
+  await expect(outcome).toContainText("Ready for review");
   await expect(
     outcome.getByRole("button", { name: "Approve", exact: true }),
   ).toHaveCount(0);
@@ -517,7 +536,7 @@ test("independent browser users propose, review, publish and keep private storie
     .getByRole("button", { name: "Approve", exact: true })
     .click();
   await expect(outcomeFor(reviewer)).toContainText(
-    "Currently eligible approvals: 1 / 2 required.",
+    "1 of 2 required approvals.",
   );
   await expect(
     outcomeFor(reviewer).getByRole("button", {
@@ -539,7 +558,7 @@ test("independent browser users propose, review, publish and keep private storie
     .getByRole("button", { name: "Publish approved change", exact: true })
     .click();
   await expect(outcomeFor(second)).toContainText(
-    "Approvals at publication: 2 / 2 required.",
+    "Approvals at publication: 2 of 2 required approvals.",
   );
   await expect(second.getByText(/canon revision 3/)).toBeVisible();
 
@@ -552,7 +571,7 @@ test("independent browser users propose, review, publish and keep private storie
     .getByRole("button", { name: "Load canon", exact: true })
     .click();
   await expect(
-    reviewer.getByRole("heading", { name: "Homecoming event", exact: true }),
+    reviewer.getByRole("heading", { name: "Homecoming Event", exact: true }),
   ).toBeVisible();
   const published = await search(reviewerContext, 3);
   expect(published.records.map((r) => r.id)).toEqual(["homecoming"]);
@@ -614,6 +633,7 @@ test("superuser registers a user and explicitly reviews their own proposal", asy
     const page = await context.newPage();
     await page.goto("/");
     await page.getByRole("button", { name: "Worlds", exact: true }).click();
+    await page.getByText("World menu", { exact: true }).click();
     await page.getByText("Account administration", { exact: true }).click();
     await page.getByText("Superuser · Manage users", { exact: true }).click();
     await page
@@ -677,8 +697,8 @@ test("superuser registers a user and explicitly reviews their own proposal", asy
     await proposal
       .getByRole("button", { name: "Publish approved change", exact: true })
       .click();
-    await expect(page.getByText(/canon revision 1/)).toBeVisible();
-    await expect(proposal).toContainText("published");
+    await expect(page.locator(".wb-scope-bar")).toContainText("revision 1");
+    await expect(proposal).toContainText("Published");
   } finally {
     await context.close();
   }
@@ -754,7 +774,7 @@ test("a timeline branch is reviewed before publication and retains its parent sn
     await page.goto("/");
     await page.getByRole("button", { name: "Worlds", exact: true }).click();
     await page.getByLabel("Open world").selectOption(world);
-    await expect(page.getByText(/canon revision 1/)).toBeVisible();
+    await expect(page.locator(".wb-scope-bar")).toContainText("revision 1");
     await navigate(page, "Explore");
     await page
       .getByLabel("Search canon", { exact: true })
@@ -820,7 +840,7 @@ test("a timeline branch is reviewed before publication and retains its parent sn
     await page.getByRole("button", { name: "Load canon", exact: true }).click();
     await expect(page.getByText(/canon revision 3/)).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Opening age fact", exact: true }),
+      page.getByRole("heading", { name: "Opening age Fact", exact: true }),
     ).toBeVisible();
     await navigate(page, "World Settings");
     await page

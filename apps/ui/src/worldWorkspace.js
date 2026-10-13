@@ -106,3 +106,25 @@ export function conversationQuestion(text, messages, references) {
     );
   return result;
 }
+
+export function humanLabel(value = "") {
+  const labels = {
+    world_settings: "World settings",
+    entity: "Character or place",
+    type: "Record category",
+    fact: "Fact",
+    relationship: "Relationship",
+    source: "Source",
+    timeline: "Timeline",
+    event: "Event",
+    rule: "World rule",
+    ready_for_review: "Ready for review",
+  };
+  return (
+    labels[value] ||
+    value
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replaceAll("_", " ")
+      .replace(/^./, (c) => c.toUpperCase())
+  );
+}

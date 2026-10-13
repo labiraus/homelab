@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./browser",
+  testMatch: "worldbuilder.spec.js",
   workers: 1,
   timeout: 45000,
   outputDir:

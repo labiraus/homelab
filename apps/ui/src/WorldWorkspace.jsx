@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import WorldResponse from "./WorldResponse.jsx";
 import { RecordSummary } from "./WorldResponse.jsx";
@@ -12,6 +13,8 @@ import {
 export default function WorldWorkspace({
   api,
   path,
+  historyHost,
+  onConversation,
   scope,
   canon,
   canEdit,
@@ -55,9 +58,9 @@ export default function WorldWorkspace({
       : thread.scope || scope;
   useEffect(() => () => controller.current?.abort(), []);
   useEffect(() => {
-    if (follow.current && log.current)
+    if (thread.messages.length && follow.current && log.current)
       log.current.scrollTop = log.current.scrollHeight;
-  }, [thread.messages]);
+  }, [thread.messages, busy, error, clarify]);
   useEffect(() => {
     if (!prompt) return;
     setQuestion(prompt.text);
@@ -178,87 +181,48 @@ export default function WorldWorkspace({
     setIntent(mode);
     composer.current?.focus();
   };
-  return (
-    <section className="wb-conversation" aria-label="AI workspace">
-      <div className="wb-thread-tools">
-        <button
+  const conversationTools = (
+    <div className="wb-thread-tools">
+      <button
+        disabled={busy}
+        onClick={() => {
+          const next = {
+            id: crypto.randomUUID(),
+            title: "New conversation",
+            messages: [],
+          };
+          setThreads((old) => [...old, next]);
+          setSelected(next.id);
+          setQuestion("");
+          setError("");
+          onConversation?.();
+        }}
+      >
+        New conversation
+      </button>
+      <label>
+        Recent conversations
+        <select
+          value={selected}
           disabled={busy}
-          onClick={() => {
-            const next = {
-              id: crypto.randomUUID(),
-              title: "New conversation",
-              messages: [],
-            };
-            setThreads((old) => [...old, next]);
-            setSelected(next.id);
-            setQuestion("");
+          onChange={(e) => {
+            setSelected(e.target.value);
             setError("");
+            onConversation?.();
           }}
         >
-          New conversation
-        </button>
-        <label>
-          Recent conversations
-          <select
-            value={selected}
-            disabled={busy}
-            onChange={(e) => {
-              setSelected(e.target.value);
-              setError("");
-            }}
-          >
-            {threads.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.title}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <details className="wb-conversation-notice">
-        <summary>Conversation context and history</summary>
-        <p className="wb-muted">
-          Conversations last while this world stays open. Stories and saved
-          proposals persist. AI answers use the last three requests and attached
-          references as context; earlier answers are not canon.
-        </p>
-      </details>
-      {session && (
-        <details>
-          <summary>
-            Active story · {session.title} · turn {session.version}
-          </summary>
-          <p>
-            Private session state · pinned revision {session.pinnedRevision} ·{" "}
-            {session.timeline}. Outcomes require human review.
-          </p>
-          {session.memory?.summary && <p>{session.memory.summary}</p>}
-          {session.definition?.participants?.map((id) => (
-            <button
-              key={id}
-              onClick={() =>
-                onInspect({
-                  worldId: scope.worldId,
-                  id,
-                  revision: session.pinnedRevision,
-                  timeline: session.timeline,
-                })
-              }
-            >
-              Inspect character · {id}
-            </button>
+          {threads.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.title}
+            </option>
           ))}
-          {Object.values(session.state || {}).map((record) => (
-            <article key={record.id}>
-              <span className="wb-status">Session state</span>
-              <RecordSummary record={record} />
-            </article>
-          ))}
-          {canEdit && !!Object.keys(session.state || {}).length && (
-            <button onClick={onReviewStory}>Review story outcomes</button>
-          )}
-        </details>
-      )}
+        </select>
+      </label>
+    </div>
+  );
+  return (
+    <section className="wb-conversation" aria-label="AI workspace">
+      {historyHost && createPortal(conversationTools, historyHost)}
       <div
         ref={log}
         onScroll={() => {
@@ -272,14 +236,56 @@ export default function WorldWorkspace({
         aria-live="polite"
         aria-relevant="additions"
       >
+        {!historyHost && conversationTools}
+        <details className="wb-conversation-notice">
+          <summary>Conversation context and history</summary>
+          <p className="wb-muted">
+            Conversations last while this world stays open. Stories and saved
+            proposals persist. AI answers use the last three requests and
+            attached references as context; earlier answers are not canon.
+          </p>
+        </details>
+        {session && (
+          <details>
+            <summary>
+              Active story · {session.title} · turn {session.version}
+            </summary>
+            <p>
+              Private session state · pinned revision {session.pinnedRevision} ·{" "}
+              {session.timeline}. Outcomes require human review.
+            </p>
+            {session.memory?.summary && <p>{session.memory.summary}</p>}
+            {session.definition?.participants?.map((id) => (
+              <button
+                key={id}
+                onClick={() =>
+                  onInspect({
+                    worldId: scope.worldId,
+                    id,
+                    revision: session.pinnedRevision,
+                    timeline: session.timeline,
+                  })
+                }
+              >
+                Inspect character · {id}
+              </button>
+            ))}
+            {Object.values(session.state || {}).map((record) => (
+              <article key={record.id}>
+                <span className="wb-status">Session state</span>
+                <RecordSummary record={record} />
+              </article>
+            ))}
+            {canEdit && !!Object.keys(session.state || {}).length && (
+              <button onClick={onReviewStory}>Review story outcomes</button>
+            )}
+          </details>
+        )}
         {!thread.messages.length && (
           <div className="wb-welcome">
             <p className="workspace-eyebrow">Your world, in conversation</p>
             <h2>What happens next?</h2>
-            <p>
-              Discover what is known. Imagine what could be. Shape the story
-              together.
-            </p>
+            <p>Ask, imagine and shape this world.</p>
             <div className="wb-starters">
               <button
                 onClick={() =>
@@ -337,51 +343,84 @@ export default function WorldWorkspace({
             )}
           </div>
         ))}
-      </div>
-      {error && (
-        <div role="alert">
-          <p>{error}</p>
-          <button
-            onClick={() =>
-              setQuestion(
-                thread.messages.filter((m) => m.role === "user").at(-1)?.text ||
-                  "",
-              )
-            }
-          >
-            Edit and retry message
+        {error && (
+          <div role="alert">
+            <p>{error}</p>
+            <button
+              onClick={() =>
+                setQuestion(
+                  thread.messages.filter((m) => m.role === "user").at(-1)
+                    ?.text || "",
+                )
+              }
+            >
+              Edit and retry message
+            </button>
+          </div>
+        )}
+        {busy && (
+          <p role="status">
+            Consulting this world…{" "}
+            <button
+              onClick={() => {
+                controller.current?.abort();
+                setError(
+                  "Generation stopped in this browser. Provider work may already have used an allowance.",
+                );
+              }}
+            >
+              Stop waiting
+            </button>
+          </p>
+        )}
+        <div className="wb-context-actions">
+          <button onClick={() => setVisuals((v) => !v)} aria-expanded={visuals}>
+            Show relationships and timeline
           </button>
+          <button onClick={onExplore}>Explore published canon</button>
         </div>
-      )}
-      {busy && (
-        <p role="status">
-          Consulting this world…{" "}
-          <button
-            onClick={() => {
-              controller.current?.abort();
-              setError(
-                "Generation stopped in this browser. Provider work may already have used an allowance.",
-              );
+        {visuals && (
+          <WorldViews
+            records={canon.records}
+            total={canon.total}
+            calendar={canon.calendar}
+            scope={scope}
+          />
+        )}
+        <details>
+          <summary>Long-running generation</summary>
+          <WorldGenerations
+            api={api}
+            path={path}
+            archived={canon.world.archived}
+            request={{
+              workflow,
+              question,
+              revision: appliedScope.revision,
+              timeline: appliedScope.timeline,
+              ...(resolved === "play"
+                ? { sessionId: session?.id, expectedVersion: session?.version }
+                : {}),
             }}
-          >
-            Stop waiting
-          </button>
-        </p>
-      )}
-      <div className="wb-context-actions">
-        <button onClick={() => setVisuals((v) => !v)} aria-expanded={visuals}>
-          Show relationships and timeline
-        </button>
-        <button onClick={onExplore}>Explore published canon</button>
+            onCandidate={candidate}
+          />
+        </details>
+        {clarify && (
+          <div role="status">
+            <p>Do you want to ask about published canon or prepare a change?</p>
+            <button type="button" onClick={() => setIntent("ask")}>
+              Ask about this
+            </button>
+            <button
+              type="button"
+              disabled={!canEdit}
+              onClick={() => setIntent("change")}
+            >
+              Prepare a draft change
+            </button>
+          </div>
+        )}
       </div>
-      {visuals && (
-        <WorldViews
-          records={canon.records}
-          total={canon.total}
-          calendar={canon.calendar}
-          scope={scope}
-        />
-      )}
       <form className="wb-composer" onSubmit={send}>
         <div className="wb-chips">
           {references.map((r) => (
@@ -466,43 +505,10 @@ export default function WorldWorkspace({
         >
           Send message
         </button>
-        {clarify && (
-          <div role="status">
-            <p>Do you want to ask about published canon or prepare a change?</p>
-            <button type="button" onClick={() => setIntent("ask")}>
-              Ask about this
-            </button>
-            <button
-              type="button"
-              disabled={!canEdit}
-              onClick={() => setIntent("change")}
-            >
-              Prepare a draft change
-            </button>
-          </div>
-        )}
         <small>
           Ctrl/⌘ + Enter to send. Generated changes always need human review.
         </small>
       </form>
-      <details>
-        <summary>Long-running generation</summary>
-        <WorldGenerations
-          api={api}
-          path={path}
-          archived={canon.world.archived}
-          request={{
-            workflow,
-            question,
-            revision: appliedScope.revision,
-            timeline: appliedScope.timeline,
-            ...(resolved === "play"
-              ? { sessionId: session?.id, expectedVersion: session?.version }
-              : {}),
-          }}
-          onCandidate={candidate}
-        />
-      </details>
     </section>
   );
 }
