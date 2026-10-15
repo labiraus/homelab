@@ -29,7 +29,9 @@ export default function WorldUsers({ api }) {
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
-  if (!account?.superuser) return error ? <p role="alert">{error}</p> : null;
+  if (!account?.superuser) return error ? <p role="alert">{error}</p> : account
+    ? <p>Account administration is available to superusers. World members and roles are managed in World Settings.</p>
+    : <p role="status">Loading account access…</p>;
   return <details>
     <summary>Superuser · Manage users</summary>
     <p>You can add users and approve your own proposals. Reviews remain recorded, and each world’s approval count still applies.</p>

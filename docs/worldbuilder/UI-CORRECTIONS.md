@@ -1,10 +1,31 @@
-# Frontend correction acceptance — 13 October 2026
+# Frontend correction acceptance
 
-This correction follows the [correction brief](WORLDBUILDER-UI-CORRECTION-BRIEF.md), [original specification](05-AI-FIRST-UI.md) and [signed-in deployed audit](WORLDBUILDER-DEPLOYED-UI-AUDIT.md). Current deployment evidence is below; the original source-only implementation and checks remain historical.
+This correction follows the [correction brief](WORLDBUILDER-UI-CORRECTION-BRIEF.md), [original specification](05-AI-FIRST-UI.md) and [signed-in deployed audit](WORLDBUILDER-DEPLOYED-UI-AUDIT.md). The latest source review and last verified deployment checkpoint are separate below; historical success does not establish present deployment health.
+
+## World library and menu review — 15 October 2026
+
+Source-only follow-up to the reported inert-looking Worlds destination and disappearing World menu. The old `#/worlds` destination rendered an introduction and header selector without a world library. Opening the old menu applied fixed positioning to the entire `details` element, moving its summary out of the header into the panel.
+
+The Worlds button now leads to a named library with searchable loaded world names, access and archive labels, workspace links, pagination and explicit loading/empty/error states. It remains reachable at mobile widths. Cards use the existing neutral surfaces, accent and literary headings; long titles truncate visually while retaining the full accessible text and title.
+
+World menu now has a bordered, stationary button with a chevron/expanded state and a separate popup. Browse all worlds, Create a world and Account administration have clear rows; the creation form opens on demand. Escape restores trigger focus, while outside clicks, focus leaving the panel and route changes dismiss it. Successful creation/selection closes it, and creation errors retain the name beside an enabled retry action. Ordinary accounts receive an administration-access explanation rather than an empty disclosure.
+
+| Check | Result for this source revision |
+|---|---|
+| `npm test` | **86 tests pass**, including list failure/retry and rejected creation state. On this Windows Node 26 host, `NODE_OPTIONS=--no-experimental-webstorage` is required so jsdom supplies browser storage. |
+| `npm run test:workspace` | **13 Chromium journeys pass** against local synthetic HTTP fixtures. Four new journeys cover menu geometry/dismissal, library routing/search/back navigation, both themes at 320/390/768/1024/1440px with long archived names, and empty-library creation/closure. The nine existing composer, source, review and story journeys also pass. |
+| `npm run build` | Passes with the locked dependencies installed for Windows. |
+| Visual review | Desktop library/menu and 320/390px light/dark library/menu screenshots inspected. Narrow header controls stay on one row; expanded menu bounds remain inside the viewport. |
+| Actual API/PostgreSQL browser gate | **Not rerun in this session.** The Windows host lacks `psql` and a usable Python installation for the Linux fixture harness; its running devcontainer belongs to another project. The actual API browser selector now explicitly opens Create a world. This gate remains required before publication. |
+| Deployment and live acceptance | No deployment, production canon changes or new production authenticated evidence. The 13 October release evidence below is retained as a historical checkpoint. |
+
+Local fixture screenshots are retained under `.local/ui-review-20261015-evidence/`: [desktop library](../../.local/ui-review-20261015-evidence/worlds-desktop.png), [desktop menu](../../.local/ui-review-20261015-evidence/world-menu-desktop.png), [320px library](../../.local/ui-review-20261015-evidence/worlds-320-light.png), [390px menu](../../.local/ui-review-20261015-evidence/world-menu-390-light.png), and [dark menu](../../.local/ui-review-20261015-evidence/world-menu-390-dark.png). These ignored local artifacts contain synthetic data only; they are not shipped assets or production screenshots.
+
+World-chat persistence/streaming, dedicated guide/style APIs, structured story inventory/location and Sandbox mode remain contract gaps. Real software-keyboard, screen-reader, systematic contrast and production authenticated journeys remain unverified. This iteration preserves the existing conversation, canon-review and story contracts.
 
 ## Deployment and repeated design review — 13 October 2026
 
-### Current accepted release
+### Verified release checkpoint
 
 Follow-up source `ee1feba65f1a815398cb7766ed6a812557970f88` passes complete [UI CI/CD 38405146042](https://github.com/labiraus/homelab/actions/runs/38405146042), including the new responsive gate, existing actual API/database browser acceptance, all eight platform gates and image/chart publication. Automatic Flux reconciliation installs Ready Helm revision **60** at 13:39:42 UTC. The exact source is recorded in OCI metadata; chart digest is `sha256:a85e955c97bb514d4576fcf8292977714981ad99c962ee1f7140fbb85e5563fb`, and the UI image digest is `sha256:2d80e57973dcc004d38452cf1d6df0e8c5b678c8bc90d168c6acb7cf062c8817`. UI and mesh sidecar are Ready with zero restarts; the Service has exactly one Ready endpoint pointing to the replacement Pod.
 

@@ -647,6 +647,10 @@ test("superuser registers a user and explicitly reviews their own proposal", asy
       page.getByRole("list", { name: "Registered users" }),
     ).toContainText("New browser user · browser-new@example.test");
     await page
+      .getByRole("region", { name: "World actions" })
+      .getByRole("button", { name: "Create a world", exact: true })
+      .click();
+    await page
       .getByLabel("World name", { exact: true })
       .fill("Superuser world");
     await page

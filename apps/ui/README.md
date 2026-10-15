@@ -4,6 +4,8 @@ Worlds open into a conversation workspace, with Explore, Drafts & Proposals, Sto
 
 Container builds copy `package-lock.json` and run `npm ci`, matching CI's dependency resolution. Local `node_modules`, generated output and environment files are excluded from the Docker context.
 
+**Worlds** opens a library at `#/worlds`, with searchable loaded world names, access/archive labels and links into each workspace. The button stays available on narrow screens. **World menu** has a stationary header button and a separate action panel for browsing worlds, opening the creation form and account administration. Escape returns focus to the button; outside clicks, focus leaving the panel and navigation dismiss it. Creation failures keep the entered name and show the error beside the action. Ordinary accounts see an explanation of administration access instead of an empty disclosure. These source changes are tracked separately from deployment in [the October 15 review](../../docs/worldbuilder/UI-CORRECTIONS.md#world-library-and-menu-review--15-october-2026).
+
 Before chart publication, CI runs `browser/image-smoke.py` against the published image with networking disabled, checking Nginx configuration and fetching the actual index and compiled JS/CSS over the container's own loopback. Both responsive workspace journeys and browser/database acceptance are required pre-build gates, with failed workspace traces/screenshots retained.
 
 Worldbuilder date reads and edits preserve the complete signed 64-bit tick range. The UI retains large dates as decimal strings and requires browser JSON reviver source-context support for numeric date responses; unsupported browsers show an update-required error. See the [date wire contract](../../docs/worldbuilder/API.md).

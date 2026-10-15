@@ -68,6 +68,38 @@ const mergeRows = (before, after, key = "id") => [
 export default function Worldbuilder({ email }) {
   const [headerHost, setHeaderHost] = useState(null);
   const worldMenu = useRef(null);
+  const menuTrigger = useRef(null);
+  const worldNameInput = useRef(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [worldQuery, setWorldQuery] = useState("");
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const dismissOutside = (event) => {
+      if (!worldMenu.current?.contains(event.target)) closeMenu();
+    };
+    const escape = (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closeMenu();
+      menuTrigger.current?.focus({ preventScroll: true });
+    };
+    document.addEventListener("pointerdown", dismissOutside);
+    document.addEventListener("focusin", dismissOutside);
+    worldMenu.current?.addEventListener("keydown", escape);
+    const root = worldMenu.current;
+    return () => {
+      document.removeEventListener("pointerdown", dismissOutside);
+      document.removeEventListener("focusin", dismissOutside);
+      root?.removeEventListener("keydown", escape);
+    };
+  }, [menuOpen, closeMenu]);
+  useEffect(() => {
+    if (menuOpen && createOpen) worldNameInput.current?.focus();
+  }, [menuOpen, createOpen]);
   useLayoutEffect(() => {
     setHeaderHost(document.getElementById("world-header-tools"));
   }, []);
@@ -117,17 +149,23 @@ export default function Worldbuilder({ email }) {
     };
   }, [listRetry]);
   useEffect(() => {
-    const sync = () => setSelected(readWorldRoute().worldId || "");
+    const sync = () => {
+      setSelected(readWorldRoute().worldId || "");
+      setMenuOpen(false);
+    };
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, []);
   function selectWorld(value) {
-    if (worldMenu.current) worldMenu.current.open = false;
+    closeMenu();
     setSelected(value);
     window.location.hash = value ? worldHref(value) : "#/worlds";
   }
   async function create(e) {
     e.preventDefault();
+    if (creating) return;
+    setCreating(true);
+    setCreateError("");
     try {
       const w = await api("", { id: id(), name });
       const first = await api("");
@@ -138,49 +176,50 @@ export default function Worldbuilder({ email }) {
       setName("");
       setError("");
     } catch (e) {
-      setError(e.message);
+      setCreateError(e.message);
+    } finally {
+      setCreating(false);
     }
   }
+  function openCreation() {
+    setCreateOpen(true);
+    setMenuOpen(true);
+  }
+  const worldError = error && (
+    <p role="alert">
+      {error}
+      {!available && (
+        <button onClick={() => setListRetry((v) => v + 1)}>Retry worlds</button>
+      )}
+      {available && selected && !selectedWorld && (
+        <button onClick={() => setWorldLookupRetry((v) => v + 1)}>
+          Retry selected world
+        </button>
+      )}
+    </p>
+  );
+  const loadMoreWorlds = moreWorlds && (
+    <button
+      disabled={worldsBusy}
+      onClick={async () => {
+        setWorldsBusy(true);
+        try {
+          const rows = await api(`?offset=${worldOffset}&limit=100`);
+          setWorlds((current) => mergeRows(current, rows));
+          setWorldOffset(worldOffset + rows.length);
+          setMoreWorlds(rows.length === 100);
+        } catch (e) {
+          setError(e.message);
+        } finally {
+          setWorldsBusy(false);
+        }
+      }}
+    >
+      {worldsBusy ? "Loading worlds…" : "Load more worlds"}
+    </button>
+  );
   const worldTools = (
     <div className="wb-world-tools worldbuilder">
-      {error && (
-        <p role="alert">
-          {error}
-          {!available && (
-            <button onClick={() => setListRetry((v) => v + 1)}>
-              Retry worlds
-            </button>
-          )}
-          {available && selected && !selectedWorld && (
-            <button onClick={() => setWorldLookupRetry((v) => v + 1)}>
-              Retry selected world
-            </button>
-          )}
-        </p>
-      )}
-      <details ref={worldMenu} className="wb-world-menu">
-        <summary>World menu</summary>
-        {available && (
-          <details>
-            <summary>Account administration</summary>
-            <WorldUsers api={api} />
-          </details>
-        )}
-        <h3>Create a world</h3>
-        <form onSubmit={create}>
-          <label>
-            World name
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              maxLength={200}
-            />
-          </label>
-          <button disabled={!available}>Create world</button>
-        </form>
-      </details>
-
       <label>
         <span className="wb-sr-only">Open world</span>
         <select
@@ -197,36 +236,178 @@ export default function Worldbuilder({ email }) {
           ))}
         </select>
       </label>
-      {moreWorlds && (
+      <div ref={worldMenu} className="wb-world-menu">
         <button
-          disabled={worldsBusy}
-          onClick={async () => {
-            setWorldsBusy(true);
-            try {
-              const rows = await api(`?offset=${worldOffset}&limit=100`);
-              setWorlds(mergeRows(worlds, rows));
-              setWorldOffset(worldOffset + rows.length);
-              setMoreWorlds(rows.length === 100);
-            } catch (e) {
-              setError(e.message);
-            } finally {
-              setWorldsBusy(false);
-            }
+          ref={menuTrigger}
+          type="button"
+          className="wb-world-menu-trigger"
+          aria-expanded={menuOpen}
+          aria-controls="world-menu-panel"
+          onClick={() => {
+            setCreateOpen(false);
+            setMenuOpen((open) => !open);
           }}
         >
-          Load more worlds
+          World menu <span aria-hidden="true">⌄</span>
         </button>
-      )}
+        {menuOpen && (
+          <div
+            id="world-menu-panel"
+            className="wb-world-menu-panel"
+            role="region"
+            aria-label="World actions"
+          >
+            <p className="wb-menu-heading">Your worlds</p>
+            <a
+              className="wb-menu-action"
+              href="#/worlds"
+              onClick={() => selectWorld("")}
+            >
+              Browse all worlds <span aria-hidden="true">→</span>
+            </a>
+            {loadMoreWorlds}
+            <button
+              type="button"
+              className="wb-menu-action"
+              aria-expanded={createOpen}
+              aria-controls="world-create-form"
+              disabled={!available}
+              onClick={() => setCreateOpen((open) => !open)}
+            >
+              Create a world <span aria-hidden="true">+</span>
+            </button>
+            {createOpen && (
+              <form id="world-create-form" onSubmit={create}>
+                <label>
+                  World name
+                  <input
+                    ref={worldNameInput}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    maxLength={200}
+                    disabled={creating}
+                  />
+                </label>
+                {createError && <p role="alert">{createError}</p>}
+                <button
+                  className="wb-primary"
+                  disabled={!available || creating}
+                >
+                  {creating ? "Creating world…" : "Create world"}
+                </button>
+              </form>
+            )}
+            {available && (
+              <details className="wb-menu-administration">
+                <summary>Account administration</summary>
+                <WorldUsers api={api} />
+              </details>
+            )}
+          </div>
+        )}
+      </div>
     </div>
+  );
+  const matchingWorlds = worlds.filter((world) =>
+    world.name
+      .toLocaleLowerCase()
+      .includes(worldQuery.trim().toLocaleLowerCase()),
   );
   return (
     <section className="workspace-shell worldbuilder">
-      <header hidden={!!selected}>
-        <p className="workspace-eyebrow">Worldbuilder</p>
-        <h1>Worldbuilder</h1>
-        <p>A place to imagine, discover and shape your worlds.</p>
-      </header>
       {headerHost ? createPortal(worldTools, headerHost) : worldTools}
+      {worldError}
+      {!selected && (
+        <section
+          className="wb-world-library"
+          aria-labelledby="world-library-title"
+        >
+          <header className="wb-library-heading">
+            <div>
+              <p className="workspace-eyebrow">Worldbuilder</p>
+              <h1 id="world-library-title">Your worlds</h1>
+              <p>
+                Pick up a story, explore your canon, or imagine something new.
+              </p>
+            </div>
+            <button
+              className="wb-primary"
+              disabled={!available}
+              onClick={openCreation}
+            >
+              Create a world
+            </button>
+          </header>
+          {!available && !error && <p role="status">Loading your worlds…</p>}
+          {available && (
+            <>
+              {worlds.length > 0 && (
+                <div className="wb-library-filter">
+                  <label>
+                    Find a world
+                    <input
+                      type="search"
+                      value={worldQuery}
+                      onChange={(e) => setWorldQuery(e.target.value)}
+                      placeholder="Search world names"
+                    />
+                  </label>
+                  <p role="status">
+                    {matchingWorlds.length}{" "}
+                    {matchingWorlds.length === 1 ? "world" : "worlds"}
+                    {moreWorlds ? " loaded · Load more to see the rest" : ""}
+                  </p>
+                </div>
+              )}
+              <div className="wb-world-grid">
+                {matchingWorlds.map((world) => (
+                  <a
+                    key={world.id}
+                    className="wb-world-card"
+                    href={worldHref(world.id)}
+                  >
+                    <div className="wb-world-card-meta">
+                      <span>{humanLabel(world.role || "member")}</span>
+                      <span
+                        className={`wb-world-status${world.archived ? " is-archived" : ""}`}
+                      >
+                        {world.archived ? "Archived" : "Active"}
+                      </span>
+                    </div>
+                    <h2 title={world.name}>{world.name}</h2>
+                    <p>
+                      {world.archived
+                        ? "Browse this world's canon and history."
+                        : "Explore, create and continue your stories."}
+                    </p>
+                    <span className="wb-world-card-open">
+                      {world.archived ? "Browse world" : "Open workspace"}{" "}
+                      <span aria-hidden="true">→</span>
+                    </span>
+                  </a>
+                ))}
+              </div>
+              {!worlds.length && (
+                <div className="wb-library-empty">
+                  <h2>Your next story starts here</h2>
+                  <p>
+                    Create your first world to start shaping its people, places
+                    and stories.
+                  </p>
+                </div>
+              )}
+              {worlds.length > 0 && !matchingWorlds.length && (
+                <p>
+                  No loaded worlds match “{worldQuery}”. Try another name
+                  {moreWorlds ? " or load more worlds" : ""}.
+                </p>
+              )}
+              {loadMoreWorlds}
+            </>
+          )}
+        </section>
+      )}
       {selected && available && !selectedWorld && !error && (
         <p role="status">Loading selected world…</p>
       )}

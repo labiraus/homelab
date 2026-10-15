@@ -2384,7 +2384,7 @@ function App() {
 
 				<nav className="topbar-nav" aria-label="Primary">
 					{page === "worlds" && documentsEnabled ? <><div id="world-header-tools" /><div id="world-header-search" /></> : null}
-				{documentsEnabled ? <button type="button" className={`topbar-tab ${page === "worlds" ? "active" : ""}`} onClick={() => navigateToPage("worlds")}>Worlds</button> : null}
+				{documentsEnabled ? <button type="button" className="topbar-tab" title="Browse all worlds" onClick={() => navigateToPage("worlds")}>Worlds</button> : null}
 					{page !== "worlds" && documentTools}
 				</nav>
 

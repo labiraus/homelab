@@ -2,7 +2,11 @@
 
 The authoritative product target is [Worldbuilder architecture](../docs/worldbuilder/01-WORLDBUILDER-ARCHITECTURE.md). The [migration](../docs/worldbuilder/02-WORLDBUILDER-MIGRATION.md) defines M1–M8; [implementation status](../docs/worldbuilder/IMPLEMENTATION-STATUS.md) records actual source readiness, tests and gaps. The [prior document-platform plan](../docs/worldbuilder/archive/PRE-WORLDBUILDER-PLAN.md) is historical.
 
-## Current frontend correction deployment - 2026-10-13
+## Source frontend review - 2026-10-15
+
+The reported Worlds/menu usability gaps have local source fixes: a searchable world library, mobile Worlds access, stationary menu trigger/separate panel, explicit creation/error states and nonempty administration guidance. All 86 component tests, 13 synthetic HTTP-fixture Chromium journeys and the production build pass; desktop/mobile light/dark screenshots are inspected. The real PostgreSQL/API browser gate is not rerun on this Windows host and remains required before publication. No deployment or production changes are made. See [review and verification limits](../docs/worldbuilder/UI-CORRECTIONS.md#world-library-and-menu-review--15-october-2026). The following release record is the last verified deployment checkpoint, not a new health check.
+
+## Last verified frontend correction deployment - 2026-10-13
 
 User-authorized deployment verification and repair publishes source `ee1feba` through complete UI CI/CD `38405146042`; automatic Flux reconciliation installs Ready revision 60. Exact source/image/chart, zero-restart UI/mesh containers, one Ready endpoint and ten-file build equality are verified. All nine deployed-asset workspace journeys and separate public TLS/discovery/anonymous/forged-header refusal pass; the owned test forward is closed. Responsive viewport/focus checks now gate publication alongside real disposable API/database and all eight platform gates. See [current correction acceptance](../docs/worldbuilder/UI-CORRECTIONS.md). No production canon is changed or archived world reopened. Production Google/model/active-world, distinct-human, real keyboard/screen-reader/contrast and dedicated guide/style contracts remain separate gates. The Google audience is unchanged and this session has no authenticated Cloud access to change it. Earlier release checkpoints below remain historical.
 

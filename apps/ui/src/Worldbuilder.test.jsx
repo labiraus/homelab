@@ -68,6 +68,64 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("Worldbuilder", () => {
+  it("keeps world-list failures distinct from an empty library and supports retry", async () => {
+    let fail = true;
+    global.fetch = vi.fn(async () => ({
+      ok: !fail,
+      text: async () =>
+        JSON.stringify(fail ? { error: "World list unavailable" } : []),
+    }));
+    render(<Worldbuilder email="editor@test" />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "World list unavailable",
+    );
+    expect(
+      screen.queryByText("Your next story starts here"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Create a world", exact: true }),
+    ).toBeDisabled();
+    fail = false;
+    fireEvent.click(screen.getByRole("button", { name: "Retry worlds" }));
+    expect(
+      await screen.findByText("Your next story starts here"),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Create a world", exact: true }),
+    ).toBeEnabled();
+  });
+
+  it("retains a rejected world name and shows the error beside the creation action", async () => {
+    global.fetch = vi.fn(async (url, options = {}) => ({
+      ok: options.method !== "POST",
+      text: async () =>
+        JSON.stringify(
+          options.method === "POST" ? { error: "Creation unavailable" } : [],
+        ),
+    }));
+    render(<Worldbuilder email="editor@test" />);
+    await screen.findByText("Your next story starts here");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create a world", exact: true }),
+    );
+    fireEvent.change(screen.getByLabelText("World name"), {
+      target: { value: "Keep this name" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create world", exact: true }),
+    );
+    const panel = screen.getByRole("region", { name: "World actions" });
+    expect(await within(panel).findByRole("alert")).toHaveTextContent(
+      "Creation unavailable",
+    );
+    expect(within(panel).getByLabelText("World name")).toHaveValue(
+      "Keep this name",
+    );
+    expect(
+      within(panel).getByRole("button", { name: "Create world", exact: true }),
+    ).toBeEnabled();
+  });
+
   it("allows an editor with superuser status to review their own proposal", async () => {
     world.superuser = true;
     try {

@@ -28,6 +28,12 @@ The required viewport suite is `npm run test:workspace`, which must gate UI publ
 
 An archived world's paused writes are expected. Horizontal overflow and an offscreen composer are presentation defects; do not reopen worlds or publish proposals to test them. The 13 October correction replaces fixed pane minimum heights with available viewport sizing, constrains intrinsic control widths and reserves composer height. Run the local rendered viewport gate before accepting a replacement UI. A passing image smoke or DOM-only test cannot prove layout, hit targets or real-device keyboard behavior. See [correction acceptance](../docs/worldbuilder/UI-CORRECTIONS.md); these changes remain source-only until a separately authorized deployment.
 
+## Worlds destination or disappearing world-menu trigger
+
+The 15 October source correction gives `#/worlds` a searchable world library. Earlier builds only showed an introduction and header selector, so clicking Worlds could appear ineffective. The old menu's open-state CSS positioned the entire `details` element as a popup, including its trigger. Keep the button in the header and position only the panel; verify unchanged trigger bounds, Escape/focus return, outside dismissal and mobile library navigation with `npm run test:workspace`. Check the shipped asset revision before treating a local fix as deployed. See [source review and acceptance limits](../docs/worldbuilder/UI-CORRECTIONS.md#world-library-and-menu-review--15-october-2026).
+
+For Windows UI checks, reinstall Linux-origin dependencies with `npm ci` before running Vite/Playwright. Node 26's experimental Web Storage can override jsdom's browser storage; run component tests with `NODE_OPTIONS=--no-experimental-webstorage`. If npm cannot validate the registry certificate, use the Windows system trust store (`NODE_USE_SYSTEM_CA=1`) rather than disabling certificate verification.
+
 ## SSH CA recovery (2026-10-11)
 
 The workstation SSH login certificate expired on 2026-07-20 and the old signing CA passphrase was unavailable. Recovery used a staged SSH trust rotation, with no VM recreation, kubeadm reset, or storage deletion. See the [rotation procedure](../docs/Setup.md#recovering-a-lost-ssh-ca-passphrase) and [local secret custody](../docs/Secrets.md).

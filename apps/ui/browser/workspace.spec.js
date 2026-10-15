@@ -11,6 +11,10 @@ async function fixture(page, options = {}) {
     role: "editor",
     ...options.world,
   };
+  const worlds = options.worlds || [
+    world,
+    { ...world, id: "other-world", name: "Another world" },
+  ];
   const records = [
     {
       id: "person",
@@ -57,9 +61,12 @@ async function fixture(page, options = {}) {
     if (url.pathname === "/api/auth/status")
       data = { valid: true, email: "editor@example.test", mode: "fixture" };
     else if (url.pathname === "/api/auth/providers") data = { providers: [] };
-    else if (url.pathname === "/api/worlds")
-      data = [world, { ...world, id: "other-world", name: "Another world" }];
-    else if (url.pathname.endsWith("/generations"))
+    else if (url.pathname === "/api/worlds") {
+      if (body) {
+        data = { ...world, ...body, revision: 0, role: "owner" };
+        worlds.push(data);
+      } else data = worlds;
+    } else if (url.pathname.endsWith("/generations"))
       data = { enabled: false, items: [] };
     else if (
       url.pathname.endsWith("/canon") ||
@@ -182,9 +189,14 @@ async function fixture(page, options = {}) {
       data = sessions.find((s) => s.id === url.pathname.split("/").at(-1));
     await route.fulfill({ json: data });
   });
-  await page.goto("/#/worlds/fixture-world/workspace");
+  await page.goto(
+    options.library ? "/#/worlds" : "/#/worlds/fixture-world/workspace",
+  );
   await expect(
-    page.getByRole("heading", { name: "What happens next?" }),
+    page.getByRole("heading", {
+      name: options.library ? "Your worlds" : "What happens next?",
+      exact: true,
+    }),
   ).toBeVisible();
   return { calls, changes, sessions, world };
 }
@@ -201,6 +213,154 @@ async function send(page, text) {
   await page.getByLabel("Question or creative direction").fill(text);
   await page.getByRole("button", { name: "Send message", exact: true }).click();
 }
+
+test("world menu keeps its trigger in place and dismisses without losing the workspace", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const trigger = page.getByRole("button", { name: "World menu", exact: true });
+  const before = await trigger.boundingBox();
+  await trigger.click();
+  await page.screenshot({
+    path: test.info().outputPath("world-menu-desktop.png"),
+  });
+  const after = await trigger.boundingBox();
+  expect(Math.abs(after.x - before.x)).toBeLessThan(1);
+  expect(Math.abs(after.y - before.y)).toBeLessThan(1);
+  await expect(
+    page.getByRole("button", { name: "World menu", exact: true }),
+  ).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await trigger.press("Enter");
+  await page.getByLabel("Question or creative direction").click();
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByLabel("Question or creative direction")).toBeFocused();
+  await trigger.click();
+  await trigger.press("Tab");
+  await expect(
+    page.getByRole("link", { name: "Browse all worlds" }),
+  ).toBeFocused();
+  await page.getByLabel("Open world").focus();
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+});
+
+test("Worlds opens a searchable library and browser history restores the selected route", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.getByRole("button", { name: "Worlds", exact: true }).click();
+  await expect(page).toHaveURL(/#\/worlds$/);
+  await expect(
+    page.getByRole("heading", { name: "Your worlds", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".wb-world-card")).toHaveCount(2);
+  await page.getByLabel("Find a world").fill("another");
+  await expect(page.locator(".wb-world-card")).toHaveCount(1);
+  await page.getByRole("link", { name: /Another world/ }).click();
+  await expect(page).toHaveURL(/#\/worlds\/other-world\/workspace$/);
+  await expect(page.getByLabel("Open world")).toHaveValue("other-world");
+  await expect(page.getByLabel("Question or creative direction")).toBeVisible();
+  await page.goBack();
+  await expect(
+    page.getByRole("heading", { name: "Your worlds", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Find a world")).toHaveValue("another");
+  await page.getByLabel("Find a world").fill("no matching world");
+  await expect(page.getByText(/No loaded worlds match/)).toBeVisible();
+  await page.getByLabel("Find a world").fill("");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.screenshot({ path: test.info().outputPath("worlds-desktop.png") });
+});
+
+test("world library and menu fit narrow viewports in both themes with long archived names", async ({
+  page,
+}) => {
+  await fixture(page, {
+    world: {
+      name: "The long-forgotten kingdoms beyond the Shattered Empire and the northern sea "
+        .repeat(2)
+        .trim(),
+      archived: true,
+    },
+  });
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((value) => {
+      document.documentElement.dataset.theme = value;
+    }, theme);
+    for (const width of [320, 390, 768, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.getByRole("button", { name: "Worlds", exact: true }).click();
+      await expect(
+        page.getByRole("heading", { name: "Your worlds", exact: true }),
+      ).toBeVisible();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(width);
+      const trigger = page.getByRole("button", {
+        name: "World menu",
+        exact: true,
+      });
+      const before = await trigger.boundingBox();
+      await trigger.click();
+      const panel = page.getByRole("region", { name: "World actions" });
+      await expect(panel).toBeVisible();
+      const after = await trigger.boundingBox();
+      expect(Math.abs(after.x - before.x)).toBeLessThan(1);
+      expect(Math.abs(after.y - before.y)).toBeLessThan(1);
+      const box = await panel.boundingBox();
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+      expect(box.y + box.height).toBeLessThanOrEqual(844);
+      await panel
+        .getByRole("button", { name: "Create a world", exact: true })
+        .click();
+      await expect(
+        page.getByLabel("World name", { exact: true }),
+      ).toBeFocused();
+      if (width <= 390)
+        await page.screenshot({
+          path: test.info().outputPath(`world-menu-${width}-${theme}.png`),
+        });
+      await page.keyboard.press("Escape");
+      await expect(trigger).toBeFocused();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(width);
+      if (width <= 390)
+        await page.screenshot({
+          path: test.info().outputPath(`worlds-${width}-${theme}.png`),
+        });
+    }
+  }
+});
+
+test("empty world library supports creation and closes its menu after success", async ({
+  page,
+}) => {
+  const state = await fixture(page, { worlds: [], library: true });
+  await page.getByRole("button", { name: "Worlds", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Your next story starts here" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Create a world", exact: true })
+    .click();
+  await page.getByLabel("World name", { exact: true }).fill("A new beginning");
+  await page.getByRole("button", { name: "Create world", exact: true }).click();
+  await expect(page.getByLabel("Question or creative direction")).toBeVisible();
+  await expect(page.getByRole("region", { name: "World actions" })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByLabel("Open world").locator("option:checked"),
+  ).toHaveText("A new beginning");
+  expect(
+    state.calls.filter((call) => call.path === "/api/worlds" && call.body),
+  ).toHaveLength(1);
+});
 
 test("desktop conversation, pinned sources, edited generated draft and human review handoff", async ({
   page,

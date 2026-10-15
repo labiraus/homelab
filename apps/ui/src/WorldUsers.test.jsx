@@ -25,5 +25,6 @@ describe("superuser user management", () => {
     await waitFor(() => expect(api).toHaveBeenCalledWith("/account"));
     expect(api).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Superuser · Manage users")).not.toBeInTheDocument();
+    expect(screen.getByText(/Account administration is available to superusers/)).toBeVisible();
   });
 });
