@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import useLocalWriting from "./useLocalWriting.js";
 import { exactTick } from "./worldTicks.js";
 import { calendarFromDraft } from "./worldCalendar.js";
 import WorldCalendarEditor from "./WorldCalendarEditor.jsx";
@@ -133,6 +134,8 @@ function MapEditor({
 
 export default function WorldRecordEditor({
   records,
+  draftKey,
+  revision,
   timeline,
   record,
   onStage,
@@ -158,8 +161,23 @@ export default function WorldRecordEditor({
         ].includes(r.name),
     ),
   );
+  const [originalScope, setOriginalScope] = useState(() => ({
+    revision,
+    timeline,
+  }));
   const [error, setError] = useState("");
   const set = (key, value) => setDraft({ ...draft, [key]: value });
+  const writing = useMemo(
+    () => ({ draft, fields, relations, attributes, originalScope }),
+    [draft, fields, relations, attributes, originalScope],
+  );
+  const { localSaved, localError } = useLocalWriting(draftKey, writing, (v) => {
+    setOriginalScope(v.originalScope || null);
+    setDraft(v.draft);
+    setFields(v.fields);
+    setRelations(v.relations);
+    setAttributes(v.attributes);
+  });
   const scoped = ["fact", "relationship", "event"].includes(draft.kind);
   const byId = new Map(records.map((r) => [r.id, r]));
   const subjectType = byId.get(byId.get(draft.subject)?.type);
@@ -195,6 +213,14 @@ export default function WorldRecordEditor({
     e.preventDefault();
     setError("");
     try {
+      if (
+        revision !== undefined &&
+        (originalScope?.revision !== revision ||
+          originalScope?.timeline !== timeline)
+      )
+        throw new Error(
+          `This writing belongs to revision ${originalScope?.revision ?? "unknown"}, timeline ${originalScope?.timeline ?? "unknown"}. Load its original scope before staging, or explicitly start a new record.`,
+        );
       const candidate = {
         ...draft,
         attributes: mapFromRows(attributes, "Attributes", true),
@@ -266,6 +292,8 @@ export default function WorldRecordEditor({
     subjectType?.fields?.[draft.predicate] ?? draft.valueType ?? "string";
   return (
     <form onSubmit={submit} aria-label="Record editor">
+      {localError && <p role="alert">{localError}</p>}
+      {localSaved && <p className="wb-sync-status">Saved on this device</p>}
       {error && <p role="alert">{error}</p>}
       {record && (
         <p>
@@ -279,6 +307,7 @@ export default function WorldRecordEditor({
           value={draft.kind}
           disabled={!!record}
           onChange={(e) => {
+            setOriginalScope({ revision, timeline });
             setDraft({ id: "", kind: e.target.value, label: "" });
             setFields([]);
             setRelations([]);
@@ -515,31 +544,21 @@ export default function WorldRecordEditor({
           )}
         </fieldset>
       )}
+      {draft.kind === "source" && (
+        <label>
+          Evidence status
+          <select
+            value={draft.evidenceStatus || "unspecified"}
+            onChange={(e) => set("evidenceStatus", e.target.value)}
+          >
+            <option value="unspecified">Unspecified</option>
+            <option value="reported">Reported history</option>
+          </select>
+        </label>
+      )}
       {draft.kind === "world_settings" && (
         <>
-          <fieldset>
-            <legend>Human review policy</legend>
-            <label>
-              Required independent approvals
-              <input
-                required
-                type="number"
-                min="1"
-                max="5"
-                step="1"
-                value={draft.reviewPolicy?.requiredApprovals ?? 1}
-                onChange={(e) =>
-                  set("reviewPolicy", { requiredApprovals: e.target.value })
-                }
-              />
-            </label>
-            <p>
-              One to five distinct owners, admins or reviewers, excluding the
-              author. Changing this policy requires the stricter of the existing
-              and proposed counts. Role changes or membership removal require
-              fresh reviews.
-            </p>
-          </fieldset>
+          <p>Administrators configure publication policy in World Settings.</p>
           <WorldCalendarEditor
             value={draft.calendar}
             onChange={(value) => set("calendar", value)}
@@ -553,12 +572,26 @@ export default function WorldRecordEditor({
         setRows={setAttributes}
       />
       <button>Stage record</button>
-      <button type="button" onClick={onNew}>
+      <button
+        type="button"
+        onClick={() => {
+          if (record) {
+            onNew();
+            return;
+          }
+          setDraft({ id: "", kind: "entity", label: "" });
+          setFields([]);
+          setRelations([]);
+          setAttributes([]);
+          setOriginalScope({ revision, timeline });
+          setError("");
+        }}
+      >
         Start a new record
       </button>
       <p>
-        Staging proposes a complete record replacement. Publishing requires
-        independent review.
+        Staging proposes a complete record replacement. Publishing requires the
+        world’s publication policy.
       </p>
     </form>
   );

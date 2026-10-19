@@ -88,7 +88,9 @@ export default function WorldInspector({
           </button>
           {canEdit && (
             <button onClick={() => onEdit(data.record, scope.revision)}>
-              Edit source record
+              {data.record.kind === "established_account"
+                ? "Established account history"
+                : "Edit source record"}
             </button>
           )}
           <a

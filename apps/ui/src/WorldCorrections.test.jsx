@@ -44,7 +44,7 @@ describe("Frontend corrections", () => {
     );
     expect(
       screen.getByText(
-        /dedicated world guide and style guide are not yet supported/i,
+        /Reviewed guidance shapes the world/,
       ),
     ).toBeVisible();
   });

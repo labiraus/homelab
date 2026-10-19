@@ -24,7 +24,7 @@ describe("world administration", () => {
       target: { value: "Pause writing" },
     });
     fireEvent.click(
-      screen.getByRole("button", { name: "Apply administration change" }),
+      screen.getByRole("button", { name: "Apply administration action" }),
     );
     await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
     const [url, body] = api.mock.calls.find(([, body]) => body);

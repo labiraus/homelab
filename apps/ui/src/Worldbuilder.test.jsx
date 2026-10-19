@@ -126,12 +126,13 @@ describe("Worldbuilder", () => {
     ).toBeEnabled();
   });
 
-  it("allows an editor with superuser status to review their own proposal", async () => {
+  it("allows an Administrator to publish with an explicit audited override", async () => {
     world.superuser = true;
     try {
       const calls = mockApi({
         id: "c",
         reason: "Own proposal",
+        baseRevision:1,
         status: "ready_for_review",
         author: "editor@test",
         operations: [],
@@ -145,9 +146,9 @@ describe("Worldbuilder", () => {
       fireEvent.change(await screen.findByLabelText("Review reason"), {
         target: { value: "Explicit self review" },
       });
-      fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Publish with recorded Administrator override" }));
       await waitFor(() =>
-        expect(calls.some(([url]) => url.endsWith("/changes/c/review"))).toBe(
+        expect(calls.some(([url]) => url.endsWith("/changes/c/publish"))).toBe(
           true,
         ),
       );

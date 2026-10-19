@@ -1,4 +1,18 @@
-# Configurable human review
+# Collective authorship and publication policy
+
+Current schema 9 governance is defined in [PWA implementation](PWA-IMPLEMENTATION.md#governance-and-established-canon).
+Authors collectively manage worlds; Readers suggest; Administrators configure
+independent, direct or unanimous policies. Independent review always excludes the
+proposer. Administrator exceptions are explicit, reasoned publication overrides,
+not self-approvals. Current authority is reevaluated; historical publication
+principals remain immutable. Legacy canonical `reviewPolicy` is retained as
+historical data and cannot be edited to change active governance.
+
+## Historical schema 7–8 checkpoint
+
+The following describes the former behavior, retained to interpret historical
+migration/review evidence. It is superseded by schema 9 for new writes.
+
 
 World settings may contain `"reviewPolicy": {"requiredApprovals": 2}`. The integer range is 1–5; missing policy means one independent approval, preserving existing worlds. Change it through the structured settings editor and ordinary proposal/review/publication. It is versioned canon, not an owner-only shortcut or model-controlled permission.
 

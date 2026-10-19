@@ -11,7 +11,7 @@ type EvidenceScope struct {
 }
 
 func recordReferences(record Record) []string {
-	refs := []string{record.Type, record.Subject, record.Target, record.Timeline, record.Source}
+	refs := append([]string{record.Type, record.Subject, record.Target, record.Timeline, record.Source, record.Supersedes, record.Clarifies}, record.References...)
 	if record.ValueType == "entity" {
 		if value, ok := record.Value.(string); ok {
 			refs = append(refs, value)
@@ -78,7 +78,7 @@ func (sc *scope) evidenceContextWithSearch(ctx context.Context, s Snapshot, revi
 		return true
 	}
 	for _, record := range all {
-		if record.Kind == "rule" || record.Kind == "world_settings" || record.ID == timeline {
+		if record.Kind == "rule" || record.Kind == "world_settings" || record.Kind == "established_account" || record.ID == timeline {
 			if !include(record.ID) {
 				return nil, scope, bad("required rules/settings exceed the evidence budget")
 			}

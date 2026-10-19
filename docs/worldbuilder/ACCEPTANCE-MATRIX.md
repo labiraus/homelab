@@ -1,5 +1,16 @@
 # Requirements and remaining acceptance work
 
+## PWA source update — 19 October 2026
+
+Schema 9 and the PWA implementation supersede the earlier single-owner,
+canonical-policy and ephemeral-chat contracts. See [current implementation,
+API additions, migration procedure and release gates](PWA-IMPLEMENTATION.md).
+[Local acceptance](PWA-ACCEPTANCE.md) records component, production-worker, responsive,
+actual API/PostgreSQL and restore results with retained screenshots.
+This is local source work, not a new deployment or device-acceptance claim.
+The dated checkpoints below are retained as historical evidence.
+
+
 Frontend checkpoint on 2026-10-13: the correction and responsive-CI/focused-resize follow-up are deployed as Ready UI revision 60 from source `ee1feba`, following complete publication `38405146042`. All ten served assets match the verified build, nine deployed-asset workspace journeys and separate public TLS/authentication-refusal checks pass, and the owned test forward is closed. [Current correction assessment](UI-CORRECTIONS.md#deployment-and-repeated-design-review--13-october-2026) separates these fixture checks from still-unverified production Google/model/active-world journeys. Outside-domain login still requires the unchanged Google project's External audience. Earlier non-frontend M0–M8 observations below retain their original scope.
 
 This is the current M0–M8 assessment, reconciled on 2026-10-12 against source, hosted checks and retained live reports. `LOCAL_VERIFIED` means disposable acceptance passed; `CI_VERIFIED` also requires complete applicable publication. `LIVE_CHECKPOINT` means the stated behavior was observed on the estate at that time, not that it is healthy now. The earlier `BLOCKED_CLUSTER_ACCESS` classification is superseded by current API rediscovery; pending estate checks still require their own evidence. Historical entries in [implementation status](IMPLEMENTATION-STATUS.md) retain their original observations.

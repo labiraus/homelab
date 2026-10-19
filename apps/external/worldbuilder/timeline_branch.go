@@ -78,6 +78,14 @@ func branchOperations(parent, current Snapshot, request TimelineBranchRequest) (
 		r := parent[id]
 		r.ID, r.Timeline = remap[id], request.Timeline
 		r.Type, r.Subject, r.Target, r.Source = reference(r.Type), reference(r.Subject), reference(r.Target), reference(r.Source)
+		r.Supersedes, r.Clarifies = reference(r.Supersedes), reference(r.Clarifies)
+		refs := make([]string, len(r.References))
+		for i, v := range r.References {
+			refs[i] = reference(v)
+		}
+		if len(refs) > 0 {
+			r.References = refs
+		}
 		if r.ValueType == "entity" {
 			if value, ok := r.Value.(string); ok {
 				r.Value = reference(value)

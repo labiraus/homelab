@@ -11,6 +11,7 @@ import (
 )
 
 type ReasonRequest struct {
+	At           *ExactTick         `json:"at,omitempty"`
 	Review       *ReviewContext     `json:"review,omitempty"`
 	Generation   *GenerationContext `json:"generation,omitempty"`
 	Story        *StoryContext      `json:"story,omitempty"`
@@ -25,31 +26,33 @@ type ReasonRequest struct {
 	ContextScope string             `json:"contextScope"`
 }
 type ReasonResult struct {
-	Findings       []AdvisoryFinding   `json:"findings,omitempty"`
-	Deterministic  *DeterministicCheck `json:"deterministic,omitempty"`
-	SessionVersion *int64              `json:"sessionVersion,omitempty"`
-	Choices        []StoryChoice       `json:"choices,omitempty"`
-	MemorySummary  string              `json:"memorySummary,omitempty"`
-	Provenance     Provenance          `json:"provenance"`
-	BaseRevision   int64               `json:"baseRevision"`
-	Answer         string              `json:"answer"`
-	Unknown        bool                `json:"unknown"`
-	Citations      []string            `json:"citations"`
-	Operations     []Operation         `json:"operations"`
-	Model          string              `json:"model"`
-	Usage          map[string]any      `json:"usage"`
-	EvidenceScope  EvidenceScope       `json:"evidenceScope"`
+	EstablishedAccounts []Evidence          `json:"establishedAccounts,omitempty"`
+	Findings            []AdvisoryFinding   `json:"findings,omitempty"`
+	Deterministic       *DeterministicCheck `json:"deterministic,omitempty"`
+	SessionVersion      *int64              `json:"sessionVersion,omitempty"`
+	Choices             []StoryChoice       `json:"choices,omitempty"`
+	MemorySummary       string              `json:"memorySummary,omitempty"`
+	Provenance          Provenance          `json:"provenance"`
+	BaseRevision        int64               `json:"baseRevision"`
+	Answer              string              `json:"answer"`
+	Unknown             bool                `json:"unknown"`
+	Citations           []string            `json:"citations"`
+	Operations          []Operation         `json:"operations"`
+	Model               string              `json:"model"`
+	Usage               map[string]any      `json:"usage"`
+	EvidenceScope       EvidenceScope       `json:"evidenceScope"`
 }
 type Reasoner func(context.Context, ReasonRequest) (ReasonResult, error)
 
 type ReasonInput struct {
-	ChangeID        string `json:"changeId,omitempty"`
-	Workflow        string `json:"workflow"`
-	Question        string `json:"question"`
-	Timeline        string `json:"timeline"`
-	Revision        int64  `json:"revision"`
-	SessionID       string `json:"sessionId,omitempty"`
-	ExpectedVersion *int64 `json:"expectedVersion,omitempty"`
+	At              *ExactTick `json:"at,omitempty"`
+	ChangeID        string     `json:"changeId,omitempty"`
+	Workflow        string     `json:"workflow"`
+	Question        string     `json:"question"`
+	Timeline        string     `json:"timeline"`
+	Revision        int64      `json:"revision"`
+	SessionID       string     `json:"sessionId,omitempty"`
+	ExpectedVersion *int64     `json:"expectedVersion,omitempty"`
 }
 type GenerationContext struct {
 	ID       string   `json:"id"`
@@ -75,7 +78,7 @@ func (sc *scope) generate(ctx context.Context, b ReasonInput, fn Reasoner, budge
 	if b.Workflow != "canon_query" && b.Workflow != "canon_proposal" && b.Workflow != "consistency_check" && b.Workflow != "story_turn" && b.Workflow != "narrative_generate" {
 		return nil, bad("unsupported reasoning workflow")
 	}
-	if b.Workflow == "canon_proposal" && !sc.can("owner", "admin", "editor") {
+	if b.Workflow == "canon_proposal" && !sc.can("author", "reader") {
 		return nil, forbidden
 	}
 	if b.Workflow == "canon_proposal" && b.Revision != sc.world.Revision {
@@ -142,11 +145,20 @@ func (sc *scope) generate(ctx context.Context, b ReasonInput, fn Reasoner, budge
 	if snapshot[b.Timeline].Kind != "timeline" {
 		return nil, bad("unknown timeline")
 	}
-	records, evidenceScope, err := sc.evidenceContext(ctx, snapshot, b.Revision, b.Timeline, b.Question, provisional, requiredRefs...)
+	evidenceSnapshot := snapshot
+	if b.At != nil {
+		evidenceSnapshot = Snapshot{}
+		for id, r := range snapshot {
+			if Visible(r, b.Timeline, (*int64)(b.At)) {
+				evidenceSnapshot[id] = r
+			}
+		}
+	}
+	records, evidenceScope, err := sc.evidenceContext(ctx, evidenceSnapshot, b.Revision, b.Timeline, b.Question, provisional, requiredRefs...)
 	if err != nil {
 		return nil, err
 	}
-	request := ReasonRequest{WorldID: sc.world.ID, Revision: b.Revision, Timeline: b.Timeline, Question: b.Question, Workflow: b.Workflow, Evidence: Citations(sc.world.ID, b.Revision, b.Timeline, records), Provisional: provisional, ContextScope: evidenceScope.Coverage}
+	request := ReasonRequest{At: b.At, WorldID: sc.world.ID, Revision: b.Revision, Timeline: b.Timeline, Question: b.Question, Workflow: b.Workflow, Evidence: Citations(sc.world.ID, b.Revision, b.Timeline, records), Provisional: provisional, ContextScope: evidenceScope.Coverage}
 	request.Story = story
 	request.Review = review
 	request.Generation = generation
@@ -200,20 +212,20 @@ func (sc *scope) generate(ctx context.Context, b ReasonInput, fn Reasoner, budge
 		}
 	}()
 	if semantic {
-		lexical, e := sc.lexicalCandidates(ctx, snapshot, b.Revision, b.Timeline, b.Question, nil)
+		lexical, e := sc.lexicalCandidates(ctx, evidenceSnapshot, b.Revision, b.Timeline, b.Question, nil)
 		if e != nil {
 			return nil, e
 		}
-		d, e := sc.vector.Find(ctx, sc.world.ID, b.Revision, visibleIDs(snapshot, b.Timeline, nil), b.Question, provenance.RequestID)
+		d, e := sc.vector.Find(ctx, sc.world.ID, b.Revision, visibleIDs(evidenceSnapshot, b.Timeline, (*int64)(b.At)), b.Question, provenance.RequestID)
 		retrieval = d.Usage
 		if e != nil {
 			return nil, &Problem{502, "semantic_unavailable", "semantic evidence retrieval failed; the attempt remains charged to your allowance"}
 		}
-		ranked, e := sc.reciprocalRank(snapshot, lexical, d, b.Question, nil, 20, 0)
+		ranked, e := sc.reciprocalRank(evidenceSnapshot, lexical, d, b.Question, nil, 20, 0)
 		if e != nil {
 			return nil, e
 		}
-		records, evidenceScope, e = sc.evidenceContextWithSearch(ctx, snapshot, b.Revision, b.Timeline, b.Question, provisional, &ranked, requiredRefs...)
+		records, evidenceScope, e = sc.evidenceContextWithSearch(ctx, evidenceSnapshot, b.Revision, b.Timeline, b.Question, provisional, &ranked, requiredRefs...)
 		if e != nil {
 			return nil, e
 		}
@@ -282,10 +294,23 @@ func (sc *scope) generate(ctx context.Context, b ReasonInput, fn Reasoner, budge
 		for k, v := range provisional {
 			combined[k] = v
 		}
-		if _, err = Apply(combined, result.Operations); err != nil {
+		if _, err = applyWithMode(combined, result.Operations, story != nil && story.Mode == "sandbox"); err != nil {
 			return nil, err
 		}
 	}
+	effective := []Record{}
+	superseded := map[string]bool{}
+	for _, r := range records {
+		if r.Kind == "established_account" && r.Supersedes != "" {
+			superseded[r.Supersedes] = true
+		}
+	}
+	for _, r := range records {
+		if r.Kind == "established_account" && !superseded[r.ID] {
+			effective = append(effective, r)
+		}
+	}
+	result.EstablishedAccounts = Citations(sc.world.ID, b.Revision, b.Timeline, effective)
 	result.BaseRevision = b.Revision
 	result.EvidenceScope = evidenceScope
 	provenance.LatencyMS = time.Since(started).Milliseconds()

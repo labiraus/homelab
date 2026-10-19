@@ -110,6 +110,9 @@ export function conversationQuestion(text, messages, references) {
 export function humanLabel(value = "") {
   const labels = {
     world_settings: "World settings",
+ established_account: "Established account",
+ author: "Author",
+ reader: "Reader",
     entity: "Character or place",
     type: "Record category",
     fact: "Fact",

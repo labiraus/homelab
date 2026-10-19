@@ -1,3 +1,8 @@
+import WorldSyncStatus from "./WorldSyncStatus.jsx";
+import useLocalWriting from "./useLocalWriting.js";
+import WorldSceneState from "./WorldSceneState.jsx";
+import WorldDiscovery from "./WorldDiscovery.jsx";
+import WorldEstablished from "./WorldEstablished.jsx";
 import WorldConfiguration from "./WorldConfiguration.jsx";
 import WorldStoryScene from "./WorldStoryScene.jsx";
 import useWorldDialog from "./useWorldDialog.js";
@@ -31,15 +36,27 @@ import WorldUsers from "./WorldUsers.jsx";
 import WorldTimelineBranch from "./WorldTimelineBranch.jsx";
 import ProposalFindings from "./WorldFindings.jsx";
 
+import { worldRequest, setDeviceActor } from "./worldOffline.js";
 const base = import.meta.env.VITE_API_BASE_URL ?? "";
-async function api(path, body, options = {}) {
+export function api(path, body, options = {}) {
+  return worldRequest(path, body, options, onlineApi);
+}
+export async function onlineApi(path, body, options = {}) {
   const response = await fetch(`${base}/api/worlds${path}`, {
+    redirect: "manual",
     signal: options.signal,
     method: body === undefined ? "GET" : "POST",
     headers:
       body === undefined ? undefined : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
+  }).catch((error) => {
+    error.networkFailure = true;
+    throw error;
   });
+  if (response.type === "opaqueredirect")
+    throw Object.assign(new Error("Sign in again to continue."), {
+      status: 401,
+    });
   const text = await response.text();
   // Successful responses must never hide a precision/parse failure as empty canon.
   let data;
@@ -66,6 +83,7 @@ const mergeRows = (before, after, key = "id") => [
   ...new Map([...before, ...after].map((row) => [row[key], row])).values(),
 ];
 export default function Worldbuilder({ email }) {
+  setDeviceActor(email);
   const [headerHost, setHeaderHost] = useState(null);
   const worldMenu = useRef(null);
   const menuTrigger = useRef(null);
@@ -327,6 +345,7 @@ export default function Worldbuilder({ email }) {
             <div>
               <p className="workspace-eyebrow">Worldbuilder</p>
               <h1 id="world-library-title">Your worlds</h1>
+              <WorldDiscovery api={api} />
               <p>
                 Pick up a story, explore your canon, or imagine something new.
               </p>
@@ -546,6 +565,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
     turns: 0,
   });
   const [moreLists, setMoreLists] = useState({});
+  const [establishedSeed, setEstablishedSeed] = useState(null);
   const [reviewReason, setReviewReason] = useState("");
   const [setupOpen, setSetupOpen] = useState(false);
   const [sceneOpen, setSceneOpen] = useState(false);
@@ -553,6 +573,45 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
     [turns, setTurns] = useState([]),
     [premiseCandidate, setPremiseCandidate] = useState(""),
     [narration, setNarration] = useState("");
+  const [scene, setScene] = useState({});
+  const [manualPin, setManualPin] = useState(null);
+  useEffect(
+    () => setScene(session?.scene || {}),
+    [session?.id, session?.version],
+  );
+  const localWriting = useMemo(
+    () => ({
+      narration,
+      operations,
+      reason,
+      stagedRevision,
+      stagedBefore,
+      scene,
+      manualPin,
+    }),
+    [
+      narration,
+      operations,
+      reason,
+      stagedRevision,
+      stagedBefore,
+      scene,
+      manualPin,
+    ],
+  );
+  const { localSaved, localError } = useLocalWriting(
+    `${path}/manual`,
+    localWriting,
+    (v) => {
+      setNarration(v.narration || "");
+      setOperations(v.operations || []);
+      setReason(v.reason || "");
+      setStagedRevision(v.stagedRevision ?? null);
+      setStagedBefore(v.stagedBefore || {});
+      if (v.scene) setScene(v.scene);
+      setManualPin(v.manualPin || null);
+    },
+  );
 
   useEffect(() => {
     const node = layout.current;
@@ -783,10 +842,19 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
       throw new Error(
         "Resume the candidate’s original story version or generate a fresh turn.",
       );
+    if (
+      !candidate &&
+      manualPin &&
+      (manualPin.id !== session.id || manualPin.version !== session.version)
+    )
+      throw Error(
+        "This manual writing belongs to another story version. Inspect the current scene, then explicitly reauthor it.",
+      );
     const body = {
       expectedVersion: candidate?.sessionVersion ?? session.version,
       narration: text,
       operations: ops,
+      ...(!candidate && canon.world.capabilities?.sandbox ? { scene } : {}),
       ...(candidate
         ? {
             memorySummary: candidate.memorySummary,
@@ -800,20 +868,12 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
       turnRetry.current = { signature, id: requestId || id() };
     await api(`${path}/sessions/${session.id}/turns`, {
       requestId: turnRetry.current.id,
-      expectedVersion: candidate?.sessionVersion ?? session.version,
-      narration: text,
-      operations: ops,
-      ...(candidate
-        ? {
-            memorySummary: candidate.memorySummary,
-            choices: candidate.choices,
-            direction: candidate.direction,
-          }
-        : {}),
+      ...body,
     });
     turnRetry.current = null;
     await resume(await api(`${path}/sessions/${session.id}`));
     setNarration("");
+    setManualPin(null);
     setOperations([]);
     await reload();
   }
@@ -845,6 +905,10 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
     );
   }
   function editRecord(record, recordRevision = canon.revision) {
+    if (record.kind === "established_account") {
+      navigate("drafts");
+      return;
+    }
     navigate("drafts");
     setEditing(record);
     setEditingRevision(recordRevision);
@@ -853,12 +917,19 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
   const canEdit =
     canon &&
     !canon.world.archived &&
-    ["owner", "admin", "editor"].includes(canon.world.role);
+    (["author", "reader", "owner", "admin", "editor"].includes(
+      canon.world.role,
+    ) ||
+      canon.world.superuser);
   const canReview =
     canon &&
     !canon.world.archived &&
-    ["owner", "admin", "reviewer"].includes(canon.world.role);
-  const canSelfReview = canon && !canon.world.archived && canon.world.superuser;
+    (["author", "owner", "admin", "reviewer"].includes(canon.world.role) ||
+      canon.world.superuser);
+  const canSelfReview =
+    canon &&
+    !canon.world.archived &&
+    canon.world.publicationPolicy?.mode === "unanimous";
   const records = canon?.records ?? [];
   const formatTick = useMemo(
     () => createCalendarFormatter(canon?.calendar),
@@ -943,7 +1014,9 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
             <p className="wb-archive-banner" role="status">
               This world is archived. You can browse its history; creating or
               publishing changes is paused.
-              {canon.world.role === "owner" && (
+              {(canon.world.role === "author" ||
+                canon.world.role === "owner" ||
+                canon.world.superuser) && (
                 <button onClick={() => navigate("settings")}>
                   Open world administration to reopen
                 </button>
@@ -951,6 +1024,13 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
             </p>
           )}
           <div className="wb-scope-bar">
+            <WorldSyncStatus />
+            {canon.offline && (
+              <span className="wb-sync-status">
+                Downloaded context · search and views cover this saved scope
+                only
+              </span>
+            )}
             <span className="wb-status">
               Published context ·{" "}
               {canon.timeline ||
@@ -1013,8 +1093,11 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
             <div className="wb-main">
               <div hidden={section !== "workspace"}>
                 <WorldWorkspace
+                  email={email}
                   historyHost={historyHost}
-                  onConversation={() => navigate("workspace")}
+                  onConversation={(conversation) =>
+                    navigate("workspace", { conversation })
+                  }
                   api={api}
                   path={path}
                   scope={{
@@ -1145,6 +1228,11 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                 hidden={section !== "explore"}
                 aria-label="Explore canon"
               >
+                {canon.world.capabilities?.establishedAccounts && (
+                  <button onClick={() => navigate("drafts")}>
+                    Establish an account / inspect established canon
+                  </button>
+                )}
                 <fieldset disabled={busy}>
                   <legend>Wiki and history</legend>
                   <form
@@ -1348,9 +1436,10 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                         )}
                         {r.kind === "world_settings" && (
                           <p>
-                            Human review policy:{" "}
-                            {r.reviewPolicy?.requiredApprovals ?? 1} independent
-                            approval(s).
+                            Current publication policy:{" "}
+                            {canon.world.publicationPolicy?.mode ||
+                              "independent"}
+                            . Configure administrative policy in World Settings.
                           </p>
                         )}
                         {r.attributes && (
@@ -1384,7 +1473,27 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                         >
                           Explore connections of {r.label || r.id}
                         </button>
-                        <span className="wb-status">Published canon</span>
+                        {r.kind === "event" &&
+                          canEdit &&
+                          canon.world.capabilities?.establishedAccounts && (
+                            <button
+                              onClick={() => {
+                                setEstablishedSeed({
+                                  record: r,
+                                  revision: canon.revision,
+                                  timeline: canon.timeline || timeline,
+                                });
+                                navigate("drafts");
+                              }}
+                            >
+                              Establish an account of {r.label || r.id}
+                            </button>
+                          )}
+                        <span className="wb-status">
+                          {r.kind === "established_account"
+                            ? "Established account"
+                            : "Published canon"}
+                        </span>
                         <button
                           onClick={() => (
                             (inspectorReturn.current = document.activeElement),
@@ -1443,16 +1552,19 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                             Edit {r.label || r.id}
                           </button>
                         )}
-                        {canEdit && r.kind !== "world_settings" && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              stage({ action: "delete", id: r.id })
-                            }
-                          >
-                            Propose removal
-                          </button>
-                        )}
+                        {canEdit &&
+                          !["world_settings", "established_account"].includes(
+                            r.kind,
+                          ) && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                stage({ action: "delete", id: r.id })
+                              }
+                            >
+                              Propose removal
+                            </button>
+                          )}
                       </article>
                     ))}
                   </div>
@@ -1508,6 +1620,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                   timelines={catalog.filter((r) => r.kind === "timeline")}
                   canEdit={canEdit}
                   onAdvanced={editRecord}
+                  policy={canon.world.publicationPolicy}
                   onExplore={() => navigate("explore")}
                   onStage={(record, originalRevision) => {
                     if (originalRevision !== canon.revision)
@@ -1541,10 +1654,12 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                     onSaved={reload}
                   />
                 </details>
-                {canon.world.role === "owner" && (
+                {(canon.world.role === "author" ||
+                  canon.world.role === "owner" ||
+                  canon.world.superuser) && (
                   <details id="world-administration">
                     <summary>
-                      World administration · members, ownership and archive
+                      World administration · members, publication and archive
                     </summary>
                     <WorldAdministration
                       api={api}
@@ -1562,6 +1677,22 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                 hidden={section !== "drafts"}
                 aria-label="Drafts and proposals"
               >
+                {canon.world.capabilities?.establishedAccounts && (
+                  <WorldEstablished
+                    seed={establishedSeed}
+                    api={api}
+                    path={path}
+                    revision={canon.revision}
+                    timeline={canon.timeline || timeline}
+                    canEdit={canEdit}
+                    onStage={(record, base, accountReason) => {
+                      if (base !== canon.revision)
+                        throw Error("Return to the original revision.");
+                      stage({ action: "put", id: record.id, record });
+                      setReason(accountReason);
+                    }}
+                  />
+                )}
                 <HistoryPanel
                   api={api}
                   path={path}
@@ -1584,6 +1715,8 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                   <fieldset disabled={busy}>
                     <legend>Structured editor</legend>
                     <WorldRecordEditor
+                      draftKey={`${path}/editor/${editing?.id || "new"}`}
+                      revision={canon.revision}
                       key={editorKey}
                       record={editing}
                       onNew={() => {
@@ -1672,14 +1805,15 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                   <details>
                     <summary>How approval works</summary>
                     <p>
-                      Displayed revision policy:{" "}
-                      {canon.reviewPolicy?.requiredApprovals ?? 1} distinct
-                      human approval(s), from owners, admins or reviewers other
-                      than the author. Superusers may approve their own
-                      proposals. Each proposal retains its required count;
-                      policy changes use the stricter count. Publication
-                      rechecks current membership authority, canon revision and
-                      deterministic rules; AI cannot approve.
+                      {canon.world.publicationPolicy?.mode || "independent"}{" "}
+                      publication policy ·{" "}
+                      {canon.world.publicationPolicy?.requiredApprovals ?? 1}{" "}
+                      required independent Author approval(s). Authors
+                      collectively own this world. Unanimous policy requires
+                      every current Author, including an Author proposer. Only
+                      Administrators can explicitly override approval counts,
+                      with an audited reason. Revision checks, validation and
+                      established-account protection always apply.
                     </p>
                   </details>
                   <label>
@@ -1728,6 +1862,19 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                     .map((c) => (
                       <article key={c.id}>
                         <h3>{c.reason}</h3>
+                        {!!c.establishedWarnings?.length && (
+                          <aside>
+                            <strong>Check established accounts</strong>
+                            <p>
+                              This proposal changes records referenced by the
+                              following immutable accounts. Inspect potential
+                              disagreement; semantic checks are advisory.
+                            </p>
+                            {c.establishedWarnings.map((r) => (
+                              <RecordSummary key={r.id} record={r} />
+                            ))}
+                          </aside>
+                        )}
                         <a
                           href={worldHref(worldId, "drafts", {
                             proposal: c.id,
@@ -1780,7 +1927,13 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                             : ""}
                           {c.approvals?.length ??
                             (c.status === "approved" ? 1 : 0)}{" "}
-                          of {c.requiredApprovals ?? 1} required approvals.
+                          of{" "}
+                          {c.status === "published"
+                            ? c.requiredApprovals
+                            : (c.effectiveRequiredApprovals ??
+                              c.requiredApprovals ??
+                              1)}{" "}
+                          required approvals.
                         </p>
                         {c.reviews?.length > 0 && (
                           <ul aria-label={`Reviews for ${c.reason}`}>
@@ -1861,8 +2014,8 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                           !canEdit &&
                           !canon.world.archived && (
                             <p>
-                              Only an editor with access to this world can
-                              submit their own draft.
+                              Only the author of this suggestion can submit
+                              their own draft.
                             </p>
                           )}
                         {["ready_for_review", "approved"].includes(c.status) &&
@@ -1880,14 +2033,20 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                                 : "Publication is available to an authorized reviewer."}
                           </p>
                         )}
-                        {c.status === "approved" &&
+                        {(c.status === "approved" ||
+                          c.publicationReady ||
+                          (c.status === "ready_for_review" &&
+                            canon.world.publicationPolicy?.mode ===
+                              "direct")) &&
                           (canReview ||
                             (canSelfReview && c.author === email)) && (
                             <button
                               disabled={
                                 c.baseRevision !== canon.world.revision ||
-                                (c.approvals?.length ?? 1) <
-                                  (c.requiredApprovals ?? 1)
+                                (c.publicationReady === undefined
+                                  ? (c.approvals?.length ?? 1) <
+                                    (c.requiredApprovals ?? 1)
+                                  : !c.publicationReady)
                               }
                               onClick={() =>
                                 void run(async () => {
@@ -1900,6 +2059,28 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                               }
                             >
                               Publish approved change
+                            </button>
+                          )}
+                        {canon.world.superuser &&
+                          ["ready_for_review", "approved"].includes(
+                            c.status,
+                          ) && (
+                            <button
+                              disabled={
+                                canon.world.archived ||
+                                !reviewReason ||
+                                c.baseRevision !== canon.world.revision
+                              }
+                              onClick={() =>
+                                void run(async () => {
+                                  await api(`${path}/changes/${c.id}/publish`, {
+                                    overrideReason: reviewReason,
+                                  });
+                                  await reload();
+                                })
+                              }
+                            >
+                              Publish with recorded Administrator override
                             </button>
                           )}
                         {c.reviewer && !c.reviews?.length && (
@@ -1959,6 +2140,17 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                       }}
                       moreTurns={listMore("turns", "turns")}
                     />
+                    {canon.world.capabilities?.establishedAccounts && (
+                      <button onClick={() => navigate("drafts")}>
+                        Establish a witnessed story outcome
+                      </button>
+                    )}
+                    {session.mode === "sandbox" && (
+                      <p className="wb-status">
+                        Sandbox · departures are provisional; normal validation
+                        applies before publication.
+                      </p>
+                    )}
                     <a
                       href={worldHref(worldId, "stories", {
                         session: session.id,
@@ -1973,11 +2165,54 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                         provisional changes. This authoring control does not
                         process a player action.
                       </p>
+                      {manualPin &&
+                        (manualPin.id !== session.id ||
+                          manualPin.version !== session.version) && (
+                          <p role="alert">
+                            Saved writing belongs to a different story version.
+                            Inspect the current scene before continuing.{" "}
+                            <button
+                              onClick={() =>
+                                setManualPin({
+                                  id: session.id,
+                                  version: session.version,
+                                })
+                              }
+                            >
+                              Reauthor for this story version
+                            </button>
+                          </p>
+                        )}
+                      {localSaved && <p role="status">Saved on this device</p>}
+                      {localError && <p role="alert">{localError}</p>}
+                      {canon.world.capabilities?.sandbox && (
+                        <WorldSceneState
+                          api={api}
+                          path={path}
+                          session={session}
+                          value={scene}
+                          onChange={(value) => {
+                            setScene(value);
+                            if (!manualPin)
+                              setManualPin({
+                                id: session.id,
+                                version: session.version,
+                              });
+                          }}
+                        />
+                      )}
                       <label>
                         Next narration
                         <textarea
                           value={narration}
-                          onChange={(e) => setNarration(e.target.value)}
+                          onChange={(e) => {
+                            setNarration(e.target.value);
+                            if (!manualPin)
+                              setManualPin({
+                                id: session.id,
+                                version: session.version,
+                              });
+                          }}
                           maxLength={16000}
                         />
                       </label>

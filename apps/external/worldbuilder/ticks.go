@@ -76,3 +76,18 @@ func (r *toolRequest) UnmarshalJSON(raw []byte) error {
 	*r = toolRequest(value)
 	return nil
 }
+
+// ExactTick accepts quoted or numeric signed-int64 time without promoting a
+// JSON unmarshaler onto structs embedding ReasonInput (durable generation).
+type ExactTick int64
+
+func (v *ExactTick) UnmarshalJSON(raw []byte) error {
+	n, err := parseTick(raw)
+	if err != nil {
+		return err
+	}
+	if n != nil {
+		*v = ExactTick(*n)
+	}
+	return nil
+}

@@ -21,6 +21,7 @@ export default function WorldStorySetup({
     [error, setError] = useState(""),
     [more, setMore] = useState(false);
   const retry = useRef(null);
+  const [mode,setMode]=useState("canon_eligible");
   useEffect(() => {
     let current = true;
     api(`${path}/story-definitions`)
@@ -58,7 +59,7 @@ export default function WorldStorySetup({
         pinnedRevision: premiseCandidate?.revision ?? revision,
         timeline: premiseCandidate?.timeline ?? timeline,
       };
-      const signature = JSON.stringify(
+      const signature = mode + JSON.stringify(
         definition
           ? {
               definitionId: definition.id,
@@ -82,6 +83,7 @@ export default function WorldStorySetup({
         }));
       const session = await api(`${path}/sessions`, {
         id: retry.current.sessionId,
+        mode,
         title: d.title,
         definitionId: d.id,
         pinnedRevision: d.pinnedRevision,
@@ -136,6 +138,8 @@ export default function WorldStorySetup({
         </button>
       )}
       <form onSubmit={start}>
+        <label>Story mode<select value={mode} onChange={e=>setMode(e.target.value)}><option value="canon_eligible">Canon eligible</option><option value="sandbox">Sandbox</option></select></label>
+        {mode==='sandbox'&&<p>Sandbox may depart from fictional rules. Outcomes require reconciliation and normal canon validation before publication. Established accounts remain unchanged.</p>}
         {definition ? (
           <p>
             {definition.premise} — pinned revision {definition.pinnedRevision},

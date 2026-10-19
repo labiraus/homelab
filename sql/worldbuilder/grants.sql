@@ -21,4 +21,8 @@ GRANT UPDATE(delivered_at) ON worldbuilder.generation_outbox TO worldbuilder_rel
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA worldbuilder TO worldbuilder_external;
 GRANT SELECT ON worldbuilder.outbox, worldbuilder.revision TO worldbuilder_relay;
 GRANT UPDATE(delivered_at) ON worldbuilder.outbox TO worldbuilder_relay;
+GRANT SELECT ON worldbuilder.established_account TO worldbuilder_external;
+GRANT SELECT, INSERT ON worldbuilder.conversation, worldbuilder.conversation_message TO worldbuilder_external;
+GRANT UPDATE(status,result) ON worldbuilder.conversation_message TO worldbuilder_external;
+GRANT EXECUTE ON FUNCTION worldbuilder.set_administrator(text,text,boolean,text) TO worldbuilder_external;
 COMMIT;

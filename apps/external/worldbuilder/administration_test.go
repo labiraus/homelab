@@ -47,7 +47,7 @@ func TestGovernedSettingsAndStableDeletedIdentity(t *testing.T) {
 	}
 }
 
-func TestArchiveMembershipTransferConcurrencyAndRetries(t *testing.T) {
+func TestArchiveCollectiveMembershipConcurrencyAndRetries(t *testing.T) {
 	h := setup(t)
 	w := h.world()
 	p := "/" + w
@@ -59,7 +59,7 @@ func TestArchiveMembershipTransferConcurrencyAndRetries(t *testing.T) {
 	h.call("owner@example.test", "GET", p+"/members?limit=2", nil, 200)
 	h.call("reader@example.test", "GET", p+"/members", nil, 403)
 	r := AdminRequest{RequestID: uuid.NewString(), ExpectedVersion: version, Action: "archive", Reason: "Pause world"}
-	h.call("editor@example.test", "POST", p+"/administration", r, 403)
+	h.call("reader@example.test", "POST", p+"/administration", r, 403)
 	raw := h.call("owner@example.test", "POST", p+"/administration", r, 200)
 	if err := json.Unmarshal(raw, &current); err != nil || !current.Archived || current.AdminVersion != version+1 {
 		t.Fatalf("archive: %s %v", raw, err)
@@ -76,17 +76,15 @@ func TestArchiveMembershipTransferConcurrencyAndRetries(t *testing.T) {
 	r = AdminRequest{RequestID: uuid.NewString(), ExpectedVersion: version + 2, Action: "remove_member", Principal: "reader@example.test", Reason: "Revoke access"}
 	h.call("owner@example.test", "POST", p+"/administration", r, 200)
 	h.call("reader@example.test", "GET", p, nil, 404)
-	r = AdminRequest{RequestID: uuid.NewString(), ExpectedVersion: version + 3, Action: "transfer_owner", Principal: "editor@example.test", Reason: "Transfer stewardship"}
-	h.call("owner@example.test", "POST", p+"/administration", r, 200)
-	raw = h.call("owner@example.test", "POST", p+"/administration", r, 200) // exact retry remains available to former owner/admin
-	if err := json.Unmarshal(raw, &current); err != nil || current.Role != "admin" || current.AdminVersion != version+4 {
-		t.Fatalf("transfer retry: %s %v", raw, err)
-	}
-	h.call("owner@example.test", "POST", p+"/administration", AdminRequest{RequestID: uuid.NewString(), ExpectedVersion: version + 4, Action: "archive", Reason: "Former owner"}, 403)
-	h.call("editor@example.test", "POST", p+"/administration", AdminRequest{RequestID: uuid.NewString(), ExpectedVersion: version + 4, Action: "remove_member", Principal: "editor@example.test", Reason: "Remove self"}, 422)
+	r = AdminRequest{RequestID: uuid.NewString(), ExpectedVersion: version + 3, Action: "transfer_owner", Principal: "editor@example.test", Reason: "Removed workflow"}
+	h.call("owner@example.test", "POST", p+"/administration", r, 422)
+	r.Action = "remove_member"
+	r.Principal = "reviewer@example.test"
+	h.call("editor@example.test", "POST", p+"/administration", r, 200)
+	h.call("editor@example.test", "POST", p+"/administration", r, 200)
 	var count int
-	if err := h.pool.QueryRow(context.Background(), `SELECT count(*) FROM worldbuilder.member WHERE world_id=$1 AND role='owner'`, w).Scan(&count); err != nil || count != 1 {
-		t.Fatalf("owners %d %v", count, err)
+	if err := h.pool.QueryRow(context.Background(), `SELECT count(*) FROM worldbuilder.member WHERE world_id=$1 AND role='author'`, w).Scan(&count); err != nil || count != 2 {
+		t.Fatalf("authors %d %v", count, err)
 	}
 	results := make(chan int, 2)
 	for _, action := range []string{"archive", "unarchive"} {

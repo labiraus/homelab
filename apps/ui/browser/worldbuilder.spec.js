@@ -64,6 +64,28 @@ test("independent browser users propose, review, publish and keep private storie
     await page.getByLabel("Open world").selectOption(world);
     await expect(page.locator(".wb-scope-bar")).toContainText("revision 1");
   }
+  const administratorHeaders = {
+    "Test-Actor": "browser-superuser@example.test",
+  };
+  const initial = await (
+    await editorContext.request.get(`/api/worlds/${world}`, {
+      headers: administratorHeaders,
+    })
+  ).json();
+  const policyChange = await editorContext.request.post(
+    `/api/worlds/${world}/administration`,
+    {
+      headers: administratorHeaders,
+      data: {
+        requestId: randomUUID(),
+        expectedVersion: initial.adminVersion,
+        action: "set_policy",
+        policy: { mode: "independent", requiredApprovals: 2 },
+        reason: "Two independent Authors for this acceptance",
+      },
+    },
+  );
+  expect(policyChange.status(), await policyChange.text()).toBe(200);
   await open(editor);
   await navigate(editor, "Explore");
   await editor.getByText("Relationship graph", { exact: true }).click();
@@ -155,9 +177,9 @@ test("independent browser users propose, review, publish and keep private storie
     .getByLabel("Calendar name", { exact: true })
     .fill("Harbour calendar");
   await navigate(editor, "Drafts & Proposals");
-  await editor
-    .getByLabel("Required independent approvals", { exact: true })
-    .fill("2");
+  await expect(
+    editor.getByLabel("Required independent approvals", { exact: true }),
+  ).toHaveCount(0);
   await navigate(editor, "Drafts & Proposals");
   await editor
     .getByLabel("Epoch tick", { exact: true })
@@ -503,9 +525,9 @@ test("independent browser users propose, review, publish and keep private storie
   await editor
     .getByRole("button", { name: "Save reconciled draft", exact: true })
     .click();
-  await expect(editor.getByRole("status")).toContainText(
-    "Reconciled draft saved",
-  );
+  await expect(
+    editor.getByRole("status").filter({ hasText: "Reconciled draft saved" }),
+  ).toContainText("Reconciled draft saved");
   const outcomeFor = (page) =>
     page.locator("article").filter({
       has: page.getByRole("heading", {
@@ -615,7 +637,7 @@ test("independent browser users propose, review, publish and keep private storie
   await secondContext.close();
 });
 
-test("superuser registers a user and explicitly reviews their own proposal", async ({
+test("Administrator registers a user and explicitly overrides approval counts", async ({
   browser,
 }) => {
   const baseURL = process.env.WORLDBUILDER_BROWSER_URL;
@@ -633,9 +655,11 @@ test("superuser registers a user and explicitly reviews their own proposal", asy
     const page = await context.newPage();
     await page.goto("/");
     await page.getByRole("button", { name: "Worlds", exact: true }).click();
-    await page.getByText("World menu", { exact: true }).click();
+    await page.getByRole("button", { name: "World menu", exact: true }).click();
     await page.getByText("Account administration", { exact: true }).click();
-    await page.getByText("Superuser · Manage users", { exact: true }).click();
+    await page
+      .getByText("Administrator · Manage users", { exact: true })
+      .click();
     await page
       .getByLabel("Google account email", { exact: true })
       .fill("browser-new@example.test");
@@ -694,12 +718,14 @@ test("superuser registers a user and explicitly reviews their own proposal", asy
     await page
       .getByLabel("Review reason", { exact: true })
       .fill("I explicitly approve my own proposal");
+    await expect(
+      proposal.getByRole("button", { name: "Approve", exact: true }),
+    ).toHaveCount(0);
     await proposal
-      .getByRole("button", { name: "Approve", exact: true })
-      .click();
-    await expect(proposal).toContainText("Superuser self-approval");
-    await proposal
-      .getByRole("button", { name: "Publish approved change", exact: true })
+      .getByRole("button", {
+        name: "Publish with recorded Administrator override",
+        exact: true,
+      })
       .click();
     await expect(page.locator(".wb-scope-bar")).toContainText("revision 1");
     await expect(proposal).toContainText("Published");
@@ -742,11 +768,9 @@ test("a timeline branch is reviewed before publication and retains its parent sn
       })),
     });
     await post(`${path}/changes/${id}/submit`, {});
-    await post(`${path}/changes/${id}/review`, {
-      decision: "approved",
-      reason: "Fixture superuser review",
+    await post(`${path}/changes/${id}/publish`, {
+      overrideReason: "Explicit fixture Administrator override",
     });
-    await post(`${path}/changes/${id}/publish`, {});
   }
   try {
     await post("/api/worlds", { id: world, name: "Branch browser world" });
@@ -810,7 +834,9 @@ test("a timeline branch is reviewed before publication and retains its parent sn
     await page
       .getByRole("button", { name: "Create branch draft", exact: true })
       .click();
-    await expect(page.getByRole("status")).toContainText("Review and publish");
+    await expect(
+      page.getByRole("status").filter({ hasText: "Review and publish" }),
+    ).toContainText("Review and publish");
     expect((await (await context.request.get(path)).json()).revision).toBe(1);
     const proposal = page.locator("article").filter({
       has: page.getByRole("heading", {
@@ -827,10 +853,10 @@ test("a timeline branch is reviewed before publication and retains its parent sn
       .getByLabel("Review reason", { exact: true })
       .fill("Reviewed the complete fixed parent snapshot");
     await proposal
-      .getByRole("button", { name: "Approve", exact: true })
-      .click();
-    await proposal
-      .getByRole("button", { name: "Publish approved change", exact: true })
+      .getByRole("button", {
+        name: "Publish with recorded Administrator override",
+        exact: true,
+      })
       .click();
     await expect(page.getByText(/canon revision 2/)).toBeVisible();
     await publish(2, [{ ...fact, value: 30 }]);

@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-
 export default function WorldAdministration({ api, path, world, onSaved }) {
-  const [members, setMembers] = useState([]);
-  const [more, setMore] = useState(false);
-  const [action, setAction] = useState("set_member");
-  const [principal, setPrincipal] = useState("");
-  const [role, setRole] = useState("editor");
-  const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const lastRequest = useRef(null);
+  const [members, setMembers] = useState([]),
+    [more, setMore] = useState(false),
+    [action, setAction] = useState("set_member"),
+    [principal, setPrincipal] = useState(""),
+    [role, setRole] = useState("author"),
+    [reason, setReason] = useState(""),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const [policy, setPolicy] = useState(
+    world.publicationPolicy || { mode: "independent", requiredApprovals: 1 },
+  );
+  const retry = useRef(null);
   useEffect(() => {
     let active = true;
     api(`${path}/members?limit=100`)
@@ -30,25 +32,27 @@ export default function WorldAdministration({ api, path, world, onSaved }) {
     e.preventDefault();
     setBusy(true);
     setError("");
-    const request = {
+    const body = {
       expectedVersion: world.adminVersion,
       action,
       reason,
-      ...(["set_member", "remove_member", "transfer_owner"].includes(action)
+      ...(["set_member", "remove_member"].includes(action)
         ? { principal }
         : {}),
       ...(action === "set_member" ? { role } : {}),
+      ...(action === "set_policy" ? { policy } : {}),
     };
-    const signature = JSON.stringify(request);
-    if (lastRequest.current?.signature !== signature)
-      lastRequest.current = { signature, requestId: crypto.randomUUID() };
+    const signature = JSON.stringify(body);
+    if (retry.current?.signature !== signature)
+      retry.current = { signature, id: crypto.randomUUID() };
     try {
       await api(`${path}/administration`, {
-        ...request,
-        requestId: lastRequest.current.requestId,
+        ...body,
+        requestId: retry.current.id,
       });
       await onSaved();
       setReason("");
+      retry.current = null;
     } catch (e) {
       setError(e.message);
     } finally {
@@ -58,24 +62,25 @@ export default function WorldAdministration({ api, path, world, onSaved }) {
   return (
     <fieldset disabled={busy}>
       <legend>World administration</legend>
-      {error && <p role="alert">{error}</p>}
+      <p>
+        Authors own this world collectively. At least one Author must remain.
+      </p>
       <p>
         {world.archived
           ? "Archived: history remains readable; new canon and story writes are paused."
           : "Active world"}
       </p>
+      {error && <p role="alert">{error}</p>}
       <ul>
-        {members.map((member) => (
-          <li key={member.principal}>
-            {member.principal} · {member.role}
+        {members.map((m) => (
+          <li key={m.principal}>
+            {m.principal} · {m.role}
           </li>
         ))}
       </ul>
       {more && (
         <button
           onClick={async () => {
-            setBusy(true);
-            setError("");
             try {
               const rows = await api(
                 `${path}/members?limit=100&offset=${members.length}`,
@@ -84,8 +89,6 @@ export default function WorldAdministration({ api, path, world, onSaved }) {
               setMore(rows.length === 100);
             } catch (e) {
               setError(e.message);
-            } finally {
-              setBusy(false);
             }
           }}
         >
@@ -98,17 +101,19 @@ export default function WorldAdministration({ api, path, world, onSaved }) {
           <select value={action} onChange={(e) => setAction(e.target.value)}>
             <option value="set_member">Set member role</option>
             <option value="remove_member">Revoke membership</option>
-            <option value="transfer_owner">Transfer ownership</option>
             <option value="archive">Archive world</option>
             <option value="unarchive">Reopen world</option>
+            {world.superuser && (
+              <option value="set_policy">Set publication policy</option>
+            )}
           </select>
         </label>
-        {["set_member", "remove_member", "transfer_owner"].includes(action) && (
+        {["set_member", "remove_member"].includes(action) && (
           <label>
             Member email
             <input
-              type="email"
               required
+              type="email"
               value={principal}
               onChange={(e) => setPrincipal(e.target.value)}
             />
@@ -118,33 +123,59 @@ export default function WorldAdministration({ api, path, world, onSaved }) {
           <label>
             Role
             <select value={role} onChange={(e) => setRole(e.target.value)}>
-              {["editor", "reviewer", "reader", "admin"].map((r) => (
-                <option key={r}>{r}</option>
-              ))}
+              <option value="author">Author</option>
+              <option value="reader">Reader</option>
             </select>
           </label>
         )}
-        {action === "transfer_owner" && (
-          <p>
-            Choose an existing member. Your role becomes admin when ownership
-            transfers.
-          </p>
+        {action === "set_policy" && (
+          <>
+            <label>
+              Publication policy
+              <select
+                value={policy.mode}
+                onChange={(e) => setPolicy({ ...policy, mode: e.target.value })}
+              >
+                <option value="independent">Independent Author review</option>
+                <option value="direct">Direct Author publication</option>
+                <option value="unanimous">Unanimous Authors</option>
+              </select>
+            </label>
+            {policy.mode === "independent" && (
+              <label>
+                Required Author approvals
+                <input
+                  required
+                  type="number"
+                  min={1}
+                  max={5}
+                  value={policy.requiredApprovals}
+                  onChange={(e) =>
+                    setPolicy({
+                      ...policy,
+                      requiredApprovals: Number(e.target.value),
+                    })
+                  }
+                />
+              </label>
+            )}
+            <p>
+              Changing policy invalidates pending proposal authority. Existing
+              published history remains unchanged.
+            </p>
+          </>
         )}
         <label>
           Administration reason
-          <input
+          <textarea
             required
             maxLength={2000}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
           />
         </label>
-        <button>Apply administration change</button>
+        <button>Apply administration action</button>
       </form>
-      <p>
-        Names, default timelines and world settings are canonical records: edit
-        the world settings record and obtain independent review.
-      </p>
     </fieldset>
   );
 }

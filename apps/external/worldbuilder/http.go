@@ -37,9 +37,32 @@ func Handler(store *Store, identity Identity) http.Handler {
 		}
 		actor = strings.ToLower(strings.TrimSpace(actor))
 		parts := strings.Split(strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/worlds"), "/"), "/")
+		if len(parts) == 6 && parts[1] == "conversations" && parts[3] == "messages" && parts[5] == "generate" && r.Method == "POST" {
+			if err := emptyBody(w, r); err != nil {
+				writeError(w, err)
+				return
+			}
+			store.runConversation(w, r, actor, parts)
+			return
+		}
 		var result any
 		var err error
-		if len(parts) == 1 && parts[0] == "account" && r.Method == "GET" {
+		if len(parts) == 1 && parts[0] == "search" && r.Method == "GET" {
+			result, err = store.globalSearch(r.Context(), actor, r.URL.Query().Get("q"))
+		} else if len(parts) == 1 && parts[0] == "activity" && r.Method == "GET" {
+			result, err = store.activity(r.Context(), actor)
+		} else if len(parts) == 1 && parts[0] == "administrators" && r.Method == "POST" {
+			var b struct {
+				Principal string `json:"principal"`
+				Enabled   bool   `json:"enabled"`
+				Reason    string `json:"reason"`
+			}
+			err = decode(w, r, &b)
+			if err == nil {
+				err = store.setAdministrator(r.Context(), actor, b.Principal, b.Enabled, b.Reason)
+				result = map[string]bool{"ok": err == nil}
+			}
+		} else if len(parts) == 1 && parts[0] == "account" && r.Method == "GET" {
 			result, err = store.Account(r.Context(), actor)
 		} else if len(parts) == 1 && parts[0] == "users" {
 			switch r.Method {
@@ -117,6 +140,48 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 			return nil, err
 		}
 		return sc.branchOrigin(ctx, path[1], revision)
+	}
+	if len(path) > 0 && path[0] == "conversations" {
+		return sc.conversations(w, r, path, limit, offset)
+	}
+	if resource == "established-accounts" && r.Method == "GET" {
+		rev, e := integerQuery(r, "revision", sc.world.Revision)
+		if e != nil {
+			return nil, e
+		}
+		snap, e := sc.snapshot(ctx, rev)
+		if e != nil {
+			return nil, e
+		}
+		timeline := r.URL.Query().Get("timeline")
+		if snap[timeline].Kind != "timeline" {
+			return nil, bad("timeline required")
+		}
+		accounts := []Record{}
+		successors := map[string]string{}
+		for _, v := range snap {
+			if v.Kind == "established_account" && v.Timeline == timeline {
+				accounts = append(accounts, v)
+				if v.Supersedes != "" {
+					successors[v.Supersedes] = v.ID
+				}
+			}
+		}
+		origins := map[string]any{}
+		rows, e := sc.tx.Query(ctx, `SELECT id,revision,actor,created_at::text FROM worldbuilder.established_account WHERE world_id=$1 AND timeline=$2 AND revision<=$3`, sc.world.ID, timeline, rev)
+		if e != nil {
+			return nil, e
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id, actor, at string
+			var revision int64
+			if e = rows.Scan(&id, &revision, &actor, &at); e != nil {
+				return nil, e
+			}
+			origins[id] = map[string]any{"revision": revision, "actor": actor, "createdAt": at}
+		}
+		return map[string]any{"records": accounts, "successors": successors, "origins": origins, "revision": rev}, rows.Err()
 	}
 	if resource == "generations" {
 		if r.Method == "GET" {
@@ -306,7 +371,7 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 			kinds := map[string]bool{}
 			for _, kind := range strings.Split(r.URL.Query().Get("kind"), ",") {
 				switch kind {
-				case "type", "entity", "source", "timeline", "fact", "relationship", "event", "rule", "world_settings":
+				case "type", "entity", "source", "timeline", "fact", "relationship", "event", "rule", "world_settings", "established_account":
 					kinds[kind] = true
 				default:
 					return nil, bad("unsupported record kind filter")
@@ -400,10 +465,13 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 				}
 				return sc.submit(ctx, path[1])
 			case "publish":
-				if err := emptyBody(w, r); err != nil {
+				var b struct {
+					OverrideReason string `json:"overrideReason,omitempty"`
+				}
+				if err := decode(w, r, &b); err != nil {
 					return nil, err
 				}
-				return sc.publish(ctx, path[1])
+				return sc.publishWithOverride(ctx, path[1], b.OverrideReason)
 			case "review":
 				var b struct {
 					Decision string `json:"decision"`
@@ -424,11 +492,12 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 				PinnedRevision int64  `json:"pinnedRevision"`
 				Timeline       string `json:"timeline"`
 				DefinitionID   string `json:"definitionId,omitempty"`
+				Mode           string `json:"mode,omitempty"`
 			}
 			if err := decode(w, r, &b); err != nil {
 				return nil, err
 			}
-			return sc.createSession(ctx, Session{ID: b.ID, Title: b.Title, PinnedRevision: b.PinnedRevision, Timeline: b.Timeline, DefinitionID: b.DefinitionID})
+			return sc.createSession(ctx, Session{ID: b.ID, Title: b.Title, PinnedRevision: b.PinnedRevision, Timeline: b.Timeline, DefinitionID: b.DefinitionID, Mode: b.Mode})
 		}
 		if r.Method == "GET" {
 			rows, err := sc.tx.Query(ctx, `SELECT id::text FROM worldbuilder.story_session WHERE world_id=$1 AND owner=$2 ORDER BY created_at DESC LIMIT $3 OFFSET $4`, sc.world.ID, sc.actor, limit, offset)
@@ -482,7 +551,7 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 			if _, err := sc.session(ctx, path[1]); err != nil {
 				return nil, err
 			}
-			rows, err := sc.tx.Query(ctx, `SELECT version,narration,state,memory,request->>'direction' FROM worldbuilder.story_turn WHERE world_id=$1 AND session_id=$2 ORDER BY version DESC LIMIT $3 OFFSET $4`, sc.world.ID, path[1], limit, offset)
+			rows, err := sc.tx.Query(ctx, `SELECT version,narration,state,memory,request->>'direction',scene FROM worldbuilder.story_turn WHERE world_id=$1 AND session_id=$2 ORDER BY version DESC LIMIT $3 OFFSET $4`, sc.world.ID, path[1], limit, offset)
 			if err != nil {
 				return nil, err
 			}
@@ -491,12 +560,12 @@ func route(w http.ResponseWriter, r *http.Request, sc *scope, path []string) (an
 			for rows.Next() {
 				var version int64
 				var narration string
-				var state, memory []byte
+				var state, memory, scene []byte
 				var direction *string
-				if err = rows.Scan(&version, &narration, &state, &memory, &direction); err != nil {
+				if err = rows.Scan(&version, &narration, &state, &memory, &direction, &scene); err != nil {
 					return nil, err
 				}
-				turns = append(turns, map[string]any{"version": version, "narration": narration, "state": json.RawMessage(state), "memory": json.RawMessage(memory), "direction": direction})
+				turns = append(turns, map[string]any{"version": version, "narration": narration, "state": json.RawMessage(state), "memory": json.RawMessage(memory), "direction": direction, "scene": json.RawMessage(scene)})
 			}
 			return turns, rows.Err()
 		}

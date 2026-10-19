@@ -1,5 +1,7 @@
 # Worldbuilder AI — Migration documentation index
 
+Current PWA work: [design](PWA-DESIGN.md) and [implementation, API and release gates](PWA-IMPLEMENTATION.md), with [local acceptance and screenshots](PWA-ACCEPTANCE.md).
+
 Status: **approved target architecture; initial baseline and multiple live application checks verified; remaining [offline follow-ups](OFFLINE-WORK.md), physical control-plane recovery and storage cutover remain open**. Use [current implementation status](IMPLEMENTATION-STATUS.md) for exact source, publication and deployed evidence.
 
 This documentation supersedes Evolve's previous document-first product direction for **application behaviour**. It does not automatically supersede infrastructure, security, development, or operations documents.

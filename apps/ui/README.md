@@ -1,5 +1,7 @@
 # Worldbuilder frontend
 
+Current PWA behavior and governance are documented in [PWA implementation](../../docs/worldbuilder/PWA-IMPLEMENTATION.md) and [design](../../docs/worldbuilder/PWA-DESIGN.md). These supersede the historical single-owner/superuser-self-review and ephemeral-chat descriptions below. Run `npm run test:pwa` after `npm run build` for production-worker lifecycle checks and responsive screenshots; the owned loopback fixture is distinct from `test:browser` against disposable PostgreSQL.
+
 Worlds open into a conversation workspace, with Explore, Drafts & Proposals, Stories and World Settings alongside it. The compact header holds the world selector and world search; the collapsible rail/mobile drawer holds section navigation and in-memory conversation history. The full composer reserves its own bottom row while messages scroll. Resumed stories open directly on their saved scene, with a pin-scoped character picker and explicit provisional turn saves. The existing Vite/React stack, host theme and OAuth session remain. See the [AI-first specification](../../docs/worldbuilder/05-AI-FIRST-UI.md) and [implementation and validation](../../docs/worldbuilder/UI-IMPLEMENTATION.md).
 
 Container builds copy `package-lock.json` and run `npm ci`, matching CI's dependency resolution. Local `node_modules`, generated output and environment files are excluded from the Docker context.

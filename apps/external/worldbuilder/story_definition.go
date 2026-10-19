@@ -32,6 +32,8 @@ type StoryMemory struct {
 	Choices        []StoryChoice `json:"choices"`
 }
 type StoryContext struct {
+	Mode        string           `json:"mode"`
+	Scene       SceneState       `json:"scene"`
 	Definition  *StoryDefinition `json:"definition,omitempty"`
 	Memory      StoryMemory      `json:"memory"`
 	RecentTurns []map[string]any `json:"recentTurns"`
@@ -139,7 +141,7 @@ func (sc *scope) definitions(ctx context.Context, limit, offset int64) ([]StoryD
 	return result, rows.Err()
 }
 func (sc *scope) storyContext(ctx context.Context, s Session) (StoryContext, error) {
-	c := StoryContext{Definition: s.Definition, Memory: s.Memory, Version: s.Version, RecentTurns: []map[string]any{}}
+	c := StoryContext{Mode: s.Mode, Scene: s.Scene, Definition: s.Definition, Memory: s.Memory, Version: s.Version, RecentTurns: []map[string]any{}}
 	rows, err := sc.tx.Query(ctx, `SELECT version,narration FROM worldbuilder.story_turn WHERE world_id=$1 AND session_id=$2 ORDER BY version DESC LIMIT 3`, sc.world.ID, s.ID)
 	if err != nil {
 		return c, err

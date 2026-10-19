@@ -36,6 +36,9 @@ func setup(t *testing.T) *harness {
 }
 func (h *harness) request(actor, method, path string, body any) (int, []byte) {
 	h.t.Helper()
+	if c, ok := body.(Change); ok {
+		body = map[string]any{"id": c.ID, "baseRevision": c.BaseRevision, "reason": c.Reason, "operations": c.Operations}
+	}
 	raw, _ := json.Marshal(body)
 	r := httptest.NewRequest(method, "/api/worlds"+path, bytes.NewReader(raw))
 	r.Header.Set("Test-Actor", actor)
@@ -136,7 +139,7 @@ func TestPublicationIsolationHistoryAndTemporalQueries(t *testing.T) {
 	change := path + "/changes/" + id
 	h.call("", "GET", path, nil, 401)
 	h.call("stranger@example.test", "GET", path, nil, 404)
-	h.call("reader@example.test", "POST", path+"/changes", map[string]any{"id": uuid.NewString(), "baseRevision": 0, "reason": "bad", "operations": fixture()}, 403)
+	h.call("reader@example.test", "POST", path+"/changes", map[string]any{"id": uuid.NewString(), "baseRevision": 0, "reason": "bad", "operations": fixture()}, 200)
 	h.call("reviewer@example.test", "POST", change+"/publish", map[string]any{}, 409)
 	h.call("editor@example.test", "POST", change+"/submit", map[string]any{}, 200)
 	h.call("editor@example.test", "POST", change+"/review", map[string]string{"decision": "approved", "reason": "self"}, 403)
@@ -393,7 +396,7 @@ func TestDedicatedRuntimeRoleCanPublish(t *testing.T) {
 	var name string
 	var elevated bool
 	var version int
-	if err = pool.QueryRow(context.Background(), `SELECT current_user,(SELECT rolsuper OR rolcreaterole FROM pg_roles WHERE rolname=current_user),max(version) FROM worldbuilder.schema_version`).Scan(&name, &elevated, &version); err != nil || name != "worldbuilder_external" || elevated || version != 8 {
+	if err = pool.QueryRow(context.Background(), `SELECT current_user,(SELECT rolsuper OR rolcreaterole FROM pg_roles WHERE rolname=current_user),max(version) FROM worldbuilder.schema_version`).Scan(&name, &elevated, &version); err != nil || name != "worldbuilder_external" || elevated || version != 9 {
 		t.Fatalf("runtime identity check: %s %t %d %v", name, elevated, version, err)
 	}
 	if _, err = pool.Exec(context.Background(), `DELETE FROM worldbuilder.revision WHERE world_id=$1`, w); err == nil {

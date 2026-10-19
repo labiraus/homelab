@@ -3,6 +3,7 @@ import { RecordSummary } from "./WorldResponse.jsx";
 
 export default function WorldConfiguration({
   record,
+  policy,
   revision,
   timelines,
   canEdit,
@@ -16,14 +17,13 @@ export default function WorldConfiguration({
     <section aria-label="Published world configuration">
       <h2>World guide and style</h2>
       <p>
-        A dedicated world guide and style guide are not yet supported by the
-        canon API. Stories can have their own private premise and narrative
-        style.
+        Reviewed guidance shapes the world and its narrative voice. Private
+        stories retain their own premise and style.
       </p>
       <h3>World configuration</h3>
       <p className="wb-muted">
-        Name, description, default timeline, calendar and approval policy belong
-        to published canon. Changes go through a draft and human review.
+        Name, description, default timeline, calendar and guides belong to
+        published canon. Changes go through a draft and human review.
       </p>
       {record ? (
         <>
@@ -40,6 +40,8 @@ export default function WorldConfiguration({
                   name: record.label,
                   description: record.attributes?.description || "",
                   timeline: record.timeline,
+                  worldGuide: record.worldGuide || "",
+                  styleGuide: record.styleGuide || "",
                 });
                 setError("");
               }}
@@ -57,6 +59,12 @@ export default function WorldConfiguration({
                       ...draft.record,
                       label: draft.name,
                       timeline: draft.timeline,
+                      ...(draft.worldGuide || draft.record.worldGuide
+                        ? { worldGuide: draft.worldGuide }
+                        : {}),
+                      ...(draft.styleGuide || draft.record.styleGuide
+                        ? { styleGuide: draft.styleGuide }
+                        : {}),
                       attributes: {
                         ...draft.record.attributes,
                         description: draft.description,
@@ -90,6 +98,18 @@ export default function WorldConfiguration({
                   }
                 />
               </label>
+              {["worldGuide", "styleGuide"].map((key) => (
+                <label key={key}>
+                  {key === "worldGuide" ? "World guide" : "Style guide"}
+                  <textarea
+                    maxLength={16000}
+                    value={draft[key]}
+                    onChange={(e) =>
+                      setDraft({ ...draft, [key]: e.target.value })
+                    }
+                  />
+                </label>
+              ))}
               <label>
                 Default timeline
                 <select
@@ -114,12 +134,13 @@ export default function WorldConfiguration({
           )}
           <h3>Members and approval policy</h3>
           <p>
-            {record.reviewPolicy?.requiredApprovals ?? 1} human approval(s)
-            required. Members and roles are managed by the world owner.
+            {policy?.mode || "independent"} publication policy. Authors
+            collectively manage membership; Administrators configure approval
+            rules.
           </p>
           {canEdit && (
             <button onClick={() => onAdvanced(record, revision)}>
-              Edit calendar and approval policy
+              Edit calendar and structured settings
             </button>
           )}
         </>

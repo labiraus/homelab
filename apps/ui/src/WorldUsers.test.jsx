@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import WorldUsers from "./WorldUsers.jsx";
 
-describe("superuser user management", () => {
+describe("Administrator user management", () => {
   it("adds a normal user using their Google email and shows registration errors", async () => {
     const api = vi.fn(async (path, body) => {
       if (path === "/account") return { superuser: true };
@@ -10,8 +10,8 @@ describe("superuser user management", () => {
       return [{ email: "owner@example.test", displayName: "Owner", superuser: true }];
     });
     render(<WorldUsers api={api} />);
-    fireEvent.click(await screen.findByText("Superuser · Manage users"));
-    await screen.findByText("Owner · owner@example.test · Superuser");
+    fireEvent.click(await screen.findByText("Administrator · Manage users"));
+    await screen.findByText("Owner · owner@example.test · Administrator");
     fireEvent.change(screen.getByLabelText("Google account email"), { target: { value: "new@example.test" } });
     fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "New person" } });
     fireEvent.click(screen.getByRole("button", { name: "Add user" }));
@@ -24,7 +24,7 @@ describe("superuser user management", () => {
     render(<WorldUsers api={api} />);
     await waitFor(() => expect(api).toHaveBeenCalledWith("/account"));
     expect(api).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText("Superuser · Manage users")).not.toBeInTheDocument();
-    expect(screen.getByText(/Account administration is available to superusers/)).toBeVisible();
+    expect(screen.queryByText("Administrator · Manage users")).not.toBeInTheDocument();
+    expect(screen.getByText(/Account administration is available to Administrators/)).toBeVisible();
   });
 });

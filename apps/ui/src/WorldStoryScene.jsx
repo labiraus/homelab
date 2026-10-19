@@ -1,3 +1,4 @@
+import useLocalWriting from "./useLocalWriting.js";
 import { humanLabel } from "./worldWorkspace.js";
 import { useEffect, useRef, useState } from "react";
 import WorldResponse, { RecordSummary } from "./WorldResponse.jsx";
@@ -18,6 +19,11 @@ export default function WorldStoryScene({
   moreTurns,
 }) {
   const [action, setAction] = useState("");
+  const { localSaved, localError } = useLocalWriting(
+    `${path}/sessions/${session.id}/action`,
+    action,
+    setAction,
+  );
   const [candidate, setCandidate] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -36,8 +42,17 @@ export default function WorldStoryScene({
       timeline: session.timeline,
     });
     Promise.all(
-      (session.definition?.participants || []).map(async (id) => {
+      [
+        ...new Set(
+          [
+            ...(session.definition?.participants || []),
+            session.scene?.location,
+            ...(session.scene?.inventory || []).map((item) => item.entityId),
+          ].filter(Boolean),
+        ),
+      ].map(async (id) => {
         try {
+          if (session.state?.[id]) return { id, record: session.state[id] };
           return {
             id,
             record: (
@@ -54,7 +69,14 @@ export default function WorldStoryScene({
     return () => {
       active = false;
     };
-  }, [api, path, session.id, session.pinnedRevision, session.timeline]);
+  }, [
+    api,
+    path,
+    session.id,
+    session.pinnedRevision,
+    session.timeline,
+    session.version,
+  ]);
   async function continueScene(event) {
     event.preventDefault();
     if (!action.trim() || busy || archived) return;
@@ -124,6 +146,35 @@ export default function WorldStoryScene({
         Pinned revision {session.pinnedRevision}, timeline {session.timeline},
         turn {session.version}. Outcomes require human review.
       </p>
+      {session.mode === "sandbox" && (
+        <p className="wb-status">
+          Sandbox · fictional consistency may diverge; outcomes require
+          reconciliation.
+        </p>
+      )}
+      <section aria-label="Location and inventory">
+        <h3>Location and inventory</h3>
+        <p>
+          Location:{" "}
+          {session.scene?.location
+            ? cast.find((item) => item.id === session.scene.location)?.record
+                ?.label || session.scene.location
+            : "Not set"}
+        </p>
+        {(session.scene?.inventory || []).length ? (
+          <ul>
+            {session.scene.inventory.map((item) => (
+              <li key={item.entityId}>
+                {cast.find((row) => row.id === item.entityId)?.record?.label ||
+                  item.entityId}{" "}
+                × {item.quantity}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No inventory recorded.</p>
+        )}
+      </section>
       <article aria-label="Saved scene">
         <h3>Turn {session.version}</h3>
         {latest ? (
@@ -163,6 +214,12 @@ export default function WorldStoryScene({
         />
       )}
       {error && <p role="alert">{error}</p>}
+      {localError && <p role="alert">{localError}</p>}
+      {localSaved && (
+        <p className="wb-sync-status">
+          Saved on this device · AI actions are never sent automatically.
+        </p>
+      )}
       {busy && (
         <p role="status">
           Preparing the next scene…{" "}

@@ -38,6 +38,9 @@ sql < "$repo_dir/sql/worldbuilder/007_up.sql"
 sql < "$repo_dir/sql/worldbuilder/007_up.sql"
 sql < "$repo_dir/sql/worldbuilder/008_up.sql"
 sql < "$repo_dir/sql/worldbuilder/008_up.sql"
+sql < "$repo_dir/sql/worldbuilder/009_up.sql"
+sql < "$repo_dir/sql/worldbuilder/009_up.sql"
+sql < "$repo_dir/sql/worldbuilder/009_down.sql"
 sql < "$repo_dir/sql/worldbuilder/008_down.sql"
 sql < "$repo_dir/sql/worldbuilder/007_down.sql"
 sql < "$repo_dir/sql/worldbuilder/006_down.sql"
@@ -54,6 +57,8 @@ sql < "$repo_dir/sql/worldbuilder/005_up.sql"
 sql < "$repo_dir/sql/worldbuilder/006_up.sql"
 sql < "$repo_dir/sql/worldbuilder/007_up.sql"
 sql < "$repo_dir/sql/worldbuilder/008_up.sql"
+sql < "$repo_dir/sql/worldbuilder/009_up.sql"
+sql < "$repo_dir/sql/worldbuilder/009_up.sql"
 sql -c 'CREATE ROLE worldbuilder_external NOINHERIT LOGIN; CREATE ROLE worldbuilder_relay NOINHERIT LOGIN; CREATE ROLE legacy_app NOINHERIT LOGIN;'
 sql < "$repo_dir/sql/worldbuilder/grants.sql"
 sql < "$repo_dir/sql/worldbuilder/auth-grants.sql"
@@ -129,6 +134,19 @@ DO $$ BEGIN
  IF (SELECT kind FROM worldbuilder.record_identity WHERE id='deleted') IS DISTINCT FROM 'source' THEN RAISE EXCEPTION 'deleted identity missing after upgrade'; END IF;
  IF (SELECT count(*) FROM worldbuilder.revision)<>3 THEN RAISE EXCEPTION 'upgrade changed history'; END IF;
  IF (SELECT memory->>'throughVersion' FROM worldbuilder.story_session) IS DISTINCT FROM '0' OR (SELECT narration FROM worldbuilder.story_turn) IS DISTINCT FROM 'Legacy narration' THEN RAISE EXCEPTION 'upgrade changed legacy story content'; END IF;
+END $$;
+SQL
+# Collective-author upgrade preserves published decisions and invalidates old pending authority.
+pwa_upgrade_checksum="SELECT md5(string_agg(item, ',' ORDER BY item)) FROM (SELECT to_jsonb(r)::text AS item FROM worldbuilder.revision r UNION ALL SELECT (to_jsonb(r)-'policy_version')::text FROM worldbuilder.change_set r UNION ALL SELECT to_jsonb(r)::text FROM worldbuilder.audit r) data"
+pwa_before=$(upgrade_sql -Atc "$pwa_upgrade_checksum")
+upgrade_sql < "$repo_dir/sql/worldbuilder/009_up.sql"
+upgrade_sql < "$repo_dir/sql/worldbuilder/009_up.sql"
+[[ "$pwa_before" == "$(upgrade_sql -Atc "$pwa_upgrade_checksum")" ]] || { echo 'FAIL: PWA upgrade changed historical canon/decisions'; exit 1; }
+upgrade_sql <<'SQL'
+DO $$ BEGIN
+ IF EXISTS(SELECT FROM worldbuilder.member WHERE role NOT IN ('author','reader')) THEN RAISE EXCEPTION 'legacy role remains'; END IF;
+ IF EXISTS(SELECT FROM worldbuilder.change_set WHERE policy_version<>0) THEN RAISE EXCEPTION 'old pending authority silently renewed'; END IF;
+ IF (SELECT published_approvals FROM worldbuilder.change_set WHERE id='00000000-0000-4000-8000-000000000022') IS DISTINCT FROM ARRAY['removed@example.test'] THEN RAISE EXCEPTION 'historical publication lost'; END IF;
 END $$;
 SQL
 if upgrade_sql < "$repo_dir/sql/worldbuilder/002_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated upgrade rollback succeeded'; exit 1; fi
@@ -222,12 +240,13 @@ if sql < "$repo_dir/sql/worldbuilder/005_down.sql" >/dev/null 2>&1; then echo 'F
 if sql < "$repo_dir/sql/worldbuilder/006_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated calendar down migration succeeded'; exit 1; fi
 if sql < "$repo_dir/sql/worldbuilder/007_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated review-policy down migration succeeded'; exit 1; fi
 if sql < "$repo_dir/sql/worldbuilder/008_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated superuser down migration succeeded'; exit 1; fi
+if sql < "$repo_dir/sql/worldbuilder/009_down.sql" >/dev/null 2>&1; then echo "FAIL: populated PWA downgrade succeeded"; exit 1; fi
 sql < "$repo_dir/sql/worldbuilder/ops_dashboard_queries.pgsql"
 docker exec "$container_name" createdb -U postgres worldbuilder_restore
 docker exec "$container_name" pg_dump -U postgres -d worldbuilder_test -Fc -f /tmp/worldbuilder.dump
 docker exec "$container_name" pg_restore -U postgres -d worldbuilder_restore --exit-on-error /tmp/worldbuilder.dump
 checksum_parts=()
-for canon_table in world member revision record record_identity change_set change_review audit outbox story_session story_turn story_outcome story_definition generation_job generation_outbox inference_attempt schema_version superuser account_audit; do
+for canon_table in established_account conversation conversation_message world member revision record record_identity change_set change_review audit outbox story_session story_turn story_outcome story_definition generation_job generation_outbox inference_attempt schema_version superuser account_audit; do
   checksum_parts+=("SELECT '${canon_table}:' || row_to_json(t)::text AS item FROM worldbuilder.${canon_table} t")
 done
 checksum_parts+=("SELECT 'auth.users:' || md5(coalesce(string_agg(row_to_json(t)::text, E'\\n' ORDER BY row_to_json(t)::text), '')) AS item FROM auth.users t")
@@ -237,4 +256,4 @@ checksum_query="SELECT md5(string_agg(item, ',' ORDER BY item)) FROM ($checksum_
 original=$(sql -Atc "$checksum_query")
 restored=$(docker exec "$container_name" psql -X -U postgres -d worldbuilder_restore -Atc "$checksum_query")
 [[ "$original" == "$restored" ]] || { echo 'FAIL: restored canon/lifecycle/story data differs'; exit 1; }
-echo 'PASS: migrations 001–008 rerun/rollback, populated upgrade/conflict gates, role isolation, canon/lifecycle/story/outbox integration and all-table restore checksum'
+echo 'PASS: migrations 001–009 rerun/rollback, populated upgrade/conflict gates, role isolation, canon/lifecycle/story/outbox integration and all-table restore checksum'

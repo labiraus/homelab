@@ -42,13 +42,11 @@ func (sc *scope) loadReviews(ctx context.Context, c *Change) error {
 		return err
 	}
 	rows, err := sc.tx.Query(ctx, `SELECT r.reviewer,r.decision,r.reason,r.created_at,r.legacy,
- COALESCE(m.authority_id=r.authority_id AND
-  ((r.superuser_authority_id IS NULL AND m.role IN ('owner','admin','reviewer')) OR
-   (r.superuser_authority_id IS NOT NULL AND s.authority_id=r.superuser_authority_id)),false),
- r.superuser_authority_id IS NOT NULL
+ COALESCE(r.policy_version=$3 AND ((m.authority_id=r.authority_id AND m.role='author' AND r.superuser_authority_id IS NULL) OR (s.authority_id=r.superuser_authority_id)),false),
+ r.superuser_authority_id IS NOT NULL AND r.reviewer=$4
  FROM worldbuilder.change_review r LEFT JOIN worldbuilder.member m ON m.world_id=r.world_id AND m.principal=r.reviewer
  LEFT JOIN worldbuilder.superuser s ON s.principal=r.reviewer
- WHERE r.world_id=$1 AND r.change_id=$2 ORDER BY r.created_at NULLS FIRST,r.reviewer,r.authority_id`, sc.world.ID, c.ID)
+ WHERE r.world_id=$1 AND r.change_id=$2 ORDER BY r.created_at NULLS FIRST,r.reviewer,r.authority_id`, sc.world.ID, c.ID, sc.world.PolicyVersion, c.Author)
 	if err != nil {
 		return err
 	}

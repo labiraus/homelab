@@ -11,6 +11,19 @@ export function RecordSummary({ record }) {
         {humanLabel(record.kind)}
         {record.type ? ` · ${record.type}` : ""}
       </p>
+      {record.synopsis && <p className="wb-prose">{record.synopsis}</p>}
+      {record.worldGuide && (
+        <section>
+          <h5>World guide</h5>
+          <p className="wb-prose">{record.worldGuide}</p>
+        </section>
+      )}
+      {record.styleGuide && (
+        <section>
+          <h5>Style guide</h5>
+          <p className="wb-prose">{record.styleGuide}</p>
+        </section>
+      )}
       {record.attributes?.description && (
         <p className="wb-prose">{record.attributes.description}</p>
       )}
@@ -36,6 +49,9 @@ export function RecordSummary({ record }) {
                 "fields",
                 "relations",
                 "calendar",
+                "synopsis",
+                "worldGuide",
+                "styleGuide",
               ].includes(key),
           )
           .map(([key, value]) => (
@@ -128,6 +144,32 @@ export default function WorldResponse({
         </span>
       </header>
       <p className="wb-prose">{result.answer}</p>
+      {!!result.establishedAccounts?.length && (
+        <details>
+          <summary>Effective established accounts in this scope</summary>
+          <p>
+            These published synopses take precedence over conflicting reports.
+            Interpretation remains open.
+          </p>
+          {result.establishedAccounts.map((e) => (
+            <article key={e.id}>
+              <RecordSummary record={e.record} />
+              <button
+                onClick={() =>
+                  onInspect({
+                    worldId: e.worldId,
+                    revision: e.revision,
+                    timeline: e.timeline,
+                    id: e.record.id,
+                  })
+                }
+              >
+                Inspect established citation · {e.record.label}
+              </button>
+            </article>
+          ))}
+        </details>
+      )}
       {result.unknown && (
         <p role="note">Uncertainty: this is not established in canon.</p>
       )}

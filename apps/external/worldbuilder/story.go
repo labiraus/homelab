@@ -11,6 +11,8 @@ import (
 )
 
 type Session struct {
+	Mode           string           `json:"mode"`
+	Scene          SceneState       `json:"scene"`
 	DefinitionID   string           `json:"definitionId,omitempty"`
 	Definition     *StoryDefinition `json:"definition,omitempty"`
 	Memory         StoryMemory      `json:"memory"`
@@ -23,6 +25,7 @@ type Session struct {
 	State          Snapshot         `json:"state"`
 }
 type Turn struct {
+	Scene           *SceneState   `json:"scene,omitempty"`
 	RequestID       string        `json:"requestId"`
 	ExpectedVersion int64         `json:"expectedVersion"`
 	Narration       string        `json:"narration"`
@@ -34,11 +37,11 @@ type Turn struct {
 
 func (sc *scope) session(ctx context.Context, id string) (Session, error) {
 	var s Session
-	var raw, memory []byte
+	var raw, memory, scene []byte
 	if _, err := uuid.Parse(id); err != nil {
 		return s, missing
 	}
-	err := sc.tx.QueryRow(ctx, `SELECT id::text,title,owner,pinned_revision,timeline_id,version,state,COALESCE(definition_id::text,''),memory FROM worldbuilder.story_session WHERE world_id=$1 AND id=$2 AND owner=$3`, sc.world.ID, id, sc.actor).Scan(&s.ID, &s.Title, &s.Owner, &s.PinnedRevision, &s.Timeline, &s.Version, &raw, &s.DefinitionID, &memory)
+	err := sc.tx.QueryRow(ctx, `SELECT id::text,title,owner,pinned_revision,timeline_id,version,state,COALESCE(definition_id::text,''),memory,mode,scene FROM worldbuilder.story_session WHERE world_id=$1 AND id=$2 AND owner=$3`, sc.world.ID, id, sc.actor).Scan(&s.ID, &s.Title, &s.Owner, &s.PinnedRevision, &s.Timeline, &s.Version, &raw, &s.DefinitionID, &memory, &s.Mode, &scene)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s, missing
 	}
@@ -52,6 +55,9 @@ func (sc *scope) session(ctx context.Context, id string) (Session, error) {
 	if err = json.Unmarshal(memory, &s.Memory); err != nil {
 		return s, err
 	}
+	if err = json.Unmarshal(scene, &s.Scene); err != nil {
+		return s, err
+	}
 	if s.DefinitionID != "" {
 		d, e := sc.definition(ctx, s.DefinitionID)
 		if e != nil {
@@ -62,11 +68,17 @@ func (sc *scope) session(ctx context.Context, id string) (Session, error) {
 	return s, err
 }
 func (sc *scope) createSession(ctx context.Context, s Session) (Session, error) {
+	if s.Mode == "" {
+		s.Mode = "canon_eligible"
+	}
+	if s.Mode != "canon_eligible" && s.Mode != "sandbox" {
+		return s, bad("invalid story mode")
+	}
 	if _, err := uuid.Parse(s.ID); err != nil || strings.TrimSpace(s.Title) == "" || len(s.Title) > 200 {
 		return s, bad("session requires UUID id and title (max 200 characters)")
 	}
 	if old, err := sc.session(ctx, s.ID); err == nil {
-		if old.Title != s.Title || old.PinnedRevision != s.PinnedRevision || old.Timeline != s.Timeline || old.DefinitionID != s.DefinitionID {
+		if old.Title != s.Title || old.PinnedRevision != s.PinnedRevision || old.Timeline != s.Timeline || old.DefinitionID != s.DefinitionID || old.Mode != s.Mode {
 			return s, conflict("session id reused")
 		}
 		return old, nil
@@ -91,7 +103,7 @@ func (sc *scope) createSession(ctx context.Context, s Session) (Session, error) 
 		}
 		definitionID = &s.DefinitionID
 	}
-	_, err = sc.tx.Exec(ctx, `INSERT INTO worldbuilder.story_session(world_id,id,owner,title,pinned_revision,timeline_id,definition_id) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING`, sc.world.ID, s.ID, sc.actor, s.Title, s.PinnedRevision, s.Timeline, definitionID)
+	_, err = sc.tx.Exec(ctx, `INSERT INTO worldbuilder.story_session(world_id,id,owner,title,pinned_revision,timeline_id,definition_id,mode) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING`, sc.world.ID, s.ID, sc.actor, s.Title, s.PinnedRevision, s.Timeline, definitionID, s.Mode)
 	if err != nil {
 		return s, err
 	}
@@ -116,9 +128,9 @@ func (sc *scope) turn(ctx context.Context, id string, t Turn) (any, error) {
 		return nil, err
 	}
 	request, _ := json.Marshal(t)
-	var oldRequest, oldState, oldMemory []byte
+	var oldRequest, oldState, oldMemory, oldScene []byte
 	var oldVersion int64
-	err = sc.tx.QueryRow(ctx, `SELECT request,state,version,memory FROM worldbuilder.story_turn WHERE world_id=$1 AND session_id=$2 AND request_id=$3`, sc.world.ID, id, t.RequestID).Scan(&oldRequest, &oldState, &oldVersion, &oldMemory)
+	err = sc.tx.QueryRow(ctx, `SELECT request,state,version,memory,scene FROM worldbuilder.story_turn WHERE world_id=$1 AND session_id=$2 AND request_id=$3`, sc.world.ID, id, t.RequestID).Scan(&oldRequest, &oldState, &oldVersion, &oldMemory, &oldScene)
 	if err == nil {
 		var previous Turn
 		if err = json.Unmarshal(oldRequest, &previous); err != nil {
@@ -128,7 +140,7 @@ func (sc *scope) turn(ctx context.Context, id string, t Turn) (any, error) {
 		if string(normalized) != string(request) {
 			return nil, conflict("turn requestId reused with different content")
 		}
-		return map[string]any{"version": oldVersion, "state": json.RawMessage(oldState), "narration": t.Narration, "memory": json.RawMessage(oldMemory)}, nil
+		return map[string]any{"version": oldVersion, "state": json.RawMessage(oldState), "narration": t.Narration, "memory": json.RawMessage(oldMemory), "scene": json.RawMessage(oldScene)}, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
@@ -151,7 +163,7 @@ func (sc *scope) turn(ctx context.Context, id string, t Turn) (any, error) {
 		return nil, err
 	}
 	if len(t.Operations) > 0 {
-		combined, err = Apply(combined, t.Operations)
+		combined, err = applyWithMode(combined, t.Operations, s.Mode == "sandbox")
 		if err != nil {
 			return nil, err
 		}
@@ -159,6 +171,13 @@ func (sc *scope) turn(ctx context.Context, id string, t Turn) (any, error) {
 	for _, op := range t.Operations {
 		s.State[op.ID] = combined[op.ID]
 	}
+	if t.Scene != nil {
+		if err := t.Scene.validate(combined, s.Timeline); err != nil {
+			return nil, err
+		}
+		s.Scene = *t.Scene
+	}
+	scene, _ := json.Marshal(s.Scene)
 	state, _ := json.Marshal(s.State)
 	next := s.Version + 1
 	if t.MemorySummary != "" {
@@ -170,16 +189,16 @@ func (sc *scope) turn(ctx context.Context, id string, t Turn) (any, error) {
 		s.Memory.Choices = []StoryChoice{}
 	}
 	memory, _ := json.Marshal(s.Memory)
-	if _, err = sc.tx.Exec(ctx, `INSERT INTO worldbuilder.story_turn(world_id,session_id,version,request_id,request,narration,state,memory) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, sc.world.ID, id, next, t.RequestID, request, t.Narration, state, memory); err != nil {
+	if _, err = sc.tx.Exec(ctx, `INSERT INTO worldbuilder.story_turn(world_id,session_id,version,request_id,request,narration,state,memory,scene) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, sc.world.ID, id, next, t.RequestID, request, t.Narration, state, memory, scene); err != nil {
 		return nil, err
 	}
-	if _, err = sc.tx.Exec(ctx, `UPDATE worldbuilder.story_session SET version=$3,state=$4,memory=$5 WHERE world_id=$1 AND id=$2`, sc.world.ID, id, next, state, memory); err != nil {
+	if _, err = sc.tx.Exec(ctx, `UPDATE worldbuilder.story_session SET version=$3,state=$4,memory=$5,scene=$6 WHERE world_id=$1 AND id=$2`, sc.world.ID, id, next, state, memory, scene); err != nil {
 		return nil, err
 	}
 	if err = sc.audit(ctx, "story.turn", id, map[string]any{"version": next, "requestId": t.RequestID}); err != nil {
 		return nil, err
 	}
-	return map[string]any{"version": next, "state": s.State, "narration": t.Narration, "memory": s.Memory}, nil
+	return map[string]any{"version": next, "state": s.State, "narration": t.Narration, "memory": s.Memory, "scene": s.Scene}, nil
 }
 
 type Outcome struct {

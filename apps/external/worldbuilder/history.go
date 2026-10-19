@@ -180,13 +180,15 @@ type ReconcileRequest struct {
 // Reconciliation always creates a fresh draft. The immutable audit stores the
 // exact request and lineage so retries remain safe after canon or story advances.
 func (sc *scope) reconcile(ctx context.Context, kind, source string, request ReconcileRequest) (Change, error) {
-	if !sc.can("owner", "admin", "editor") {
+	if !sc.can("author", "reader") {
 		return Change{}, forbidden
 	}
 	// Check source visibility before inspecting a potential retry's audit record.
 	if kind == "changes" {
-		if _, err := sc.change(ctx, source); err != nil {
+		if change, err := sc.change(ctx, source); err != nil {
 			return Change{}, err
+		} else if !sc.can("author") && change.Author != sc.actor {
+			return Change{}, forbidden
 		}
 	} else {
 		if _, err := sc.session(ctx, source); err != nil {

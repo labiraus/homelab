@@ -4,30 +4,38 @@ package worldbuilder
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
 )
 
 type Record struct {
-	ID           string            `json:"id"`
-	Kind         string            `json:"kind"`
-	Label        string            `json:"label,omitempty"`
-	Type         string            `json:"type,omitempty"`
-	Subject      string            `json:"subject,omitempty"`
-	Target       string            `json:"target,omitempty"`
-	Timeline     string            `json:"timeline,omitempty"`
-	Source       string            `json:"source,omitempty"`
-	Predicate    string            `json:"predicate,omitempty"`
-	ValueType    string            `json:"valueType,omitempty"`
-	Value        any               `json:"value,omitempty"`
-	From         *int64            `json:"from,omitempty"`
-	Until        *int64            `json:"until,omitempty"`
-	Attributes   map[string]string `json:"attributes,omitempty"`
-	Fields       map[string]string `json:"fields,omitempty"`
-	Relations    map[string]string `json:"relations,omitempty"`
-	Calendar     *Calendar         `json:"calendar,omitempty"`
-	ReviewPolicy *ReviewPolicy     `json:"reviewPolicy,omitempty"`
+	Synopsis       string            `json:"synopsis,omitempty"`
+	Supersedes     string            `json:"supersedes,omitempty"`
+	Clarifies      string            `json:"clarifies,omitempty"`
+	References     []string          `json:"references,omitempty"`
+	EvidenceStatus string            `json:"evidenceStatus,omitempty"`
+	WorldGuide     string            `json:"worldGuide,omitempty"`
+	StyleGuide     string            `json:"styleGuide,omitempty"`
+	ID             string            `json:"id"`
+	Kind           string            `json:"kind"`
+	Label          string            `json:"label,omitempty"`
+	Type           string            `json:"type,omitempty"`
+	Subject        string            `json:"subject,omitempty"`
+	Target         string            `json:"target,omitempty"`
+	Timeline       string            `json:"timeline,omitempty"`
+	Source         string            `json:"source,omitempty"`
+	Predicate      string            `json:"predicate,omitempty"`
+	ValueType      string            `json:"valueType,omitempty"`
+	Value          any               `json:"value,omitempty"`
+	From           *int64            `json:"from,omitempty"`
+	Until          *int64            `json:"until,omitempty"`
+	Attributes     map[string]string `json:"attributes,omitempty"`
+	Fields         map[string]string `json:"fields,omitempty"`
+	Relations      map[string]string `json:"relations,omitempty"`
+	Calendar       *Calendar         `json:"calendar,omitempty"`
+	ReviewPolicy   *ReviewPolicy     `json:"reviewPolicy,omitempty"`
 }
 type Snapshot map[string]Record
 type Operation struct {
@@ -36,29 +44,36 @@ type Operation struct {
 	Record *Record `json:"record,omitempty"`
 }
 type World struct {
-	SemanticSearch  bool   `json:"semanticSearch"`
-	ID              string `json:"id"`
-	Name            string `json:"name"`
-	Revision        int64  `json:"revision"`
-	Role            string `json:"role,omitempty"`
-	Superuser       bool   `json:"superuser"`
-	DefaultTimeline string `json:"defaultTimeline"`
-	Archived        bool   `json:"archived"`
-	AdminVersion    int64  `json:"adminVersion"`
+	Policy          PublicationPolicy `json:"publicationPolicy"`
+	PolicyVersion   int64             `json:"policyVersion"`
+	Capabilities    map[string]bool   `json:"capabilities,omitempty"`
+	SemanticSearch  bool              `json:"semanticSearch"`
+	ID              string            `json:"id"`
+	Name            string            `json:"name"`
+	Revision        int64             `json:"revision"`
+	Role            string            `json:"role,omitempty"`
+	Superuser       bool              `json:"superuser"`
+	DefaultTimeline string            `json:"defaultTimeline"`
+	Archived        bool              `json:"archived"`
+	AdminVersion    int64             `json:"adminVersion"`
 }
 type Change struct {
-	ID                string      `json:"id"`
-	Author            string      `json:"author"`
-	BaseRevision      int64       `json:"baseRevision"`
-	Reason            string      `json:"reason"`
-	Operations        []Operation `json:"operations"`
-	Status            string      `json:"status"`
-	Reviewer          string      `json:"reviewer"`
-	ReviewReason      string      `json:"reviewReason"`
-	PublishedRevision *int64      `json:"publishedRevision,omitempty"`
-	RequiredApprovals int         `json:"requiredApprovals"`
-	Approvals         []string    `json:"approvals"`
-	Reviews           []Review    `json:"reviews"`
+	PublicationReady           bool        `json:"publicationReady"`
+	EffectiveRequiredApprovals int         `json:"effectiveRequiredApprovals"`
+	EstablishedWarnings        []Record    `json:"establishedWarnings,omitempty"`
+	PolicyVersion              int64       `json:"policyVersion"`
+	ID                         string      `json:"id"`
+	Author                     string      `json:"author"`
+	BaseRevision               int64       `json:"baseRevision"`
+	Reason                     string      `json:"reason"`
+	Operations                 []Operation `json:"operations"`
+	Status                     string      `json:"status"`
+	Reviewer                   string      `json:"reviewer"`
+	ReviewReason               string      `json:"reviewReason"`
+	PublishedRevision          *int64      `json:"publishedRevision,omitempty"`
+	RequiredApprovals          int         `json:"requiredApprovals"`
+	Approvals                  []string    `json:"approvals"`
+	Reviews                    []Review    `json:"reviews"`
 }
 type Problem struct {
 	Status  int
@@ -75,6 +90,9 @@ var missing = &Problem{404, "not_found", "resource not found"}
 var identifier = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,64}$`)
 
 func Apply(before Snapshot, ops []Operation) (Snapshot, error) {
+	return applyWithMode(before, ops, false)
+}
+func applyWithMode(before Snapshot, ops []Operation, sandbox bool) (Snapshot, error) {
 	if len(ops) == 0 || len(ops) > 100 {
 		return nil, bad("provide between 1 and 100 operations")
 	}
@@ -88,6 +106,9 @@ func Apply(before Snapshot, ops []Operation) (Snapshot, error) {
 			return nil, bad("invalid or duplicate operation id")
 		}
 		seen[op.ID] = true
+		if previous, ok := before[op.ID]; ok && previous.Kind == "established_account" && (op.Action != "put" || op.Record == nil || !reflect.DeepEqual(previous, *op.Record)) {
+			return nil, bad("established accounts cannot be edited or deleted; create an explicit supersession")
+		}
 		switch op.Action {
 		case "put":
 			if op.Record == nil || op.Record.ID != op.ID {
@@ -115,12 +136,14 @@ func Apply(before Snapshot, ops []Operation) (Snapshot, error) {
 	if len(after) > 5000 {
 		return nil, bad("world exceeds the initial 5000-record limit")
 	}
-	return after, Validate(after)
+	return after, validateWithMode(after, sandbox)
 }
 
-func Validate(s Snapshot) error {
+func Validate(s Snapshot) error { return validateWithMode(s, false) }
+func validateWithMode(s Snapshot, sandbox bool) error {
 	ref := func(id, kind string) bool { r, ok := s[id]; return ok && r.Kind == kind }
 	settingsCount := 0
+	successors := map[string]string{}
 	for id, r := range s {
 		if id != r.ID || !identifier.MatchString(id) {
 			return bad("invalid record identity")
@@ -142,7 +165,49 @@ func Validate(s Snapshot) error {
 		if r.ReviewPolicy != nil && (r.Kind != "world_settings" || r.ReviewPolicy.RequiredApprovals < 1 || r.ReviewPolicy.RequiredApprovals > 5) {
 			return bad("review policy belongs to world settings and requires 1–5 independent approvals")
 		}
+		if (r.WorldGuide != "" || r.StyleGuide != "") && (r.Kind != "world_settings" || len(r.WorldGuide) > 16000 || len(r.StyleGuide) > 16000) {
+			return bad("guides belong to world settings and are limited to 16000 bytes each")
+		}
+		if r.Kind != "established_account" && (r.Synopsis != "" || r.Supersedes != "" || r.Clarifies != "" || len(r.References) > 0) {
+			return bad("account fields belong only to established accounts")
+		}
+		if r.EvidenceStatus != "" && (r.Kind != "source" || (r.EvidenceStatus != "reported" && r.EvidenceStatus != "unspecified")) {
+			return bad("invalid source evidence status")
+		}
 		switch r.Kind {
+		case "established_account":
+			if strings.TrimSpace(r.Label) == "" || strings.TrimSpace(r.Synopsis) == "" || len(r.Synopsis) > 16000 || !ref(r.Timeline, "timeline") || (r.Supersedes != "" && r.Clarifies != "") {
+				return bad("established account requires title, synopsis (max 16000 bytes), timeline and at most one supersession/clarification link")
+			}
+			for _, target := range []string{r.Supersedes, r.Clarifies} {
+				if target != "" && (target == id || !ref(target, "established_account") || s[target].Timeline != r.Timeline) {
+					return bad("account links must reference another established account in the same timeline")
+				}
+			}
+			if r.Supersedes != "" {
+				if successors[r.Supersedes] != "" {
+					return bad("an established account can have only one successor")
+				}
+				successors[r.Supersedes] = id
+			}
+			seen := map[string]bool{id: true}
+			next := r.Supersedes
+			for next != "" {
+				if seen[next] {
+					return bad("established account supersession cycle")
+				}
+				seen[next] = true
+				next = s[next].Supersedes
+			}
+			if len(r.References) > 100 {
+				return bad("too many account references")
+			}
+			for _, target := range r.References {
+				v, ok := s[target]
+				if !ok || (v.Kind != "source" && v.Kind != "event") || !Visible(v, r.Timeline, nil) {
+					return bad("account references must resolve to visible events or sources")
+				}
+			}
 		case "world_settings":
 			settingsCount++
 			if settingsCount > 1 || strings.TrimSpace(r.Label) == "" || len(r.Label) > 200 || !ref(r.Timeline, "timeline") {
@@ -201,6 +266,9 @@ func Validate(s Snapshot) error {
 		}
 	}
 
+	if sandbox {
+		return nil
+	} // Shape and references above remain mandatory; fictional rules below may diverge.
 	// Explicit deterministic life-bound rule. Fictional dates are integer ticks, not timestamps.
 	for _, rule := range s {
 		if rule.Kind != "rule" || rule.Attributes["check"] == "" {

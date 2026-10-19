@@ -85,54 +85,27 @@ func TestSuperuserRegistersUsersWithoutGrantingAuthority(t *testing.T) {
 	h.call(actor, "POST", "/users", body, 403)
 }
 
-func TestSuperuserSelfApprovalRevocationAndPublication(t *testing.T) {
+func TestAdministratorOverrideRevocationAndPublication(t *testing.T) {
 	h, _, actor := superuserFixture(t)
-	ctx := context.Background()
 	w := h.world()
-	h.call("owner@example.test", "POST", "/"+w+"/members", map[string]string{"principal": actor, "role": "editor"}, 200)
-	draft := func(rev int64, record string) string {
-		id := uuid.NewString()
-		route := "/" + w + "/changes/" + id
-		h.call(actor, "POST", "/"+w+"/changes", map[string]any{"id": id, "baseRevision": rev, "reason": "Own proposal", "operations": put(Record{ID: record, Kind: "source", Label: "Own notes"})}, 200)
-		h.call(actor, "POST", route+"/submit", map[string]any{}, 200)
-		return route
-	}
-	route := draft(0, "first")
-	c := decodeChange(t, h.call(actor, "POST", route+"/review", reviewBody("approved", "Explicit self approval"), 200))
-	if len(c.Approvals) != 1 || !c.Reviews[0].SuperuserSelfReview {
-		t.Fatal("self approval provenance missing", c)
-	}
-	h.call(actor, "POST", route+"/publish", map[string]any{}, 200)
-	route = draft(1, "second")
-	h.call(actor, "POST", route+"/review", reviewBody("approved", "Before revocation"), 200)
-	if _, err := h.pool.Exec(ctx, `DELETE FROM worldbuilder.superuser WHERE principal=$1`, actor); err != nil {
-		t.Fatal(err)
-	}
-	h.call(actor, "POST", route+"/publish", map[string]any{}, 403)
-	if _, err := h.pool.Exec(ctx, `INSERT INTO worldbuilder.superuser(principal,granted_by) VALUES($1,'fixture regrant')`, actor); err != nil {
-		t.Fatal(err)
-	}
-	c = decodeChange(t, h.call(actor, "GET", route, nil, 200))
-	if len(c.Approvals) != 0 {
-		t.Fatal("regrant revived self approval")
-	}
-	h.call(actor, "POST", route+"/publish", map[string]any{}, 409)
-	h.call(actor, "POST", route+"/review", reviewBody("approved", "Fresh authority"), 200)
-	h.call(actor, "POST", route+"/publish", map[string]any{}, 200)
-	// Membership remains required even for a global superuser.
-	other := h.world()
-	h.call(actor, "GET", "/"+other, nil, 404)
-	var auditCount int
-	if err := h.pool.QueryRow(ctx, `SELECT count(*) FROM worldbuilder.audit WHERE world_id=$1 AND detail->>'superuserSelfReview'='true'`, w).Scan(&auditCount); err != nil || auditCount != 3 {
-		t.Fatal("self-review audits", auditCount, err)
-	}
-	// A superuser counts as one human, never as an entire configured quorum.
+	p := "/" + w
 	id := uuid.NewString()
-	path := "/" + w + "/changes/" + id
-	h.call(actor, "POST", "/"+w+"/changes", map[string]any{"id": id, "baseRevision": 2, "reason": "Two humans", "operations": put(policySettings(2))}, 200)
-	h.call(actor, "POST", path+"/submit", map[string]any{}, 200)
-	h.call(actor, "POST", path+"/review", reviewBody("approved", "One human"), 200)
-	h.call(actor, "POST", path+"/publish", map[string]any{}, 409)
+	route := p + "/changes/" + id
+	h.call(actor, "GET", p, nil, 200) // Global authority requires no per-world membership.
+	h.call(actor, "POST", p+"/changes", Change{ID: id, BaseRevision: 0, Reason: "Witness notes", Operations: put(Record{ID: "notes", Kind: "source", Label: "Notes"})}, 200)
+	h.call(actor, "POST", route+"/submit", map[string]any{}, 200)
+	h.call(actor, "POST", route+"/review", reviewBody("approved", "Self"), 403)
+	h.call(actor, "POST", route+"/publish", map[string]any{}, 409)
+	h.call("owner@example.test", "POST", route+"/publish", map[string]string{"overrideReason": "Not an administrator"}, 403)
+	h.call(actor, "POST", route+"/publish", map[string]string{"overrideReason": "Session witnessed and approved by administrator"}, 200)
+	var reason string
+	if err := h.pool.QueryRow(context.Background(), `SELECT detail->>'overrideReason' FROM worldbuilder.audit WHERE world_id=$1 AND action='change.publish'`, w).Scan(&reason); err != nil || reason == "" {
+		t.Fatal("missing override audit", err)
+	}
+	if _, err := h.pool.Exec(context.Background(), `DELETE FROM worldbuilder.superuser WHERE principal=$1`, actor); err != nil {
+		t.Fatal(err)
+	}
+	h.call(actor, "GET", p, nil, 404)
 }
 
 func TestSuperuserGrantLockSerializesRevocation(t *testing.T) {

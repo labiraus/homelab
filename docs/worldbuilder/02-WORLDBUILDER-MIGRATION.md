@@ -1,5 +1,14 @@
 # Worldbuilder AI — Migration work breakdown and documentation hygiene
 
+## PWA source update — 19 October 2026
+
+Schema 9 and the PWA implementation supersede the earlier single-owner,
+canonical-policy and ephemeral-chat contracts. See [current implementation,
+API additions, migration procedure and release gates](PWA-IMPLEMENTATION.md).
+This is local source work, not a new deployment or device-acceptance claim.
+The dated checkpoints below are retained as historical evidence.
+
+
 ## Approach
 
 Incremental pivot inside the existing homelab monorepo. The original target assumed separate `engine` and `infra` repositories, but this checkout already contains PostgreSQL, Go services and a Node HTTP processor. **Inspect before changing**; illustrative paths are not deployment instructions. Preserve working clusters, hardware, toolchains, networking, authentication and Flux release conventions. Avoid broad renaming or unrelated refactoring. Separate source-code readiness from cluster-validated completion. Build milestones in order, using feature flags/adapters to avoid half-migrated flows. The [acceptance matrix](ACCEPTANCE-MATRIX.md) is the current assessment; milestone gates below define requirements rather than asserting current failures.

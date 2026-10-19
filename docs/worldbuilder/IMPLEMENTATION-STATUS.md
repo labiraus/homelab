@@ -1,5 +1,16 @@
 # Worldbuilder implementation status
 
+## PWA source update — 19 October 2026
+
+Schema 9 and the PWA implementation supersede the earlier single-owner,
+canonical-policy and ephemeral-chat contracts. See [current implementation,
+API additions, migration procedure and release gates](PWA-IMPLEMENTATION.md).
+[Local acceptance](PWA-ACCEPTANCE.md) records component, production-worker, responsive,
+actual API/PostgreSQL and restore results with retained screenshots.
+This is local source work, not a new deployment or device-acceptance claim.
+The dated checkpoints below are retained as historical evidence.
+
+
 ## Frontend correction deployed and re-evaluated — 2026-10-13
 
 Complete UI CI/CD `38402588759` publishes source `094db4f`; automatic Flux reconciliation reaches Ready Helm revision 59. Exact source/chart/image, zero-restart Pod and compiled-asset equality are verified. All nine workspace journeys pass against deployed assets using explicit loopback API fixtures, and public TLS/discovery/anonymous/forged-header refusal passes separately. The prior 13 October presentation audit describes the earlier bundle; see the [current design assessment and retained limits](UI-CORRECTIONS.md#deployment-and-repeated-design-review--13-october-2026).

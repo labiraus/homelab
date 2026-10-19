@@ -36,12 +36,13 @@ func (sc *scope) members(ctx context.Context, limit, offset int64) ([]Member, er
 }
 
 type AdminRequest struct {
-	RequestID       string `json:"requestId"`
-	ExpectedVersion int64  `json:"expectedVersion"`
-	Action          string `json:"action"`
-	Principal       string `json:"principal,omitempty"`
-	Role            string `json:"role,omitempty"`
-	Reason          string `json:"reason"`
+	Policy          *PublicationPolicy `json:"policy,omitempty"`
+	RequestID       string             `json:"requestId"`
+	ExpectedVersion int64              `json:"expectedVersion"`
+	Action          string             `json:"action"`
+	Principal       string             `json:"principal,omitempty"`
+	Role            string             `json:"role,omitempty"`
+	Reason          string             `json:"reason"`
 }
 
 func (sc *scope) administer(ctx context.Context, r AdminRequest) (World, error) {
@@ -70,8 +71,14 @@ func (sc *scope) administer(ctx context.Context, r AdminRequest) (World, error) 
 	if r.ExpectedVersion != sc.world.AdminVersion {
 		return World{}, conflict("world administration changed; reload before continuing")
 	}
+	if r.Action != "set_policy" && r.Policy != nil {
+		return World{}, bad("policy is only valid for set_policy")
+	}
 	if r.Action != "set_member" && r.Role != "" {
 		return World{}, bad("role is only valid for set_member")
+	}
+	if sc.world.Archived && r.Action != "unarchive" {
+		return World{}, conflict("reopen the world before writing")
 	}
 	switch r.Action {
 	case "archive", "unarchive":
@@ -85,30 +92,31 @@ func (sc *scope) administer(ctx context.Context, r AdminRequest) (World, error) 
 		if err = sc.member(ctx, r.Principal, r.Role); err != nil {
 			return World{}, err
 		}
+	case "set_policy":
+		if !sc.superuser {
+			return World{}, forbidden
+		}
+		if r.Policy == nil {
+			return World{}, bad("policy required")
+		}
+		if err := r.Policy.validate(); err != nil {
+			return World{}, err
+		}
+		sc.world.Policy = *r.Policy
+		sc.world.PolicyVersion++
+		if _, err := sc.tx.Exec(ctx, `UPDATE worldbuilder.world SET publication_policy=$2,policy_version=$3 WHERE id=$1`, sc.world.ID, sc.world.Policy, sc.world.PolicyVersion); err != nil {
+			return World{}, err
+		}
 	case "remove_member":
-		if r.Principal == sc.actor || r.Principal == "" {
-			return World{}, bad("cannot remove the owner")
+		if r.Principal == "" {
+			return World{}, bad("principal required")
 		}
-		if _, err = sc.tx.Exec(ctx, `DELETE FROM worldbuilder.member WHERE world_id=$1 AND principal=$2 AND role<>'owner'`, sc.world.ID, r.Principal); err != nil {
+		if err := sc.protectLastAuthor(ctx, r.Principal); err != nil {
 			return World{}, err
 		}
-	case "transfer_owner":
-		if r.Principal == sc.actor {
-			return World{}, bad("choose another current member")
-		}
-		var role string
-		if err = sc.tx.QueryRow(ctx, `SELECT role FROM worldbuilder.member WHERE world_id=$1 AND principal=$2`, sc.world.ID, r.Principal).Scan(&role); errors.Is(err, pgx.ErrNoRows) {
-			return World{}, bad("new owner must already be a member")
-		} else if err != nil {
+		if _, err := sc.tx.Exec(ctx, `DELETE FROM worldbuilder.member WHERE world_id=$1 AND principal=$2`, sc.world.ID, r.Principal); err != nil {
 			return World{}, err
 		}
-		if _, err = sc.tx.Exec(ctx, `UPDATE worldbuilder.member SET role='admin' WHERE world_id=$1 AND principal=$2`, sc.world.ID, sc.actor); err != nil {
-			return World{}, err
-		}
-		if _, err = sc.tx.Exec(ctx, `UPDATE worldbuilder.member SET role='owner' WHERE world_id=$1 AND principal=$2`, sc.world.ID, r.Principal); err != nil {
-			return World{}, err
-		}
-		sc.world.Role = "admin"
 	default:
 		return World{}, bad("unsupported administration action")
 	}

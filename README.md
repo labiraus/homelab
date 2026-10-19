@@ -1,5 +1,7 @@
 # Worldbuilder AI on Labiraus
 
+Worldbuilder PWA source implementation: [design](docs/worldbuilder/PWA-DESIGN.md), [API/governance/offline operation and release gates](docs/worldbuilder/PWA-IMPLEMENTATION.md). Deployment evidence remains separately dated.
+
 The frontend opens worlds into an [AI-first conversation workspace](docs/worldbuilder/05-AI-FIRST-UI.md), with canon exploration, reviewed proposals and persistent private stories. See [implementation and release validation](docs/worldbuilder/UI-IMPLEMENTATION.md) for deployed versions, test evidence, browser-session constraints and backend limits.
 
 This repository combines five related areas for the Labiraus homelab platform:

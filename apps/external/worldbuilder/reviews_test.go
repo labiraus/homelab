@@ -26,9 +26,10 @@ func reviewBody(decision, reason string) map[string]string {
 func twoReviewerWorld(t *testing.T, h *harness) string {
 	t.Helper()
 	w := h.world()
-	c := h.draft(w, 0, put(policySettings(2)))
+	setTestPolicy(t, h, w, "independent", 2)
+	c := h.draft(w, 0, put(Record{ID: "policy_notes", Kind: "source", Label: "Publication policy notes"}))
 	h.approve(w, c)
-	h.call("owner@example.test", "POST", "/"+w+"/changes/"+c+"/review", reviewBody("approved", "Policy independently checked"), 200)
+	h.call("owner@example.test", "POST", "/"+w+"/changes/"+c+"/review", reviewBody("approved", "Checked"), 200)
 	h.call("owner@example.test", "POST", "/"+w+"/changes/"+c+"/publish", map[string]any{}, 200)
 	return w
 }
@@ -63,7 +64,8 @@ func TestReviewQuorumPublicationAndGovernedPolicyChanges(t *testing.T) {
 	h := setup(t)
 	w := h.world()
 	p := "/" + w
-	id := h.draft(w, 0, put(policySettings(2)))
+	setTestPolicy(t, h, w, "independent", 2)
+	id := h.draft(w, 0, put(Record{ID: "notes", Kind: "source", Label: "Notes"}))
 	route := p + "/changes/" + id
 	h.call("editor@example.test", "POST", route+"/submit", map[string]any{}, 200)
 	h.call("editor@example.test", "POST", route+"/review", reviewBody("approved", "self"), 403)
@@ -84,19 +86,12 @@ func TestReviewQuorumPublicationAndGovernedPolicyChanges(t *testing.T) {
 		t.Fatal("publication lost distinct decisions")
 	}
 	h.call("reviewer@example.test", "POST", route+"/review", reviewBody("approved", "checked"), 200) // exact retry after publication
-	// Both old and new policies constrain the transition, including removal.
-	lower := h.draft(w, 1, put(policySettings(1)))
-	lowerRoute := p + "/changes/" + lower
+	// Canon cannot change governance; an administrative change invalidates pending authority.
+	h.call("editor@example.test", "POST", p+"/changes", Change{ID: uuid.NewString(), BaseRevision: 1, Reason: "Policy bypass", Operations: put(policySettings(1))}, 422)
+	lower := h.draft(w, 1, put(Record{ID: "later", Kind: "source", Label: "Later"}))
 	h.approve(w, lower)
-	h.call("owner@example.test", "POST", lowerRoute+"/publish", map[string]any{}, 409)
-	h.call("owner@example.test", "POST", lowerRoute+"/review", reviewBody("approved", "Lower quorum after review"), 200)
-	h.call("owner@example.test", "POST", lowerRoute+"/publish", map[string]any{}, 200)
-	for query, want := range map[string]int{"/canon?timeline=main&revision=0": 1, "/canon?timeline=main&revision=1&kind=entity": 2, "/search?timeline=main&q=nomatch&revision=1": 2, "/canon?timeline=main": 1} {
-		var result SearchResult
-		if err := json.Unmarshal(h.call("reader@example.test", "GET", p+query, nil, 200), &result); err != nil || result.ReviewPolicy.RequiredApprovals != want {
-			t.Fatalf("policy scope %s: %+v %v", query, result, err)
-		}
-	}
+	setTestPolicy(t, h, w, "independent", 1)
+	h.call("owner@example.test", "POST", p+"/changes/"+lower+"/publish", map[string]any{}, 409)
 	for _, sql := range []string{
 		`UPDATE worldbuilder.change_review SET reason='rewritten' WHERE world_id=$1`,
 		`DELETE FROM worldbuilder.change_review WHERE world_id=$1`,

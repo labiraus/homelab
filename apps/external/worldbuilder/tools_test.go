@@ -46,7 +46,8 @@ func TestDelegatedToolsCannotAcquireHumanAuthority(t *testing.T) {
 	call("reader@example.test", read, true, 401)
 	active = true
 	proposal := toolRequest{Operation: "propose", WorldID: world, ID: uuid.NewString(), Reason: "Tool draft", Operations: fixture()}
-	call("reader@example.test", proposal, true, 403)
+	call("reader@example.test", proposal, true, 200)
+	proposal.ID = uuid.NewString()
 	first := call("editor@example.test", proposal, true, 200)
 	again := call("editor@example.test", proposal, true, 200)
 	var c1, c2 Change

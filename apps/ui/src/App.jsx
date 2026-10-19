@@ -1,4 +1,12 @@
-import Worldbuilder from "./Worldbuilder.jsx";
+import Worldbuilder, { onlineApi } from "./Worldbuilder.jsx";
+import { useRegisterSW } from "virtual:pwa-register/react";
+import WorldDevice from "./WorldDevice.jsx";
+import {
+  bindDeviceAccount,
+  offlineIdentity,
+  lockDevice,
+  syncDevice,
+} from "./worldOffline.js";
 import { useEffect, useRef, useState } from "react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -62,28 +70,33 @@ function apiUrl(path) {
 }
 
 async function callApi({ method, path, body }) {
-	const response = await fetch(apiUrl(path), {
-		method,
-		headers: body ? { "Content-Type": "application/json" } : undefined,
-		body: body ? JSON.stringify(body) : undefined,
-	});
+  const response = await fetch(apiUrl(path), {
+    redirect: "manual",
+    method,
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
 
-	let payload = null;
-	try {
-		payload = await response.json();
-	} catch {
-		payload = null;
-	}
+  if (response.type === "opaqueredirect")
+    throw Object.assign(new Error("Sign in again"), { status: 401 });
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
 
-	if (!response.ok) {
-		const message =
-			payload?.error ??
-			payload?.message ??
-			`${response.status} ${response.statusText}`.trim();
-		throw new Error(message || "Request failed");
-	}
+  if (!response.ok) {
+    const message =
+      payload?.error ??
+      payload?.message ??
+      `${response.status} ${response.statusText}`.trim();
+    throw Object.assign(new Error(message || "Request failed"), {
+      status: response.status,
+    });
+  }
 
-	return payload;
+  return payload;
 }
 
 async function fetchAuthStatus() {
@@ -792,6 +805,7 @@ function LifecycleHistoryPanel({ historyState, idleMessage }) {
 }
 
 function App() {
+	const pwa = useRegisterSW();
 	const topbarRef = useRef(null);
 	const footerRef = useRef(null);
 	const [topbarHeight, setTopbarHeight] = useState(null);
@@ -925,7 +939,23 @@ function App() {
 	});
 	const authMenuRef = useRef(null);
 	const toastTimersRef = useRef(new Map());
-	const documentsEnabled = authStatus?.valid === true;
+  const documentsEnabled = authStatus?.valid === true && !authStatus?.offline;
+  useEffect(() => {
+    const clear = () => setAuthStatus(null);
+    window.addEventListener("worldbuilder-signed-out", clear);
+    return () => window.removeEventListener("worldbuilder-signed-out", clear);
+  }, []);
+  useEffect(() => {
+    if (!authStatus?.valid || authStatus.offline) return;
+    const sync = () => void syncDevice(onlineApi).catch(() => {});
+    const timer = setInterval(sync, 20000);
+    window.addEventListener("online", sync);
+    sync();
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("online", sync);
+    };
+  }, [authStatus?.email, authStatus?.valid, authStatus?.offline]);
 
 	const dismissToast = (toastId) => {
 		const timer = toastTimersRef.current.get(toastId);
@@ -1014,21 +1044,41 @@ function App() {
 		};
 	}, [authMenuOpen]);
 
-	const loadAuthStatus = async () => {
-		setAuthLoading(true);
-		setAuthError("");
+  const loadAuthStatus = async () => {
+    setAuthLoading(true);
+    setAuthError("");
 
-		try {
-			const status = await fetchAuthStatus();
-			setAuthStatus(status);
-		} catch (requestError) {
-			setAuthError(
-				requestError instanceof Error ? requestError.message : "Could not load auth status",
-			);
-		} finally {
-			setAuthLoading(false);
-		}
-	};
+    try {
+      const status = await fetchAuthStatus();
+      if (status?.valid) await bindDeviceAccount(status.email);
+      else lockDevice();
+      setAuthStatus(status);
+    } catch (requestError) {
+      if (requestError instanceof TypeError) {
+        const cached = offlineIdentity();
+        if (cached) {
+          setAuthStatus(cached);
+          return;
+        }
+      }
+      lockDevice();
+      setAuthStatus(null);
+      setAuthError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Could not load auth status",
+      );
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!authStatus?.offline) return;
+    const reconnect = () => void loadAuthStatus();
+    window.addEventListener("online", reconnect);
+    return () => window.removeEventListener("online", reconnect);
+  }, [authStatus?.offline]);
 
 	const loadAuthProviders = async () => {
 		setProviderLoading(true);
@@ -1070,23 +1120,22 @@ function App() {
 	}, []);
 
 	useEffect(() => {
-		if (!authLoading && documentsEnabled && ["", "#/"].includes(window.location.hash)) {
+		if (!authLoading && authStatus?.valid && ["", "#/"].includes(window.location.hash)) {
 			window.location.hash = "#/worlds";
 			setPage("worlds");
 		}
-	}, [authLoading, documentsEnabled]);
+	}, [authLoading, authStatus?.valid]);
 
 	useEffect(() => {
 		if (
-			!authLoading && !documentsEnabled &&
-			(page === "worlds" || page === "assistant" || page === "documents" || page === "inventory" || page === "search")
+			!authLoading && ((page === "worlds" && !authStatus?.valid) || (!documentsEnabled && ["assistant", "documents", "inventory", "search"].includes(page)))
 		) {
 			setPage("overview");
 			if (typeof window !== "undefined") {
 				window.location.hash = "#/";
 			}
 		}
-	}, [documentsEnabled, page, authLoading]);
+	}, [documentsEnabled, page, authLoading, authStatus?.valid]);
 
 	useEffect(() => {
 		if (page !== "documents" || !documentsEnabled) {
@@ -1383,6 +1432,8 @@ function App() {
 	};
 
 	const handleSignOut = () => {
+		lockDevice();
+		setAuthStatus(null);
 		window.location.assign(SIGN_OUT_PATH);
 	};
 
@@ -2351,8 +2402,8 @@ function App() {
 	);
 
 	return (
-		<main className={`app-shell ${page === "worlds" && documentsEnabled ? "world-shell" : ""}`} style={{ "--shell-topbar-height": topbarHeight ? `${topbarHeight}px` : undefined, "--shell-footer-height": footerHeight ? `${footerHeight}px` : undefined }}>
-			<div className="toast-stack" aria-live="polite" aria-label="Document notifications">
+		<main className={`app-shell ${page === "worlds" && authStatus?.valid ? "world-shell" : ""}`} style={{ "--shell-topbar-height": topbarHeight ? `${topbarHeight}px` : undefined, "--shell-footer-height": footerHeight ? `${footerHeight}px` : undefined }}>
+			<div className="toast-stack" role="status" aria-live="polite" aria-label="Document notifications">
 				{toasts.map((toast) => (
 					<article key={toast.id} className={`toast-card ${toast.tone}`}>
 						<div>
@@ -2374,7 +2425,7 @@ function App() {
 			<header className="topbar" ref={topbarRef}>
 				<div className="topbar-brand">
 					<div className="brand-mark" aria-hidden="true">
-						L
+						W
 					</div>
 					<div className="brand-copy">
 						<p className="brand-label">Worldbuilder</p>
@@ -2383,8 +2434,8 @@ function App() {
 				</div>
 
 				<nav className="topbar-nav" aria-label="Primary">
-					{page === "worlds" && documentsEnabled ? <><div id="world-header-tools" /><div id="world-header-search" /></> : null}
-				{documentsEnabled ? <button type="button" className="topbar-tab" title="Browse all worlds" onClick={() => navigateToPage("worlds")}>Worlds</button> : null}
+					{page === "worlds" && authStatus?.valid ? <><div id="world-header-tools" /><div id="world-header-search" /></> : null}
+				{authStatus?.valid ? <button type="button" className="topbar-tab" title="Browse all worlds" onClick={() => navigateToPage("worlds")}>Worlds</button> : null}
 					{page !== "worlds" && documentTools}
 				</nav>
 
@@ -2461,8 +2512,9 @@ function App() {
 									<p className="error-text">Provider request failed: {providerError}</p>
 								) : null}
 
+								{authStatus?.valid && <WorldDevice pwa={pwa} />}
 								<div className="auth-menu-actions">
-									{documentsEnabled ? (
+									{authStatus?.valid ? (
 										<button
 											type="button"
 											className="menu-action danger"
@@ -2499,7 +2551,7 @@ function App() {
 			</header>
 
 			<div className="workspace">
-				{page === "worlds" && documentsEnabled ? <Worldbuilder key={authStatus.email} email={authStatus.email}/> : page === "overview" ? (
+				{page === "worlds" && authStatus?.valid ? <Worldbuilder key={authStatus.email} email={authStatus.email}/> : page === "overview" ? (
 					<section className="workspace-shell">
 						<header className="workspace-header">
 							<div>

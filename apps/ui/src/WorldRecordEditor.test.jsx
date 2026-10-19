@@ -17,7 +17,33 @@ const records = [
 ];
 
 describe("structured canon editing", () => {
-  it("stages a bounded review policy without changing calendar or attributes", () => {
+  it("keeps original editor scope when current canon advances", () => {
+    const onStage = vi.fn();
+    const props = {
+      records,
+      record: records[2],
+      timeline: "main",
+      revision: 4,
+      onStage,
+      onNew: () => {},
+    };
+    const { rerender } = render(<WorldRecordEditor {...props} />);
+    fireEvent.change(screen.getByLabelText("Label", { exact: true }), {
+      target: { value: "Saved original writing" },
+    });
+    rerender(<WorldRecordEditor {...props} revision={5} />);
+    fireEvent.click(screen.getByRole("button", { name: "Stage record" }));
+    expect(onStage).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "revision 4, timeline main",
+    );
+    rerender(<WorldRecordEditor {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Stage record" }));
+    expect(onStage).toHaveBeenCalledWith(
+      expect.objectContaining({ label: "Saved original writing" }),
+    );
+  });
+  it("retains legacy policy fields without permitting canonical policy edits", () => {
     const onStage = vi.fn();
     const record = {
       id: "world_settings",
@@ -36,24 +62,11 @@ describe("structured canon editing", () => {
         onNew={() => {}}
       />,
     );
-    fireEvent.change(screen.getByLabelText("Required independent approvals"), {
-      target: { value: "3" },
-    });
+    expect(
+      screen.queryByLabelText("Required independent approvals"),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Stage record" }));
-    expect(onStage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        ...record,
-        reviewPolicy: { requiredApprovals: 3 },
-      }),
-    );
-    fireEvent.change(screen.getByLabelText("Required independent approvals"), {
-      target: { value: "0" },
-    });
-    fireEvent.submit(screen.getByRole("form", { name: "Record editor" }));
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "1–5 independent human approvals",
-    );
-    expect(onStage).toHaveBeenCalledTimes(1);
+    expect(onStage).toHaveBeenCalledWith(expect.objectContaining(record));
   });
   it("stages reviewed calendar settings while retaining other complete-record fields", () => {
     const onStage = vi.fn();

@@ -1,5 +1,14 @@
 # Implemented Worldbuilder contracts
 
+## PWA source update — 19 October 2026
+
+Schema 9 and the PWA implementation supersede the earlier single-owner,
+canonical-policy and ephemeral-chat contracts. See [current implementation,
+API additions, migration procedure and release gates](PWA-IMPLEMENTATION.md).
+This is local source work, not a new deployment or device-acceptance claim.
+The dated checkpoints below are retained as historical evidence.
+
+
 This describes the **source implementation**, default-disabled until the [LAN gate](LAN-RUNBOOK.md). Existing document routes are unchanged. No production database migration runs automatically.
 
 ## Ownership and identity

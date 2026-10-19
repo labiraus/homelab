@@ -80,6 +80,20 @@ jobs:
         env:
           WORLDBUILDER_BROWSER_ARTIFACTS: ${{ runner.temp }}/worldbuilder-workspace-artifacts
 
+      - name: Production PWA lifecycle and responsive screenshots
+        run: npm run test:pwa
+        working-directory: apps/ui
+        env:
+          WORLDBUILDER_BROWSER_ARTIFACTS: ${{ runner.temp }}/worldbuilder-pwa-artifacts
+
+      - name: Retain PWA screenshots and failure traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worldbuilder-pwa-evidence
+          path: ${{ runner.temp }}/worldbuilder-pwa-artifacts
+          if-no-files-found: ignore
+
       - name: Retain failed workspace browser evidence
         if: failure()
         uses: actions/upload-artifact@v4
