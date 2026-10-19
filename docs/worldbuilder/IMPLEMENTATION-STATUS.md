@@ -1,5 +1,13 @@
 # Worldbuilder implementation status
 
+## CI publication repair — 19 October 2026
+
+Hosted source `59eaadb` failed the shared physical backup seed and one UI browser
+locator, blocking application publication. The application tests for External,
+Processor and Orchestrator passed. [Repair evidence](CI-REPAIR-2026-10-19.md) records
+the two causes, source corrections and separate local/hosted verification status.
+No successful publication or deployment of this repair is claimed.
+
 ## PWA source update — 19 October 2026
 
 Schema 9 and the PWA implementation supersede the earlier single-owner,

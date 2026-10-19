@@ -100,11 +100,15 @@ Finite commands in the disposable PostgreSQL fixture also require the labelled, 
 
 Real canon index acceptance needs PostgreSQL, NATS and OpenSearch together. Use `scripts/worldbuilder/test-canon-index.py`; routine Go success with skipped endpoint-dependent tests is not relay/discovery evidence. Require index deletion before rebuild comparison, and exact generated container names, ownership labels and `network=none` for its loopback bridges.
 
+When evolving the canon schema, update `scripts/worldbuilder/backup-seed.sql` and the physical restore table inventory in `test-backups.py` alongside the API/database harness. The physical fixture applies every migration before seeding, so retired roles and unpopulated new tables must fail. Keep the fast seed preflight in `test-postgres.sh` and preserve full-table checksums and post-restore ledger/sequence checks.
+
 ## Disposable controller transport
 
 For disposable kind work, set the generated `KUBECONFIG` for creation and deletion; cleanup must not lock or edit the operator's home configuration. The controller harness supplies both explicit arguments and environment settings.
 
 Docker exec attach can terminate early with exit 0 while its command is still running, and archive-copy acknowledgements can lack the expected files in a proxied kind environment. Do not infer command completion from that client status. Use the fixture-scoped exec-ID transport in `scripts/worldbuilder/docker-exec.py`, verify terminal status and output/postconditions, and keep ownership checks and timeout failure intact. Never redirect an offline fixture to production to bypass transport failures.
+
+Resolve the real Docker CLI before prepending a fixture's shim directory to `PATH`. Resolving `command -v docker` in a later assignment on the same command can select the shim itself and recurse; `WORLDBUILDER_DOCKER_CLI` must point to the original executable.
 
 Use `scripts/worldbuilder/kind-fixture.py` for shared controller/backup lifecycle and loopback mappings. CNPG and Prometheus webhook refusals can appear as ordinary Kubernetes `Invalid` messages without a webhook name or `admission webhook` prefix. Check the tested semantic error (for example, conflicting bootstrap or an invalid PromQL expression) and separately prove unavailable-webhook refusal/recovery. Database fixture fallback is for unavailable local transport, never authentication or SQL failures.
 

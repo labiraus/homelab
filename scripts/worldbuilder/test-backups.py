@@ -22,7 +22,8 @@ CHART_VERSION = '0.23.2'
 PORTS = {'offline-source': 30432, 'offline-latest': 30433, 'offline-pitr': 30434}
 TABLES = ('world', 'member', 'revision', 'record', 'record_identity', 'change_set',
           'change_review', 'audit', 'outbox', 'story_session', 'story_turn', 'story_outcome',
-          'story_definition', 'generation_job', 'generation_outbox', 'inference_attempt', 'schema_version', 'superuser', 'account_audit')
+          'story_definition', 'generation_job', 'generation_outbox', 'inference_attempt', 'schema_version', 'superuser', 'account_audit',
+          'established_account', 'conversation', 'conversation_message')
 
 
 def module(name):
@@ -276,11 +277,24 @@ def recovery(f, source, password):
         assert code != 0 and 'permission denied' in error.lower(), error
         code, _, error = restored.sql("SET ROLE worldbuilder_external; UPDATE auth.users SET display_name='forbidden'", check=False)
         assert code != 0 and 'permission denied' in error.lower(), error
+        for statement in (
+            "UPDATE worldbuilder.established_account SET record='{}'",
+            "DELETE FROM worldbuilder.established_account",
+            "INSERT INTO worldbuilder.revision(world_id,revision,snapshot,actor,reason) SELECT id,99,'{}','fixture','erase witness' FROM worldbuilder.world",
+            "UPDATE worldbuilder.conversation_message SET request='{}'",
+        ):
+            code, _, error = restored.sql(statement, check=False)
+            assert code and ('immutable' in error or 'established accounts' in error), error
+        assert restored.sql("SELECT count(*) FROM worldbuilder.established_account WHERE supersedes='witness'") == '1'
+        assert restored.sql("SELECT has_table_privilege('worldbuilder_external','worldbuilder.established_account','SELECT') AND NOT has_table_privilege('worldbuilder_external','worldbuilder.established_account','INSERT,UPDATE,DELETE')") == 't'
+        message_sequence = int(restored.sql('SELECT max(sequence) FROM worldbuilder.conversation_message'))
+        next_sequence = int(restored.sql("INSERT INTO worldbuilder.conversation_message(world_id,conversation_id,id,actor,request) SELECT world_id,id,'00000000-0000-4000-8000-000000000014','fixture','{}' FROM worldbuilder.conversation RETURNING sequence"))
+        assert next_sequence > message_sequence, 'Restored conversation sequence did not advance'
         previous = int(restored.sql('SELECT max(id) FROM worldbuilder.audit'))
         current = int(restored.sql("INSERT INTO worldbuilder.audit(world_id,actor,action,resource) SELECT id,'fixture','after-restore','fixture' FROM worldbuilder.world RETURNING id"))
         assert current > previous
         results[name] = {'tables': actual, 'transport': 'local-psql' if restored.local else 'owned-node-exec'}
-        print('PASS: ' + name + ' restores all 19 populated Worldbuilder tables and auth users, grants, immutable triggers and a non-reusing audit sequence', flush=True)
+        print('PASS: ' + name + f' restores all {len(TABLES)} populated Worldbuilder tables and auth users, grants, immutable ledgers/messages and non-reusing audit/conversation sequences', flush=True)
     pods = json.loads(f.kubectl('get', 'pods', '-A', '-o', 'json'))['items']
     images = sorted({c['imageID'] for p in pods for c in p.get('status', {}).get('containerStatuses', []) if c.get('imageID')})
     (f.output / 'backup-result.json').write_text(json.dumps({'status': 'passed', 'cnpgChart': CHART_VERSION,

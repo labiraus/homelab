@@ -61,7 +61,7 @@ test("independent browser users propose, review, publish and keep private storie
   async function open(page) {
     await page.goto("/");
     await page.getByRole("button", { name: "Worlds", exact: true }).click();
-    await page.getByLabel("Open world").selectOption(world);
+    await page.getByRole("combobox", { name: "Open world", exact: true }).selectOption(world);
     await expect(page.locator(".wb-scope-bar")).toContainText("revision 1");
   }
   const administratorHeaders = {
@@ -391,7 +391,7 @@ test("independent browser users propose, review, publish and keep private storie
   expect(denied.status()).toBe(404);
   await editor.reload();
   await editor.getByRole("button", { name: "Worlds", exact: true }).click();
-  await editor.getByLabel("Open world").selectOption(world);
+  await editor.getByRole("combobox", { name: "Open world", exact: true }).selectOption(world);
   await navigate(editor, "Stories");
   await editor
     .getByRole("button", { name: "Resume Private bridge journey", exact: true })
@@ -497,7 +497,7 @@ test("independent browser users propose, review, publish and keep private storie
 
   await editor.reload();
   await editor.getByRole("button", { name: "Worlds", exact: true }).click();
-  await editor.getByLabel("Open world").selectOption(world);
+  await editor.getByRole("combobox", { name: "Open world", exact: true }).selectOption(world);
   await navigate(editor, "Stories");
   await editor
     .getByRole("button", { name: "Resume Private bridge journey", exact: true })
@@ -801,7 +801,7 @@ test("a timeline branch is reviewed before publication and retains its parent sn
     const page = await context.newPage();
     await page.goto("/");
     await page.getByRole("button", { name: "Worlds", exact: true }).click();
-    await page.getByLabel("Open world").selectOption(world);
+    await page.getByRole("combobox", { name: "Open world", exact: true }).selectOption(world);
     await expect(page.locator(".wb-scope-bar")).toContainText("revision 1");
     await navigate(page, "Explore");
     await page

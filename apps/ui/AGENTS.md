@@ -16,3 +16,5 @@ Apply `apps/AGENTS.md` and the root policy alongside these UI rules.
 - UI publication must run both workspace viewport/focus journeys and the disposable API browser gate. For deployed-asset checks, use `test:workspace` with `WORLDBUILDER_BROWSER_URL` pointing to an owned HTTP loopback forward; the workspace config rejects external hosts. Do not infer responsive acceptance from component tests or the API journeys alone. Reduced-height desktop Chromium checks are separate from a real mobile software keyboard.
 
 - Finish the production build before starting any browser harness that serves `dist`. Never rebuild that directory while API/PWA browsers are running; Vite replaces assets and can serve an incomplete shell mid-journey. Independent read-only suites may share a completed build.
+
+- Browser selectors for the world picker must use the exact combobox accessible name. A partial `getByLabel("Open world")` can also match the administration select through its nested “Reopen world” option, including during asynchronous route transitions. Retain actual API browser traces separately from workspace/PWA fixtures in CI.

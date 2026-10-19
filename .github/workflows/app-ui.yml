@@ -106,6 +106,15 @@ jobs:
         run: bash scripts/worldbuilder/test-postgres.sh
         env:
           WORLDBUILDER_BROWSER_TEST: '1'
+          WORLDBUILDER_BROWSER_ARTIFACTS: ${{ runner.temp }}/worldbuilder-api-browser-artifacts
+
+      - name: Retain failed PostgreSQL API browser evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worldbuilder-api-browser-failure
+          path: ${{ runner.temp }}/worldbuilder-api-browser-artifacts
+          if-no-files-found: ignore
 
       - name: Check dependency advisories
         run: npm audit --audit-level=high

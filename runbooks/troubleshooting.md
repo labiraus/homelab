@@ -518,3 +518,18 @@ For schema-9 PWA source, see [local writing and shared conversation recovery](..
 The earlier release used ephemeral conversations. See [workspace recovery notes](../docs/worldbuilder/TROUBLESHOOTING.md#ai-workspace-navigation-and-generation-recovery-2026-10-12) for ephemeral conversations, generation cancellation/allowances, pinned stale drafts and story turns. The AI-first UI preserves deep links during authentication loading; expired membership still requires server authorization.
 
 For a new release, verify the `flux-system/ui` OCI source revision and HelmRelease separately from the `homelab` workload image. Native MCP login does not authenticate the browser; deployed browser tests require an existing Google-proxy session, kept in private local state. See [deployed UI verification](../docs/worldbuilder/TROUBLESHOOTING.md#deployed-ui-verification-and-browser-login-2026-10-12).
+
+## Worldbuilder schema-9 CI gates
+
+On 19 October 2026, commit `59eaadb` passed External, Processor and Orchestrator
+application tests, but their publication jobs were skipped after the shared CNPG
+backup gate failed. Its seed still used the retired `owner`/`reviewer` roles, and
+its table inventory omitted established accounts and conversations. Keep the seed,
+full-table inventory and post-restore protections aligned with numbered migrations;
+never relax a production constraint to make a synthetic seed pass.
+
+The UI also failed its actual API browser journey because a partial “Open world”
+label matched the administration selector's “Reopen world” option. Use the exact
+combobox accessible name and retain the API browser artifact separately from the
+workspace/PWA evidence. See [CI repair evidence](../docs/worldbuilder/CI-REPAIR-2026-10-19.md)
+for the source fix, local verification and hosted rerun status.

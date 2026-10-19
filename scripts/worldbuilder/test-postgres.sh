@@ -62,6 +62,21 @@ sql < "$repo_dir/sql/worldbuilder/009_up.sql"
 sql -c 'CREATE ROLE worldbuilder_external NOINHERIT LOGIN; CREATE ROLE worldbuilder_relay NOINHERIT LOGIN; CREATE ROLE legacy_app NOINHERIT LOGIN;'
 sql < "$repo_dir/sql/worldbuilder/grants.sql"
 sql < "$repo_dir/sql/worldbuilder/auth-grants.sql"
+# Rehearse the physical-backup seed against the actual latest schema before any
+# expensive controller drill. A new table must have data, not a vacuous checksum.
+docker exec "$container_name" createdb -U postgres -T worldbuilder_test worldbuilder_backup_seed
+backup_sql() { docker exec -i "$container_name" psql -X -U postgres -d worldbuilder_backup_seed -v ON_ERROR_STOP=1 "$@"; }
+backup_sql < "$repo_dir/scripts/worldbuilder/backup-seed.sql"
+backup_sql <<'SQL'
+DO $$ DECLARE t record; n bigint; BEGIN
+ FOR t IN SELECT tablename FROM pg_tables WHERE schemaname='worldbuilder' LOOP
+  EXECUTE format('SELECT count(*) FROM worldbuilder.%I',t.tablename) INTO n;
+  IF n=0 THEN RAISE EXCEPTION 'physical backup seed leaves table % empty', t.tablename; END IF;
+ END LOOP;
+ IF NOT EXISTS(SELECT FROM auth.users) THEN RAISE EXCEPTION 'physical backup seed leaves registry empty'; END IF;
+END $$;
+SQL
+echo 'PASS: physical backup seed populates every current canon table and identity registry'
 # Upgrade a populated version-1 database independently of the empty up/down tests.
 docker exec "$container_name" createdb -U postgres worldbuilder_upgrade
 upgrade_sql() { docker exec -i "$container_name" psql -X -U postgres -d worldbuilder_upgrade -v ON_ERROR_STOP=1 "$@"; }

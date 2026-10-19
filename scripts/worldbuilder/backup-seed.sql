@@ -2,8 +2,8 @@
 BEGIN;
 INSERT INTO worldbuilder.world(id,name,revision) VALUES ('00000000-0000-4000-8000-000000000001','Before base backup',1);
 INSERT INTO worldbuilder.member(world_id,principal,role,authority_id) VALUES
- ('00000000-0000-4000-8000-000000000001','owner@example.test','owner','00000000-0000-4000-8000-000000000002'),
- ('00000000-0000-4000-8000-000000000001','reviewer@example.test','reviewer','00000000-0000-4000-8000-000000000003');
+ ('00000000-0000-4000-8000-000000000001','owner@example.test','author','00000000-0000-4000-8000-000000000002'),
+ ('00000000-0000-4000-8000-000000000001','reviewer@example.test','author','00000000-0000-4000-8000-000000000003');
 INSERT INTO worldbuilder.record(world_id,id,kind,label) VALUES
  ('00000000-0000-4000-8000-000000000001','main','timeline','Main'),
  ('00000000-0000-4000-8000-000000000001','person','type','Person'),
@@ -14,11 +14,19 @@ INSERT INTO worldbuilder.record(world_id,id,kind,subject_id,timeline_id,source_i
  ('00000000-0000-4000-8000-000000000001','description','fact','hero','main','notes','description','string','"First line\nSecond line Ω"','-9223372036854775808','9223372036854775807');
 INSERT INTO worldbuilder.revision(world_id,revision,snapshot,actor,reason) VALUES
  ('00000000-0000-4000-8000-000000000001',0,'{}','owner@example.test','Fixture origin'),
- ('00000000-0000-4000-8000-000000000001',1,'{"main":{"id":"main","kind":"timeline","label":"Main"}}','reviewer@example.test','Fixture history');
-INSERT INTO worldbuilder.change_set(world_id,id,author,base_revision,reason,operations,status,reviewer,review_reason,published_revision,published_approvals) VALUES
- ('00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000004','owner@example.test',0,'Fixture publication','[]','published','reviewer@example.test','Independent fixture review',1,ARRAY['reviewer@example.test']);
-INSERT INTO worldbuilder.change_review(world_id,change_id,reviewer,authority_id,decision,reason) VALUES
- ('00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000004','reviewer@example.test','00000000-0000-4000-8000-000000000003','approved','Independent fixture review');
+ ('00000000-0000-4000-8000-000000000001',1,'{"main":{"id":"main","kind":"timeline","label":"Main"},"witness":{"id":"witness","kind":"established_account","label":"Witnessed collapse","timeline":"main","synopsis":"The party witnessed the bridge collapse Ω."},"witness-correction":{"id":"witness-correction","kind":"established_account","label":"Witnessed span collapse","timeline":"main","synopsis":"The party witnessed the central bridge span collapse Ω.","supersedes":"witness"}}','reviewer@example.test','Fixture history');
+-- Capture the immutable ledger through revision insertion, never by seeding it directly.
+INSERT INTO worldbuilder.record(world_id,id,kind,label,timeline_id) VALUES
+ ('00000000-0000-4000-8000-000000000001','witness','established_account','Witnessed collapse','main'),
+ ('00000000-0000-4000-8000-000000000001','witness-correction','established_account','Witnessed span collapse','main');
+INSERT INTO worldbuilder.conversation(world_id,id,title,creator,revision,timeline,at) VALUES
+ ('00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000012','Shared witness account','owner@example.test',1,'main',-9223372036854775808);
+INSERT INTO worldbuilder.conversation_message(world_id,conversation_id,id,actor,request,result,status) VALUES
+ ('00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000012','00000000-0000-4000-8000-000000000013','reviewer@example.test','{"workflow":"canon_query","question":"What was witnessed?","revision":1,"timeline":"main","at":-9223372036854775808}','{"answer":"The central span collapsed Ω.","citations":["00000000-0000-4000-8000-000000000001:1:main:witness-correction"]}','complete');
+INSERT INTO worldbuilder.change_set(world_id,id,author,base_revision,reason,operations,status,reviewer,review_reason,published_revision,published_approvals,policy_version) VALUES
+ ('00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000004','owner@example.test',0,'Fixture publication','[]','published','reviewer@example.test','Independent fixture review',1,ARRAY['reviewer@example.test'],1);
+INSERT INTO worldbuilder.change_review(world_id,change_id,reviewer,authority_id,decision,reason,policy_version) VALUES
+ ('00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000004','reviewer@example.test','00000000-0000-4000-8000-000000000003','approved','Independent fixture review',1);
 INSERT INTO worldbuilder.audit(world_id,actor,action,resource,detail) VALUES
  ('00000000-0000-4000-8000-000000000001','reviewer@example.test','fixture.publish','fixture','{"message":"Preserve immutable history Ω"}');
 INSERT INTO worldbuilder.outbox(id,world_id,revision,payload) VALUES
