@@ -1,0 +1,17 @@
+# Baseline experiment overlay. Publish through the vLLM HelmRelease values;
+# coordinate proxy profile local-qwen-3b-r1 while config.local_paused is true.
+model:
+  id: Qwen/Qwen2.5-3B-Instruct-AWQ
+  servedName: Qwen/Qwen2.5-3B-Instruct-AWQ
+  revision: 3559b226e8ce77211e2c1bd7ddfb7686fec4d6dd
+  maxModelLen: 4096
+  gpuMemoryUtilization: "0.85"
+  quantization: awq
+  toolCallParser: hermes
+  enableAutoToolChoice: true
+  enforceEager: true
+persistence:
+  cache:
+    enabled: true
+    storageClass: longhorn
+    sizeLimit: 80Gi

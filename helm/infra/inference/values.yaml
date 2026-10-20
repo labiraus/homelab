@@ -1,0 +1,54 @@
+namespace: homelab
+image:
+  repository: ghcr.io/labiraus/homelab/inference
+  tag: "" # CI stamps Chart.appVersion together with the image.
+credentialsSecret: inference-clients # clients.json: distinct worldbuilder and operator credentials
+databaseSecret: "" # INFERENCE_DATABASE_URL; required when cloud.enabled
+cloud:
+  enabled: false
+  region: eu-west-1
+  certificateSecret: inference-bedrock-certificate # tls.crt and tls.key in envoy-gateway-system
+  roleArn: ""
+  profileArn: ""
+  trustAnchorArn: ""
+  helperImage: "" # Published from apps/inference/credentials/dockerfile; immutable tag/digest.
+monitoring:
+  enabled: false
+  labels: {}
+  dashboard: false
+  datasourceUID: prometheus
+config:
+  local_paused: false # Set during model replacement; operator evaluations remain available.
+  monthly_micros: 100000000
+  local_concurrent: 2
+  cloud_concurrent: 2
+  models:
+    - alias: local-default
+      revision: local-qwen-3b-r1
+      provider: local
+      model: Qwen/Qwen2.5-3B-Instruct-AWQ
+      enabled: true
+      max_input_tokens: 4096
+      max_output_tokens: 768
+    - alias: bedrock-nova
+      revision: nova-2-lite-r1
+      provider: bedrock
+      model: eu.amazon.nova-2-lite-v1:0
+      enabled: true
+      max_input_tokens: 1000000
+      max_output_tokens: 4096
+      input_micros_per_million: 0
+      output_micros_per_million: 0
+      price_version: ""
+      price_valid_until: ""
+    - alias: bedrock-sonnet
+      revision: sonnet-4-5-r1
+      provider: bedrock
+      model: eu.anthropic.claude-sonnet-4-5-20250929-v1:0
+      enabled: true
+      max_input_tokens: 1000000
+      max_output_tokens: 4096
+      input_micros_per_million: 0
+      output_micros_per_million: 0
+      price_version: ""
+      price_valid_until: ""

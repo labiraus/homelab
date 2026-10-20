@@ -1,0 +1,16 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.dashboard }}
+{{- $dashboard := mustFromJson (.Files.Get "files/dashboard.json") }}
+{{- range $dashboard.panels }}
+{{- $_ := set .datasource "uid" $.Values.monitoring.datasourceUID }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inference-dashboard
+  namespace: {{ .Values.namespace }}
+  labels:
+    grafana_dashboard: "1"
+data:
+  inference.json: |
+    {{- mustToPrettyJson $dashboard | nindent 4 }}
+{{- end }}

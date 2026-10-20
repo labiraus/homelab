@@ -87,6 +87,7 @@ spec:
     group: gateway.envoyproxy.io
     kind: Backend
     name: {{ .Values.aiGateway.backendName }}
+{{- if .Values.aiGateway.chatEnabled }}
 ---
 apiVersion: aigateway.envoyproxy.io/v1alpha1
 kind: AIGatewayRoute
@@ -102,4 +103,5 @@ spec:
     - backendRefs:
         - name: {{ .Values.aiGateway.backendName }}
           modelNameOverride: {{ .Values.model.servedName | quote }}
+{{- end }}
 {{- end }}

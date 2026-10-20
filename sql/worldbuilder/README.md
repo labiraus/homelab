@@ -18,15 +18,15 @@ An additive schema alongside retained `auth`, `rag` and `assistant`. Never insta
 - `002_down.sql`: removes version-2 additions only from an empty database; refuses populated data.
 - `grants.sql`: grants only the dedicated nonprivileged external and relay logins. Provision passwords through existing operator secret workflows; no passwords are stored here.
 
-Future schema evolution adds numbered migrations and compatibility tests. Do not revise an applied production migration to change its meaning. Retained deployment checkpoints are recorded separately in the Worldbuilder status docs. Current external requires version 9; run 001 then 002 then 003 then 004 then 005 then 006 then 007 then 008 then 009 before grants/activation. Existing v1 snapshots are unchanged and do not gain synthetic settings records; propose the first world settings record through ordinary review. A v1 application cannot start enabled against v2; rollback by disabling Worldbuilder while preserving data, not by downgrading a populated schema.
+Future schema evolution adds numbered migrations and compatibility tests. Do not revise an applied production migration to change its meaning. Retained deployment checkpoints are recorded separately in the Worldbuilder status docs. Current external requires version 9; run 001 then 002 then 003 then 004 then 005 then 006 then 007 then 008 then 009 then 010 before grants/activation. Existing v1 snapshots are unchanged and do not gain synthetic settings records; propose the first world settings record through ordinary review. A v1 application cannot start enabled against v2; rollback by disabling Worldbuilder while preserving data, not by downgrading a populated schema.
 
-Run `scripts/worldbuilder/test-postgres.sh` from repo root. It starts a disposable PostgreSQL 16.13 container, tests all nine migration reruns/empty rollback, populated v1 upgrade with deleted-ID backfill, conflicting legacy-ID refusal, role denial, Go integration/race tests and dump/restore checksums across all 22 canon/lifecycle/story/inference/generation/governance/conversation tables plus the identity registry, then removes only that container. It never sources `.devcontainer/.env`, touches cluster credentials or connects to a production database. Docker-outside-Docker uses `host.docker.internal` when the host-published loopback port is not visible inside the devcontainer. If Docker-assigned high ports are unreachable, set `WORLDBUILDER_TEST_PORT=25433`; the harness preflights connectivity and fails promptly.
+Run `scripts/worldbuilder/test-postgres.sh` from repo root. It starts a disposable PostgreSQL 16.13 container, tests all ten migration reruns/empty rollback, populated v1 upgrade with deleted-ID backfill, conflicting legacy-ID refusal, role denial, Go integration/race tests and dump/restore checksums across all 22 canon/lifecycle/story/inference/generation/governance/conversation tables plus the identity registry, then removes only that container. It never sources `.devcontainer/.env`, touches cluster credentials or connects to a production database. Docker-outside-Docker uses `host.docker.internal` when the host-published loopback port is not visible inside the devcontainer. If Docker-assigned high ports are unreachable, set `WORLDBUILDER_TEST_PORT=25433`; the harness preflights connectivity and fails promptly.
 
 See [API and invariants](../../docs/worldbuilder/API.md) and [controlled LAN steps](../../docs/worldbuilder/LAN-RUNBOOK.md).
 
 If published ports remain unreachable, `WORLDBUILDER_TEST_TRANSPORT=exec bash scripts/worldbuilder/test-postgres.sh` uses a local loopback socat bridge through Docker exec into the disposable container. The harness also attempts this fallback automatically after TCP preflight fails when socat is installed. The relay and container are removed on exit; no database or cluster credential files are loaded.
 
-Current enabled binaries require v9; older binaries fail their startup version check against v9. Production rollback disables the feature and retains every populated table, including unresolved inference reservations. Inference-ledger runtime grants permit insert/read and completion fields only, not allocation/identity/time rewrites or deletion. The established-account ledger permits runtime reads only; publication triggers append records.
+Current enabled binaries require v10; older binaries fail their startup version check against v10. Production rollback disables the feature and retains every populated table, including unresolved inference reservations. Inference-ledger runtime grants permit insert/read and completion fields only, not allocation/identity/time rewrites or deletion. The established-account ledger permits runtime reads only; publication triggers append records.
 
 `ops_dashboard_queries.pgsql` is an operator-only read-only aggregate diagnostic script, tested against disposable data by the migration harness. It reports backlogs, job/lease states, allowance and governance counts without prompts, narrative output, emails or world names. See [observability](../../docs/worldbuilder/OBSERVABILITY.md).
 
@@ -45,10 +45,17 @@ Readers, removes the single-owner index, backfills active administrative policy
 from existing settings, and invalidates pending schema-8 authority without
 rewriting published decisions. It adds the immutable established-account ledger,
 shared conversations/messages, and explicit story mode/scene state. External and
-orchestrator now require schema 9. Refresh runtime grants: ledger writes occur only
+orchestrator now require schema 10. Refresh runtime grants: ledger writes occur only
 through publication triggers; the runtime has no ledger update/delete authority.
 Administrator changes use a narrow audited function with final-Administrator
 protection. Auth registry access still uses separately applied auth grants.
 
 Empty rollback is tested; populated rollback must disable the service and retain
 all 22 tables plus auth.users. See [PWA operator procedure](../../docs/worldbuilder/PWA-IMPLEMENTATION.md#operator-procedure).
+
+
+## Independent inference profiles (010)
+
+Migration 010 preserves positive historical allocations and permits explicit proxy-managed zero-cost USD audit attempts. It adds server-assigned profile pins to attempts, durable generation jobs and conversation messages. Old rows retain `{"mode":"legacy"}`; they cannot silently execute under a proxy profile. Runtime grants exclude updates to these identity/configuration fields. Cloud costs live in the independent `sql/inference` ledger, not the old application allowance.
+
+Activate `mode: proxy` only after migration/grants and local proxy acceptance. New queued work pins alias/revision at creation. A later configuration change cannot switch it to a different provider; unavailable revisions refuse execution. Populated downgrade is refused. Preserve both ledgers on rollback. The logical/physical backup seeds include legacy and proxy attempts and profile pins, covered by full-table checksums. See [inference operations](../../docs/Inference.md).

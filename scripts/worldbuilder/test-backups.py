@@ -22,6 +22,7 @@ CHART_VERSION = '0.23.2'
 PORTS = {'offline-source': 30432, 'offline-latest': 30433, 'offline-pitr': 30434}
 TABLES = ('world', 'member', 'revision', 'record', 'record_identity', 'change_set',
           'change_review', 'audit', 'outbox', 'story_session', 'story_turn', 'story_outcome',
+          # Full row checksums include schema-10 profile pins and zero-cost attempts.
           'story_definition', 'generation_job', 'generation_outbox', 'inference_attempt', 'schema_version', 'superuser', 'account_audit',
           'established_account', 'conversation', 'conversation_message')
 

@@ -18,6 +18,9 @@ spec:
   {{- if .Values.nativeOAuthRole.enabled }}
   {{- $roles = append $roles (dict "name" "mcp_oauth_runtime" "secret" (required "nativeOAuthRole.passwordSecret is required" .Values.nativeOAuthRole.passwordSecret) "login" true) }}
   {{- end }}
+  {{- if .Values.inferenceRoles.enabled }}
+  {{- $roles = concat $roles (list (dict "name" "inference_owner" "secret" .Values.inferenceRoles.ownerSecret "login" .Values.inferenceRoles.migrationLogin) (dict "name" "inference_runtime" "secret" .Values.inferenceRoles.runtimeSecret "login" true)) }}
+  {{- end }}
   {{- if $roles }}
   managed:
     roles:

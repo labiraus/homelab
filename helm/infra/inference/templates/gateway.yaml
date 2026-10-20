@@ -1,0 +1,187 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: inference-upstream
+  namespace: {{ .Values.namespace }}
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        name: inference-upstream
+        type: ClusterIP
+      {{- if .Values.cloud.enabled }}
+      envoyDeployment:
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              template:
+                spec:
+                  containers:
+                    - name: roles-anywhere
+                      image: {{ required "cloud requires immutable helperImage" .Values.cloud.helperImage | quote }}
+                      args:
+                        - serve
+                        - --certificate
+                        - /identity/tls.crt
+                        - --private-key
+                        - /identity/tls.key
+                        - --region
+                        - eu-west-1
+                        - --role-arn
+                        - {{ required "cloud.roleArn required" .Values.cloud.roleArn | quote }}
+                        - --profile-arn
+                        - {{ required "cloud.profileArn required" .Values.cloud.profileArn | quote }}
+                        - --trust-anchor-arn
+                        - {{ required "cloud.trustAnchorArn required" .Values.cloud.trustAnchorArn | quote }}
+                        - --hop-limit
+                        - "1"
+                      securityContext:
+                        runAsNonRoot: true
+                        runAsUser: 65532
+                        allowPrivilegeEscalation: false
+                        readOnlyRootFilesystem: true
+                        capabilities: {drop: [ALL]}
+                      resources:
+                        requests: {cpu: 50m, memory: 32Mi}
+                        limits: {cpu: 200m, memory: 128Mi}
+                      volumeMounts:
+                        - {name: bedrock-identity, mountPath: /identity, readOnly: true}
+                  volumes:
+                    - name: bedrock-identity
+                      secret:
+                        secretName: {{ .Values.cloud.certificateSecret }}
+      {{- end }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: inference-upstream
+  namespace: {{ .Values.namespace }}
+  {{- if .Values.cloud.enabled }}
+  annotations:
+    aigateway.envoyproxy.io/gateway-config: inference-bedrock
+  {{- end }}
+spec:
+  gatewayClassName: envoy-ai-gateway
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: inference-upstream
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces: {from: Same}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: inference-local
+  namespace: {{ .Values.namespace }}
+spec:
+  type: Endpoints
+  endpoints:
+    - fqdn:
+        hostname: homelab-vllm.{{ .Values.namespace }}.svc.cluster.local
+        port: 8000
+---
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIServiceBackend
+metadata:
+  name: inference-local
+  namespace: {{ .Values.namespace }}
+spec:
+  schema: {name: OpenAI, prefix: /v1}
+  backendRef: {group: gateway.envoyproxy.io, kind: Backend, name: inference-local}
+---
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIGatewayRoute
+metadata:
+  name: inference
+  namespace: {{ .Values.namespace }}
+spec:
+  parentRefs: [{name: inference-upstream}]
+  rules:
+    {{- range .Values.config.models }}
+    {{- if and .enabled (or (eq .provider "local") $.Values.cloud.enabled) }}
+    - matches:
+        - headers:
+            - {type: Exact, name: x-ai-eg-model, value: {{ .model | quote }}}
+      backendRefs:
+        - name: inference-{{ if eq .provider "local" }}local{{ else }}bedrock{{ end }}
+          modelNameOverride: {{ .model | quote }}
+    {{- end }}{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: inference-upstream
+  namespace: envoy-gateway-system
+spec:
+  podSelector:
+    matchLabels:
+      gateway.envoyproxy.io/owning-gateway-name: inference-upstream
+      gateway.envoyproxy.io/owning-gateway-namespace: {{ .Values.namespace }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: {{ .Values.namespace }}}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: inference}}
+      ports: [{protocol: TCP, port: 10080}]
+{{- if .Values.cloud.enabled }}
+---
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: GatewayConfig
+metadata:
+  name: inference-bedrock
+  namespace: {{ .Values.namespace }}
+spec:
+  extProc:
+    kubernetes:
+      env:
+        - {name: AWS_EC2_METADATA_SERVICE_ENDPOINT, value: "http://127.0.0.1:9911"}
+        - {name: AWS_EC2_METADATA_V1_DISABLED, value: "true"}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: inference-bedrock
+  namespace: {{ .Values.namespace }}
+spec:
+  endpoints:
+    - fqdn: {hostname: bedrock-runtime.eu-west-1.amazonaws.com, port: 443}
+---
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIServiceBackend
+metadata:
+  name: inference-bedrock
+  namespace: {{ .Values.namespace }}
+spec:
+  schema: {name: AWSBedrock}
+  backendRef: {group: gateway.envoyproxy.io, kind: Backend, name: inference-bedrock}
+---
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: BackendSecurityPolicy
+metadata:
+  name: inference-bedrock
+  namespace: {{ .Values.namespace }}
+spec:
+  targetRefs: [{group: aigateway.envoyproxy.io, kind: AIServiceBackend, name: inference-bedrock}]
+  type: AWSCredentials
+  awsCredentials: {region: eu-west-1}
+---
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  name: inference-bedrock
+  namespace: {{ .Values.namespace }}
+spec:
+  targetRefs: [{group: gateway.envoyproxy.io, kind: Backend, name: inference-bedrock}]
+  validation:
+    wellKnownCACertificates: System
+    hostname: bedrock-runtime.eu-west-1.amazonaws.com
+{{- end }}

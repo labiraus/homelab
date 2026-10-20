@@ -19,6 +19,12 @@ spec:
           podSelector:
 {{ toYaml .podSelector | nindent 12 }}
 {{- end }}
+{{- if .Values.networkPolicy.inferenceClient }}
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: homelab}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: inference}
+{{- end }}
       ports:
         - protocol: TCP
           port: 5432

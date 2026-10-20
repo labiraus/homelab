@@ -1,0 +1,38 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: inference
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- toYaml .Values.monitoring.labels | nindent 4 }}
+spec:
+  selector:
+    matchLabels: {app.kubernetes.io/name: inference}
+  endpoints: [{port: http, path: /metrics, interval: 30s}]
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: inference-budget
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- toYaml .Values.monitoring.labels | nindent 4 }}
+spec:
+  groups:
+    - name: inference-budget
+      rules:
+        {{- range $threshold := list 50 80 95 }}
+        - alert: InferenceBudget{{ $threshold }}Percent
+          expr: (inference_monthly_settled_micros + inference_monthly_reserved_micros) / inference_monthly_limit_micros >= {{ divf $threshold 100 }}
+          for: 1m
+          labels: {severity: {{ if eq $threshold 95 }}critical{{ else }}warning{{ end }}}
+          annotations:
+            summary: "Inference budget has reached {{ $threshold }}% including outstanding reservations"
+        {{- end }}
+        - alert: InferenceAccountingUnavailable
+          expr: inference_accounting_available == 0
+          for: 5m
+          labels: {severity: warning}
+          annotations: {summary: "Inference accounting unavailable; paid requests fail closed"}
+{{- end }}

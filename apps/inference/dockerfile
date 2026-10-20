@@ -1,0 +1,11 @@
+FROM golang:1.25.6 AS build
+WORKDIR /src
+COPY inference/go.mod inference/go.sum ./
+RUN --mount=type=secret,id=build_ca \
+    if [ -f /run/secrets/build_ca ]; then export SSL_CERT_FILE=/run/secrets/build_ca; fi; go mod download
+COPY inference/ ./
+RUN CGO_ENABLED=0 go build -trimpath -o /inference .
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=build /inference /inference
+USER 65532:65532
+ENTRYPOINT ["/inference"]

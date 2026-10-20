@@ -14,6 +14,7 @@ spec:
     - Ingress
     - Egress
   ingress:
+    {{- if not .Values.security.networkPolicy.gatewayOnly }}
     - from:
         - namespaceSelector:
             matchLabels:
@@ -25,10 +26,16 @@ spec:
       ports:
         - protocol: TCP
           port: 8000
+    {{- end }}
     - from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: envoy-gateway-system
+          {{- if .Values.security.networkPolicy.gatewayOnly }}
+          podSelector:
+            matchLabels:
+              gateway.envoyproxy.io/owning-gateway-name: inference-upstream
+          {{- end }}
       ports:
         - protocol: TCP
           port: 8000

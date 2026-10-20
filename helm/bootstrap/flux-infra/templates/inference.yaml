@@ -1,0 +1,49 @@
+{{- $component := .Values.inference -}}
+{{- if $component.enabled }}
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: inference
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: oci://{{ .Values.image.repository }}/charts/inference
+  provider: {{ .Values.provider }}
+  {{- if .Values.secret }}
+  secretRef:
+    name: ghcr-creds
+  {{- end }}
+  ref:
+    semver: ">={{ .Values.min_version }}"
+    semverFilter: {{ .Values.tag }}
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: inference
+  namespace: flux-system
+spec:
+  interval: 1m
+  timeout: 30m
+  targetNamespace: {{ $component.namespace }}
+  install:
+    createNamespace: true
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 2m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 2m
+  dependsOn:
+    {{- range $component.dependsOn }}
+    - name: {{ . }}
+      namespace: flux-system
+    {{- end }}
+  chartRef:
+    kind: OCIRepository
+    name: inference
+    namespace: flux-system
+  values:
+    {{- toYaml ($component.values | default dict) | nindent 4 }}
+{{- end }}

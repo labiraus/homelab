@@ -40,6 +40,9 @@ sql < "$repo_dir/sql/worldbuilder/008_up.sql"
 sql < "$repo_dir/sql/worldbuilder/008_up.sql"
 sql < "$repo_dir/sql/worldbuilder/009_up.sql"
 sql < "$repo_dir/sql/worldbuilder/009_up.sql"
+sql < "$repo_dir/sql/worldbuilder/010_up.sql"
+sql < "$repo_dir/sql/worldbuilder/010_up.sql"
+sql < "$repo_dir/sql/worldbuilder/010_down.sql"
 sql < "$repo_dir/sql/worldbuilder/009_down.sql"
 sql < "$repo_dir/sql/worldbuilder/008_down.sql"
 sql < "$repo_dir/sql/worldbuilder/007_down.sql"
@@ -59,6 +62,8 @@ sql < "$repo_dir/sql/worldbuilder/007_up.sql"
 sql < "$repo_dir/sql/worldbuilder/008_up.sql"
 sql < "$repo_dir/sql/worldbuilder/009_up.sql"
 sql < "$repo_dir/sql/worldbuilder/009_up.sql"
+sql < "$repo_dir/sql/worldbuilder/010_up.sql"
+sql < "$repo_dir/sql/worldbuilder/010_up.sql"
 sql -c 'CREATE ROLE worldbuilder_external NOINHERIT LOGIN; CREATE ROLE worldbuilder_relay NOINHERIT LOGIN; CREATE ROLE legacy_app NOINHERIT LOGIN;'
 sql < "$repo_dir/sql/worldbuilder/grants.sql"
 sql < "$repo_dir/sql/worldbuilder/auth-grants.sql"
@@ -156,6 +161,8 @@ pwa_upgrade_checksum="SELECT md5(string_agg(item, ',' ORDER BY item)) FROM (SELE
 pwa_before=$(upgrade_sql -Atc "$pwa_upgrade_checksum")
 upgrade_sql < "$repo_dir/sql/worldbuilder/009_up.sql"
 upgrade_sql < "$repo_dir/sql/worldbuilder/009_up.sql"
+upgrade_sql < "$repo_dir/sql/worldbuilder/010_up.sql"
+upgrade_sql < "$repo_dir/sql/worldbuilder/010_up.sql"
 [[ "$pwa_before" == "$(upgrade_sql -Atc "$pwa_upgrade_checksum")" ]] || { echo 'FAIL: PWA upgrade changed historical canon/decisions'; exit 1; }
 upgrade_sql <<'SQL'
 DO $$ BEGIN
@@ -255,7 +262,7 @@ if sql < "$repo_dir/sql/worldbuilder/005_down.sql" >/dev/null 2>&1; then echo 'F
 if sql < "$repo_dir/sql/worldbuilder/006_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated calendar down migration succeeded'; exit 1; fi
 if sql < "$repo_dir/sql/worldbuilder/007_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated review-policy down migration succeeded'; exit 1; fi
 if sql < "$repo_dir/sql/worldbuilder/008_down.sql" >/dev/null 2>&1; then echo 'FAIL: populated superuser down migration succeeded'; exit 1; fi
-if sql < "$repo_dir/sql/worldbuilder/009_down.sql" >/dev/null 2>&1; then echo "FAIL: populated PWA downgrade succeeded"; exit 1; fi
+if sql < "$repo_dir/sql/worldbuilder/010_down.sql" >/dev/null 2>&1; then echo "FAIL: populated PWA downgrade succeeded"; exit 1; fi
 sql < "$repo_dir/sql/worldbuilder/ops_dashboard_queries.pgsql"
 docker exec "$container_name" createdb -U postgres worldbuilder_restore
 docker exec "$container_name" pg_dump -U postgres -d worldbuilder_test -Fc -f /tmp/worldbuilder.dump
@@ -271,4 +278,4 @@ checksum_query="SELECT md5(string_agg(item, ',' ORDER BY item)) FROM ($checksum_
 original=$(sql -Atc "$checksum_query")
 restored=$(docker exec "$container_name" psql -X -U postgres -d worldbuilder_restore -Atc "$checksum_query")
 [[ "$original" == "$restored" ]] || { echo 'FAIL: restored canon/lifecycle/story data differs'; exit 1; }
-echo 'PASS: migrations 001–009 rerun/rollback, populated upgrade/conflict gates, role isolation, canon/lifecycle/story/outbox integration and all-table restore checksum'
+echo 'PASS: migrations 001–010 rerun/rollback, populated upgrade/conflict gates, role isolation, canon/lifecycle/story/outbox integration and all-table restore checksum'

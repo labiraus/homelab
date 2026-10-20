@@ -1,3 +1,10 @@
+{{- if .Values.inference.enabled }}
+{{- $secret := required "inference.tokenSecret required" .Values.inference.tokenSecret }}
+{{- $_ := set .Values "envFromSecrets" (append .Values.envFromSecrets $secret) }}
+{{- $_ := set .Values "env" (merge (dict "AI_GATEWAY_BASE_URL" "http://inference.homelab.svc.cluster.local:8080/v1" "AI_CHAT_MODEL" "local-default") (.Values.env | default dict)) }}
+{{- $egress := dict "to" (list (dict "namespaceSelector" (dict "matchLabels" (dict "kubernetes.io/metadata.name" "homelab")) "podSelector" (dict "matchLabels" (dict "app.kubernetes.io/name" "inference")))) "ports" (list (dict "protocol" "TCP" "port" 8080)) }}
+{{- $_ := set .Values.security.networkPolicy "egress" (append .Values.security.networkPolicy.egress $egress) }}
+{{- end }}
 {{- if .Values.worldbuilder.aiSecret }}
 {{- $_ := set .Values "envFromSecrets" (append .Values.envFromSecrets .Values.worldbuilder.aiSecret) }}
 {{- end }}

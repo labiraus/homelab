@@ -10,10 +10,14 @@
 {{- $_ := set .Values "envFromSecrets" (append .Values.envFromSecrets .Values.worldbuilder.databaseSecret) }}
 {{- if or .Values.worldbuilder.aiSecret .Values.worldbuilder.semantic.enabled }}
 {{- $budget := .Values.worldbuilder.aiBudget }}
+{{- if eq $budget.mode "proxy" }}
+{{- if or (empty $budget.profileRevision) (not (has $budget.profile (list "local-default" "bedrock-nova" "bedrock-sonnet"))) (ne $budget.currency "USD") (ne (int64 $budget.dailyRequests) 0) (ne (int64 $budget.requestMicros) 0) (ne (int64 $budget.dailyMicros) 0) }}{{ fail "proxy accounting requires pinned profile, USD and zero app quotas" }}{{ end }}
+{{- else }}
 {{- if or (lt (int64 $budget.requestMicros) 1) (lt (int64 $budget.dailyMicros) (int64 $budget.requestMicros)) (empty $budget.currency) (empty $budget.gatewayRoute) }}
 {{- fail "Worldbuilder AI requires explicit positive per-request/daily allowances, currency and gateway route" }}
 {{- end }}
-{{- $_ := set .Values "env" (merge (dict "WORLDBUILDER_AI_DAILY_REQUESTS" (toString (int64 $budget.dailyRequests)) "WORLDBUILDER_AI_CONCURRENT" (toString (int64 $budget.concurrent)) "WORLDBUILDER_AI_REQUEST_MICROS" (toString (int64 $budget.requestMicros)) "WORLDBUILDER_AI_DAILY_MICROS" (toString (int64 $budget.dailyMicros)) "WORLDBUILDER_AI_CURRENCY" $budget.currency "WORLDBUILDER_AI_GATEWAY_ROUTE" $budget.gatewayRoute) .Values.env) }}
+{{- end }}
+{{- $_ := set .Values "env" (merge (dict "WORLDBUILDER_AI_ACCOUNTING" ($budget.mode | default "legacy") "WORLDBUILDER_AI_PROFILE" ($budget.profile | default "") "WORLDBUILDER_AI_PROFILE_REVISION" ($budget.profileRevision | default "") "WORLDBUILDER_AI_DAILY_REQUESTS" (toString (int64 $budget.dailyRequests)) "WORLDBUILDER_AI_CONCURRENT" (toString (int64 $budget.concurrent)) "WORLDBUILDER_AI_REQUEST_MICROS" (toString (int64 $budget.requestMicros)) "WORLDBUILDER_AI_DAILY_MICROS" (toString (int64 $budget.dailyMicros)) "WORLDBUILDER_AI_CURRENCY" $budget.currency "WORLDBUILDER_AI_GATEWAY_ROUTE" $budget.gatewayRoute) .Values.env) }}
 {{- if .Values.worldbuilder.aiSecret }}{{- $_ := set .Values "envFromSecrets" (append .Values.envFromSecrets .Values.worldbuilder.aiSecret) }}{{- end }}
 {{- end }}
 {{- if .Values.worldbuilder.mcp.enabled }}

@@ -11,6 +11,48 @@ import (
 	"testing"
 )
 
+func TestProxyLocalHasNoDailyQuotaAndRetainsConcurrency(t *testing.T) {
+	h := setup(t)
+	b := &InferenceBudget{Pool: h.pool, Mode: "proxy", Profile: "local-default", ProfileRevision: "local-r1", Concurrent: 2, Currency: "USD", GatewayRoute: "inference"}
+	r := ReasonRequest{WorldID: h.world(), Timeline: "main", Workflow: "canon_query", Question: "fixture"}
+	actor := uuid.NewString() + "@example.test"
+	for i := 0; i < 105; i++ {
+		p, e := b.reserve(context.Background(), actor, "", r)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if p.AllocatedMicros != 0 || p.Profile != "local-default" {
+			t.Fatal(p)
+		}
+		if e = b.finish(p, ReasonResult{}, true); e != nil {
+			t.Fatal(e)
+		}
+	}
+	// Rolling back to legacy accounting must not count free proxy attempts or
+	// mistake their USD provenance for an old currency allocation.
+	old := &InferenceBudget{Pool: h.pool, DailyRequests: 100, Concurrent: 2, RequestMicros: 100, DailyMicros: 10000, Currency: "TST", GatewayRoute: "legacy"}
+	prior, err := old.reserve(context.Background(), actor, "", r)
+	if err != nil {
+		t.Fatal("proxy attempts polluted legacy allowance", err)
+	}
+	if err = old.finish(prior, ReasonResult{}, true); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if _, e := b.reserve(context.Background(), actor, "", r); e != nil {
+			t.Fatal(e)
+		}
+	}
+	if _, e := b.reserve(context.Background(), actor, "", r); e == nil {
+		t.Fatal("local concurrency unbounded")
+	}
+	legacy := InferenceProfile{Mode: "legacy"}
+	r.InferenceProfile = &legacy
+	if _, e := b.reserve(context.Background(), uuid.NewString(), "", r); e == nil {
+		t.Fatal("legacy queued request silently switched accounting")
+	}
+}
+
 func TestInferenceReservationsCoordinateReplicasAndSurviveFailures(t *testing.T) {
 	h := setup(t)
 	world := h.world()

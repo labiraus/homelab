@@ -11,6 +11,7 @@ export interface Evidence {
   record: { id: string; kind: string; [key: string]: unknown };
 }
 export interface CanonRequest {
+  inferenceProfile?: { mode: string; alias?: string; revision?: string };
   at?: number | string;
   review?: { changeId: string; baseRevision: number; operations: unknown[] };
   generation?: { id: string; part: number; parts: number; previous: string[] };
@@ -48,7 +49,12 @@ export interface AdvisoryFinding {
   message: string;
   citations: string[];
 }
+export interface ProxyInference {
+  requestId: string; profile: string; profileRevision: string; provider: string;
+  accountingStatus: string; estimatedMicros: number; reservedMicros: number;
+}
 export interface CanonResult {
+  inference?: ProxyInference;
   findings?: AdvisoryFinding[];
   choices?: StoryChoice[];
   memorySummary?: string;
@@ -61,7 +67,7 @@ export interface CanonResult {
 }
 export type Generate = (
   messages: Array<{ role: string; content: string }>,
-) => Promise<{ text: string; model: string; usage: Record<string, number> }>;
+) => Promise<{ text: string; model: string; usage: Record<string, number>; inference?: ProxyInference }>;
 const State = Annotation.Root({
   request: Annotation<CanonRequest>(),
   result: Annotation<CanonResult>(),
@@ -81,7 +87,7 @@ function workflowInstructions(workflow: CanonRequest["workflow"]): string {
     case "canon_query":
       return 'If the supplied evidence does not answer the question, return {"answer":"This is not established in the supplied canon.","unknown":true,"citations":[],"operations":[]}. The unknown flag must be true whenever the answer is unknown; never invent a missing fact. Set unknown to false only when the supplied evidence supports the answer.';
     case "canon_proposal":
-      return "Draft the requested changes as operations against the supplied baseline, citing its exact evidence IDs. A proposed new value is a draft, not an unknown historical fact. In answer, summarize the proposed edit in plain language. Set operation.record.id to the record ID (evidence.record.id), NEVER to the scoped citation ID (evidence.citationId). A put has action and record only; do not duplicate its ID outside record. A delete has action and id only. Preserve record kind and unchanged fields. Set unknown=false when the supplied baseline is sufficient to draft the requested edit; otherwise explain the missing context and return no operations.";
+      return "Draft the requested changes as operations against the supplied baseline, citing its exact evidence IDs. A proposed new value is a draft, not an unknown historical fact. In answer, summarize the proposed edit in plain language. Set operation.record.id to the record ID (evidence.record.id), NEVER to the scoped citation ID (evidence.citationId). A put has action and record only; do not duplicate its ID outside record. A delete has action and id only. For an edit, copy the complete supplied baseline record, including its label and attributes, then change only the requested fields. Preserve its kind. Always include label and attributes (empty string/object when absent in the baseline). Descriptive source text belongs in attributes.description, never a top-level description. Set unknown=false when the supplied baseline is sufficient to draft the requested edit; otherwise explain the missing context and return no operations.";
     case "consistency_check":
       return "Check only the supplied published evidence and any proposed review operations for contradictions. Cite the exact published evidence inspected. A record can be checked even if other records are absent. When no contradiction is found, answer with a sentence explaining that none was found in the supplied evidence, set unknown=false, and return findings=[] and operations=[]. Do not return the literal text unknown or unknown=true as the answer. No findings is not proof of whole-world consistency. If there is a contradiction, explain it with cited advisory findings. Set unknown=true only when the question requires specific unavailable context.";
     case "story_turn":
@@ -369,6 +375,7 @@ function validateOutput(
     memorySummary: value.memorySummary as string | undefined,
     model: response.model,
     usage: response.usage,
+    inference: response.inference,
   };
 }
 // Constrain provider output while retaining independent semantic validation below.
@@ -383,8 +390,8 @@ function responseSchema(request: CanonRequest): Record<string, unknown> {
         { type: "object", additionalProperties: false, required: ["action", "record"],
           properties: {
             action: { type: "string", enum: ["put"] },
-            record: { type: "object", required: ["id", "kind"],
-              properties: { id: { type: "string" }, kind: { type: "string" } },
+            record: { type: "object", required: ["id", "kind", "label", "attributes"],
+              properties: { id: { type: "string" }, kind: { type: "string" }, label: { type: "string" }, attributes: { type: "object", additionalProperties: { type: "string" } } },
               additionalProperties: true },
           } },
         { type: "object", additionalProperties: false, required: ["action", "id"],
@@ -430,16 +437,20 @@ async function gateway(
 ): ReturnType<Generate> {
   const base = process.env.AI_GATEWAY_BASE_URL?.replace(/\/+$/, "");
   if (!base) throw new Error("AI_GATEWAY_BASE_URL required");
-  const model = process.env.AI_CHAT_MODEL || "Qwen/Qwen2.5-3B-Instruct-AWQ";
+  const proxy = request.inferenceProfile?.mode === "proxy";
+  if (proxy && (!request.inferenceProfile?.alias || !request.inferenceProfile?.revision || !process.env.INFERENCE_TOKEN)) throw new Error("pinned proxy profile and credential required");
+  const model = proxy ? request.inferenceProfile!.alias : (process.env.AI_CHAT_MODEL || "Qwen/Qwen2.5-3B-Instruct-AWQ");
   const response = await fetch(`${base}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(proxy ? { Authorization: `Bearer ${process.env.INFERENCE_TOKEN}` } : {}),
       ...(request.requestId ? { "X-Request-ID": request.requestId } : {}),
     },
-    signal: AbortSignal.timeout(20000),
+    signal: AbortSignal.timeout(55000),
     body: JSON.stringify({
       model,
+      ...(proxy ? { profile_revision: request.inferenceProfile!.revision } : {}),
       messages,
       temperature: ["story_turn", "narrative_generate"].includes(request.workflow) ? 0.2 : 0,
       max_tokens: 768,
@@ -470,11 +481,10 @@ async function gateway(
     text,
     model: typeof raw.model === "string" ? raw.model : model,
     usage: raw.usage ?? {},
+    inference: raw.inference,
   };
 }
 let inflight = 0;
-let minute = 0;
-let requests = 0;
 export async function handleCanonRequest(
   request: IncomingMessage,
   response: ServerResponse,
@@ -497,16 +507,10 @@ export async function handleCanonRequest(
     response.writeHead(405).end();
     return;
   }
-  const now = Math.floor(Date.now() / 60000);
-  if (now !== minute) {
-    minute = now;
-    requests = 0;
-  }
-  if (inflight >= 2 || requests >= 20) {
+  if (inflight >= 2) {
     response.writeHead(429).end();
     return;
   }
-  requests++;
   inflight++;
   try {
     const chunks: Buffer[] = [];

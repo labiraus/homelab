@@ -2,6 +2,10 @@
 
 Use this file as the first fast pass when you need to locate the relevant code in this repo.
 
+## Independent inference
+
+`apps/inference`, `helm/infra/inference`, `sql/inference`, `scripts/inference` and `docs/Inference.md` form the independent local/Bedrock platform. `components/inference-bedrock` composes scoped IAM Roles Anywhere and AWS budget infrastructure. Worldbuilder migration 010 pins profiles and preserves historical allowances. Activation uses explicit Flux overlays; embeddings remain unchanged.
+
 ## Top-Level Map
 
 - `.codex/`

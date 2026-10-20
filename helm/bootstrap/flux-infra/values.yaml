@@ -44,3 +44,9 @@ embeddings:
   dependsOn:
     - envoy-ai-gateway
     - vllm
+
+inference:
+  enabled: false # Explicit values-inference.yaml activation after acceptance.
+  namespace: homelab
+  dependsOn: [envoy-ai-gateway, vllm, postgres]
+  values: {}

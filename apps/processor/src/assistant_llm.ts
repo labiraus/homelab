@@ -150,6 +150,7 @@ async function callLLM(state: AssistantGraphState): Promise<string> {
 		headers: {
 			Accept: "application/json",
 			"Content-Type": "application/json",
+			...(process.env.INFERENCE_TOKEN ? { Authorization: `Bearer ${process.env.INFERENCE_TOKEN}` } : {}),
 		},
 		body: JSON.stringify({
 			model: llmModel(),
@@ -159,10 +160,6 @@ async function callLLM(state: AssistantGraphState): Promise<string> {
 				{ role: "system", content: assistantSystemPrompt(state.memories, state.contextResult) },
 				{ role: "user", content: state.message },
 			],
-			metadata: {
-				user_email: state.userEmail,
-				conversation_id: state.conversation.conversationId,
-			},
 		}),
 	});
 	const raw = (await response.json().catch(() => ({}))) as {

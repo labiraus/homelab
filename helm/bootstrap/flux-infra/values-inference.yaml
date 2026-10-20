@@ -1,0 +1,13 @@
+# Explicit activation overlay, after credentials, schema and owned acceptance.
+inference:
+  enabled: true
+vllm:
+  values:
+    aiGateway:
+      chatEnabled: false
+    security:
+      networkPolicy:
+        gatewayOnly: true
+    persistence:
+      cache:
+        enabled: true

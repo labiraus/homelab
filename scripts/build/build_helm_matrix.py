@@ -66,6 +66,8 @@ def discover_installable_charts() -> list[dict[str, str]]:
 def chart_app_name(chart_rel: str) -> str | None:
     # App charts live at helm/apps/<app>; extracting the app name in one place
     # keeps the publish/filter logic consistent.
+    if chart_rel == "infra/inference":
+        return "inference"
     if not chart_rel.startswith("apps/"):
         return None
     return chart_rel.split("/", 2)[1]

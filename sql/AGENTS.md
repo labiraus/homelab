@@ -26,7 +26,7 @@ If a query, migration, or bootstrap step repeatedly causes confusion, document t
 
 ## Worldbuilder schema evolution
 
-Use numbered additive migrations; never rewrite immutable revision history or silently change record kinds during upgrades. Current external requires schema version 9. Apply migrations and dedicated grants explicitly before activation; no startup hook may install them. Production rollback disables the feature and preserves populated schemas. Validate populated upgrade/backfill as well as empty rollback in the disposable harness.
+Use numbered additive migrations; never rewrite immutable revision history or silently change record kinds during upgrades. Current external and orchestrator require schema version 10. Apply migrations and dedicated grants explicitly before activation; no startup hook may install them. Production rollback disables the feature and preserves populated schemas. Validate populated upgrade/backfill as well as empty rollback in the disposable harness.
 
 Administrator grants retain the legacy superuser table name; they are not PostgreSQL superuser roles. Schema 9 adds a narrow audited, fixed-search-path function for Administrator management with final-Administrator protection; runtime still has no direct grant-table write permission. Apply `worldbuilder/auth-grants.sql` separately as the existing auth table owner/operator; never give the canon migration owner the legacy app role. User registration preserves existing rows and appends an audit in the same transaction. Never run the destructive legacy `auth.pgsql` seed against a populated registry.
 

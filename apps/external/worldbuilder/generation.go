@@ -20,17 +20,18 @@ type GenerationRequest struct {
 	Parts int    `json:"parts"`
 }
 type Generation struct {
-	ID          string            `json:"id"`
-	Request     GenerationRequest `json:"request"`
-	Status      string            `json:"status"`
-	Step        int               `json:"step"`
-	Parts       int               `json:"parts"`
-	Results     []ReasonResult    `json:"results"`
-	ErrorCode   string            `json:"errorCode"`
-	CreatedAt   time.Time         `json:"createdAt"`
-	LeaseUntil  *time.Time        `json:"leaseUntil,omitempty"`
-	LeaseToken  string            `json:"-"`
-	ActiveLease bool              `json:"-"`
+	InferenceProfile InferenceProfile  `json:"inferenceProfile"`
+	ID               string            `json:"id"`
+	Request          GenerationRequest `json:"request"`
+	Status           string            `json:"status"`
+	Step             int               `json:"step"`
+	Parts            int               `json:"parts"`
+	Results          []ReasonResult    `json:"results"`
+	ErrorCode        string            `json:"errorCode"`
+	CreatedAt        time.Time         `json:"createdAt"`
+	LeaseUntil       *time.Time        `json:"leaseUntil,omitempty"`
+	LeaseToken       string            `json:"-"`
+	ActiveLease      bool              `json:"-"`
 }
 type GenerationRef struct {
 	WorldID string `json:"worldId"`
@@ -53,7 +54,7 @@ func (sc *scope) generation(ctx context.Context, id string) (Generation, error) 
 	if _, err := uuid.Parse(id); err != nil {
 		return g, missing
 	}
-	err := sc.tx.QueryRow(ctx, `SELECT id::text,request,status,step,parts,results,error_code,created_at,COALESCE(lease_token::text,''),lease_until,COALESCE(lease_until>now(),false) FROM worldbuilder.generation_job WHERE world_id=$1 AND id=$2 AND owner=$3`, sc.world.ID, id, sc.actor).Scan(&g.ID, &request, &g.Status, &g.Step, &g.Parts, &results, &g.ErrorCode, &g.CreatedAt, &g.LeaseToken, &g.LeaseUntil, &g.ActiveLease)
+	err := sc.tx.QueryRow(ctx, `SELECT id::text,request,status,step,parts,results,error_code,created_at,COALESCE(lease_token::text,''),lease_until,COALESCE(lease_until>now(),false),inference_profile FROM worldbuilder.generation_job WHERE world_id=$1 AND id=$2 AND owner=$3`, sc.world.ID, id, sc.actor).Scan(&g.ID, &request, &g.Status, &g.Step, &g.Parts, &results, &g.ErrorCode, &g.CreatedAt, &g.LeaseToken, &g.LeaseUntil, &g.ActiveLease, &g.InferenceProfile)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return g, missing
 	}
@@ -115,7 +116,7 @@ func (sc *scope) createGeneration(ctx context.Context, b GenerationRequest) (Gen
 			return Generation{}, conflict("generation must match the inspected session version and pin")
 		}
 	}
-	tag, err := sc.tx.Exec(ctx, `INSERT INTO worldbuilder.generation_job(world_id,id,owner,request,parts) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`, sc.world.ID, b.ID, sc.actor, raw, b.Parts)
+	tag, err := sc.tx.Exec(ctx, `INSERT INTO worldbuilder.generation_job(world_id,id,owner,request,parts,inference_profile) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`, sc.world.ID, b.ID, sc.actor, raw, b.Parts, sc.budget.pin())
 	if err != nil {
 		return Generation{}, err
 	}
@@ -272,6 +273,7 @@ func (s *Store) RunGeneration(ctx context.Context, ref GenerationRef, validator 
 		for _, part := range g.Results {
 			gc.Previous = append(gc.Previous, part.Answer)
 		}
+		g.Request.ReasonInput.InferenceProfile = &g.InferenceProfile
 		result, e := sc.generate(ctx, g.Request.ReasonInput, s.Reasoner, s.Budget, gc)
 		if e != nil {
 			return nil, e

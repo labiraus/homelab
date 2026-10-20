@@ -533,3 +533,8 @@ label matched the administration selector's “Reopen world” option. Use the e
 combobox accessible name and retain the API browser artifact separately from the
 workspace/PWA evidence. See [CI repair evidence](../docs/worldbuilder/CI-REPAIR-2026-10-19.md)
 for the source fix, local verification and hosted rerun status.
+
+
+## Independent inference
+
+Use [the inference runbook](../docs/Inference.md) for local maintenance, account preparation and rollback. `monthly_budget_exhausted` means settled estimates plus held reservations cannot admit another worst-case request; do not delete ledger rows to recover budget. `profile_revision_changed` means pinned work needs its original profile restored, not a silent provider replacement. `cloud_accounting_unavailable` includes absent/expired tariffs and database refusal; local requests should still succeed. An uncertain upstream outcome is never safe to replay automatically. Build-time TLS inspection can use the optional `build_ca` BuildKit secret; keep verification enabled and do not bake local trust material into runtime images.

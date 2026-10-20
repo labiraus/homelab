@@ -112,7 +112,7 @@ func (sc *scope) conversations(w http.ResponseWriter, r *http.Request, path []st
 				return nil, bad("unsupported shared workflow")
 			}
 			raw, _ := json.Marshal(b.Request)
-			_, err = sc.tx.Exec(ctx, `INSERT INTO worldbuilder.conversation_message(world_id,conversation_id,id,actor,request) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`, sc.world.ID, path[1], b.ID, sc.actor, raw)
+			_, err = sc.tx.Exec(ctx, `INSERT INTO worldbuilder.conversation_message(world_id,conversation_id,id,actor,request,inference_profile) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`, sc.world.ID, path[1], b.ID, sc.actor, raw, sc.budget.pin())
 			if err != nil {
 				return nil, err
 			}
@@ -156,6 +156,7 @@ func (s *Store) runConversation(w http.ResponseWriter, r *http.Request, actor st
 		}
 	}
 	var input ReasonInput
+	var profile InferenceProfile
 	var cached *ReasonResult
 	var claimed bool
 	_, err := s.inWorld(r.Context(), parts[0], actor, func(sc *scope) (any, error) {
@@ -163,7 +164,7 @@ func (s *Store) runConversation(w http.ResponseWriter, r *http.Request, actor st
 			return nil, conflict("world is archived")
 		}
 		var owner, status string
-		err := sc.tx.QueryRow(r.Context(), `SELECT actor,request,result,status FROM worldbuilder.conversation_message WHERE world_id=$1 AND conversation_id=$2 AND id=$3`, parts[0], parts[2], parts[4]).Scan(&owner, &input, &cached, &status)
+		err := sc.tx.QueryRow(r.Context(), `SELECT actor,request,result,status,inference_profile FROM worldbuilder.conversation_message WHERE world_id=$1 AND conversation_id=$2 AND id=$3`, parts[0], parts[2], parts[4]).Scan(&owner, &input, &cached, &status, &profile)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, missing
 		}
@@ -207,6 +208,7 @@ func (s *Store) runConversation(w http.ResponseWriter, r *http.Request, actor st
 		if sc.world.Archived {
 			return nil, conflict("world is archived")
 		}
+		input.InferenceProfile = &profile
 		value, err := sc.generate(ctx, input, s.Reasoner, s.Budget, nil)
 		if err != nil {
 			return nil, err

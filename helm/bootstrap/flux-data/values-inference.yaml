@@ -1,0 +1,9 @@
+# Enable only after dedicated password Secrets exist in data. Create/migrate
+# the independent database explicitly; keep the migration login closed normally.
+postgres:
+  values:
+    inferenceRoles:
+      enabled: true
+      migrationLogin: false
+    networkPolicy:
+      inferenceClient: true

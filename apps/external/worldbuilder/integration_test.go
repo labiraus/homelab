@@ -396,7 +396,7 @@ func TestDedicatedRuntimeRoleCanPublish(t *testing.T) {
 	var name string
 	var elevated bool
 	var version int
-	if err = pool.QueryRow(context.Background(), `SELECT current_user,(SELECT rolsuper OR rolcreaterole FROM pg_roles WHERE rolname=current_user),max(version) FROM worldbuilder.schema_version`).Scan(&name, &elevated, &version); err != nil || name != "worldbuilder_external" || elevated || version != 9 {
+	if err = pool.QueryRow(context.Background(), `SELECT current_user,(SELECT rolsuper OR rolcreaterole FROM pg_roles WHERE rolname=current_user),max(version) FROM worldbuilder.schema_version`).Scan(&name, &elevated, &version); err != nil || name != "worldbuilder_external" || elevated || version != 10 {
 		t.Fatalf("runtime identity check: %s %t %d %v", name, elevated, version, err)
 	}
 	if _, err = pool.Exec(context.Background(), `DELETE FROM worldbuilder.revision WHERE world_id=$1`, w); err == nil {

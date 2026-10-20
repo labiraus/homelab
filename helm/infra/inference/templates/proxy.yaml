@@ -1,0 +1,122 @@
+{{- if .Values.cloud.enabled }}
+{{- if ne .Values.cloud.region "eu-west-1" }}{{ fail "Bedrock home region must be eu-west-1" }}{{ end }}
+{{- if not (regexMatch "(@sha256:[a-f0-9]{64}|:[0-9][a-zA-Z0-9._-]*)$" .Values.cloud.helperImage) }}{{ fail "cloud requires a versioned or digest-pinned helperImage" }}{{ end }}
+{{- $_ := required "cloud requires databaseSecret" .Values.databaseSecret }}
+{{- range .Values.config.models }}
+{{- if and (eq .provider "bedrock") .enabled }}
+{{- if or (le (int64 .input_micros_per_million) 0) (le (int64 .output_micros_per_million) 0) (empty .price_version) (empty .price_valid_until) }}{{ fail "cloud requires verified versioned pricing for every enabled model" }}{{ end }}
+{{- end }}{{- end }}{{- end }}
+{{- $config := deepCopy .Values.config }}
+{{- $_ := set $config "cloud_enabled" .Values.cloud.enabled }}
+{{- range $config.models }}
+{{- $_ := set . "url" "http://inference-upstream.envoy-gateway-system.svc.cluster.local/v1" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inference-config
+  namespace: {{ .Values.namespace }}
+data:
+  config.json: {{ $config | toJson | quote }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: inference
+  namespace: {{ .Values.namespace }}
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1 # Local concurrency and maintenance drain are process-wide.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {app.kubernetes.io/name: inference}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: inference}
+      annotations:
+        sidecar.istio.io/inject: "false"
+        checksum/config: {{ $config | toJson | sha256sum }}
+    spec:
+      serviceAccountName: inference
+      terminationGracePeriodSeconds: 75
+      securityContext: {runAsNonRoot: true, runAsUser: 65532, fsGroup: 65532}
+      containers:
+        - name: inference
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          ports: [{name: http, containerPort: 8080}]
+          env:
+            - {name: INFERENCE_CONFIG, value: /config/config.json}
+            - {name: INFERENCE_CLIENTS, value: /credentials/clients.json}
+          {{- if .Values.databaseSecret }}
+          envFrom:
+            - secretRef: {name: {{ .Values.databaseSecret }}}
+          {{- end }}
+          volumeMounts:
+            - {name: config, mountPath: /config, readOnly: true}
+            - {name: credentials, mountPath: /credentials, readOnly: true}
+          resources:
+            requests: {cpu: 100m, memory: 64Mi}
+            limits: {cpu: "1", memory: 256Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          readinessProbe: {httpGet: {path: /readyz, port: http}}
+          livenessProbe: {httpGet: {path: /healthz, port: http}}
+      volumes:
+        - name: config
+          configMap: {name: inference-config}
+        - name: credentials
+          secret: {secretName: {{ .Values.credentialsSecret }}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inference
+  namespace: {{ .Values.namespace }}
+  labels: {app.kubernetes.io/name: inference}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: inference}
+  ports: [{name: http, port: 8080, targetPort: http}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: inference
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: inference}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: homelab}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: processor}}
+      ports: [{protocol: TCP, port: 8080}]
+    {{- if .Values.monitoring.enabled }}
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: istio-system}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: prometheus}}
+      ports: [{protocol: TCP, port: 8080}]
+    {{- end }}
+  egress:
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+          podSelector: {matchLabels: {k8s-app: kube-dns}}
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: envoy-gateway-system}}
+          podSelector: {matchLabels: {gateway.envoyproxy.io/owning-gateway-name: inference-upstream}}
+      ports: [{protocol: TCP, port: 10080}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: data}}
+          podSelector: {matchLabels: {cnpg.io/cluster: app-db}}
+      ports: [{protocol: TCP, port: 5432}]

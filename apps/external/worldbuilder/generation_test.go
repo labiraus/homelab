@@ -19,6 +19,27 @@ func generationStore(h *harness, fn Reasoner) *Store {
 }
 func activeGenerationActor(context.Context, string) (bool, string, error) { return true, "", nil }
 
+func TestGenerationPinsProfileAcrossOperatorChange(t *testing.T) {
+	h := setup(t)
+	w := h.world()
+	store := generationStore(h, func(_ context.Context, r ReasonRequest) (ReasonResult, error) {
+		if r.InferenceProfile == nil || r.InferenceProfile.Alias != "local-default" || r.InferenceProfile.Revision != "local-r1" {
+			t.Fatal("queued profile changed", r.InferenceProfile)
+		}
+		return ReasonResult{Answer: "Provisional", Unknown: true, Model: "local", Inference: &ProxyInference{RequestID: r.RequestID, Profile: "local-default", ProfileRevision: "local-r1", Provider: "local", AccountingStatus: "local"}}, nil
+	})
+	store.Budget = &InferenceBudget{Pool: h.pool, Mode: "proxy", Profile: "local-default", ProfileRevision: "local-r1", Concurrent: 2, Currency: "USD", GatewayRoute: "inference"}
+	b := GenerationRequest{ID: uuid.NewString(), Parts: 1, ReasonInput: ReasonInput{Workflow: "narrative_generate", Question: "Scene", Timeline: "main", Revision: 0}}
+	h.call("reader@example.test", "POST", "/"+w+"/generations", b, 200)
+	store.Budget.Profile = "bedrock-sonnet"
+	store.Budget.ProfileRevision = "sonnet-r1"
+	h.call("reader@example.test", "POST", "/"+w+"/generations", b, 200)
+	state, e := store.RunGeneration(context.Background(), GenerationRef{WorldID: w, JobID: b.ID}, activeGenerationActor)
+	if e != nil || state.Status != "succeeded" {
+		t.Fatal(state, e)
+	}
+}
+
 func TestGenerationCheckpointsPrivacyAndNoCanonicalMutation(t *testing.T) {
 	h := setup(t)
 	w := h.world()

@@ -323,6 +323,9 @@ worldbuilder:
     workerSecret: ""
     principal: "" # Observed orchestrator identity; separate from browser/MCP.
   aiBudget:
+    mode: legacy
+    profile: ""
+    profileRevision: ""
     dailyRequests: 100
     concurrent: 2
     # Operator-defined maximum allowance per attempt; no tariff is assumed.

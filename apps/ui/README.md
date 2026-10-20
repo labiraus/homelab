@@ -167,3 +167,7 @@ This uses only owned disposable PostgreSQL and test identities, never a LAN DSN.
 See [frontend corrections](../../docs/worldbuilder/UI-CORRECTIONS.md) for the implementation map, actual checks/screenshots and remaining contracts. World configuration edits stage ordinary reviewed drafts and preserve unrelated settings. Dedicated world/style guides are unsupported; private story premise/style are separate. Manual narration is under authoring controls; **Your action** uses real `story_turn` reasoning and requires explicit candidate save.
 
 `test:workspace` uses local HTTP fixtures and Vite. `test:browser` selects the three actual API journeys and must run through the owned disposable PostgreSQL harness shown above. A resized desktop Chromium viewport verifies layout and focus, not a real mobile software keyboard or screen reader. These source changes are not a deployment.
+
+## Independent inference
+
+Inference result provenance distinguishes free local usage, estimated USD cloud costs, outstanding reservations and historical allowances. Provider/profile selection is deployment configuration; there is no browser cloud toggle. See [operator procedures](../../docs/Inference.md).

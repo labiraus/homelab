@@ -1,0 +1,19 @@
+# Apply only after schema 010 and the inference service pass live acceptance.
+external:
+  values:
+    worldbuilder:
+      aiBudget:
+        mode: proxy
+        profile: local-default
+        profileRevision: local-qwen-3b-r1
+        dailyRequests: 0
+        concurrent: 2
+        requestMicros: 0
+        dailyMicros: 0
+        currency: USD
+        gatewayRoute: homelab/inference
+processor:
+  values:
+    inference:
+      enabled: true
+      tokenSecret: inference-worldbuilder

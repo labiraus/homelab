@@ -1,5 +1,11 @@
 # Worldbuilder implementation status
 
+## Independent inference source — 19 October 2026
+
+The [independent inference platform](../Inference.md) adds the local-default proxy, explicit EU Bedrock aliases, shared atomic $100 monthly accounting, Roles Anywhere deployment inputs and schema-10 Worldbuilder profile pins. Local proxy mode removes monetary/daily request quotas; earlier allocation checkpoints below remain historical. Bedrock ships disabled with tariffs unset. A blank ignored AWS profile awaits operator access before any push; no publication or activation is claimed.
+
+Verified source checks: proxy race tests and disposable PostgreSQL reservations/role isolation/populated restore; Worldbuilder migrations 001–010, populated upgrades, generation pin/recovery, application integration and all-table logical restore; processor 63 tests (two endpoint-dependent tests skipped), UI 95 tests and builds; Terraform validation; Helm packaging and Kubernetes API-server validation. The populated physical latest/PITR restore passes all 22 Worldbuilder tables, shared auth, immutable history, permissions and sequences. All eleven bounded quality cases pass against Helheim through the candidate localhost proxy; the warm microbenchmark has 0.194-second median latency with GPU memory at 7,264/8,192 MiB. This does not establish deployed proxy/cache acceptance. Real Envoy/Cilium controller acceptance passes required-tool translation, credential sidecar injection, synthetic refresh/expiry refusal, direct gateway bypass denial and local independence, with owned cleanup (`/tmp/inference-gateway-complete/acceptance.json`). This is synthetic credential evidence, not live AWS PKI acceptance. Live certificate renewal/revocation, both paid model quality suites, cold-cache/model rollback and actual Flux rollout remain activation gates.
+
 ## CI publication repair — 19 October 2026
 
 Hosted source `59eaadb` failed the shared physical backup seed and one UI browser

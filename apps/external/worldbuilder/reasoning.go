@@ -11,21 +11,23 @@ import (
 )
 
 type ReasonRequest struct {
-	At           *ExactTick         `json:"at,omitempty"`
-	Review       *ReviewContext     `json:"review,omitempty"`
-	Generation   *GenerationContext `json:"generation,omitempty"`
-	Story        *StoryContext      `json:"story,omitempty"`
-	RequestID    string             `json:"requestId,omitempty"`
-	WorldID      string             `json:"worldId"`
-	Revision     int64              `json:"revision"`
-	Timeline     string             `json:"timeline"`
-	Question     string             `json:"question"`
-	Workflow     string             `json:"workflow"`
-	Evidence     []Evidence         `json:"evidence"`
-	Provisional  Snapshot           `json:"provisional,omitempty"`
-	ContextScope string             `json:"contextScope"`
+	InferenceProfile *InferenceProfile  `json:"inferenceProfile,omitempty"`
+	At               *ExactTick         `json:"at,omitempty"`
+	Review           *ReviewContext     `json:"review,omitempty"`
+	Generation       *GenerationContext `json:"generation,omitempty"`
+	Story            *StoryContext      `json:"story,omitempty"`
+	RequestID        string             `json:"requestId,omitempty"`
+	WorldID          string             `json:"worldId"`
+	Revision         int64              `json:"revision"`
+	Timeline         string             `json:"timeline"`
+	Question         string             `json:"question"`
+	Workflow         string             `json:"workflow"`
+	Evidence         []Evidence         `json:"evidence"`
+	Provisional      Snapshot           `json:"provisional,omitempty"`
+	ContextScope     string             `json:"contextScope"`
 }
 type ReasonResult struct {
+	Inference           *ProxyInference     `json:"inference,omitempty"`
 	EstablishedAccounts []Evidence          `json:"establishedAccounts,omitempty"`
 	Findings            []AdvisoryFinding   `json:"findings,omitempty"`
 	Deterministic       *DeterministicCheck `json:"deterministic,omitempty"`
@@ -45,14 +47,15 @@ type ReasonResult struct {
 type Reasoner func(context.Context, ReasonRequest) (ReasonResult, error)
 
 type ReasonInput struct {
-	At              *ExactTick `json:"at,omitempty"`
-	ChangeID        string     `json:"changeId,omitempty"`
-	Workflow        string     `json:"workflow"`
-	Question        string     `json:"question"`
-	Timeline        string     `json:"timeline"`
-	Revision        int64      `json:"revision"`
-	SessionID       string     `json:"sessionId,omitempty"`
-	ExpectedVersion *int64     `json:"expectedVersion,omitempty"`
+	InferenceProfile *InferenceProfile `json:"-"` // Server-owned pin; never accepted from browsers/tools.
+	At               *ExactTick        `json:"at,omitempty"`
+	ChangeID         string            `json:"changeId,omitempty"`
+	Workflow         string            `json:"workflow"`
+	Question         string            `json:"question"`
+	Timeline         string            `json:"timeline"`
+	Revision         int64             `json:"revision"`
+	SessionID        string            `json:"sessionId,omitempty"`
+	ExpectedVersion  *int64            `json:"expectedVersion,omitempty"`
 }
 type GenerationContext struct {
 	ID       string   `json:"id"`
@@ -162,6 +165,13 @@ func (sc *scope) generate(ctx context.Context, b ReasonInput, fn Reasoner, budge
 	request.Story = story
 	request.Review = review
 	request.Generation = generation
+	if budget != nil {
+		pin := budget.pin()
+		request.InferenceProfile = &pin
+	}
+	if b.InferenceProfile != nil {
+		request.InferenceProfile = b.InferenceProfile
+	}
 	raw, _ := json.Marshal(request)
 	if len(raw)+100 > 100000 { // Reserve space for the correlation ID.
 		return nil, bad("canon context exceeds inference budget")
@@ -187,7 +197,7 @@ func (sc *scope) generate(ctx context.Context, b ReasonInput, fn Reasoner, budge
 		request.RequestID = provenance.RequestID
 	}
 	started := time.Now()
-	ctx, cancel := context.WithTimeout(ctx, 50*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	var completed ReasonResult
 	var retrieval canonsearch.Usage
@@ -314,8 +324,34 @@ func (sc *scope) generate(ctx context.Context, b ReasonInput, fn Reasoner, budge
 	result.BaseRevision = b.Revision
 	result.EvidenceScope = evidenceScope
 	provenance.LatencyMS = time.Since(started).Milliseconds()
+	if budget != nil && budget.Mode == "proxy" && result.Model == "none" {
+		provenance.AccountingStatus = "not_requested"
+	}
+	if budget != nil && budget.Mode == "proxy" && result.Model != "none" && result.Inference == nil {
+		return nil, bad("missing proxy provenance")
+	}
+	if result.Inference != nil && budget != nil && budget.Mode == "proxy" {
+		p := result.Inference
+		if p.RequestID != provenance.RequestID || p.Profile != provenance.Profile || p.ProfileRevision != provenance.ProfileRevision {
+			return nil, bad("inference provenance mismatch")
+		}
+		provenance.ProxyRequestID, provenance.Provider = p.RequestID, p.Provider
+		provenance.AccountingStatus, provenance.EstimatedMicros, provenance.ReservedMicros = p.AccountingStatus, p.EstimatedMicros, p.ReservedMicros
+	}
 	result.Provenance = provenance
 	// Output remains a candidate. UI explicitly creates a draft or persists a provisional turn.
 	err = sc.audit(ctx, "ai."+b.Workflow, b.SessionID, map[string]any{"revision": b.Revision, "timeline": b.Timeline, "model": result.Model, "usage": result.Usage, "citations": result.Citations, "evidenceScope": evidenceScope, "provenance": provenance, "findings": result.Findings, "deterministic": deterministic})
 	return result, err
+}
+
+type ProxyInference struct {
+	Model            string `json:"model"`
+	Currency         string `json:"currency"`
+	RequestID        string `json:"requestId"`
+	Profile          string `json:"profile"`
+	ProfileRevision  string `json:"profileRevision"`
+	Provider         string `json:"provider"`
+	AccountingStatus string `json:"accountingStatus"`
+	EstimatedMicros  int64  `json:"estimatedMicros"`
+	ReservedMicros   int64  `json:"reservedMicros"`
 }

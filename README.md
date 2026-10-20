@@ -12,6 +12,8 @@ This repository combines five related areas for the Labiraus homelab platform:
 - Ansible for external service management, including the SeaweedFS storage target on `svartalfheim`
 - Ansible for dedicated VM-hosted workloads such as Minecraft and post-provision Kubernetes worker bootstrap
 
+Independent inference: [local experiments and controlled Bedrock](docs/Inference.md), [service](apps/inference/README.md), [isolated ledger](sql/inference/README.md). Local is the default; Bedrock is disabled until account/pricing and acceptance gates pass. The current source is staged for review, with no push or activation.
+
 ## Repo Guidance For Humans And Agents
 
 The repository includes repo-local guidance for both navigation and working conventions.
@@ -39,6 +41,7 @@ Use the nearest relevant `AGENTS.md` for local conventions, and update it when a
 ├── .github/workflows/      # CI for apps and Helm charts
 ├── ansible/                # External services and VM-hosted workloads
 ├── apps/
+│   ├── inference/          # Independent local/Bedrock policy proxy
 │   ├── external/           # Public Go HTTP service
 │   ├── mcp/                # Public Go MCP service
 │   ├── orchestrator/       # Internal Go document service
@@ -48,6 +51,7 @@ Use the nearest relevant `AGENTS.md` for local conventions, and update it when a
 ├── bin/
 │   └── tf                  # Terraform wrapper script
 ├── components/
+│   ├── inference-bedrock/  # Roles Anywhere, scoped IAM and AWS budget
 │   ├── kubernetes/         # Terraform component for Kubernetes worker VMs
 │   └── minecraft-vm/       # Terraform component for the dedicated Minecraft VM
 ├── docs/                   # Setup and notes

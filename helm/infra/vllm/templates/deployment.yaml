@@ -44,6 +44,8 @@ spec:
             - serve
             - {{ .Values.model.id | quote }}
           args:
+            - --revision
+            - {{ required "model.revision must pin immutable model weights" .Values.model.revision | quote }}
             - --host
             - "0.0.0.0"
             - --port
@@ -108,5 +110,10 @@ spec:
               mountPath: /models
       volumes:
         - name: model-cache
+          {{- if .Values.persistence.cache.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "vllm.fullname" . }}-models
+          {{- else }}
           emptyDir:
             sizeLimit: {{ .Values.persistence.cache.sizeLimit }}
+          {{- end }}

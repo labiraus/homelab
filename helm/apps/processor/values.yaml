@@ -290,3 +290,7 @@ env:
 # Secret contains WORLDBUILDER_AI_TOKEN, shared only with external; empty disables AI.
 worldbuilder:
   aiSecret: ""
+
+inference:
+  enabled: false
+  tokenSecret: "" # INFERENCE_TOKEN, separate from WORLDBUILDER_AI_TOKEN.

@@ -30,6 +30,7 @@ scheduledBackup:
   suspend: false
 networkPolicy:
   enabled: true
+  inferenceClient: false
   allowedClients:
     - namespace: homelab
       podSelector:
@@ -53,3 +54,9 @@ networkPolicy:
 nativeOAuthRole:
   enabled: false
   passwordSecret: ""
+
+inferenceRoles:
+  enabled: false
+  migrationLogin: false
+  ownerSecret: inference-owner-credentials
+  runtimeSecret: inference-runtime-credentials

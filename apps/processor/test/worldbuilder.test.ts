@@ -93,6 +93,8 @@ test("gateway schema preserves each workflow's output boundary", async (t) => {
   for (const workflow of ["canon_proposal", "consistency_check", "story_turn", "narrative_generate"] as const) {
     await runCanon({...request, workflow,
       ...(workflow === "story_turn" ? {story: {version: 0, recentTurns: [], memory: {summary: "", throughVersion: 0, choices: []}}} : {})});
+    assert.equal(properties.operations.items.oneOf[0].properties.record.properties.attributes.type, "object");
+    assert.equal(properties.operations.items.oneOf[0].properties.record.properties.label.type, "string");
     assert.equal(properties.operations.maxItems, ["canon_proposal", "story_turn"].includes(workflow) ? 100 : 0);
     assert.equal(Boolean(properties.findings), workflow === "consistency_check");
     assert.equal(Boolean(properties.choices), ["story_turn", "narrative_generate"].includes(workflow));
@@ -371,4 +373,27 @@ test("advisory findings require uncertainty and scoped evidence, never approval"
       response(),
     ),
   );
+});
+
+
+test("proxy preserves the trusted queued profile and credential/provenance", async (t) => {
+  const previousURL = process.env.AI_GATEWAY_BASE_URL;
+  process.env.AI_GATEWAY_BASE_URL = "http://offline-proxy.test/v1";
+  t.after(() => { if (previousURL === undefined) delete process.env.AI_GATEWAY_BASE_URL; else process.env.AI_GATEWAY_BASE_URL = previousURL; });
+  const previous = process.env.INFERENCE_TOKEN;
+  process.env.INFERENCE_TOKEN = "offline-worldbuilder-token";
+  t.after(() => { if (previous === undefined) delete process.env.INFERENCE_TOKEN; else process.env.INFERENCE_TOKEN = previous; });
+  const inference = {requestId: "00000000-0000-4000-8000-000000000099", profile: "bedrock-nova", profileRevision: "nova-r1", provider: "bedrock", model: "eu.amazon.nova-2-lite-v1:0", accountingStatus: "estimated", estimatedMicros: 100, reservedMicros: 200, currency: "USD"};
+  t.mock.method(globalThis, "fetch", async (_url: unknown, options?: RequestInit) => {
+    assert.equal(new Headers(options?.headers).get("Authorization"), "Bearer offline-worldbuilder-token");
+    const body = JSON.parse(String(options?.body));
+    assert.equal(body.model, "bedrock-nova");
+    assert.equal(body.profile_revision, "nova-r1");
+    const output = await response()([]);
+    return new Response(JSON.stringify({model: inference.model, choices: [{message: {content: output.text}}], inference}));
+  });
+  const result = await runCanon({...request, requestId: inference.requestId, inferenceProfile: {mode: "proxy", alias: "bedrock-nova", revision: "nova-r1"}});
+  assert.deepEqual(result.inference, inference);
+  delete process.env.INFERENCE_TOKEN;
+  await assert.rejects(runCanon({...request, inferenceProfile: {mode: "proxy", alias: "bedrock-nova", revision: "nova-r1"}}), /credential required/);
 });

@@ -1,11 +1,17 @@
 #!/usr/bin/env node
 // Explicit operator-run acceptance against a configured gateway; synthetic data only.
 import assert from 'node:assert/strict';
-import { runCanon } from '../../apps/processor/dist/src/worldbuilder.js';
+import { randomUUID } from 'node:crypto';
+import { runCanon as generateCanon } from '../../apps/processor/dist/src/worldbuilder.js';
 
 if (!process.env.AI_GATEWAY_BASE_URL || !process.env.AI_CHAT_MODEL) {
   throw new Error('Set AI_GATEWAY_BASE_URL and AI_CHAT_MODEL explicitly; this invokes the live model.');
 }
+const proxyProfile = process.env.INFERENCE_PROFILE;
+if (proxyProfile && (!process.env.INFERENCE_PROFILE_REVISION || !process.env.INFERENCE_TOKEN)) throw new Error('Proxy evaluation requires revision and token');
+if (proxyProfile?.startsWith('bedrock-') && process.env.INFERENCE_ALLOW_PAID !== 'true') throw new Error('Explicit INFERENCE_ALLOW_PAID=true required');
+const runCanon = (request) => generateCanon({...request, requestId: randomUUID(),
+  ...(proxyProfile ? {inferenceProfile: {mode: 'proxy', alias: proxyProfile, revision: process.env.INFERENCE_PROFILE_REVISION}} : {})});
 const cases = [
   { name: 'known fact', question: 'What colour is the city gate?', description: 'The city gate is blue.', expect: /blue/i },
   { name: 'unknown fact', question: 'Who built the city gate?', description: 'The city gate is blue.', unknown: true },
@@ -24,7 +30,7 @@ for (const fixture of cases) {
   try {
     const result = await runCanon({worldId, revision, timeline, workflow: 'canon_query',
       question: fixture.question, evidence: [{id: evidenceID, worldId, revision, timeline,
-        record: {id: 'fixture', kind: 'source', label: 'Synthetic evidence', description: fixture.description}}]});
+        record: {id: 'fixture', kind: 'source', label: 'Synthetic evidence', attributes: {description: fixture.description}}}]});
     assert.deepEqual(result.operations, []);
     assert.equal(result.unknown, fixture.unknown ?? false);
     if (fixture.expect) {
@@ -42,7 +48,7 @@ for (const fixture of cases) {
 const workflowEvidence = (worldId = 'live-workflow-synthetic', colour = 'blue') => ({
   worldId, revision: 1, timeline: 'main', evidence: [{
     id: `${worldId}:1:main:gate`, worldId, revision: 1, timeline: 'main',
-    record: {id: 'gate', kind: 'source', label: 'Gate description', description: `The city gate is ${colour}.`},
+    record: {id: 'gate', kind: 'source', label: 'Gate description', attributes: {description: `The city gate is ${colour}.`}},
   }],
 });
 for (const workflow of ['canon_proposal', 'consistency_check', 'story_turn', 'narrative_generate']) {
@@ -68,7 +74,7 @@ for (const workflow of ['canon_proposal', 'consistency_check', 'story_turn', 'na
       assert.equal(operation.record.id, 'gate');
       assert.equal(operation.record.kind, 'source');
       assert.equal(operation.record.label, 'Gate description');
-      assert.match(operation.record.description, /green/i);
+      assert.match(operation.record.attributes?.description, /green/i);
     } else assert.deepEqual(result.operations, []);
     if (['story_turn', 'narrative_generate'].includes(workflow)) {
       assert.match(result.answer, /blue|bluish/i);
@@ -92,7 +98,7 @@ try {
     assert.deepEqual(results[index].citations, [`concurrent-synthetic-${index}:1:main:gate`]);
     assert.deepEqual(results[index].operations, []);
   }
-  assert.ok(Date.now()-started < 20000, 'concurrent smoke exceeded the request deadline');
+  assert.ok(Date.now()-started < 55000, 'concurrent smoke exceeded the request deadline');
   console.log(JSON.stringify({case: 'two concurrent isolated worlds', passed: true, latencyMS: Date.now()-started}));
 } catch (error) {
   failures++;

@@ -306,12 +306,20 @@ export default function WorldResponse({
           <>
             <p>Request: {result.provenance.requestId}</p>
             <p>Duration: {result.provenance.latencyMs} ms</p>
-            <p>
-              Budget allocated:{" "}
-              {(result.provenance.allocatedMicros / 1000000).toFixed(6)}{" "}
-              {result.provenance.currency}. This is an allowance, not an
-              invoice.
-            </p>
+            {result.provenance.accountingStatus ? (
+              <p>
+                {result.provenance.accountingStatus === "local"
+                  ? "Local inference · no usage charge"
+                  : result.provenance.accountingStatus === "not_requested"
+                    ? "No model inference was needed"
+                    : result.provenance.accountingStatus === "estimated"
+                    ? `Estimated cloud cost: $${((result.provenance.estimatedMicros || 0) / 1000000).toFixed(6)} USD`
+                    : "Cloud accounting pending or uncertain; reservation retained"}
+                {result.provenance.profile && ` · ${result.provenance.profile}`}
+              </p>
+            ) : (
+              <p>Budget allocated: {(result.provenance.allocatedMicros / 1000000).toFixed(6)} {result.provenance.currency}. This is an allowance, not an invoice.</p>
+            )}
           </>
         )}
       </details>
