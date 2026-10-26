@@ -1037,7 +1037,11 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                 new URLSearchParams(canonFilters).get("timeline")}{" "}
               · revision {canon.revision}
             </span>
-            <button onClick={() => navigate("explore")}>Change context</button>
+            {section === "workspace" ? (
+              <button onClick={() => navigate("explore")}>Change context</button>
+            ) : (
+              <button onClick={() => navigate("workspace")}>Back to conversation</button>
+            )}
             <button onClick={() => navigate("drafts")}>
               Pending approvals ·{" "}
               {changes.filter((c) => c.status === "ready_for_review").length}
@@ -1142,14 +1146,17 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                     navigate("stories");
                   }}
                   onPropose={async (result, candidateReason, requestId) => {
-                    await api(`${path}/changes`, {
+                    const saved = await api(`${path}/changes`, {
                       id: requestId,
                       baseRevision: result.baseRevision,
                       reason: candidateReason,
                       operations: result.operations,
                     });
-                    await reload();
+                    // A failed list refresh must not turn an acknowledged save into an uncertain write.
+                    void reload().catch((e) => setError(e.message));
+                    return saved;
                   }}
+                  onReviewProposal={(id) => navigate("drafts", { proposal: id })}
                   onReviewStory={() => {
                     setReconcileTarget({ kind: "sessions", id: session.id });
                     navigate("drafts");
@@ -2308,7 +2315,7 @@ function World({ worldId, email, initialTimeline = "main", onWorld }) {
                   );
                   setPrompt({
                     text: `Tell me about ${reference.label || reference.id}`,
-                    intent: "ask",
+                    intent: "auto",
                     scope: reference,
                   });
                   setInspector(null);

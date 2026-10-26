@@ -46,12 +46,14 @@ async function fixture(page, options = {}) {
     sessions = options.sessions || [],
     definitions = [],
     turns = options.turns || [];
+  const conversations = [],
+    messages = [];
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (url.origin !== new URL(test.info().project.use.baseURL).origin)
       return route.abort();
     if (!url.pathname.startsWith("/api/")) return route.continue();
-    const body = route.request().postDataJSON();
+    let body = route.request().postDataJSON();
     calls.push({
       path: url.pathname,
       body,
@@ -103,7 +105,25 @@ async function fixture(page, options = {}) {
         revision: Number(url.searchParams.get("revision")),
         timeline: url.searchParams.get("timeline"),
       };
-    else if (url.pathname.endsWith("/reason")) {
+    else if (url.pathname.endsWith("/conversations")) {
+      if (body) conversations.push(body);
+      data = body || conversations;
+    } else if (url.pathname.endsWith("/messages")) {
+      if (body)
+        messages.push({
+          ...body,
+          actor: "editor@example.test",
+          status: "saved",
+        });
+      data = body || messages;
+    } else if (
+      url.pathname.endsWith("/reason") ||
+      url.pathname.endsWith("/generate")
+    ) {
+      const saved = url.pathname.endsWith("/generate")
+        ? messages.find((m) => m.id === url.pathname.split("/").at(-2))
+        : null;
+      if (saved) body = saved.request;
       if (body.question.endsWith("fail please"))
         return route.fulfill({
           status: 503,
@@ -131,6 +151,11 @@ async function fixture(page, options = {}) {
                     kind: "entity",
                     type: "person",
                     label: "Rival",
+                    attributes: {
+                      description:
+                        "A diplomat divided between duty and loyalty.",
+                      motivation: "Protect her house",
+                    },
                   },
                 },
               ]
@@ -147,6 +172,14 @@ async function fixture(page, options = {}) {
               ]
             : [],
       };
+      if (saved) {
+        saved.result = data;
+        saved.status = "complete";
+        return route.fulfill({
+          contentType: "text/event-stream",
+          body: `event: result\ndata: ${JSON.stringify(data)}\n\n`,
+        });
+      }
     } else if (url.pathname.endsWith("/changes")) {
       if (body) {
         changes.push({
@@ -213,6 +246,170 @@ async function send(page, text) {
   await page.getByLabel("Question or creative direction").fill(text);
   await page.getByRole("button", { name: "Send message", exact: true }).click();
 }
+
+for (const width of [320, 390, 768, 1024, 1440])
+  for (const theme of ["light", "dark"]) {
+    test(`creative journey ${theme} ${width}px preserves edited shared tasks through review`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      const state = await fixture(page, {
+        world: { role: "author", capabilities: { conversations: true } },
+      });
+      await page.evaluate((value) => {
+        document.documentElement.dataset.theme = value;
+      }, theme);
+      await send(page, "Why did Aldric leave Ashfall?");
+      const answer = page.getByRole("article", {
+        name: "ask response",
+        exact: true,
+      });
+      await expect(answer).toContainText("King Aldric");
+      await answer
+        .getByRole("button", { name: "Open source · aldric", exact: true })
+        .click();
+      const inspector = page.getByLabel("Source inspector", { exact: true });
+      await expect(inspector).toContainText("Revision 7 · main");
+      await page.screenshot({
+        path: test.info().outputPath(`ask-source-${theme}-${width}.png`),
+      });
+      await inspector
+        .getByRole("button", { name: "Ask AI about this", exact: true })
+        .click();
+      await expect(
+        page.getByRole("button", { name: /Remove context · King Aldric/ }),
+      ).toBeVisible();
+      await send(page, "Who supported him?");
+      const followup = state.calls
+        .filter((c) => c.path.endsWith("/messages") && c.body)
+        .at(-1).body.request;
+      expect(followup).toMatchObject({
+        revision: 7,
+        timeline: "main",
+        workflow: "canon_query",
+      });
+      expect(followup.question).toContain("aldric (revision 7, timeline main)");
+      expect(
+        state.calls.filter((c) => c.path.endsWith("/conversations") && c.body),
+      ).toHaveLength(1);
+      await send(page, "Create a diplomat from House Veyr");
+      const draft = page
+        .getByRole("article", { name: "create response", exact: true })
+        .last();
+      await draft.getByLabel("Name", { exact: true }).fill("Mara Veyr");
+      await draft
+        .getByRole("textbox", { name: "Description", exact: true })
+        .fill("An older diplomat secretly loyal to Ashfall.");
+      await draft
+        .getByRole("button", { name: "Edit details · Mara Veyr", exact: true })
+        .click();
+      await expect(
+        draft.getByRole("button", {
+          name: "Refine this draft with AI",
+          exact: true,
+        }),
+      ).toBeDisabled();
+      await draft
+        .getByLabel("Attributes value 2", { exact: true })
+        .fill("Defend Ashfall");
+      await draft
+        .getByRole("button", { name: "Apply to working draft", exact: true })
+        .click();
+      await expect(draft.getByLabel("motivation", { exact: true })).toHaveValue(
+        "Defend Ashfall",
+      );
+      await page
+        .getByRole("button", { name: "Refresh saved results", exact: true })
+        .click();
+      await expect(draft.getByLabel("Name", { exact: true })).toHaveValue(
+        "Mara Veyr",
+      );
+      await nav(page, "Explore");
+      await page
+        .getByRole("button", { name: "Back to conversation", exact: true })
+        .click();
+      await expect(
+        draft.getByRole("textbox", { name: "Description", exact: true }),
+      ).toHaveValue("An older diplomat secretly loyal to Ashfall.");
+      await draft.getByLabel("Name", { exact: true }).focus();
+      await page.keyboard.press("Tab");
+      await expect(
+        draft.getByRole("textbox", { name: "Description", exact: true }),
+      ).toBeFocused();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(width);
+      const composer = await page.locator(".wb-composer").boundingBox();
+      expect(composer.y).toBeGreaterThanOrEqual(0);
+      expect(composer.y + composer.height).toBeLessThanOrEqual(900);
+      await page.screenshot({
+        path: test.info().outputPath(`inline-draft-${theme}-${width}.png`),
+      });
+      await draft
+        .getByRole("button", { name: "Refine this draft with AI", exact: true })
+        .click();
+      await send(page, "Make her loyalty to Ashfall explicit");
+      const refinement = state.calls
+        .filter((c) => c.path.endsWith("/messages") && c.body)
+        .at(-1).body.request;
+      expect(refinement.question).toContain('"label":"Mara Veyr"');
+      expect(refinement.question).toContain('"motivation":"Defend Ashfall"');
+      expect(refinement.question).toContain("NOT published evidence");
+      const refined = page
+        .getByRole("article", { name: "create response", exact: true })
+        .last();
+      await expect(
+        refined.getByText("Compare with the draft you refined", {
+          exact: true,
+        }),
+      ).toBeVisible();
+      await refined.getByLabel("Name", { exact: true }).fill("Mara of Ashfall");
+      await refined
+        .getByLabel("Proposal reason", { exact: true })
+        .fill("Introduce the diplomat");
+      await refined
+        .getByRole("button", {
+          name: "Save AI candidate as draft",
+          exact: true,
+        })
+        .click();
+      await expect(refined).toContainText("Draft saved");
+      expect(state.changes[0]).toMatchObject({
+        baseRevision: 7,
+        operations: [{ record: { label: "Mara of Ashfall" } }],
+      });
+      await refined
+        .getByRole("button", {
+          name: "Continue to proposal review",
+          exact: true,
+        })
+        .click();
+      const review = page.locator("article").filter({
+        has: page.getByRole("heading", {
+          name: "Introduce the diplomat",
+          exact: true,
+        }),
+      });
+      await review
+        .getByRole("button", { name: "Submit for review", exact: true })
+        .click();
+      await expect(review).toContainText("Ready for review");
+      expect(state.world.revision).toBe(7);
+      expect(state.calls.some((c) => c.path.endsWith("/publish"))).toBe(false);
+      await page
+        .getByRole("button", { name: "Back to conversation", exact: true })
+        .click();
+      await expect(
+        refined.getByRole("button", {
+          name: "Save AI candidate as draft",
+          exact: true,
+        }),
+      ).toBeDisabled();
+      await page.screenshot({
+        path: test.info().outputPath(`review-return-${theme}-${width}.png`),
+      });
+    });
+  }
 
 test("world menu keeps its trigger in place and dismisses without losing the workspace", async ({
   page,

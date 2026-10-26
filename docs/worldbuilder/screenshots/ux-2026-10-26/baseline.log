@@ -1,0 +1,15 @@
+
+Running 3 tests using 1 worker
+
+(node:28) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 browser/workspace.spec.js:541:1 › desktop conversation, pinned sources, edited generated draft and human review handoff (1.5s)
+  ✓  2 browser/workspace.spec.js:622:1 › mobile keyboard navigation, ambiguity, error recovery and persistent story turns (1.9s)
+  ✓  3 browser/workspace.spec.js:1046:1 › long replies and bounded multiline input preserve the composer and independent scrolling (511ms)
+
+  3 passed (5.3s)
+npm notice
+npm notice New major version of npm available! 11.19.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

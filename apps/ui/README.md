@@ -1,5 +1,28 @@
 # Worldbuilder frontend
 
+## Current experience correction — 26 October 2026
+
+Read the [experience contract](../../docs/worldbuilder/UX-EXPERIENCE-CONTRACT.md)
+and [six journeys](../../docs/worldbuilder/UX-JOURNEYS.md) before UX changes.
+The [audit and verification record](../../docs/worldbuilder/UX-AUDIT-2026-10-26.md)
+tracks the current slice separately from historical checkpoints below.
+
+Generated entities have inline name, description and property editing; detailed
+fields reuse `WorldRecordEditor` inside the response. Explicit refinement sends
+the edited operations as unapproved context through the existing bounded reasoning
+question and presents a separate candidate for comparison. Saving uses the actual
+change-set API and original revision, with distinct device-queued/server receipt
+labels and a direct review handoff. Unsaved candidate edits survive section/thread
+navigation and shared-result refresh, but not page refresh or world/account exit.
+They are not server autosaves. The existing device queue still governs explicit saves.
+
+Answers resolve up to four source previews at their original revision/timeline/time.
+Source follow-up preserves saved conversation pins; a different scope starts a
+separate thread and leaves the origin available in history. Secondary sections
+offer **Back to conversation**. Shared conversations and SSE progress are used only
+with server-advertised capability; private Play stays separate. No provider calls,
+new endpoints, approval shortcuts or backend/schema changes are introduced.
+
 Current PWA behavior and governance are documented in [PWA implementation](../../docs/worldbuilder/PWA-IMPLEMENTATION.md) and [design](../../docs/worldbuilder/PWA-DESIGN.md). These supersede the historical single-owner/superuser-self-review and ephemeral-chat descriptions below. Run `npm run test:pwa` after `npm run build` for production-worker lifecycle checks and responsive screenshots; the owned loopback fixture is distinct from `test:browser` against disposable PostgreSQL.
 
 Worlds open into a conversation workspace, with Explore, Drafts & Proposals, Stories and World Settings alongside it. The compact header holds the world selector and world search; the collapsible rail/mobile drawer holds section navigation and in-memory conversation history. The full composer reserves its own bottom row while messages scroll. Resumed stories open directly on their saved scene, with a pin-scoped character picker and explicit provisional turn saves. The existing Vite/React stack, host theme and OAuth session remain. See the [AI-first specification](../../docs/worldbuilder/05-AI-FIRST-UI.md) and [implementation and validation](../../docs/worldbuilder/UI-IMPLEMENTATION.md).

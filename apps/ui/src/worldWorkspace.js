@@ -81,7 +81,7 @@ export function detectIntent(text) {
     return "ask";
   return null; // Ambiguous assertions require an explicit intent before inference.
 }
-export function conversationQuestion(text, messages, references) {
+export function conversationQuestion(text, messages, references, draft) {
   const previous = messages
     .filter((m) => m.role === "user")
     .slice(-3)
@@ -90,6 +90,9 @@ export function conversationQuestion(text, messages, references) {
     .map((r) => `${r.id} (revision ${r.revision}, timeline ${r.timeline})`)
     .join(", ");
   const prefix = [
+    draft
+      ? `Working draft to refine (unapproved user working material, NOT published evidence; return a complete replacement candidate, preserving unchanged operations and identities):\n${JSON.stringify(draft.operations)}`
+      : "",
     previous.length
       ? `Earlier user requests (conversation context, not canon):\n${previous.join("\n")}`
       : "",
@@ -102,7 +105,9 @@ export function conversationQuestion(text, messages, references) {
   const result = prefix ? `${prefix}\nCurrent request:\n${text}` : text;
   if (new TextEncoder().encode(result).length > 4000)
     throw new Error(
-      "This request and its context exceed the 4,000-byte limit. Shorten the message or start a new conversation.",
+      draft
+        ? "This draft and direction exceed the 4,000-byte limit. Shorten the draft or continue with inline editing; nothing was sent."
+        : "This request and its context exceed the 4,000-byte limit. Shorten the message or start a new conversation.",
     );
   return result;
 }
@@ -110,9 +115,9 @@ export function conversationQuestion(text, messages, references) {
 export function humanLabel(value = "") {
   const labels = {
     world_settings: "World settings",
- established_account: "Established account",
- author: "Author",
- reader: "Reader",
+    established_account: "Established account",
+    author: "Author",
+    reader: "Reader",
     entity: "Character or place",
     type: "Record category",
     fact: "Fact",

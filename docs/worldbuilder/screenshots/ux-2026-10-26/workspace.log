@@ -1,0 +1,43 @@
+
+> ui@0.2.0 test:workspace
+> playwright test --config playwright.workspace.config.js
+
+[WebServer] (node:29) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:42) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 23 tests using 1 worker
+
+(node:60) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 browser/workspace.spec.js:252:5 › creative journey light 320px preserves edited shared tasks through review (7.0s)
+  ✓   2 browser/workspace.spec.js:252:5 › creative journey dark 320px preserves edited shared tasks through review (2.8s)
+  ✓   3 browser/workspace.spec.js:252:5 › creative journey light 390px preserves edited shared tasks through review (2.7s)
+  ✓   4 browser/workspace.spec.js:252:5 › creative journey dark 390px preserves edited shared tasks through review (2.7s)
+  ✓   5 browser/workspace.spec.js:252:5 › creative journey light 768px preserves edited shared tasks through review (2.8s)
+  ✓   6 browser/workspace.spec.js:252:5 › creative journey dark 768px preserves edited shared tasks through review (2.8s)
+  ✓   7 browser/workspace.spec.js:252:5 › creative journey light 1024px preserves edited shared tasks through review (2.9s)
+  ✓   8 browser/workspace.spec.js:252:5 › creative journey dark 1024px preserves edited shared tasks through review (2.9s)
+  ✓   9 browser/workspace.spec.js:252:5 › creative journey light 1440px preserves edited shared tasks through review (2.8s)
+  ✓  10 browser/workspace.spec.js:252:5 › creative journey dark 1440px preserves edited shared tasks through review (2.7s)
+  ✓  11 browser/workspace.spec.js:391:1 › world menu keeps its trigger in place and dismisses without losing the workspace (1.2s)
+  ✓  12 browser/workspace.spec.js:424:1 › Worlds opens a searchable library and browser history restores the selected route (1.1s)
+  ✓  13 browser/workspace.spec.js:452:1 › world library and menu fit narrow viewports in both themes with long archived names (3.4s)
+  ✓  14 browser/workspace.spec.js:514:1 › empty world library supports creation and closes its menu after success (894ms)
+  ✓  15 browser/workspace.spec.js:539:1 › desktop conversation, pinned sources, edited generated draft and human review handoff (2.5s)
+  ✓  16 browser/workspace.spec.js:620:1 › mobile keyboard navigation, ambiguity, error recovery and persistent story turns (4.2s)
+  ✓  17 browser/workspace.spec.js:719:1 › scrolled desktop navigation and inspector remain below the sticky header (5.4s)
+  ✓  18 browser/workspace.spec.js:768:1 › required viewports contain routes and expose the complete empty composer (16.3s)
+  ✓  19 browser/workspace.spec.js:820:1 › mobile drawer and source sheet trap focus and preserve references across sections (2.0s)
+  ✓  20 browser/workspace.spec.js:868:1 › archived proposal compares blue and green without JSON at every required width (4.9s)
+  ✓  21 browser/workspace.spec.js:955:1 › saved story opens directly on its scene and character selection uses the supported pin (2.1s)
+  ✓  22 browser/workspace.spec.js:1016:1 › reduced mobile viewport keeps the focused composer and send control usable (1.2s)
+  ✓  23 browser/workspace.spec.js:1044:1 › long replies and bounded multiline input preserve the composer and independent scrolling (925ms)
+
+  23 passed (1.4m)
+npm notice
+npm notice New major version of npm available! 11.19.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

@@ -1,0 +1,30 @@
+
+> ui@0.2.0 test:pwa
+> playwright test --config playwright.pwa.config.js
+
+[WebServer] (node:29) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 12 tests using 1 worker
+
+(node:41) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 browser/pwa.spec.js:17:1 › production service worker, allowlist, offline restart, saved draft and user-controlled update (44.6s)
+  ✓   2 browser/pwa.spec.js:126:5 › editorial light 320px (1.5s)
+  ✓   3 browser/pwa.spec.js:126:5 › editorial dark 320px (1.6s)
+  ✓   4 browser/pwa.spec.js:126:5 › editorial light 390px (4.5s)
+  ✓   5 browser/pwa.spec.js:126:5 › editorial dark 390px (3.3s)
+  ✓   6 browser/pwa.spec.js:126:5 › editorial light 768px (1.9s)
+  ✓   7 browser/pwa.spec.js:126:5 › editorial dark 768px (1.7s)
+  ✓   8 browser/pwa.spec.js:126:5 › editorial light 1024px (1.7s)
+  ✓   9 browser/pwa.spec.js:126:5 › editorial dark 1024px (2.1s)
+  ✓  10 browser/pwa.spec.js:126:5 › editorial light 1440px (1.6s)
+  ✓  11 browser/pwa.spec.js:126:5 › editorial dark 1440px (1.8s)
+  ✓  12 browser/pwa.spec.js:161:1 › sign-out locks downloaded writing across browser tabs and preserves it for the same account (2.6s)
+
+  12 passed (1.2m)
+npm notice
+npm notice New major version of npm available! 11.19.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

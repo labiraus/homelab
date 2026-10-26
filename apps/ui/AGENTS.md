@@ -2,6 +2,8 @@
 
 Apply `apps/AGENTS.md` and the root policy alongside these UI rules.
 
+- Before frontend UX changes, read `docs/worldbuilder/UX-EXPERIENCE-CONTRACT.md` and `UX-JOURNEYS.md` alongside the detailed UI/PWA specifications. Audit end-to-end intentions, manipulable results and return paths; named features or passing visibility checks alone are not experience acceptance. Keep shared result IDs stable through refresh so local edits and exact-retry state survive; never repin a saved conversation to follow a source from another scope.
+
 - Keep the existing React/Vite stack, shared light/dark tokens, authentication and hash routes. Supporting document routes remain available through the account menu. Close the world-creation menu after successful creation/selection so its overlay cannot obscure primary navigation.
 - Keep header menu triggers in normal layout; position only the popup panel. Verify the trigger's rendered bounds before/after opening, Escape/focus return, outside dismissal and the Worlds destination at mobile widths. A working hash change to an empty landing page is not usable navigation. Ordinary accounts need an explanation when administration is unavailable.
 - The real API browser launcher is `apps/external/worldbuilder/browser_test.go`, invoked through `scripts/worldbuilder/test-postgres.sh`; discover it before inspecting or changing integration setup. On Windows with Node 26, `NODE_OPTIONS=--no-experimental-webstorage` lets jsdom supply browser storage in component tests; Linux-installed `node_modules` must be reinstalled with the lockfile for Windows tooling.

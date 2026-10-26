@@ -29,6 +29,7 @@ export default function WorldWorkspace({
   onInspect,
   onEdit,
   onPropose,
+  onReviewProposal,
   onSaveTurn,
   onPremise,
   onStories,
@@ -46,6 +47,7 @@ export default function WorldWorkspace({
     [clarify, setClarify] = useState(false);
   const [progress, setProgress] = useState("");
   const [visuals, setVisuals] = useState(false);
+  const [refinement, setRefinement] = useState(null);
   const controller = useRef(null),
     composer = useRef(null),
     log = useRef(null);
@@ -76,7 +78,7 @@ export default function WorldWorkspace({
         worldId: scope.worldId,
         revision: input.revision,
         timeline: input.timeline,
-        at: input.at,
+        at: input.at == null ? undefined : String(input.at),
       };
       return [
         {
@@ -95,6 +97,9 @@ export default function WorldWorkspace({
               {
                 id: `${m.id}-result`,
                 role: "assistant",
+                intent: Object.keys(workflows).find(
+                  (k) => workflows[k] === input.workflow,
+                ),
                 text: m.result.answer,
                 scope: pin,
                 result: {
@@ -112,13 +117,20 @@ export default function WorldWorkspace({
         t.id === c.id
           ? {
               ...t,
-              messages,
+              messages: messages.map((m) => {
+                const old = t.messages.find((previous) => previous.id === m.id);
+                return {
+                  ...m,
+                  ...(old?.refinement ? { refinement: old.refinement } : {}),
+                  ...(old?.role === "user" ? { text: old.text } : {}),
+                };
+              }),
               saved: true,
               scope: {
                 worldId: scope.worldId,
                 revision: c.revision ?? t.scope?.revision,
                 timeline: c.timeline ?? t.scope?.timeline,
-                at: c.at ?? t.scope?.at,
+                at: c.at == null ? t.scope?.at : String(c.at),
               },
             }
           : t,
@@ -146,7 +158,7 @@ export default function WorldWorkspace({
             worldId: scope.worldId,
             revision: c.revision,
             timeline: c.timeline,
-            at: c.at,
+            at: c.at == null ? undefined : String(c.at),
           },
         })),
       ]);
@@ -231,12 +243,26 @@ export default function WorldWorkspace({
     setQuestion(prompt.text);
     setIntent(prompt.intent || "auto");
     if (prompt.scope?.worldId === scope.worldId) {
-      setThreads((rows) =>
-        rows.map((t) =>
-          t.id === selected ? { ...t, scope: prompt.scope } : t,
-        ),
-      );
+      const pin = prompt.scope;
+      const samePin =
+        thread.scope?.revision === pin.revision &&
+        thread.scope?.timeline === pin.timeline &&
+        String(thread.scope?.at ?? "") === String(pin.at ?? "");
+      if (thread.saved && !samePin) {
+        const id = crypto.randomUUID();
+        setThreads((rows) => [
+          ...rows,
+          { id, title: "Source follow-up", messages: [], scope: pin },
+        ]);
+        setSelected(id);
+        onConversation?.();
+      } else {
+        setThreads((rows) =>
+          rows.map((t) => (t.id === selected ? { ...t, scope: pin } : t)),
+        );
+      }
     }
+    setRefinement(null);
     setClarify(false);
     composer.current?.focus();
   }, [prompt]);
@@ -255,21 +281,23 @@ export default function WorldWorkspace({
       ),
     );
   }
-  function candidate(value, input, threadId = selected) {
+  function candidate(value, input, threadId = selected, messageId, refining) {
     const candidateScope = {
       worldId: scope.worldId,
       timeline: input.timeline,
       revision: value.baseRevision,
+      at: input.at,
     };
     addMessages(threadId, [
       {
-        id: crypto.randomUUID(),
+        id: messageId ? `${messageId}-result` : crypto.randomUUID(),
         role: "assistant",
         intent:
           Object.keys(workflows).find((k) => workflows[k] === input.workflow) ||
           "ask",
         scope: candidateScope,
         text: value.answer,
+        refinement: refining,
         result: {
           ...value,
           workflow: input.workflow,
@@ -299,6 +327,10 @@ export default function WorldWorkspace({
           question.trim(),
           resolved === "play" ? [] : thread.messages,
           references,
+          refinement?.threadId === selected &&
+            ["create", "change"].includes(resolved)
+            ? refinement
+            : undefined,
         ),
         revision: appliedScope.revision,
         timeline: appliedScope.timeline,
@@ -327,9 +359,11 @@ export default function WorldWorkspace({
       setSelected(threadId);
     }
 
+    const messageId = crypto.randomUUID();
+    const refining = refinement?.threadId === selected ? refinement : null;
     addMessages(threadId, [
       {
-        id: crypto.randomUUID(),
+        id: messageId,
         role: "user",
         intent: resolved,
         text: question.trim(),
@@ -360,7 +394,6 @@ export default function WorldWorkspace({
             ),
           );
         }
-        const messageId = crypto.randomUUID();
         await api(`${path}/conversations/${threadId}/messages`, {
           id: messageId,
           request: input,
@@ -372,7 +405,11 @@ export default function WorldWorkspace({
         );
       } else
         result = await api(`${path}/reason`, input, { signal: request.signal });
-      if (!request.signal.aborted) candidate(result, input, threadId);
+      if (!request.signal.aborted) {
+        candidate(result, input, threadId, messageId, refining);
+        setRefinement(null);
+        if (refining) setIntent("auto");
+      }
     } catch (e) {
       if (!request.signal.aborted)
         setError(
@@ -401,6 +438,7 @@ export default function WorldWorkspace({
           setThreads((old) => [...old, next]);
           setSelected(next.id);
           setQuestion("");
+          setRefinement(null);
           setError("");
           onConversation?.();
         }}
@@ -456,6 +494,36 @@ export default function WorldWorkspace({
             context; earlier answers are not canon.
           </p>
         </details>
+        {shared && (
+          <div className="wb-saved-conversation">
+            {resolved === "play" || thread.private
+              ? "Private conversation"
+              : "Shared world conversation"}
+            {thread.saved && (
+              <>
+                {" "}
+                ·{" "}
+                <a
+                  href={worldHref(scope.worldId, "workspace", {
+                    conversation: thread.id,
+                    revision: thread.scope.revision,
+                    timeline: thread.scope.timeline,
+                  })}
+                >
+                  Link to conversation
+                </a>{" "}
+                <button
+                  type="button"
+                  onClick={() =>
+                    void loadThread(thread).catch((e) => setError(e.message))
+                  }
+                >
+                  Refresh saved results
+                </button>
+              </>
+            )}
+          </div>
+        )}
         {session && (
           <details>
             <summary>
@@ -475,7 +543,7 @@ export default function WorldWorkspace({
                     id,
                     revision: session.pinnedRevision,
                     timeline: session.timeline,
-          at: "",
+                    at: "",
                   })
                 }
               >
@@ -536,19 +604,65 @@ export default function WorldWorkspace({
                     {message.scope.revision} · {message.scope.timeline}
                   </span>
                   <p className="wb-prose">{message.text}</p>
-                  {message.status&&<small>{message.status==='complete'?'Reply saved':`Reply ${message.status}`}</small>}
-                  {message.actor===email&&message.status==='saved'&&<button disabled={busy} onClick={async()=>{setBusy(true);setError('');const request=new AbortController();controller.current=request;try{await streamResult(`${path}/conversations/${thread.id}/messages/${message.id}/generate`,request.signal);await loadThread(thread)}catch(e){setError(e.message)}finally{setBusy(false);controller.current=null}}}>Generate reply to saved message</button>}
+                  {message.status && (
+                    <small>
+                      {message.status === "complete"
+                        ? "Reply saved"
+                        : `Reply ${message.status}`}
+                    </small>
+                  )}
+                  {message.actor === email && message.status === "saved" && (
+                    <button
+                      disabled={busy}
+                      onClick={async () => {
+                        setBusy(true);
+                        setError("");
+                        const request = new AbortController();
+                        controller.current = request;
+                        try {
+                          await streamResult(
+                            `${path}/conversations/${thread.id}/messages/${message.id}/generate`,
+                            request.signal,
+                          );
+                          await loadThread(thread);
+                        } catch (e) {
+                          setError(e.message);
+                        } finally {
+                          setBusy(false);
+                          controller.current = null;
+                        }
+                      }}
+                    >
+                      Generate reply to saved message
+                    </button>
+                  )}
                 </article>
               ) : (
                 <WorldResponse
                   key={message.id}
                   message={message}
+                  api={api}
+                  path={path}
                   canEdit={canEdit}
                   archived={canon.world.archived}
                   session={session}
                   onInspect={onInspect}
                   onEdit={onEdit}
                   onPropose={onPropose}
+                  onReviewProposal={onReviewProposal}
+                  onRefine={(value) => {
+                    setRefinement({ ...value, threadId: conversation.id });
+                    setThreads((rows) =>
+                      rows.map((t) =>
+                        t.id === conversation.id
+                          ? { ...t, scope: message.scope }
+                          : t,
+                      ),
+                    );
+                    setIntent("create");
+                    setQuestion("");
+                    composer.current?.focus();
+                  }}
                   onSaveTurn={onSaveTurn}
                   onPremise={onPremise}
                   onChoice={(text) => starter(text, "play")}
@@ -637,42 +751,24 @@ export default function WorldWorkspace({
         )}
       </div>
       <form className="wb-composer" onSubmit={send}>
+        {refinement?.threadId === selected &&
+          ["create", "change"].includes(resolved) && (
+            <p role="status">
+              Refining{" "}
+              {refinement.operations.find((op) => op.record?.label)?.record
+                .label || "this draft"}{" "}
+              · a new candidate will appear for comparison.
+              <button type="button" onClick={() => setRefinement(null)}>
+                Leave refinement
+              </button>
+            </p>
+          )}
         {localSaved && (
           <small>
             Saved on this device · AI prompts are never sent automatically
           </small>
         )}
         {localError && <p role="alert">{localError}</p>}
-        {shared && (
-          <small>
-            {resolved === "play" || thread.private
-              ? "Private conversation"
-              : "Shared world conversation"}
-            {thread.saved && (
-              <>
-                {" "}
-                ·{" "}
-                <a
-                  href={worldHref(scope.worldId, "workspace", {
-                    conversation: thread.id,
-                    revision: thread.scope.revision,
-                    timeline: thread.scope.timeline,
-                  })}
-                >
-                  Link to conversation
-                </a>{" "}
-                <button
-                  type="button"
-                  onClick={() =>
-                    void loadThread(thread).catch((e) => setError(e.message))
-                  }
-                >
-                  Refresh saved results
-                </button>
-              </>
-            )}
-          </small>
-        )}
         <div className="wb-chips">
           {references.map((r) => (
             <button
@@ -701,7 +797,11 @@ export default function WorldWorkspace({
         <p className="wb-muted">
           {resolved === "play" && session
             ? `Session state · ${session.title} · turn ${session.version}`
-            : "Published context"}{" "}
+            : shared
+              ? thread.private
+                ? "Private conversation"
+                : "Shared world conversation"
+              : "Published context"}{" "}
           · revision {appliedScope.revision} · {appliedScope.timeline}
         </p>
         <label className="wb-composer-input">

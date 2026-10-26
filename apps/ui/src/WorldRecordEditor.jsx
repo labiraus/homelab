@@ -140,6 +140,8 @@ export default function WorldRecordEditor({
   record,
   onStage,
   onNew,
+  submitLabel = "Stage record",
+  cancelLabel = "Start a new record",
 }) {
   const [draft, setDraft] = useState(() =>
     record ? structuredClone(record) : { id: "", kind: "entity", label: "" },
@@ -571,7 +573,7 @@ export default function WorldRecordEditor({
         rows={attributes}
         setRows={setAttributes}
       />
-      <button>Stage record</button>
+      <button>{submitLabel}</button>
       <button
         type="button"
         onClick={() => {
@@ -587,7 +589,7 @@ export default function WorldRecordEditor({
           setError("");
         }}
       >
-        Start a new record
+        {cancelLabel}
       </button>
       <p>
         Staging proposes a complete record replacement. Publishing requires the

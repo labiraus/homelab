@@ -1,0 +1,43 @@
+
+> ui@0.2.0 build
+> vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 68 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/manifest.webmanifest                                     0.44 kB
+dist/index.html                                               0.73 kB │ gzip:   0.41 kB
+dist/assets/ibm-plex-serif-latin-400-normal-BB-zNvJB.woff    18.50 kB
+dist/assets/ibm-plex-serif-latin-400-normal-BIGslYFI.woff2   19.58 kB
+dist/assets/ibm-plex-sans-latin-400-normal-CYLoc0-x.woff     22.10 kB
+dist/assets/ibm-plex-sans-latin-400-normal-CDDApCn2.woff2    22.59 kB
+dist/assets/ibm-plex-sans-latin-600-normal-Cu4Hd6ag.woff     23.88 kB
+dist/assets/ibm-plex-sans-latin-600-normal-CuJfVYMP.woff2    24.25 kB
+dist/assets/index-jcRY8P5P.css                               41.64 kB │ gzip:   8.85 kB
+dist/assets/workbox-window.prod.es5-BBnX5xw4.js               5.75 kB │ gzip:   2.36 kB
+dist/assets/index-4j0Po4Pa.js                               431.94 kB │ gzip: 124.76 kB
+✓ built in 1.98s
+
+PWA v2.0.0
+Building src/sw.js service worker ("es" format)...
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 58 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/sw.mjs  15.92 kB │ gzip: 5.34 kB
+✓ built in 429ms
+
+PWA v2.0.0
+mode      injectManifest
+format:   es
+precache  12 entries (540.04 KiB)
+files generated
+  dist/sw.js
+npm notice
+npm notice New major version of npm available! 11.19.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

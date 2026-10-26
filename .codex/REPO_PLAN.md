@@ -2,6 +2,18 @@
 
 The authoritative product target is [Worldbuilder architecture](../docs/worldbuilder/01-WORLDBUILDER-ARCHITECTURE.md). The [migration](../docs/worldbuilder/02-WORLDBUILDER-MIGRATION.md) defines M1–M8; [implementation status](../docs/worldbuilder/IMPLEMENTATION-STATUS.md) records actual source readiness, tests and gaps. The [prior document-platform plan](../docs/worldbuilder/archive/PRE-WORLDBUILDER-PLAN.md) is historical.
 
+## Frontend experience correction — 2026-10-26
+
+Read the UX experience contract and six journeys before frontend UX work. The
+[local audit and evidence](../docs/worldbuilder/UX-AUDIT-2026-10-26.md) prioritizes
+inline editable/refinable drafts, exact source follow-ups, stable shared-result
+identity and explicit review/return paths. Existing five-section IA, PWA tokens,
+server authority, immutable accounts, private sessions and offline queue remain.
+Unsaved candidate edits remain memory-only; explicit saves distinguish local queue
+receipts from server drafts. Full focused graph answers, consequence analysis,
+persistent task/proposal linkage and device/live-model validation remain open.
+No publication, deployment or present cluster-health claim is made by this slice.
+
 ## Independent inference source — 2026-10-19
 
 User-approved source adds a private Go policy proxy, independent ledger/chart, local experiments on Helheim and explicit EU Bedrock profiles behind a shared $100 monthly cap. Local remains default with no daily/monetary quota. Worldbuilder schema 10 preserves historical allocations and pins queued provider profiles. Bedrock ships disabled with unverified prices unset. A blank ignored `homelab-bedrock` AWS profile awaits user-provided access **before any push**. No publication or live rollout is claimed. Follow `docs/Inference.md` and the current acceptance matrix for test/activation boundaries; retain ledgers/cache during rollback.

@@ -1,0 +1,1585 @@
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+CREATE SCHEMA
+REVOKE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+DO
+INSERT 0 1
+COMMIT
+NOTICE:  schema "worldbuilder" already exists, skipping
+NOTICE:  relation "schema_version" already exists, skipping
+NOTICE:  relation "world" already exists, skipping
+NOTICE:  relation "member" already exists, skipping
+NOTICE:  relation "revision" already exists, skipping
+NOTICE:  relation "record" already exists, skipping
+NOTICE:  relation "record_scope" already exists, skipping
+NOTICE:  relation "change_set" already exists, skipping
+NOTICE:  relation "audit" already exists, skipping
+NOTICE:  relation "outbox" already exists, skipping
+NOTICE:  relation "outbox_pending" already exists, skipping
+NOTICE:  relation "story_session" already exists, skipping
+NOTICE:  relation "story_turn" already exists, skipping
+NOTICE:  relation "story_outcome" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+CREATE SCHEMA
+REVOKE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+DO
+INSERT 0 0
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE TABLE
+INSERT 0 0
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+DO
+CREATE FUNCTION
+DO
+INSERT 0 1
+COMMIT
+NOTICE:  column "default_timeline" of relation "world" already exists, skipping
+NOTICE:  column "archived" of relation "world" already exists, skipping
+NOTICE:  column "admin_version" of relation "world" already exists, skipping
+NOTICE:  relation "world_single_owner" already exists, skipping
+NOTICE:  relation "record_identity" already exists, skipping
+NOTICE:  relation "world_single_settings" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE TABLE
+INSERT 0 0
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+DO
+CREATE FUNCTION
+DO
+INSERT 0 0
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE INDEX
+INSERT 0 1
+COMMIT
+NOTICE:  relation "inference_attempt" already exists, skipping
+NOTICE:  relation "inference_actor_day" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE INDEX
+INSERT 0 0
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE INDEX
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DO
+INSERT 0 1
+COMMIT
+NOTICE:  relation "story_definition" already exists, skipping
+NOTICE:  relation "story_definition_owner" already exists, skipping
+NOTICE:  column "definition_id" of relation "story_session" already exists, skipping
+NOTICE:  column "memory" of relation "story_session" already exists, skipping
+NOTICE:  column "memory" of relation "story_turn" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE INDEX
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DO
+INSERT 0 0
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+INSERT 0 1
+COMMIT
+NOTICE:  relation "generation_job" already exists, skipping
+NOTICE:  relation "generation_owner" already exists, skipping
+NOTICE:  relation "generation_active_owner" already exists, skipping
+NOTICE:  relation "generation_outbox" already exists, skipping
+NOTICE:  relation "generation_pending" already exists, skipping
+NOTICE:  column "generation_job_id" of relation "inference_attempt" already exists, skipping
+NOTICE:  column "generation_part" of relation "inference_attempt" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+INSERT 0 0
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+INSERT 0 1
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+INSERT 0 0
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE TABLE
+INSERT 0 0
+UPDATE 0
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DO
+INSERT 0 1
+COMMIT
+NOTICE:  column "authority_id" of relation "member" already exists, skipping
+NOTICE:  column "review_policy" of relation "record" already exists, skipping
+NOTICE:  column "required_approvals" of relation "change_set" already exists, skipping
+NOTICE:  column "published_approvals" of relation "change_set" already exists, skipping
+NOTICE:  relation "change_review" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE TABLE
+INSERT 0 0
+UPDATE 0
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DO
+INSERT 0 0
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE FUNCTION
+REVOKE
+DO
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DO
+INSERT 0 1
+COMMIT
+NOTICE:  relation "superuser" already exists, skipping
+NOTICE:  relation "account_audit" already exists, skipping
+NOTICE:  column "superuser_authority_id" of relation "change_review" already exists, skipping
+NOTICE:  column "authority_scope" of relation "change_review" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE FUNCTION
+REVOKE
+DO
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DO
+INSERT 0 0
+COMMIT
+NOTICE:  constraint "record_kind_check" of relation "record" does not exist, skipping
+NOTICE:  trigger "worldbuilder_conversation_immutable" for relation "worldbuilder.conversation" does not exist, skipping
+NOTICE:  trigger "worldbuilder_message_guard" for relation "worldbuilder.conversation_message" does not exist, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DROP INDEX
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+ALTER TABLE
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE TABLE
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+DO
+INSERT 0 1
+COMMIT
+NOTICE:  column "publication_policy" of relation "world" already exists, skipping
+NOTICE:  column "policy_version" of relation "world" already exists, skipping
+NOTICE:  column "policy_version" of relation "change_set" already exists, skipping
+NOTICE:  column "policy_version" of relation "change_review" already exists, skipping
+NOTICE:  index "world_single_owner" does not exist, skipping
+NOTICE:  constraint "record_kind_check" of relation "record" does not exist, skipping
+NOTICE:  column "mode" of relation "story_session" already exists, skipping
+NOTICE:  column "scene" of relation "story_session" already exists, skipping
+NOTICE:  column "scene" of relation "story_turn" already exists, skipping
+NOTICE:  relation "established_account" already exists, skipping
+NOTICE:  relation "conversation" already exists, skipping
+NOTICE:  relation "conversation_message" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DROP INDEX
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+ALTER TABLE
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE TABLE
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+DO
+INSERT 0 0
+COMMIT
+NOTICE:  constraint "inference_attempt_accounting_check" of relation "inference_attempt" does not exist, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+INSERT 0 1
+COMMIT
+NOTICE:  column "accounting_mode" of relation "inference_attempt" already exists, skipping
+NOTICE:  column "inference_profile" of relation "inference_attempt" already exists, skipping
+NOTICE:  constraint "inference_attempt_allocated_micros_check" of relation "inference_attempt" does not exist, skipping
+NOTICE:  column "inference_profile" of relation "generation_job" already exists, skipping
+NOTICE:  column "inference_profile" of relation "conversation_message" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+INSERT 0 0
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DELETE 1
+COMMIT
+BEGIN
+DO
+DROP TRIGGER
+DROP TRIGGER
+DROP TABLE
+DROP FUNCTION
+DROP FUNCTION
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DELETE 1
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE FUNCTION
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DROP TRIGGER
+DROP FUNCTION
+DROP TABLE
+DROP FUNCTION
+DELETE 1
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+DROP TRIGGER
+DROP TRIGGER
+DROP TABLE
+DROP FUNCTION
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DELETE 1
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DELETE 1
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+DROP TABLE
+DROP TABLE
+DELETE 1
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DROP TABLE
+DELETE 1
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+DROP TABLE
+DELETE 1
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+DROP TRIGGER
+DROP FUNCTION
+ALTER TABLE
+DROP TABLE
+DROP INDEX
+DROP INDEX
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DELETE 1
+COMMIT
+NOTICE:  drop cascades to 12 other objects
+DETAIL:  drop cascades to table worldbuilder.schema_version
+drop cascades to table worldbuilder.world
+drop cascades to table worldbuilder.member
+drop cascades to table worldbuilder.revision
+drop cascades to table worldbuilder.record
+drop cascades to table worldbuilder.change_set
+drop cascades to table worldbuilder.audit
+drop cascades to table worldbuilder.outbox
+drop cascades to table worldbuilder.story_session
+drop cascades to table worldbuilder.story_turn
+drop cascades to table worldbuilder.story_outcome
+drop cascades to function worldbuilder.immutable()
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+DROP SCHEMA
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+CREATE SCHEMA
+REVOKE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+DO
+INSERT 0 1
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE TABLE
+INSERT 0 0
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+DO
+CREATE FUNCTION
+DO
+INSERT 0 1
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE INDEX
+INSERT 0 1
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE INDEX
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DO
+INSERT 0 1
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+INSERT 0 1
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+INSERT 0 1
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE TABLE
+INSERT 0 0
+UPDATE 0
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DO
+INSERT 0 1
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE FUNCTION
+REVOKE
+DO
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DO
+INSERT 0 1
+COMMIT
+NOTICE:  constraint "record_kind_check" of relation "record" does not exist, skipping
+NOTICE:  trigger "worldbuilder_conversation_immutable" for relation "worldbuilder.conversation" does not exist, skipping
+NOTICE:  trigger "worldbuilder_message_guard" for relation "worldbuilder.conversation_message" does not exist, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DROP INDEX
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+ALTER TABLE
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE TABLE
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+DO
+INSERT 0 1
+COMMIT
+NOTICE:  column "publication_policy" of relation "world" already exists, skipping
+NOTICE:  column "policy_version" of relation "world" already exists, skipping
+NOTICE:  column "policy_version" of relation "change_set" already exists, skipping
+NOTICE:  column "policy_version" of relation "change_review" already exists, skipping
+NOTICE:  index "world_single_owner" does not exist, skipping
+NOTICE:  constraint "record_kind_check" of relation "record" does not exist, skipping
+NOTICE:  column "mode" of relation "story_session" already exists, skipping
+NOTICE:  column "scene" of relation "story_session" already exists, skipping
+NOTICE:  column "scene" of relation "story_turn" already exists, skipping
+NOTICE:  relation "established_account" already exists, skipping
+NOTICE:  relation "conversation" already exists, skipping
+NOTICE:  relation "conversation_message" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DROP INDEX
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+ALTER TABLE
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE TABLE
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+DO
+INSERT 0 0
+COMMIT
+NOTICE:  constraint "inference_attempt_accounting_check" of relation "inference_attempt" does not exist, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+INSERT 0 1
+COMMIT
+NOTICE:  column "accounting_mode" of relation "inference_attempt" already exists, skipping
+NOTICE:  column "inference_profile" of relation "inference_attempt" already exists, skipping
+NOTICE:  constraint "inference_attempt_allocated_micros_check" of relation "inference_attempt" does not exist, skipping
+NOTICE:  column "inference_profile" of relation "generation_job" already exists, skipping
+NOTICE:  column "inference_profile" of relation "conversation_message" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+INSERT 0 0
+COMMIT
+CREATE ROLE
+CREATE ROLE
+CREATE ROLE
+BEGIN
+REVOKE
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+COMMIT
+BEGIN
+CREATE SCHEMA
+CREATE TABLE
+GRANT
+GRANT
+COMMIT
+BEGIN
+INSERT 0 1
+INSERT 0 2
+INSERT 0 3
+INSERT 0 1
+INSERT 0 1
+INSERT 0 2
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+COMMIT
+DO
+PASS: physical backup seed populates every current canon table and identity registry
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+CREATE SCHEMA
+REVOKE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+DO
+INSERT 0 1
+COMMIT
+INSERT 0 1
+INSERT 0 1
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE TABLE
+INSERT 0 2
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+DO
+CREATE FUNCTION
+DO
+INSERT 0 1
+COMMIT
+NOTICE:  column "default_timeline" of relation "world" already exists, skipping
+NOTICE:  column "archived" of relation "world" already exists, skipping
+NOTICE:  column "admin_version" of relation "world" already exists, skipping
+NOTICE:  relation "world_single_owner" already exists, skipping
+NOTICE:  relation "record_identity" already exists, skipping
+NOTICE:  relation "world_single_settings" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE TABLE
+INSERT 0 0
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+DO
+CREATE FUNCTION
+DO
+INSERT 0 0
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE INDEX
+INSERT 0 1
+COMMIT
+NOTICE:  relation "inference_attempt" already exists, skipping
+NOTICE:  relation "inference_actor_day" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE INDEX
+INSERT 0 0
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE INDEX
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DO
+INSERT 0 1
+COMMIT
+NOTICE:  relation "story_definition" already exists, skipping
+NOTICE:  relation "story_definition_owner" already exists, skipping
+NOTICE:  column "definition_id" of relation "story_session" already exists, skipping
+NOTICE:  column "memory" of relation "story_session" already exists, skipping
+NOTICE:  column "memory" of relation "story_turn" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE INDEX
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DO
+INSERT 0 0
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+INSERT 0 1
+COMMIT
+NOTICE:  relation "generation_job" already exists, skipping
+NOTICE:  relation "generation_owner" already exists, skipping
+NOTICE:  relation "generation_active_owner" already exists, skipping
+NOTICE:  relation "generation_outbox" already exists, skipping
+NOTICE:  relation "generation_pending" already exists, skipping
+NOTICE:  column "generation_job_id" of relation "inference_attempt" already exists, skipping
+NOTICE:  column "generation_part" of relation "inference_attempt" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+INSERT 0 0
+COMMIT
+BEGIN
+INSERT 0 1
+INSERT 0 1
+INSERT 0 5
+COMMIT
+ALTER TABLE
+DO
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+INSERT 0 1
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+INSERT 0 0
+COMMIT
+INSERT 0 1
+INSERT 0 3
+INSERT 0 1
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE TABLE
+INSERT 0 3
+UPDATE 1
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DO
+INSERT 0 1
+COMMIT
+NOTICE:  column "authority_id" of relation "member" already exists, skipping
+NOTICE:  column "review_policy" of relation "record" already exists, skipping
+NOTICE:  column "required_approvals" of relation "change_set" already exists, skipping
+NOTICE:  column "published_approvals" of relation "change_set" already exists, skipping
+NOTICE:  relation "change_review" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE TABLE
+INSERT 0 0
+UPDATE 0
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DO
+INSERT 0 0
+COMMIT
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE FUNCTION
+REVOKE
+DO
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DO
+INSERT 0 1
+COMMIT
+NOTICE:  relation "superuser" already exists, skipping
+NOTICE:  relation "account_audit" already exists, skipping
+NOTICE:  column "superuser_authority_id" of relation "change_review" already exists, skipping
+NOTICE:  column "authority_scope" of relation "change_review" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE FUNCTION
+REVOKE
+DO
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DO
+INSERT 0 0
+COMMIT
+DO
+DO
+NOTICE:  constraint "record_kind_check" of relation "record" does not exist, skipping
+NOTICE:  trigger "worldbuilder_conversation_immutable" for relation "worldbuilder.conversation" does not exist, skipping
+NOTICE:  trigger "worldbuilder_message_guard" for relation "worldbuilder.conversation_message" does not exist, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DROP INDEX
+ALTER TABLE
+UPDATE 2
+ALTER TABLE
+UPDATE 2
+ALTER TABLE
+ALTER TABLE
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE TABLE
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+DO
+INSERT 0 1
+COMMIT
+NOTICE:  column "publication_policy" of relation "world" already exists, skipping
+NOTICE:  column "policy_version" of relation "world" already exists, skipping
+NOTICE:  column "policy_version" of relation "change_set" already exists, skipping
+NOTICE:  column "policy_version" of relation "change_review" already exists, skipping
+NOTICE:  index "world_single_owner" does not exist, skipping
+NOTICE:  constraint "record_kind_check" of relation "record" does not exist, skipping
+NOTICE:  column "mode" of relation "story_session" already exists, skipping
+NOTICE:  column "scene" of relation "story_session" already exists, skipping
+NOTICE:  column "scene" of relation "story_turn" already exists, skipping
+NOTICE:  relation "established_account" already exists, skipping
+NOTICE:  relation "conversation" already exists, skipping
+NOTICE:  relation "conversation_message" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DROP INDEX
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+UPDATE 0
+ALTER TABLE
+ALTER TABLE
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE TABLE
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+DO
+INSERT 0 0
+COMMIT
+NOTICE:  constraint "inference_attempt_accounting_check" of relation "inference_attempt" does not exist, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+INSERT 0 1
+COMMIT
+NOTICE:  column "accounting_mode" of relation "inference_attempt" already exists, skipping
+NOTICE:  column "inference_profile" of relation "inference_attempt" already exists, skipping
+NOTICE:  constraint "inference_attempt_allocated_micros_check" of relation "inference_attempt" does not exist, skipping
+NOTICE:  column "inference_profile" of relation "generation_job" already exists, skipping
+NOTICE:  column "inference_profile" of relation "conversation_message" already exists, skipping
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+DO
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+INSERT 0 0
+COMMIT
+DO
+BEGIN
+ pg_advisory_xact_lock 
+-----------------------
+ 
+(1 row)
+
+CREATE SCHEMA
+REVOKE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+DO
+INSERT 0 1
+COMMIT
+INSERT 0 1
+INSERT 0 2
+DO
+ must_be_false 
+---------------
+ f
+(1 row)
+
+Using disposable PostgreSQL Docker-exec bridge on loopback port 44355
+ok  	external/worldbuilder	53.049s
+ok  	orchestrator	1.560s
+CREATE SCHEMA
+CREATE TABLE
+INSERT 0 1
+CREATE SCHEMA
+REVOKE
+CREATE ROLE
+BEGIN
+CREATE SCHEMA
+REVOKE
+CREATE TABLE
+INSERT 0 1
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+REVOKE
+COMMIT
+NOTICE:  schema "mcp_oauth" already exists, skipping
+NOTICE:  relation "schema_version" already exists, skipping
+NOTICE:  relation "client" already exists, skipping
+NOTICE:  relation "authorization" already exists, skipping
+NOTICE:  relation "code" already exists, skipping
+NOTICE:  relation "token" already exists, skipping
+NOTICE:  relation "mcp_oauth_token_family" already exists, skipping
+BEGIN
+CREATE SCHEMA
+REVOKE
+CREATE TABLE
+INSERT 0 0
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+REVOKE
+COMMIT
+BEGIN
+GRANT
+GRANT
+GRANT
+GRANT
+REVOKE
+COMMIT
+ok  	external/mcpauth	1.372s
+ok  	external	1.208s
+DO
+BEGIN
+DELETE 0
+DELETE 0
+UPDATE 1
+COMMIT
+DO
+PASS: native MCP authorization database restore requires fresh consent and retains client identities
+BEGIN
+SET
+Schema and canonical publication backlog
+ schema_version 
+----------------
+             10
+(1 row)
+
+ pending |        oldest_pending         
+---------+-------------------------------
+     128 | 2026-10-26 21:45:51.587492+00
+(1 row)
+
+Generation dispatch backlog and state
+ pending |        oldest_pending         
+---------+-------------------------------
+       8 | 2026-10-26 21:46:33.171797+00
+(1 row)
+
+  status   | jobs | completed_parts |            oldest             
+-----------+------+-----------------+-------------------------------
+ cancelled |    1 |               0 | 2026-10-26 21:46:33.765988+00
+ failed    |    2 |               0 | 2026-10-26 21:46:33.43944+00
+ queued    |    1 |               0 | 2026-10-26 21:46:45.446575+00
+ succeeded |    3 |               5 | 2026-10-26 21:46:32.982489+00
+ uncertain |    2 |               1 | 2026-10-26 21:46:33.654709+00
+(5 rows)
+
+ expired_running 
+-----------------
+               0
+(1 row)
+
+Inference attempts and allocated allowance in last 24 hours (not invoices)
+      workflow      |  status   | currency | attempts | allocated_micros | mean_latency_ms 
+--------------------+-----------+----------+----------+------------------+-----------------
+ canon_query        | failed    | TST      |        4 |              400 |               0
+ canon_query        | reserved  | TST      |        1 |              100 |               0
+ canon_query        | reserved  | USD      |        2 |                0 |               0
+ canon_query        | succeeded | TST      |        2 |              200 |               0
+ canon_query        | succeeded | USD      |      105 |                0 |               0
+ narrative_generate | reserved  | TST      |        1 |              100 |               0
+ narrative_generate | succeeded | TST      |        4 |              400 |               0
+ narrative_generate | succeeded | USD      |        1 |                0 |               1
+(8 rows)
+
+ expired_reservations 
+----------------------
+                    1
+(1 row)
+
+Governance and story counts
+      status      | changes 
+------------------+---------
+ approved         |       5
+ draft            |       5
+ published        |      74
+ ready_for_review |       6
+ rejected         |       1
+(5 rows)
+
+ sessions | saved_turn_versions 
+----------+---------------------
+        7 |                  14
+(1 row)
+
+        action         | actions 
+-----------------------+---------
+ ai.canon_proposal     |       1
+ ai.canon_query        |       3
+ ai.consistency_check  |       1
+ ai.narrative_generate |       6
+ ai.story_turn         |       1
+ change.draft          |      91
+ change.publish        |      74
+ change.reconcile      |       3
+ change.restore        |       1
+ change.review         |      91
+ change.submit         |      86
+ generation.cancel     |       1
+ generation.part       |       6
+ generation.queue      |       8
+ mcp.canon             |       1
+ mcp.propose           |       3
+ member.set            |     167
+ story.create          |       7
+ story.definition      |       2
+ story.outcome         |       1
+ story.turn            |      14
+ timeline.branch       |       5
+ world.administer      |      17
+ world.create          |      54
+(24 rows)
+
+COMMIT
+PASS: migrations 001–010 rerun/rollback, populated upgrade/conflict gates, role isolation, canon/lifecycle/story/outbox integration and all-table restore checksum

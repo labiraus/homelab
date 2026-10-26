@@ -43,8 +43,8 @@ function setup(extra = {}) {
     onPremise: vi.fn(),
     ...extra,
   };
-  render(<WorldWorkspace {...props} />);
-  return props;
+  const view = render(<WorldWorkspace {...props} />);
+  return { ...props, rerender: view.rerender };
 }
 async function send(text) {
   await act(async () => {
@@ -55,6 +55,109 @@ async function send(text) {
   });
 }
 describe("AI workspace", () => {
+  it("retains fictional time zero when following up in a loaded shared conversation", async () => {
+    const saved = {
+      id: "zero-thread",
+      title: "At the epoch",
+      revision: 7,
+      timeline: "main",
+      at: 0,
+    };
+    const api = vi.fn(async (path, body) => {
+      if (path.split("?")[0].endsWith("/conversations")) return body || [saved];
+      if (path.includes("/messages?")) return [];
+      return { items: [] };
+    });
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(`event: result\ndata: ${JSON.stringify(result)}\n\n`),
+      );
+    try {
+      setup({
+        api,
+        canon: { ...canon, world: { capabilities: { conversations: true } } },
+      });
+      await screen.findByRole("option", { name: "At the epoch" });
+      fireEvent.change(screen.getByLabelText("Recent conversations"), {
+        target: { value: saved.id },
+      });
+      await waitFor(() =>
+        expect(
+          api.mock.calls.some(([path]) =>
+            path.includes("zero-thread/messages?"),
+          ),
+        ).toBe(true),
+      );
+      await send("Who ruled at this time?");
+      expect(
+        api.mock.calls.find(
+          ([path, body]) => path.endsWith("/messages") && body,
+        )[1].request.at,
+      ).toBe("0");
+      expect(
+        screen.getByRole("article", { name: "ask response" }),
+      ).toHaveTextContent("time 0");
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
+  it("starts a distinct source follow-up instead of changing an immutable shared pin", async () => {
+    const saved = {
+      id: "saved-thread",
+      title: "Original task",
+      revision: 7,
+      timeline: "main",
+    };
+    const api = vi.fn(async (path, body) => {
+      if (path.split("?")[0].endsWith("/conversations")) return body || [saved];
+      if (path.includes("/messages?")) return [];
+      return { items: [] };
+    });
+    const props = setup({
+      api,
+      canon: { ...canon, world: { capabilities: { conversations: true } } },
+    });
+    await screen.findByRole("option", { name: "Original task" });
+    fireEvent.change(screen.getByLabelText("Recent conversations"), {
+      target: { value: saved.id },
+    });
+    await waitFor(() =>
+      expect(
+        api.mock.calls.some(([path]) =>
+          path.includes("saved-thread/messages?"),
+        ),
+      ).toBe(true),
+    );
+    props.rerender(
+      <WorldWorkspace
+        {...props}
+        prompt={{
+          text: "Tell me about Aldric",
+          scope: {
+            ...scope,
+            revision: 2,
+            timeline: "fork",
+            at: "9223372036854775807",
+          },
+        }}
+      />,
+    );
+    await screen.findByRole("option", { name: "Source follow-up" });
+    expect(screen.getByLabelText("Recent conversations")).not.toHaveValue(
+      saved.id,
+    );
+    expect(
+      screen.getByText(/Shared world conversation · revision 2 · fork/),
+    ).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Recent conversations"), {
+      target: { value: saved.id },
+    });
+    expect(
+      screen.getByText(/Shared world conversation · revision 7 · main/),
+    ).toBeVisible();
+    expect(api.mock.calls.filter(([, body]) => body)).toHaveLength(0);
+  });
   it("keeps a historical source pin for follow-ups until the user changes context", async () => {
     const props = setup({
       prompt: {
@@ -208,6 +311,190 @@ describe("AI workspace", () => {
   });
 });
 describe("candidate safeguards", () => {
+  it("saves inline edits with exact retry identity, and gives changed payloads a new identity", async () => {
+    const onPropose = vi
+      .fn()
+      .mockRejectedValueOnce(Error("Response lost"))
+      .mockResolvedValue({ id: "draft-1", local: true });
+    render(
+      <WorldResponse
+        message={{
+          intent: "create",
+          scope,
+          result: {
+            ...result,
+            workflow: "canon_proposal",
+            operations: [
+              {
+                action: "put",
+                record: {
+                  id: "hero",
+                  kind: "entity",
+                  label: "Hero",
+                  attributes: { loyalty: "House Veyr" },
+                },
+              },
+            ],
+          },
+        }}
+        canEdit
+        onPropose={onPropose}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Name", { exact: true }), {
+      target: { value: "Older diplomat" },
+    });
+    fireEvent.change(screen.getByLabelText("Description"), {
+      target: { value: "Secretly loyal to Ashfall" },
+    });
+    fireEvent.change(screen.getByLabelText("Proposal reason"), {
+      target: { value: "Introduce a diplomat" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save AI candidate as draft" }),
+    );
+    await screen.findByText("Response lost");
+    expect(screen.getByLabelText("Name", { exact: true })).toHaveValue(
+      "Older diplomat",
+    );
+    fireEvent.change(screen.getByLabelText("Name", { exact: true }), {
+      target: { value: "Mara" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save AI candidate as draft" }),
+    );
+    await screen.findByText(/Saved on this device · check device sync status/);
+    expect(onPropose.mock.calls[0][2]).not.toBe(onPropose.mock.calls[1][2]);
+    expect(onPropose.mock.calls[1][0]).toMatchObject({
+      baseRevision: 7,
+      operations: [
+        {
+          record: {
+            label: "Mara",
+            attributes: {
+              description: "Secretly loyal to Ashfall",
+              loyalty: "House Veyr",
+            },
+          },
+        },
+      ],
+    });
+    expect(screen.queryByText(/Draft saved/)).toBeNull();
+  });
+  it("refines the edited artefact as unapproved context without changing canon or the original", async () => {
+    const props = setup({
+      api: vi.fn(async (path) =>
+        path.endsWith("/reason")
+          ? {
+              ...result,
+              operations: [
+                {
+                  action: "put",
+                  record: { id: "hero", kind: "entity", label: "Hero" },
+                },
+              ],
+            }
+          : { items: [] },
+      ),
+    });
+    await send("Create a diplomat");
+    fireEvent.change(screen.getByLabelText("Name", { exact: true }), {
+      target: { value: "Mara" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Refine this draft with AI" }),
+    );
+    await send("Make her older and loyal to Ashfall");
+    const input = props.api.mock.calls.filter(([path]) =>
+      path.endsWith("/reason"),
+    )[1][1];
+    expect(input).toMatchObject({
+      workflow: "canon_proposal",
+      revision: 7,
+      timeline: "main",
+    });
+    expect(input.question).toContain('"label":"Mara"');
+    expect(input.question).toContain("NOT published evidence");
+    expect(screen.getAllByLabelText("Name", { exact: true })[0]).toHaveValue(
+      "Mara",
+    );
+    expect(
+      screen.getByText("Compare with the draft you refined"),
+    ).toBeVisible();
+    expect(props.onPropose).not.toHaveBeenCalled();
+    expect(() =>
+      conversationQuestion("Refine", [], [], {
+        operations: [{ text: "世".repeat(1400) }],
+      }),
+    ).toThrow("4,000-byte");
+  });
+  it("keeps exact time and a shared result's local edits through refresh without repeating inference", async () => {
+    const draft = {
+      ...result,
+      operations: [
+        {
+          action: "put",
+          record: { id: "hero", kind: "entity", label: "Hero" },
+        },
+      ],
+    };
+    let request, messageId;
+    const api = vi.fn(async (path, body) => {
+      if (path.endsWith("/conversations")) return body || [];
+      if (path.includes("/messages?"))
+        return [
+          {
+            id: messageId,
+            actor: "author@test",
+            request,
+            status: "complete",
+            result: draft,
+          },
+        ];
+      if (path.endsWith("/messages")) {
+        request = body.request;
+        messageId = body.id;
+        return { id: body.id };
+      }
+      if (path.includes("/records/"))
+        return { record: { id: "aldric", kind: "entity", label: "Aldric" } };
+      return { items: [] };
+    });
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(`event: result\ndata: ${JSON.stringify(draft)}\n\n`),
+      );
+    try {
+      setup({
+        api,
+        email: "author@test",
+        scope: { ...scope, at: "9223372036854775807" },
+        canon: { ...canon, world: { capabilities: { conversations: true } } },
+      });
+      await send("Create a diplomat");
+      fireEvent.change(await screen.findByLabelText("Name", { exact: true }), {
+        target: { value: "Mara" },
+      });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Refresh saved results" }),
+      );
+      await waitFor(() =>
+        expect(
+          api.mock.calls.some(([path]) => path.includes("/messages?")),
+        ).toBe(true),
+      );
+      expect(screen.getByLabelText("Name", { exact: true })).toHaveValue(
+        "Mara",
+      );
+      expect(
+        screen.getByRole("article", { name: "create response" }),
+      ).toHaveTextContent("time 9223372036854775807");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
   it("retains draft edits and saved status when revisiting a conversation", async () => {
     const props = setup({
       api: vi.fn(async (path) =>

@@ -1,5 +1,17 @@
 # Worldbuilder PWA implementation and release gates
 
+## Experience correction — 26 October 2026
+
+The [experience audit](UX-AUDIT-2026-10-26.md) records the Ask/Create vertical slice
+under the [UX contract](UX-EXPERIENCE-CONTRACT.md) and [journeys](UX-JOURNEYS.md).
+Inline candidate edits/refinement and exact source follow-ups reuse the existing
+reasoning, conversation and change-set contracts. Shared result identities survive
+polling; saved pins cannot be silently changed. Proposal receipts distinguish
+device-local queuing from server saves. Card edits themselves remain memory-only
+until an explicit save; ordinary PWA device writing/queue rules remain unchanged.
+Existing authority, immutable accounts, private scenes and separate review gates
+are retained. No new deployment, backend migration or device acceptance is claimed.
+
 ## Current source scope — 19 October 2026
 
 This checkout extends the existing React/Vite and external Go application using

@@ -1,5 +1,18 @@
 # AI-first frontend implementation
 
+## Current experience correction — 26 October 2026
+
+The [experience contract](UX-EXPERIENCE-CONTRACT.md) interprets the detailed UI
+specifications; the [journeys](UX-JOURNEYS.md) define behavioural acceptance.
+See the [source audit, correction scope and evidence](UX-AUDIT-2026-10-26.md).
+The current slice adds inline working drafts, explicit candidate refinement,
+bounded pinned source previews, stable shared-result cards and review/return
+actions using existing components and APIs. Unsaved card edits are memory-only;
+explicit saves distinguish local queue receipts from server drafts. Shared threads
+retain immutable pins. This does not establish all six journeys or live acceptance.
+Historical statements below about absent chat persistence/streaming are superseded
+by the capability-gated PWA contract, not reinstated by the UX interpretation.
+
 ## PWA source update — 19 October 2026
 
 Schema 9 and the PWA implementation supersede the earlier single-owner,
