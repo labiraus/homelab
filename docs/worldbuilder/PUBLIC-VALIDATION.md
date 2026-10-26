@@ -1,5 +1,19 @@
 # Public endpoint validation — October 2026
 
+## Current assessment — 20 October 2026
+
+The latest five hosted runs (`39406088388`, `39406174170`, `39406508640`, `39406762569`, and [39406857741](https://github.com/labiraus/homelab/actions/runs/39406857741)) fail the availability step with `connection_timeout`; response-classification tests and artifact uploads succeed. The last successful hosted run in the inspected history is `38406727418` on 13 October. Full failed-run artifacts were unavailable to this session, so the hosted failure classification comes from job/check annotations.
+
+At approximately 11:31–11:33 BST (10:31–10:33 UTC), public DNS still returned `31.50.185.136`, also confirmed through Google's public resolver with a 1,799-second remaining TTL. A normal local probe timed out during TLS before any HTTP checks. This network's observed public egress address is now `81.151.43.40`. Resolving only the probe process's connection to that address, while retaining `mcp.labiraus.com` as the URL, Host and SNI and keeping normal certificate verification, passed all 12 discovery/auth/anonymous/forged-header checks. The same checks also passed against private gateway `192.168.8.240`. Both advertise MCP `0.0.0-uat.38179885575`. These comparisons identify the stale public A record as the immediate connectivity problem; the alternate-address probe is local evidence, not a hosted public-DNS pass.
+
+Update the DNS owner's `mcp` A record from `31.50.185.136` to the verified current WAN address `81.151.43.40`, allow cached records to expire, then rerun the normal checker and hosted workflow. No DNS-management integration or repository-owned DNS updater was available, and no DNS, gateway or application configuration was changed. The workflow should continue failing until the ordinary public path works. Local diagnostic reports are `/tmp/public-endpoints-current.json`, `/tmp/public-endpoints-lan-current.json` and `/tmp/public-endpoints-wan-current.json`; these are session-local, not committed evidence.
+
+Separate deployed findings remain open: `alfheim` stopped renewing its kubelet lease at 20:15:20 UTC on 19 October and is NotReady; `data/app-db-1` is Terminating there, and CNPG reports no ready instances. Orchestrator's HelmRelease is stalled after a failed upgrade/rollback, and external is blocked on that dependency. MCP and gateway are Ready, and the smoke checks above do not test database-backed authenticated functionality. DNS recovery alone must not be reported as full application recovery.
+
+## Historical investigation — 10–11 October 2026
+
+The observations and continuation boundaries below describe the earlier incident, not current connectivity or cluster-access limitations.
+
 **LAN update, 2026-10-11:** after the operator's DNS correction, the hostname resolves to `31.50.185.136` and verified TLS/discovery/anonymous browser checks pass. The issued certificate covers the correct hostname through 2027-01-09, and MCP discovery reports `0.0.0-uat.38140702302`. The operator confirms Google browser login works. The earlier observations below are historical.
 
 A subsequent real MCP read exposed a separate auth gap: an anonymous request read the registered-user count. A temporary Gateway CUSTOM policy now refuses anonymous and forged-header requests on all four transport paths while preserving discovery. Permanent chart policy, registered-user middleware and the expanded public probe are prepared; CI, live publication and authenticated MCP acceptance are still required. No document writes or Worldbuilder activation were used to diagnose it.
