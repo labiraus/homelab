@@ -1,6 +1,6 @@
-## Scope
+# MCP rules
 
-This file applies to everything under `apps/mcp/`.
+Apply the root policy and these directory-specific constraints.
 
 ## MCP Compatibility Rules
 

@@ -372,7 +372,7 @@
       bootstrap token ID {{ kubernetes_manual_node_join_token_id }} is missing
       from kube-public/cluster-info. This usually means the control plane is not
       signing bootstrap tokens into that ConfigMap yet. Check
-      `.codex/troubleshooting.md` for the bootstrap-token JWS recovery note, then
+      `docs/recovery.md` for the bootstrap-token JWS recovery note, then
       rerun the worker playbook.
   when:
     - not kubernetes_manual_node_kubelet_conf.stat.exists

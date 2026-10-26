@@ -1,38 +1,27 @@
-## Scope
+# Helm and Flux rules
 
-This file applies to everything under `helm/`.
-
-## Purpose
-
-`helm/` contains installable charts, bootstrap charts, shared libraries, and environment-specific values overlays used by Flux and local chart workflows.
-
-Keep chart behavior predictable and interfaces consistent across chart families.
+Apply the root policy and these directory-specific constraints.
 
 ## Working Rules
 
-- Preserve the current top-level split: `apps/`, `bootstrap/`, `data/`, `infra/`, `libraries/`, `observability/`, `workloads/`.
+- Preserve the current top-level split: `apps/`, `bootstrap/`, `data/`, `infra/`, `libraries/`, `observability/`. There is no current `workloads/` directory; discover actual chart paths before choosing an edit target.
 - Put only cluster-fabric prerequisites in `bootstrap/`; utility controllers or shared services that other workloads consume but the cluster does not need in order to function belong in `infra/`.
 - Prefer reusable templates and consistent values structure over copy-pasted chart logic.
 - When changing chart inputs or outputs, update values files, templates, and operator docs together.
 - Treat Flux-facing bootstrap charts as part of the delivery contract; avoid one-off behavior that breaks repository or secret conventions.
-- SeaweedFS is the external Ansible-managed target on `svartalfheim:8333`; do not add an in-cluster object store. Until migration/restore gates pass, normal publication retains port-9000 source settings; target endpoints, Secrets and egress are prepared together in explicit `values-seaweedfs.yaml` overlays. Do not make routine app publication perform an unverified storage cutover. Follow `docs/SeaweedFSMigration.md`; application `MINIO_*` keys remain compatibility names for S3 clients.
+- SeaweedFS is the external Ansible-managed target on `svartalfheim:8333`; do not add an in-cluster object store. Until migration/restore gates pass, normal publication retains port-9000 source settings; target endpoints, Secrets and egress are prepared together in explicit `values-seaweedfs.yaml` overlays. Do not make routine app publication perform an unverified storage cutover. Follow `docs/storage.md`; application `MINIO_*` keys remain compatibility names for S3 clients.
 - Keep secret handling indirect where possible: reference existing secrets or generated values rather than committing literal credentials.
 - Treat git push as the deployment trigger for charts in normal operation. Chart build and publication are performed by `.github/workflows/helm-all.yml`, and Flux deploys from the published OCI artifacts rather than from local chart files.
 - For app-backed charts, remember that container publication and chart publication move together. The app workflows publish a new container image and then publish the corresponding chart with the matching app version, so image and chart changes should stay aligned.
 
-## Build And Deployment Model
+## Delivery
 
-- Installable charts are published as OCI artifacts by the Helm CI pipeline in `.github/workflows/helm-all.yml`.
-- The normal GHCR path is: commit to git -> GitHub Actions builds/publishes chart -> Flux `OCIRepository` sees the new tag -> Flux `HelmRelease` reconciles the deployment.
-- App workflows under `.github/workflows/app-*.yml` also publish the corresponding chart after building the container image, passing the new image tag as `app-version`.
-- The repo uses repo-global GitHub Actions run IDs for non-semver prerelease tags so chart and app publishes share one monotonically increasing series across workflow files.
-- `helm-all.yml` publishes non-app charts directly, but when only an app chart under `helm/apps/**` changes it should dispatch the matching app workflow so the app image and app chart are still published together from the same pipeline run.
-- Runtime deployment is wholly Flux-driven. Do not assume charts are applied manually unless the task explicitly says so.
+Read [development](../docs/development.md) and [operations](../docs/operations.md) for OCI/Flux publication and effective-value checks. Read [testing](../docs/testing.md) before changing platform/controller fixtures. Preserve those procedures and acceptance boundaries.
 
 ## Naming And Values Conventions
 
 - Chart names should stay aligned with their directory names and the Flux release names that reference them.
-- Use `helm/workloads/` for miscellaneous or optional workloads that are not part of the core platform/system footprint.
+- A future miscellaneous-workload directory must be an explicit layout change, not an assumed existing chart location.
 - OCI charts are published under the repo naming pattern `oci://ghcr.io/labiraus/homelab/charts/<chart-name>`.
 - For GHCR-backed deployment, effective values are a combination of `values.yaml` and `values-ghcr.yaml`.
 - Empty/comment-only/null overlays must preserve base defaults during packaging. Use `scripts/build/merge-helm-values.sh` and run `bash scripts/build/test-helm-values.sh`; source `helm template -f` checks alone do not prove the published archive retains defaults. Reject non-map and multi-document values before replacing an output file.
@@ -47,7 +36,6 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 - Its Istio resources are in `libraries/commonapi/templates/_istio.tpl`; discover template paths with `rg --files` before reading them rather than deriving filenames from Kubernetes kinds.
 - OAuth2 reverse proxying must preserve the public Host header for Worldbuilder's same-origin writes. Keep `OAUTH2_PROXY_PASS_HOST_HEADER=true` together with the proxy-scoped mesh VirtualService in `infra/oauth2-proxy/templates/upstream-routing.yaml`. Preserving Host without the route sends requests through passthrough and fails against STRICT mTLS. Verify the actual public Host/Origin pair through the proxy identity; do not bypass application origin checks.
 - bootstrap charts define how Flux discovers and deploys workloads
-- `workloads/` is for miscellaneous user workloads that are deployed by Flux but are not considered core platform services
 - values files under `values/` complement this directory and should be checked when chart behavior changes
 - Bootstrap Flux charts create `OCIRepository` and `HelmRelease` resources that point at published chart artifacts, typically using the `ghcr-creds` secret for authenticated GHCR access.
 - A wrapper chart must give its nested HelmRelease a different namespace/name from the wrapper's own HelmRelease. The Prometheus wrapper is `flux-system/prometheus`; its upstream child is `flux-system/prometheus-stack`, retaining Helm release name `prometheus`. Otherwise reconciliation tries to overwrite its own chartRef with a chart spec.
@@ -55,13 +43,6 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 - The `helm-all.yml` workflow tests charts on non-main branches and publishes them to GHCR on `main` and `dev`.
 - If a chart directory contains `values-ghcr.yaml`, the Helm CI pipeline uses that file for GHCR packaging; otherwise it falls back to `values.yaml`.
 - The upstream NATS chart deployed here uses Helm release name `nats` in namespace `nats`, which yields service DNS like `nats-nats.nats.svc.cluster.local`; do not assume the broker service is `nats.nats.svc.cluster.local`.
-
-## Safety Notes
-
-- Do not commit live secret material in values or templates.
-- Be careful with generated secret behavior and lookup-based templates so upgrades remain understandable and repeatable.
-- OpenSearch upgrades must retry forward rather than automatically roll back: a newer process can persist node metadata that an older binary refuses. Keep its Flux upgrade strategy `RetryOnFailure`; preserve PVCs and recover with the already-observed newer version.
-- Storage clients and egress policy must use the same verified private address. `svartalfheim` has wired `192.168.8.177` and Wi-Fi `192.168.8.202`; LAN DNS can return Wi-Fi while policy permits only wired. Published S3 endpoints use `192.168.8.177` with the existing source/target port and credential separation.
 
 ## Flux Troubleshooting
 
@@ -75,11 +56,7 @@ Keep chart behavior predictable and interfaces consistent across chart families.
 - Check the bootstrap charts under `helm/bootstrap/` when the problem looks systemic across many releases, since those charts define shared Flux repository and release behavior.
 - Be cautious about assuming a local chart edit is live in-cluster. If the chart was not published and reconciled through Flux, the cluster may still be running the previous OCI artifact.
 
-## Self-Learning Loop
-
-If a charting convention or Flux integration rule proves durable, record it here.
-
-If a lesson is specific to one chart family, add a more local `AGENTS.md` under that subtree later.
+## Additional safeguards
 
 - Helm `required` does not reject an empty list in the locally verified Helm version. Security-sensitive principal lists must explicitly test `empty` and reject wildcard entries; include negative render tests.
 - Worldbuilder's browser principal must be exact too: reject any `*` before rendering its `notPrincipals` DENY boundary, with missing, wildcard-only and partial-wildcard refusal checks.

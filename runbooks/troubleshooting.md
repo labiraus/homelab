@@ -1,124 +1,75 @@
-# Homelab Troubleshooting Runbook
+# Troubleshooting
 
-This runbook is for day-two document-platform and assistant operations.
+Start with the symptom and verify actual context, identity, ownership and artifact.
+[Status](../docs/status.md) owns dated incident evidence; procedures here do not
+establish current health. Do not run destructive recovery merely because a prior
+incident used it.
 
-If the UI image smoke check passes image-pull progress along with a container ID to `docker start`, keep stderr separate when parsing the stdout identifier from `docker create`. A cached image can hide this harness failure locally. Require a corrected actual-image check and successful CI chart publication; a published image alone is not a completed release.
+## Access and browser symptoms
 
-If a local Node image build reports `npm error Exit handler never called!`, verify registry TLS inside that Docker worker before blaming the lockfile. On this offline workstation, `node:24.13.0-bookworm-slim` could be pulled, but its direct fetch of `https://registry.npmjs.org/typescript` failed with `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`. Host/devcontainer npm success does not prove container trust. Use hosted CI's complete image/runtime checks while correcting workstation trust separately; retain `npm ci` and certificate verification. Do not add a private workstation CA or disable TLS verification in production Dockerfiles to bypass a local interception issue.
+| Symptom | Check and next action |
+| --- | --- |
+| Public HTTPS times out or presents another hostname | Compare ordinary DNS, current WAN and private Gateway; preserve Host/SNI and TLS verification for diagnostic overrides. Check hosted results independently. See [operations](../docs/operations.md#public-connectivity). |
+| Google rejects outside-domain users | Inspect the existing project's audience and proxy wildcard domains. Register intended emails separately; test registered and unregistered users. See [authentication](../docs/authentication.md). |
+| Browser login loops, plain Authenticated or RBAC denial | Inspect selected provider, exact service/Service port, redirect and reverse-proxy upstreams. Preserve public Host plus proxy-scoped mesh routing; parent values can replace child provider lists. |
+| MCP discovery works but tools fail | Discovery is public. Verify actual native consent/credential, both transports, registered-user checks and private authority health; forwarded headers alone are insufficient. |
+| Native login fails at Google registration | Native clients use the local MCP issuer, not Google's DCR. Browser Google cookies alone do not establish native login. |
+| SSH permission denied | Inspect certificate validity before changing trust. Lost CA passphrase needs staged trust rotation, not VM recreation or Kubernetes PKI reset. See [SSH recovery](../docs/recovery.md#ssh-trust-recovery). |
+| Physical host answers ping but SSH has no banner | Use physical console/kernel/power/disk evidence. `yggdrasil` is a physical Chromebook, not a Proxmox VM; TCP acceptance is not userspace health. |
+| UI links/composer are visible but unreachable | Measure full bounds and `elementFromPoint` after scrolling/resizing. Header/footer/grid containment and real hit targets matter; auto-scrolling clicks can hide the defect. |
+| World-menu trigger moves or Worlds opens an empty screen | Keep trigger in normal layout, popup separate; verify library navigation, Escape/focus return, outside dismissal and narrow widths. |
+| Saved candidate disappears | Unsaved inline edits are memory-only. Shared saved messages/results persist separately; device-queued saves are not yet server confirmations. See [experience](../docs/worldbuilder/experience.md). |
+| Approved proposal returns 409 after membership change | Check eligible approval count against current policy. Removed authority does not revive by restoring an old role; obtain fresh eligible approvals. Historical published counts remain unchanged. |
+| Stale proposal or story turn | Retain original revision/session version. Use three-way reconciliation or explicitly reauthor; never substitute a fresh pin to bypass conflict. |
+| Administration returns 409 | Reload administration version. Archived worlds must reopen before other writes; policy changes require fresh proposal pins. Protect final Authors/Administrators. |
+| Generation is queued/uncertain | Inspect job, claim, dispatch and reservation. Completed parts remain; uncertain dispatched work is never automatically repeated or refunded. See [recovery](../docs/recovery.md). |
+| Offline queue does not replay | Keep the app open, authenticate the same account, inspect capability/conflict and transactional lease (up to 30 seconds after interruption). Never alter queued IDs, payloads or expected versions. |
+| Quota/storage failure or blocked worker update | Treat failed IndexedDB writes as failed saves. Copy/export before clearing data; finish registered local writes before service-worker activation. |
 
-For Worldbuilder dates outside JavaScript's safe integer range, inspect the raw HTTP JSON before ordinary `response.json()`/`JSON.parse()` converts numbers. The UI/processor preserve original date tokens and send large dates as decimal strings; external keeps exact numeric history. An “Exact fictional dates require … JSON source support” error means the browser needs updating, not that canon should be truncated or rewritten. See the [date wire contract](../docs/worldbuilder/API.md). Calendar formatting and life-bound fact types remain separate from this transport behavior.
+Native MCP tokens are not a Google browser session. Use a legitimate browser
+session for production browser acceptance; never mint proxy cookies or inject
+identity headers. Keep exported browser state ignored/private. A fixture served
+from an owned loopback forward is a different evidence tier.
 
-Postgres-backed state is authoritative. NATS, SSE, and MCP notifications are delivery paths; do not treat notification absence as proof that the durable state is missing.
+## Platform symptoms
 
-If an MCP document differs only at its boundaries, compare the original bytes, stored S3 bytes and MCP resource response separately. Recovery testing found text upload arguments and proxy responses both used identifier-style whitespace trimming; binary resource reads were affected too. The corrected MCP preserves payloads through the actual external HTTP boundary. An upload already trimmed by an older release requires recovery from the original text or retained version; do not rewrite unrelated source documents. This is separate from the indexer's intentional text-boundary trim.
+| Symptom | Check and next action |
+| --- | --- |
+| Local render works but Flux fails | Inspect the actual OCI archive, tag/digest and effective parent values. A stale digest pin or retained child values can keep Kafka-era/scaler settings alive. Publish/repoint through reviewed GitOps; do not assume local edits deployed. |
+| Release appears missing | Discover HelmRelease/OCI namespace independently of workload namespace; app releases live in `flux-system`. |
+| Empty defaults in published chart | Inspect `helm show values` on that artifact; use shared overlay merger and packaged-chart parity test. Empty/null overlays must preserve base defaults. |
+| Late build restores old code | Inspect actual checkout SHA and publication freshness guard; match image/chart and intended source before changing the pin. |
+| Prometheus wrapper conflicts with itself | Wrapper owns `flux-system/prometheus`; upstream child is `prometheus-stack` while Helm release name stays `prometheus`. A merged parent chartRef/child chart is invalid. |
+| NATS-dependent app rollout times out | Check real broker Service DNS and its monitoring Service. KEDA uses `nats-jetstream`, not obsolete Kafka fields. Compare effective chart values with the deployed ScaledObject. |
+| OpenSearch refuses downgrade | Preserve PVCs and retry forward to the observed newer metadata-compatible version. Do not delete data or force the older binary. |
+| OpenSearch Pods Ready but only one member | Check normal discovery (not data single-node mode), port-9300 peer policy and actual cluster membership. Parent allowlists replace child arrays. |
+| S3 host healthy but apps time out | Compare wired `.177` endpoint with DNS returning Wi-Fi `.202`; egress and endpoint must agree. Do not broaden LAN access to hide drift. |
+| S3 lists buckets but reads fail after restart | Bound retries while volume registration settles, then verify known object bytes and metadata/mounts; listing readiness is insufficient. |
+| CNPG SlowDownWrite / no online disks | Check `/srv/minio` mount UUID/device before credentials or policy. See [storage mount recovery](../docs/storage.md). |
+| Deployment rejects Recreate strategy | Remove the incompatible `rollingUpdate` fields from effective values/rendered spec; inspect the published parent/child chart before retrying. |
+| Longhorn PVC Pending | Inspect disk scheduling, capacity and expected disk UUID after VM recreation. Do not replace existing data to satisfy a new claim. |
+| Drain blocked by Longhorn | Drain is not replica eviction; inspect PDBs and replica health. Deleting instance managers/PDBs is not a data-bearing-cluster recovery default. |
+| Worker join missing JWS signature | Check controller-manager bootstrap signing and the exact token entry in cluster-info before retrying; see [bootstrap discovery](../docs/recovery.md#bootstrap-token-discovery). |
+| CNI unauthorized / ContainerCreating | Check node-local stale Istio CNI configuration, Cilium and injection state before app code. Follow [node-local recovery](../docs/recovery.md#node-local-cni-and-longhorn-recovery) with healthy volume coverage. |
+| New STRICT-mTLS workload unreachable | Verify namespace injection, native sidecar initContainers and actual certificate, Service ports and permitted identities. Ready alone is insufficient. |
+| Control plane slow / leader election lost | Inspect local API/etcd health with verified trust, CPU/load and connection counts. A high-connection external watcher can saturate the Pi; identify it before restarting workloads. |
+| vLLM GPU unavailable | Check real compute device and allocatable GPU, namespace/release ownership and any stale pre-Flux Helm release occupying the GPU. Do not remove the authoritative Flux release. |
+| Model loading seems stuck | Inspect image/weight download and CUDA setup; use the pinned tested profile/eager mode and bounded cold-start allowance. Never silently switch model/profile for queued work. |
+| Embeddings work singly, fail in a batch | Check gateway buffer and full eight-input response; preserve input bounds and truncation refusal. See [documents](../docs/documents.md). |
+| Search appears semantic but is incomplete | Inspect actual query, canonical reconciliation, profile and returned coverage. Sorted nested hits may have null `_score`; validate score/ID sort values. Token hashes are not model embeddings. |
+| Legacy pgvector index says no dimensions | Inspect the legacy column's fixed vector dimension; do not confuse that retained comparison path with the active OpenSearch pipeline. |
+| Terraform image import refused | Use Proxmox `import`/`import_from`, not ISO; use `download_ubuntu_image=false` only after verifying the existing expected image. |
+| VM failed after apply / identity mismatch | Inspect live `qm status/config`, tasks, memory headroom and old node identity before retry. Follow [worker recovery](../docs/recovery.md#worker-vm-recovery). |
 
-For an isolated MCP candidate, a public `Host` override can choose Envoy's `PassthroughCluster` rather than the intended mesh Service. The observed `503 UC`/`connection_termination` occurred before authentication because that route attempted plaintext against STRICT mTLS. Use the actual candidate Service authority with the unchanged public OAuth audience, then validate the public authority through the deployed Gateway. Do not relax mTLS or native credential validation to repair diagnostic routing.
+Envoy/Gateway CRD ownership is split: Flux bootstrap owns Gateway API CRDs; the
+Envoy wrapper owns Envoy Gateway GitRepository/Kustomization and a dedicated
+OCI-backed HelmRelease for AI Gateway CRDs; child controller HelmReleases disable
+their own CRD management. Inspect that
+ownership before trying to repair conflicting installs.
 
-If migration preflight reports `NoSuchVersion` for names containing spaces, or rejects a MinIO continuation marker, compare the raw listing with the requested key first. MinIO `RELEASE.2025-09-07T16-13-09Z` emits form-encoded spaces and v2 cache suffixes. The explicit `minio-v2` export dialect preserves those semantics and records them for offline verification. The initial default-parser preflight falsely reported 79 missing reads; the corrected read-only pass verified all 119 retained source versions and all 116 prior restored references. This is not evidence of source deletion and does not replace the final frozen migration procedure. See [version migration](../docs/StorageVersionMigration.md).
-
-## Google sign-in restricted to the organization's domain
-
-Inspect the actual proxy Deployment, discovered independently of its Flux release name: this deployment is `homelab/homelab-oauth2-proxy`, while its HelmRelease is in `flux-system`. Check `OAUTH2_PROXY_EMAIL_DOMAINS`, provider/group restrictions and the public `/oauth2/start` redirect's `hd` parameter before attributing a domain refusal to the app. On 2026-10-13, live inspection confirmed wildcard email domains, `openid email profile` scopes and no `hd` filter; the proxy Secret contained only client ID, client secret and cookie secret keys.
-
-An Internal Google OAuth audience restricts sign-in to its Workspace organization even when the proxy allows every domain. Change the existing project's audience to External and use production publishing for the deployed service. Google audience status was not accessible during that inspection; external-account acceptance remains pending. Keep `auth.users` validation and world membership checks. Prove both a registered external account's valid sign-in and an unregistered account's API refusal; see the [operator procedure](../docs/GoogleOIDCSetup.md#consent-screen-and-test-mode). Do not rerun the destructive legacy auth seed to add a user.
-
-## Worldbuilder composer or mobile overflow
-
-The required viewport suite is `npm run test:workspace`, which must gate UI publication alongside the disposable API browser suite. With `WORLDBUILDER_BROWSER_URL` set to an owned HTTP loopback UI-Pod forward, it checks the deployed bundle instead of starting Vite; close the forward afterward. The workspace config rejects external fixture URLs. A reduced-height resize can leave the focused send control below the viewport in development even when production Chromium scrolls it into view. The explicit resize handler brings the full focused composer above the visible bottom and updates geometry on document scroll. Keep that regression, and require real-device keyboard acceptance separately.
-
-An archived world's paused writes are expected. Horizontal overflow and an offscreen composer are presentation defects; do not reopen worlds or publish proposals to test them. The 13 October correction replaces fixed pane minimum heights with available viewport sizing, constrains intrinsic control widths and reserves composer height. Run the local rendered viewport gate before accepting a replacement UI. A passing image smoke or DOM-only test cannot prove layout, hit targets or real-device keyboard behavior. See [correction acceptance](../docs/worldbuilder/UI-CORRECTIONS.md); these changes remain source-only until a separately authorized deployment.
-
-## Worlds destination or disappearing world-menu trigger
-
-The 15 October source correction gives `#/worlds` a searchable world library. Earlier builds only showed an introduction and header selector, so clicking Worlds could appear ineffective. The old menu's open-state CSS positioned the entire `details` element as a popup, including its trigger. Keep the button in the header and position only the panel; verify unchanged trigger bounds, Escape/focus return, outside dismissal and mobile library navigation with `npm run test:workspace`. Check the shipped asset revision before treating a local fix as deployed. See [source review and acceptance limits](../docs/worldbuilder/UI-CORRECTIONS.md#world-library-and-menu-review--15-october-2026).
-
-For Windows UI checks, reinstall Linux-origin dependencies with `npm ci` before running Vite/Playwright. Node 26's experimental Web Storage can override jsdom's browser storage; run component tests with `NODE_OPTIONS=--no-experimental-webstorage`. If npm cannot validate the registry certificate, use the Windows system trust store (`NODE_USE_SYSTEM_CA=1`) rather than disabling certificate verification.
-
-## SSH CA recovery (2026-10-11)
-
-The workstation SSH login certificate expired on 2026-07-20 and the old signing CA passphrase was unavailable. Recovery used a staged SSH trust rotation, with no VM recreation, kubeadm reset, or storage deletion. See the [rotation procedure](../docs/Setup.md#recovering-a-lost-ssh-ca-passphrase) and [local secret custody](../docs/Secrets.md).
-
-The replacement Ed25519 CA fingerprint is `SHA256:cF9DuLWENcuTmQYNZKy6yjlZ7U5gc/YfE31q41SfJxU`. Its initial login certificate expires on 2026-11-10. The workstation CA/public key/certificate and all five Terraform node-layer public CA entries were updated; Terraform was not applied. Old trust is retained while offline hosts remain outstanding.
-
-- All four Proxmox hosts accept the replacement certificate for root. The initial console attempt installed a bare public CA key in `/etc/pve/priv/authorized_keys`; adding `cert-authority,principals="root"` fixed authentication. The operator verified the root authorized-key symlink and permissions. Fresh client traces confirmed `ED25519-CERT` acceptance on every host.
-- `jotunheim`: the Proxmox guest agent installed additional public CA trust. New certificate SSH and sudo passed.
-- `alfheim` and `nidavellir`: an existing authorized login key provided recovery access. New certificate SSH and sudo passed.
-- `niflheim`: its changed host key was independently verified by reading `/etc/ssh/ssh_host_ed25519_key.pub` from VM 3104's root partition through authenticated Proxmox SSH, using a read-only loop device and read-only `debugfs`, without mounting or changing the guest filesystem. The host fingerprint is `SHA256:QIBi+PJH9CCUOKgIyQhL7WTF8lbqNgNJwJRQEa7gAF4`. The loop device was detached. Strict SSH verification against that key and the existing login key allowed CA installation; new certificate authentication and sudo passed. Only this host's workstation `known_hosts` entries were replaced, with the original saved locally. The guest-agent service is absent; cloud-init reports completion.
-- Existing authorized-key trust on these four guests was preserved, with `authorized_keys.before-ca-20261011` backups beside their authorized-key files.
-- `yggdrasil` recovered from an initramfs boot failure after the operator performed the guided filesystem repair. Root UUID `4503a76b-f0a0-4337-8c84-32ca0091e510` matches ext4 `/dev/mmcblk1p2`; `/dev/mmcblk1p1` is vfat. The read-only check reported orphaned inodes and block bitmap differences. After repair, root is mounted read/write, SSH/kubelet/containerd are active, time is synchronized, and systemd lists no failed units. This establishes boot recovery, not a full application-data integrity check.
-- The recovered API allowed a temporary, node-pinned recovery Pod on `yggdrasil` to add the public CA to its verified `/etc/ssh/trusted-user-ca-keys.pub`. It used an already cached digest-pinned image, no service-account token, dropped capabilities, and only the host SSH directory mount. New certificate SSH and sudo passed; the Pod was deleted and its absence verified. The previous CA file remains at `/etc/ssh/trusted-user-ca-keys.pub.before-ca-20261011`.
-- `svartalfheim`: new certificate SSH as `oliver` and passwordless sudo are verified at `192.168.8.177`. Effective `TrustedUserCAKeys` is `/etc/ssh/trusted-user-ca-keys.pub`; both CA fingerprints are present and the `.before-ca` backup exists. Initial post-install network timeouts cleared on retry without further trust changes. `/dev/sda2` is mounted at `/srv/minio`, with MinIO and Samba active. SeaweedFS is inactive: this is access recovery, not the storage migration. The temporary public-key-only service on `yggdrasil:18080` was stopped, port closure verified, and owned server files removed. The verified temporary `/tmp/ca.pub` download was removed from the Pi. Local cleanup metadata remains in ignored `.local/ssh-ca-recovery-20261011/public-ca-transfer.json`.
-- API `/readyz` passes, including etcd. Scheduler/controller-manager leases initially retained old timestamps, but both resumed renewal during observation without manual restarts. `yggdrasil`, `jotunheim`, `alfheim`, and `niflheim` have current kubelet leases. Do not mistake cached Node Ready, mirrored Pod phases, or CNPG status for live health immediately after an outage.
-- The initial Longhorn attachment failure for PostgreSQL volume `pvc-6e1da232-b267-4e81-afb4-21433f704195` cleared during reconciliation: it is attached and healthy on `alfheim`, and `data/app-db-1` is Running/Ready. No volume salvage, deletion, or database restore was attempted. SQL/application-data integrity and backup recovery were not verified.
-- `helheim` subsequently recovered: with all four Proxmox members quorate, restarting only host3's corosync released its abnormal 5.2 GiB RSS allocation (about 180 MiB afterward). Four-member quorum was rechecked, available memory exceeded the VM allocation, and existing VM 3103 started successfully. Existing authorized-key access allowed the public CA entry scoped to `ubuntu` to be appended with a rollback backup; fresh `ED25519-CERT` authentication and sudo passed. The node is Ready with active kubelet/containerd. All seven Longhorn volumes then became attached/healthy and all three NATS members Ready. `midgard` remains `NotReady,SchedulingDisabled`; application rollout and data recovery checks are still ongoing.
-
-For Proxmox console recovery, first check the effective SSH trust paths and verify that `readlink -f /root/.ssh/authorized_keys` resolves to `/etc/pve/priv/authorized_keys`. Preserve existing entries, back up the file, then append the root-scoped public CA entry if absent. This single-line form survives consoles that flatten copied line breaks:
-
-```bash
-f=/etc/pve/priv/authorized_keys; test -e /root/authorized_keys.before-ca-20261011 || cp -p "$f" /root/authorized_keys.before-ca-20261011; entry='cert-authority,principals="root" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ/khxdQQQI9UpA1WoPwUbH0bikOq9A3malUSS0IIRbf homelab-user-ca-20261011'; grep -qxF "$entry" "$f" || printf '\n%s\n' "$entry" >> "$f"
-```
-
-Verify fresh certificate authentication afterward; no workload restart is required. Never copy the CA private key or passphrase to a host.
-
-## MCP discovery works but transport authentication is missing
-
-After native OAuth activation, the public smoke check must require the exact Labiraus issuer and validate its authorization metadata, S256 PKCE and registration/token endpoints. A stale expectation of Google in `authorization_servers` caused `unexpected_discovery_contract` even though authenticated MCP worked. Google remains the browser sign-in provider behind consent. Keep anonymous and forged-header transport refusal checks alongside discovery; do not relax them to make CI pass.
-
-The October LAN check read the registered-user count anonymously through `/mcp`: allowing the gateway's mesh identity had not authenticated its caller. A temporary `ingress/mcp-recovery-auth` CUSTOM policy now requires the existing oauth2-proxy provider for `/mcp`, `/sse`, `/message` and `/messages`. It preserves public discovery and preflight. The permanent MCP chart policy and app registered-user check must reconcile before removing the temporary policy. Use `scripts/validation/public-endpoints.py` to verify anonymous/forged-header refusal as well as TLS/discovery, and separately prove authenticated calls. A login redirect is refusal, not successful MCP data access.
-
-Envoy prefixes rather than replaces the auth-check path. `/oauth2/auth/mcp` reaches the proxy's ordinary login/upstream flow; `/oauth2/auth?/mcp` reaches its exact auth-only endpoint. Keep the provider's query delimiter and verify actual 401/202 responses rather than treating a redirect as authenticated-path acceptance.
-
-The provider is also supplied explicitly by `bootstrap/flux-bootstrap`, so updating only the Istio child defaults leaves the effective prefix unchanged. The publication regression now compares both rendered provider configurations. MCP `0.0.0-uat.38164253531` and its permanent edge policy are live; anonymous/forged-header probes passed before removing the temporary recovery policy. Browser login is user-confirmed; authenticated native MCP still needs acceptance.
-
-## S3 startup fails despite a healthy storage host
-
-On 2026-10-11, `svartalfheim` resolved inside the new orchestrator to Wi-Fi `192.168.8.202`, but the workload's egress policy permits the verified wired address `192.168.8.177/32`. Both host listeners were healthy; the application timed out/reset on the disallowed address. Published application, CNPG and prepared Velero endpoints now use the wired address explicitly. Source MinIO stays on port 9000; SeaweedFS cutover remains a separate port-8333/credential migration. Keep endpoints and egress rules aligned rather than broadening access to the LAN.
-
-## OpenSearch cannot downgrade after an interrupted upgrade
-
-The October recovery exposed a failed 3.9.0 upgrade followed by an automatic rollback to 3.7.0. The ML node refused its already-upgraded metadata with `cannot downgrade a node`. Preserve the PVCs and retry forward to the observed newer version. The OpenSearch HelmRelease now uses Flux `RetryOnFailure` for upgrades, avoiding automatic binary downgrade. Istiod also retries failed upgrades so a temporary unavailable worker does not permanently stall gateway dependencies. Check the actual installed Flux CRD/controller supports the strategy before publication.
-
-After both OpenSearch 3.9.0 Pods became Ready, `_cluster/health` still reported one node: data had `discovery.type=single-node`, and the ingress policy allowed no port-9300 peer transport. The data chart now enables normal discovery and permits transport only between this release's data/ML Pods in the same namespace. Preserve both PVCs and verify two actual cluster members after reconciliation; Pod readiness alone does not establish ML membership. One data node can still leave replica shards unassigned.
-
-## Prometheus wrapper conflicts with its own HelmRelease
-
-After repairing empty-overlay publication, the live API dry-run revealed a second issue: the Prometheus wrapper rendered `flux-system/prometheus`, the name already occupied by its owning HelmRelease. Applying it would combine the parent's `chartRef` with the child's `chart`, which the installed CRD rejects. The upstream child is now named `prometheus-stack`, while its Helm release name stays `prometheus` so service names and monitor selectors remain stable. Check both Flux objects after publication.
-
-## Published Helm chart loses defaults with an empty overlay
-
-On 2026-10-11, Flux fetched Prometheus `0.0.0-uat.38152999164`, but install failed at `.Values.worldbuilderObservability.enabled`. `helm show values` on that exact OCI artifact returned no defaults, although source rendering passed. The publication action's old yq expression returned empty output for the zero-byte `values-ghcr.yaml`, then replaced `values.yaml` successfully.
-
-Publication and the local merge helper now share a merger that normalizes empty/null documents to maps, validates single-document mapping inputs and replaces output only after validation. The regression packages the real Prometheus chart, verifies retained defaults and compares its render with source plus overlay. Publish the corrected charts through GitHub Actions and verify Flux against the new artifact; a local render alone does not repair the installed release.
-
-## Devcontainer build fails while installing TFLint
-
-If the build reports `bash: line 1: 404:: command not found` at the TFLint step, check for the obsolete `terraform-linters/tflint/master/install_linux.sh` download in `.devcontainer/Dockerfile`. That upstream URL returns HTTP 404. TFLint is already installed by the pinned Terraform feature in `.devcontainer/devcontainer.json`; keep that feature as the single installation source.
-
-After removing the duplicate Dockerfile installer, run **Dev Containers: Rebuild Container** in VS Code. Verify `terraform version` and `tflint --version` inside the rebuilt container.
-
-## Devcontainer storage tooling and download failures
-
-On 2026-10-11, `https://dl.min.io/client/mc/release/linux-amd64/mc` returned HTTP 410. The devcontainer now installs the SeaweedFS `weed` CLI instead of `mc`, following the storage pivot. It downloads the official [4.48 release](https://github.com/seaweedfs/seaweedfs/releases/tag/4.48) and checks the architecture-specific SHA-256 before extraction. When updating it, update the release and both amd64/arm64 checksums together. Rebuild and verify `weed version`. Existing MinIO-specific Ansible state playbooks still require `mc` and must be replaced as part of the service migration; installing `weed` alone does not migrate storage or backups.
-
-For command-line Dev Containers builds on a Zscaler-inspected Windows host, set `NODE_EXTRA_CA_CERTS` to the absolute path of the existing `.devcontainer/zscaler-ca.crt` before running the CLI. The Dockerfile CA installation covers build steps inside the image; the host Node process needs its own CA configuration for feature downloads.
-
-## SeaweedFS returns read errors immediately after restart
-
-The S3 listener and bucket listing can become ready before volume servers register with the master. The disposable storage smoke test observed transient `InternalError` / `volume not found` responses during that interval. Check a known object's contents as well as listener/list readiness, using bounded retries; persistent failures require checking volume files, the disk mount and filer/master metadata. Never treat a successful bucket listing alone as proof that object data is available. See [migration gates](../docs/SeaweedFSMigration.md).
-
-## Public HTTPS fails before application authentication
-
-On 20 October 2026, all five latest hosted checks failed with `connection_timeout` while their classification tests passed. Public DNS still pointed to `31.50.185.136`, but the observed current WAN address was `81.151.43.40`. All 12 smoke checks passed when connecting to that address with the original hostname/SNI and normal TLS verification; the private gateway also passed. Update the DNS owner's `mcp` A record after verifying the current WAN address, then wait for cached DNS to expire and rerun the ordinary public and hosted checks. No DNS-management integration was available in the diagnostic session. See [current evidence and separate database/Flux findings](../docs/worldbuilder/PUBLIC-VALIDATION.md#current-assessment--20-october-2026).
-
-For recurrence, compare public DNS with the current WAN address and test the private Gateway separately. A local address override must preserve Host, SNI and certificate verification, and must be labelled as a diagnostic rather than public-DNS acceptance. Check the router's dynamic-DNS update mechanism if the WAN address changes repeatedly; do not weaken CI or TLS checks to mask a stale record.
-
-Check the **Public Endpoint Validation** workflow after app/Helm publication. It retries verified HTTPS and records sanitized DNS/TLS/discovery/auth results from GitHub's runner; compare that independent observation with the local network failure. A successful build only establishes artifact publication, and even a passing public probe does not establish the installed revision. Inspect Flux source/release status when an approved cluster connection is available.
-
-After MCP publication, the check now additionally requires that image's stamped discovery version. On 2026-10-10, hosted runs `38082334514` and `38082259713` each failed ten attempts with TLS verification code 62 (hostname mismatch) against `87.117.64.111`, independently confirming the public TLS problem. MCP build/chart publication succeeded, but no application version could be read. Confirm WAN/DNS/NAT ownership and inspect installed Gateway/Certificate/Flux status before changing source that already declares the correct hostname. Do not infer stalled Flux from an inaccessible public route.
-
-Hosted run `38125438853` on 2026-10-11 additionally observed the origin's date-valid Let's Encrypt/YE2 certificate for `bath.bprj.co.uk` and related `bprj.co.uk` names, and a timeout on the anonymous HTTP-01 challenge-path probe. The mismatch therefore exists beyond local Zscaler interception. Final failed checks retain public certificate metadata with verification enabled and HTTP-01 status/redacted redirects without application credentials or response bodies. A date-valid certificate for another hostname is not fixed by expiry/CA-trust bypasses.
-
-On 2026-10-10, `mcp.labiraus.com` resolved but the development network presented a Zscaler-issued certificate for unrelated `bprj.co.uk` names. Anonymous diagnostic responses were Zscaler HTTP 403 pages reporting “Access denied due to bad server certificate”. This is not an application authorization result. Do not disable certificate verification for normal use or send credentials through the failing connection. Have the network administrator investigate; on the approved LAN, compare DNS/NAT forwarding, Gateway certificate/listener readiness and HTTPRoute attachment read-only. Interception prevents concluding whether the origin certificate is also wrong. See [public validation evidence](../docs/worldbuilder/PUBLIC-VALIDATION.md).
+For image pull failures check the actual pinned repository/tag (oauth2-proxy tags
+include a leading `v`). Do not substitute floating images. For `helheim`, host
+power profiles and worker NVIDIA modules are distinct from mere PCI visibility.
 
 ## Document Processing Failures
 
@@ -201,34 +152,6 @@ Expected service names in this repo:
 
 If KEDA cannot read lag, check the processor chart values and the NATS service names before changing application code.
 
-## vLLM Startup Or Gateway Failures
-
-Run the smoke test first:
-
-```bash
-make vllm-gateway-smoke
-```
-
-If it fails, inspect:
-
-```bash
-kubectl get nodes -l node-llm=gpu -o wide
-kubectl -n homelab get deploy,pod -l app.kubernetes.io/name=vllm -o wide
-kubectl -n homelab logs deploy/homelab-vllm --tail=200
-kubectl -n envoy-gateway-system get svc,pod -l gateway.envoyproxy.io/owning-gateway-name=vllm-ai-gateway -o wide
-kubectl -n envoy-gateway-system logs -l gateway.envoyproxy.io/owning-gateway-name=vllm-ai-gateway --tail=120
-```
-
-Common causes:
-
-- GPU node label or `nvidia.com/gpu` allocatable missing
-- first-load model download or CUDA setup exceeds startup probe timing
-- Envoy Gateway proxy is not ready
-- processor-to-gateway NetworkPolicy labels drifted
-- served model name no longer matches `LLM_MODEL`
-
-Keep the default model conservative until this path is stable under repeated restarts.
-
 ## Assistant Proposal Recovery
 
 Proposal rows are processor-owned assistant state. Raw document writes happen only after browser approval through `orchestrator`.
@@ -254,291 +177,84 @@ Recovery guidance:
 - audit row exists but processing failed: reprocess the affected document and follow the returned version.
 - wrong raw content but a previous MinIO version marker is known: stage a browser revert from the audit row so `orchestrator` writes the reverted object and queues reingestion.
 
-## Retention Policy
-
-Current policy is preserve-by-default:
-
-- MinIO `documents` bucket versioning stays enabled; current-object lifecycle expiration remains disabled.
-- `rag.document_lifecycle_events` is retained indefinitely until a reviewed cleanup policy exists.
-- `rag.document_change_audits` is retained indefinitely.
-- assistant conversations, messages, memories, tool calls, proposals, and proposal decisions are retained indefinitely.
-- NATS lifecycle notification retention is best-effort delivery only and is not an audit retention mechanism.
-
-Before enabling destructive cleanup, document:
-
-- retention duration
-- legal/privacy reason
-- backup coverage
-- restore test result
-- user-visible behavior after deletion
-
-## Backup And Recovery Checks
-
-Postgres:
-
-```bash
-kubectl -n data get cluster app-db -o yaml
-kubectl -n data get backup,scheduledbackup
-kubectl -n data get secret cnpg-backup-s3
-```
-
-Expected baseline:
-
-- `app-db` reports `type=ContinuousArchiving`, `status=True` in `status.conditions`.
-- at least one `ScheduledBackup` resource exists for `app-db`; on-demand `Backup` rows may be absent between rehearsals.
-
-If `ContinuousArchiving=False`, inspect the current WAL archive failure before trusting recovery coverage:
-
-```bash
-kubectl -n data logs app-db-1 --tail=200 | rg "barman-cloud-wal-archive|SlowDownWrite|PutObject|archive command failed"
-```
-
-Current known bad reading:
-
-- `SlowDownWrite` from `barman-cloud-wal-archive` means the external MinIO target is refusing WAL writes.
-- while that condition is false, WAL-only recovery coverage is broken even if the cluster itself stays Ready.
-- if `ScheduledBackup` is also absent, the cluster does not currently have the base-backup coverage needed for a real restore rehearsal.
-
-When the archive error points at external MinIO, inspect the host path directly:
-
-```bash
-make minio-host-checks
-```
-
-Current known host-side failure:
-
-- if `/srv/minio` is not mounted, MinIO falls back to the Pi root filesystem directory instead of the external data disk
-- MinIO then starts logging `Storage resources are insufficient for the write operation` and `no online disks found`, which lines up with CNPG `SlowDownWrite` failures from `barman-cloud-wal-archive`
-
-Safe recovery order after confirming the disk device is still present:
-
-```bash
-ssh svartalfheim 'lsblk -f'
-ssh svartalfheim 'sudo mount /srv/minio'
-ssh svartalfheim 'mount | grep "/srv/minio" && df -h /srv/minio && ls -ld /srv/minio /srv/minio/minio-data'
-ssh svartalfheim 'sudo systemctl restart minio && systemctl status --no-pager minio | sed -n "1,20p"'
-make minio-host-checks
-make document-platform-checks
-```
-
-Post-recovery readout should change in this order:
-
-- `/srv/minio` shows as mounted instead of `not-mounted`
-- MinIO host errors stop reporting `Storage resources are insufficient` / `no online disks found`
-- CNPG `ContinuousArchiving` returns to `True`
-- `ScheduledBackup` and later `Backup` rows become meaningful again once the chart change is live
-
-MinIO:
-
-```bash
-make ansible-minio-state
-```
-
-Secrets:
-
-```bash
-kubectl -n flux-system get secret ghcr-creds
-kubectl -n homelab get secret documents-minio-credentials assistant-config external-data-connections mcp-data-connections orchestrator-config processor-config
-kubectl -n data get secret app-db-bootstrap cnpg-backup-s3
-```
-
-Recovery rehearsal should prove:
-
-- CNPG can restore the RAG and assistant schemas from backup.
-- external MinIO documents and object versions are available from `svartalfheim`.
-- generated Kubernetes secrets can be regenerated or reapplied from the documented Ansible/manual-secret paths.
-- browser and MCP inventory/history reads still explain the recovered state.
-
-## Minimum Operator Dashboard Checks
-
-Until dedicated dashboards exist, start with:
-
-```bash
-make document-platform-checks
-```
-
-Then use these checks:
-
-- ingestion throughput: recent `documents.events.processor.completed` lifecycle events
-- processor failures: recent `documents.events.processor.failed` events and processor logs
-- worker lag: KEDA ScaledObject status and NATS stream/consumer health
-- retrieval latency: `external` and `mcp` request logs plus `/metrics` when scraped
-- assistant proposal outcomes: counts by `assistant.file_proposals.status`
-- vLLM health: `make vllm-gateway-smoke`, vLLM pod restarts, and Gateway proxy readiness
-
-`make document-platform-checks` now also prints the CNPG `ContinuousArchiving` condition, current `ScheduledBackup` / `Backup` rows, and recent WAL archive failures so the default operator pass catches broken Postgres recovery coverage earlier.
-
-The repo also includes `sql/rag/ops_dashboard_queries.pgsql` for the Postgres-backed portions of these checks. Run it through the local `psql` workflow after opening the usual app-db port-forward.
-
-These checks reinforce the current service boundaries. Do not add a separate workflow engine for observability alone.
-
-## Minecraft FTB release mismatch
-
-If an FTB download page advertises the requested release but its installer ID resolves to another
-version, check the live pack and version API before changing Ansible. On September 17, 2026, the
-indexed Aero download page paired `1.10.0` with `100504`, while the live API identified that ID as
-`1.11.0`. The correct Aero `1.10.0` ID is `100497`. See [Minecraft VM updates](../docs/MinecraftVM.md#updating-a-managed-server-version)
-for cold backups and installed-version/readiness checks.
-
-## Minecraft installer interrupted by Ansible
-
-If a cold upgrade starts Minecraft and immediately logs `Stopping minecraft.service` while the
-modpack installer is still downloading, check the role's handler ordering. Configuration templates
-notify a restart; flushing that handler after `state: started` interrupts the newly started installer.
-The role now flushes pending restarts before ensuring the service is enabled and started. A stopped
-service with changed configuration starts once, while an unchanged stopped service still starts.
-
-## Worldbuilder migration
-
-Worldbuilder implementation and offline checks are tracked in [implementation status](../docs/worldbuilder/IMPLEMENTATION-STATUS.md). Use the [LAN runbook](../docs/worldbuilder/LAN-RUNBOOK.md) for discovery and controlled activation. Code publication on main is authorised; production migrations and feature activation require the separate LAN gate. Do not use the unfinished `scripts/pg-update.sh` placeholder for this migration.
-
-## Worldbuilder pending canon events
-
-If relay logs report `nats: context and timeout can not both be set`, the client rejected the publish before sending it. Keep pending PostgreSQL events intact and deploy the shared context-deadline publisher fix; do not mark events delivered manually. Verify the dedicated relay can reach OpenSearch through both ingress and egress policies, then compare outbox delivery, three-replica stream/consumer acknowledgements and the indexed revision with PostgreSQL.
-
-OpenSearch access is also overridden by `bootstrap/flux-data` HelmRelease values: include the orchestrator in both parent and child allowlists. After reconciliation, inspect the live ingress and egress policy. A Pod that failed the former one-shot startup remains unready until replaced; the current startup retries twelve checks before refusing readiness.
-
-## Worldbuilder AI allowance startup
-
-If external refuses startup with `invalid inference budget setting WORLDBUILDER_AI_DAILY_MICROS`, inspect the rendered environment value. Flux's JSON values transport rendered the approved `1000000` allowance as `1e+06`; the integer parser correctly rejected it. The chart now formats numeric allowances as explicit integers, and the manifest gate renders actual parent values through JSON into the child. Deploy the chart fix through normal app publication and verify the replacement Pod and exact limits before calling AI activation complete.
-
-## Private AI gateway embedding batches
-
-If TEI logs successful inference but the caller gets HTTP 500, inspect Envoy's response details. `response_payload_too_large` reproduced with three 1,024-dimensional vectors while one vector succeeded. The private vLLM gateway chart now sets a bounded 256 KiB client buffer instead of Envoy's default 32 KiB. Preserve the runtime's eight-item batch cap and oversized-input refusal; verify the full `scripts/validation/embedding-endpoint.py` gate through the gateway after Flux deploys it. A direct runtime test does not cover this limit.
-
-## Worldbuilder generation broker configuration
-
-An `incompatible generation stream` startup error now includes durability drift: inspect subjects, file storage, three replicas and seven-day limits retention. A consumer replica mismatch also stops startup. Do not delete or silently recreate existing streams/consumers to bypass the error; inspect and back up their pending work before controlled repair. The [disposable broker drill](../docs/worldbuilder/BROKER-RECOVERY.md) verifies leader loss, quorum loss and restart locally; installed topology and storage remain LAN checks.
-
-## Worldbuilder disposable API-server acceptance
-
-Use `bash scripts/worldbuilder/test-platform.sh` with the dependencies in [offline acceptance](../docs/worldbuilder/OFFLINE-ACCEPTANCE.md). It downloads pinned/checksummed test binaries and uses generated loopback TLS credentials; setting an operator kubeconfig or `USE_EXISTING_CLUSTER` must never redirect the test. A checksum mismatch, missing API/schema, strict field error or failed negative fixture is a failed gate. Preserve the printed public-schema/render artifact directory and inspect the named resource. Helm stderr is stored separately from YAML. Set `KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT=true` for local startup diagnostics.
-
-New CRDs can initially have absent/null status conditions; the harness waits for `Established` with a deadline. It refuses remote conversion-webhook configurations rather than rewriting their source or connecting outside the fixture. External operators/webhooks need separate disposable fixtures; do not bypass an acceptance failure by selecting a real cluster. No test success proves live admission or workload readiness.
-
-If a local Go cache reports `missing ziphash`, use a fresh task-specific `GOPATH`/`GOMODCACHE` and rerun the existing gate with module verification intact; do not reuse incomplete unpacked modules or disable checksum verification.
-
-For a structural parser error on a bare `=` in a public CRD enum, use the repository's Kubernetes-aware safe loader. It preserves this legal string while rejecting unsafe YAML tags; do not rewrite the upstream CRD or skip its validation. The disposable API-server gate must also pass the original source.
-
-## Worldbuilder Prometheus admission acceptance
-
-The [controller fixture](../docs/worldbuilder/CONTROLLER-ACCEPTANCE.md) runs the chart’s real certificate Jobs before testing admission. Null Helm annotation maps are valid; completed hook Pods share the operator’s name label, so use the Deployment selector for shutdown/replacement. Invalid PromQL may return Kubernetes `Invalid` without a webhook prefix. Check the semantic reason, and prove TLS trust and unavailable-webhook refusal separately. After a Ready operator Pod, wait for actual admission routing within the bounded deadline. Do not disable TLS or set `failurePolicy: Ignore` to make acceptance pass.
-
-## Worldbuilder physical backup acceptance
-
-The [CNPG backup fixture](../docs/worldbuilder/BACKUP-ACCEPTANCE.md) verifies base backup/WAL and latest/PITR recovery after removing only its synthetic source Cluster/Pods/PVCs. Do not reuse those deletion commands against an operator context. Inspect its `backup-result.json` together with the final workflow conclusion and cleanup logs; a configured/completed backup alone does not prove restore. The fixture tests all 17 populated tables and refuses wrong S3 credentials.
-
-CNPG webhook errors may print `Cluster ... is invalid` without an `admission webhook` prefix. The acceptance harness checks the CNPG rejection and separately stops/restarts its own operator to prove fail-closed admission and recovery. Local database fallback only follows a transport failure; password, SQL and certificate errors must not be bypassed by switching to peer authentication.
-
-A newly created NodePort can briefly accept and close a connection before kube-proxy installs its route. The local `psql` preflight retries this startup condition for a bounded interval; a persistent closed connection still fails, and does not select peer authentication. Hosted CI exposed this race after successful CNPG admission checks; test both recovery on a later connection and persistent-failure refusal.
-
-## Worldbuilder Velero recovery
-
-Use the [Velero fixture](../docs/worldbuilder/VELERO-ACCEPTANCE.md) for disposable file/resource restore, and inspect `velero-state.log`, controller/node-agent/restore logs and the final workflow result. A completed metadata backup is insufficient: require a completed PodVolumeBackup/Kopia snapshot, removed source storage, completed PodVolumeRestore and matching file/resource evidence. Failed, partial or warning-bearing results cannot pass.
-
-Default kind local-path PVCs may produce unsupported hostPath PVs. The fixture requests `volumeType: local` and verifies the actual PV and claim UID. It excludes generated `kube-root-ca.crt` with the `velero.io/exclude-from-backup=true` label so the mapped namespace keeps its own current trust. An annotation with that name does not exclude the resource and produces an existing-ConfigMap mismatch. Do not suppress arbitrary restore warnings or copy stale cluster trust to make the test pass. Shared SeaweedFS fixtures use only the target's scoped `cnpg` or `velero` identity actions.
-
-## Worldbuilder metrics and dashboard provisioning
-
-For disposable controller failures, use [controller acceptance](../docs/worldbuilder/CONTROLLER-ACCEPTANCE.md) and retain `kind.log`, `pods.log`, `events.log` and the workflow conclusion. A kind bootstrap that appears to finish kubeadm early can be a Docker exec transport failure: this environment returned exit 0 before a delayed command actually exited 7. The fixture now inspects exec IDs to completion and verifies bounded output transfers. A failed/partial copy or timed-out exec must not become a passing gate. Creation and teardown both use generated kubeconfig; do not allow kind cleanup to edit the operator's home config.
-
-Use the two acceptance commands in [observability](../docs/worldbuilder/OBSERVABILITY.md) before activation. Empty panels require separate checks of the configured datasource UID, application namespace, `worldbuilder-external` job, monitor/Service selection and actual scrape health. A rendered ServiceMonitor alone does not establish discovery or mTLS. Keep STRICT authentication and use the observed scraper identity; do not open the endpoint to all Pods to make a scrape pass. The disposable fixture uses an internal Docker network and needs no reachable published host ports.
-
-Grafana file provisioning does not resolve manual-import `__inputs`. The chart binds UIDs and namespace explicitly, supplies the provider and mounts its ConfigMap. Inspect both the selected upstream chart's volume/provider render and Grafana's provisioned dashboard API. Keep one dashboard JSON source under the Prometheus chart; avoid a separate docs copy drifting from the published artifact.
-
-## Worldbuilder disposable PostgreSQL host forwarding
-
-If the test container is healthy but the devcontainer cannot reach its published port, use `WORLDBUILDER_TEST_TRANSPORT=exec bash scripts/worldbuilder/test-postgres.sh`. The local loopback socat bridge uses only the harness's generated test container and cleans up on exit. Finite commands use labelled exec-ID completion because Docker attach may return before database creation or restore finishes. See [Worldbuilder troubleshooting](../docs/worldbuilder/TROUBLESHOOTING.md). This does not require cluster access or a production database connection.
-
-## Storage publication and historical reverts during migration
-
-App CI publishes the matching Helm chart as well as the image. Keep source endpoint/Secret/egress defaults until the storage gates pass; prepare SeaweedFS settings in explicit cutover overlays. Publishing application code must not implicitly switch object stores. `scripts/storage/check_charts.py` verifies base/GHCR/ECR source and target combinations. A published chart is not evidence of Flux reconciliation or a successful migration.
-
-If an old audit marker cannot be reverted after copying objects, compare the exact bucket/key/version against the verified migration map. New S3 writes assign new IDs; a current-only copy cannot preserve historical reads. Configure both `S3_VERSION_MAP_KEY` and its immutable `S3_VERSION_MAP_VERSION` only after validating the map and restore. The resolver rejects endpoint/bucket mismatch, deleted versions and hash/size mismatch; do not work around those failures by reading the latest object. See [migration/recovery procedure](../docs/StorageVersionMigration.md).
-
-The disposable storage test needs `systemd-socket-activate` and `systemd-socket-proxyd`, plus the role-pinned `weed` binary. Minimal devcontainers may lack the systemd tools even when production hosts have them. CI uses an Ubuntu runner with these tools. SeaweedFS interprets environment variables as flags: an inherited `debug=release` caused startup failure on 2026-10-11. The harness now starts it with a minimal environment and prints the beginning as well as the end of failed startup logs.
-
-## Storage archive ordering evidence refused
-
-Schema-2 archives require both `order/before/` and `order/after/` XML page sets plus their manifest hashes. Do not delete a page or reorder tied manifest entries. A missing page, corrupt checksum, mismatched marker/scope, changed inventory, duplicate version, inconsistent latest flag or non-monotonic provider history stops export/import. SeaweedFS can list a `null` version last regardless of its age; the tool repositions it only when timestamps/latest flags establish one position. Latest null ties and a non-latest null tied only with the latest peer are provable; other null ties require independent source chronology and stay refused. Inspect the installed provider release and original history, preserving source data; changing timestamps or sorting opaque IDs does not establish order. See [retained source ordering](../docs/StorageVersionMigration.md).
-
-Hosted disposable acceptance encountered `No writable volumes and no free volumes left` after allocating 84 mostly empty volumes across fixture buckets. SeaweedFS's automatic slot count divides free disk by the configured 1 GiB volume limit, while default growth creates seven volumes per bucket. The harness now uses a bounded 256-slot override without preallocation, plus the separate large-fixture free-disk check. This is test sizing, not a production repair: actual disk usage, writable volumes, replication and growth capacity require inspection before changing a live server limit.
-
-## Interrupted multipart migration
-
-Retain `multipart-journal.jsonl` and `import-journal.jsonl`; neither authorises activation. Known upload IDs receive a best-effort abort, but a lost initiation reply can leave an unknown orphan and a lost completion reply can leave a committed version even after an acknowledged abort. Inspect versions and unfinished uploads for the recorded key, preserving evidence before controlled cleanup. A disk-full journal or hard stop can leave intent without an outcome. The importer refuses prior import evidence, populated destinations and pre-existing uploads; do not remove these safeguards to rerun it. Prepare a separately empty destination after reconciliation. See [multipart recovery boundaries](../docs/StorageVersionMigration.md).
-
-For the disposable large-object round trip, use `--large-migration` with 12 GiB free temporary disk. If locally extracted systemd tools fail before the server checks, verify their dependencies with `ldd`: both the directory containing `libsystemd-shared-252.so` and the extracted architecture library directory containing `libkmod.so.2` must be in `LD_LIBRARY_PATH`. Check `systemd-socket-activate --version` before restarting the harness.
-
-## Storage reference coverage refuses completion
-
-For current inventory rows with missing version markers, inspect the actual S3 version listing. Ordinary object listings omit version IDs; an observed MinIO literal-null object also had no version header on HEAD. The corrected orchestrator scanner selects current live entries from version listings and preserves the exact marker. After publishing it, use normal inventory reconciliation, verify processing, then repeat the frozen reference export. Do not fill historical audit markers from current objects or interpret SQL NULL as proven S3 version `null`.
-
-Use the [reference coverage procedure](../docs/StorageReferenceCoverage.md) to interpret explicit missing-version/context/delete-marker outcomes. A failed PostgreSQL export has no sealed `manifest.json`; inspect its private `psql.log` for permissions, RLS or schema errors. Do not enable filtered row visibility or substitute a current object to obtain a green result. Resolve verified missing context through an export-bound reviewed file, preserving original database/history values. S3 delete-marker map entries have no body size/hash, and literal `null` is a valid source version ID; neither is a processing-generation number.
-
 ## Git push selects the wrong GitHub account
 
-On 2026-10-11, the forwarded IDE credential helper selected a different GitHub account for a documentation push and GitHub returned HTTP 403, despite an earlier successful implementation push. For this repository, `git -c credential.username=labiraus -c credential.useHttpPath=true push origin main` selected the existing authorised repository account and succeeded. These are per-command hints, not new credentials or a permission bypass. Check the account named in the rejection before assuming repository access was revoked; do not print tokens, change global account selection or force-push to work around authentication.
+If a forwarded IDE credential helper selects the wrong account, inspect the account
+named in GitHub's rejection. A per-command `credential.username=labiraus` and
+`credential.useHttpPath=true` can select the existing authorized repository account.
+These are account-selection hints, not new credentials or a permission bypass.
+Do not print tokens, change global account selection or force-push around a refusal.
 
-If disposable PostgreSQL migrations encounter “the database system is shutting down” immediately after container startup, wait for `pg_isready -h 127.0.0.1` inside that container. The official image starts a temporary socket-only server during initdb; socket readiness can race its shutdown. The Worldbuilder harness now waits for the final TCP server before running migrations.
+## Network Instability
 
-A Worldbuilder proposal can remain labelled `approved` after membership changes while its eligible approval count falls below quorum. Publication correctly returns 409. Inspect review history/current count and obtain fresh independent reviews; restoring an old role does not resurrect its old approval. Published approval counts remain historical and do not change when members leave. See [review policy](../docs/worldbuilder/REVIEW-POLICY.md).
+Install the watchdog script and `systemd` timer on Proxmox:
 
-## Worldbuilder persistent TSDB acceptance
+```bash
+scp scripts/network-watch.sh root@proxmox-node4:/usr/local/sbin/network-watch.sh
+scp scripts/network-watch.service root@proxmox-node4:/etc/systemd/system/network-watch.service
+scp scripts/network-watch.timer root@proxmox-node4:/etc/systemd/system/network-watch.timer
+ssh root@proxmox-node4 'chmod 755 /usr/local/sbin/network-watch.sh && systemctl daemon-reload && systemctl enable --now network-watch.timer && systemctl status --no-pager network-watch.timer'
+```
 
-Use the [TSDB recovery gate](../docs/worldbuilder/TSDB-RECOVERY.md) to distinguish scrape recovery from history recovery. Require stopped producers, quiescent fixed-time raw samples, WAL replay and a distinct restored volume after source deletion. The operator mounts its PVC through `prometheus-db`; derive and check the actual mount/subPath before reading a snapshot. Inspect file hashes before startup and require a causal corrupt-index failure, not an unrelated Pod error. Production storage and admin snapshot access remain separate controlled changes.
+The watchdog derives the management path from the current default route. On a routed bridge such as `vmbr0`, it pings the gateway through the bridge interface and restarts the bridge member that is actually carrying the uplink instead of assuming the physical NIC is always named `nic0`.
 
-The API-server Service proxy can return restored history before kube-proxy installs the new ClusterIP route. A first curl exit 7 therefore requires bounded connection retries, followed by the actual disabled-admin-API response. The disposable gate allows 45 seconds; persistent failure or any other transport/semantic error still fails. An unreachable admin endpoint is not evidence that administration is disabled.
+On the newer `cdc_ncm` USB dongles used on `proxmox-node1` and `proxmox-node4`, the Linux bridge's implicit promiscuous handling was not enough to keep VM return traffic working reliably. A direct `ip link set dev <uplink> promisc on` on the physical bridge member restored bidirectional traffic from `yggdrasil` to the worker VMs. The watchdog now reapplies explicit promiscuous mode on the detected uplink before testing or bouncing it.
 
-Prometheus recovery uses forward retries with a 15-minute child install/upgrade timeout and a 20-minute wrapper timeout. Slow first image pulls must not trigger repeated uninstall/recreate cycles; inspect Pod events and actual image progress before changing the underlying resources.
+If a Proxmox host is migrated to a new USB Ethernet dongle, stop the watchdog before changing the bridge or hot-plugging multiple candidate uplinks. A stale watchdog that still targets the previous NIC can flap the healthy interface while you are trying to recover the host:
 
-`midgard` is the intentionally offline/cordoned burst GPU host. The observed Helm readiness check waits for its otherwise-unschedulable node-exporter Pod indefinitely. The observability bootstrap explicitly excludes this host through `stack.nodeExporterExcludedNodes`; remove the exclusion through Flux when returning it to service, then verify its exporter and kubelet targets. Do not disable readiness checks for the active cluster to hide an offline DaemonSet member.
+```bash
+systemctl stop network-watch.timer network-watch.service
+systemctl disable network-watch.timer
+```
 
-## Late application build restores older source
+USB Ethernet adapters can also fail in ways that look like Kubernetes or Flux problems but are really host-level link issues. In the April 8, 2026 outage, a new ASIX `AX88179` dongle was detected by Linux and exposed as `enx...`, but it was not the active bridge member yet, and one host showed intermittent USB registration failures while the old Realtek uplink was still the live management path. When diagnosing a Proxmox node that vanished from the cluster, confirm the host uplink first:
 
-A Helm workflow may finish after a newer application commit, then dispatch its older SHA with a larger global run ID. On 2026-10-11, MCP run `38164323246` checked out `d4cecf9` even though the run API showed branch head `accf6d6`; that displaced the verified authentication release `38164253531`. Inspect the actual checkout/artifact provenance, not only the run's head SHA or success status. Keep temporary edge containment until both permanent policy and registered-user validation are observed again.
+```bash
+ip -br link
+ip -br addr
+ip route
+bridge link
+ethtool <candidate-uplink>
+journalctl -k -b | egrep -i 'usb|asix|r8152|cdc_ncm|link|carrier'
+```
 
-Helm dispatch now selects the current branch revision. The shared Docker publisher runs `check-app-publish-source.sh` against current branch content for the app, shared code, app chart/libraries and build/workflow inputs, refusing stale promotion. App workflows retest their selected revision. New images record the actual checkout in `org.opencontainers.image.revision`; charts use `homelab.labiraus.com/source-revision`. The GHCR bootstrap temporarily pins MCP's verified chart with `mcp.chartVersion`; a temporary source-controller suspension holds the known artifact until that durable pin is published, then must be resumed. Advance the pin only after real authentication probes pass on the intended replacement.
+If a newly attached USB dongle reports `LOWER_UP` / `Link detected: yes` but the host still does not recover, verify whether `vmbr0` is still bridged to the old interface in `/etc/network/interfaces`. A healthy dongle that is not yet the bridge member will not carry management traffic until the bridge config is updated.
 
+Useful follow-up checks on the host:
 
-## Canon hybrid search refuses or appears incomplete
+```bash
+journalctl -k | egrep -i 'usb|asix|r8152|cdc_ncm|e1000e|link|carrier'
+journalctl -u network-watch.service -u network-watch.timer
+systemctl list-timers network-watch.timer
+ip route show default
+bridge link
+UPLINK=$(ip route show default | awk '/default/ {print $5; exit}'); if [ -d "/sys/class/net/$UPLINK/brif" ]; then UPLINK=$(basename "$(find "/sys/class/net/$UPLINK/brif" -mindepth 1 -maxdepth 1 | head -n1)"); fi; ethtool "$UPLINK"
+ip link set dev "$UPLINK" promisc on
+```
 
-GET canon search is lexical. Optional POST hybrid search requires current revision, a ready matching model profile and an interactive allowance; see [semantic search](../docs/worldbuilder/SEMANTIC-SEARCH.md). A missing/stale index is refused before reservation. Verify the relay's configured profile matches external, and use the explicit rebuild path for a new profile or lost index. Do not use the retained token-hash helper as a fallback or enable a paid endpoint to bypass private-model failure.
+## Local tool and fixture failures
 
-Inspect model request counts and partial/failed-attempt metadata without logging narrative text. Query failure after reservation remains charged. A page token conflict requires a fresh first page. OpenSearch sorted nested hits may put scores in `sort` while `_score` is null; preserve the adapter's score/ID validation and complete-shard checks. Do not turn missing scores into zero or bypass canonical scope reconciliation. The owned index harness verifies this behavior with a synthetic model and actual OpenSearch.
+| Symptom | Recovery boundary |
+| --- | --- |
+| PostgreSQL shuts down immediately after initial readiness | The image uses a temporary socket-only initdb server. Require `pg_isready -h 127.0.0.1` in the fixture before migrations. |
+| PostgreSQL container healthy, published port unreachable | Use `WORLDBUILDER_TEST_TRANSPORT=exec` and the owned loopback bridge. A transport failure is not passing acceptance and never justifies a LAN DSN. |
+| Docker exec exits 0 before completion | Use fixture-scoped exec-ID polling, terminal status and postconditions. Keep exact labels/names and original Docker CLI; prevent shim recursion. |
+| Controller timeout | Inspect events/download progress, bounded deadlines and ownership cleanup. Ready Pod is not proof of webhook/Service routing readiness. See [fixture rules](../docs/testing.md). |
+| Browser fails before tests | Install pinned Chromium libraries/fonts; prove standalone render/click first. Keep fixture identities local and inspect traces before attributing it to SQL. |
+| Go/Helm cache permission failure | Use writable temporary `GOCACHE`, `GOMODCACHE`, `GOPATH` and `HELM_CACHE_HOME`; never disable checksum/TLS verification. |
+| Missing CRD schema / empty helm show crds | Render `helm template --include-crds`; fail on missing custom schemas. Preserve source CRDs, including legal bare `=` enums. |
+| Bootstrap render needs registry secret | Use an offline synthetic `--set-file imagePullSecret.dockerconfigjson=...`; JSON braces in `--set-string` can parse as Helm list syntax. Never deploy fixture credentials. |
+| Empty principal list passes required | Validate `empty` and wildcard refusal explicitly; Helm required alone is insufficient for security-sensitive collections. |
+| TFLint installer returns 404 | Remove duplicate installer; configured Terraform devcontainer feature owns TFLint. Rebuild the full feature-enabled container. |
+| Old mc download returns 410 | Devcontainer uses checksum-pinned `weed`; explicit legacy MinIO automation still needs separately installed `mc`. This is not a completed migration. |
+| Feature downloads fail behind trusted inspection | Host Node may need `NODE_EXTRA_CA_CERTS` for the existing trusted public CA as well as Docker's build trust. Never disable verification. |
+| Backup seed rejects retired roles / misses tables | Update current Author-role seed and all-table physical inventory together; keep fast seed preflight and post-restore ledger/sequence denials. |
+| World picker locator matches Reopen world | Use exact combobox accessible name, wait for navigation attachment and preserve API-browser traces separately. |
+| Storage archive refuses chronology | Keep mixed listings and opaque versions; use explicit `minio-v2` for observed source encoding/cache markers. Never guess tie order or strip markers sent back to the provider. |
+| Multipart migration interrupted | Preserve intent/journal and inspect possible committed versions and unknown upload IDs. Never retry into the populated target or guess an abort. Use a fresh destination after reconciliation. |
+| Reference coverage refuses completion | Resolve export-bound context from frozen evidence; never rewrite audit identity or treat processingVersion as S3 version. See [storage](../docs/storage.md). |
 
-## Native MCP login stops before the browser
-
-`Dynamic client registration not supported` from the configured Codex connection is an OAuth integration failure, not evidence that website Google sign-in is broken. Do not remove transport authentication. The opt-in local issuer reuses website sign-in for explicit client consent and provides MCP registration/PKCE/resource-bound tokens. Follow [native authentication activation](../docs/MCPAuthentication.md); confirm both issuer discovery and the exact client flow. After restoring its database, revoke restored token families before exposing the service so older backups cannot resurrect revoked access.
-
-If the consent page loads but clicking Allow returns `invalid_request`, distinguish the GET from POST in service logs without recording cookies, codes or tokens. A `no-referrer` consent document makes Chromium send `Origin: null`; use the consent-only `same-origin` policy, retaining exact Origin/CSRF checks. Chromium also applies `form-action` to the callback redirect, so the page policy includes the validated callback origin. The owned `TestBrowserConsent` fixture reproduces these browser-specific failures and verifies Allow, Cancel and callback delivery. Do not accept null Origin to work around the symptom.
-
-A stale or repeated consent submission can fail after the client already saved its grant. In the verified recovery, the first POST returned 303 and Codex login succeeded; another POST four seconds later returned 403. Inspect client completion before starting another login. Confirm initialize, tool listing and an authenticated document read with the saved grant; keep tokens and callback codes out of logs. A separate conversation tool bridge that cannot send initialize is not established by a successful CLI login.
-
-## Worldbuilder AI workspace
-
-For schema-9 PWA source, see [local writing and shared conversation recovery](../docs/worldbuilder/TROUBLESHOOTING.md#pwa-local-writing-and-shared-conversations-2026-10-19).
-
-The earlier release used ephemeral conversations. See [workspace recovery notes](../docs/worldbuilder/TROUBLESHOOTING.md#ai-workspace-navigation-and-generation-recovery-2026-10-12) for ephemeral conversations, generation cancellation/allowances, pinned stale drafts and story turns. The AI-first UI preserves deep links during authentication loading; expired membership still requires server authorization.
-
-For a new release, verify the `flux-system/ui` OCI source revision and HelmRelease separately from the `homelab` workload image. Native MCP login does not authenticate the browser; deployed browser tests require an existing Google-proxy session, kept in private local state. See [deployed UI verification](../docs/worldbuilder/TROUBLESHOOTING.md#deployed-ui-verification-and-browser-login-2026-10-12).
-
-## Worldbuilder schema-9 CI gates
-
-On 19 October 2026, commit `59eaadb` passed External, Processor and Orchestrator
-application tests, but their publication jobs were skipped after the shared CNPG
-backup gate failed. Its seed still used the retired `owner`/`reviewer` roles, and
-its table inventory omitted established accounts and conversations. Keep the seed,
-full-table inventory and post-restore protections aligned with numbered migrations;
-never relax a production constraint to make a synthetic seed pass.
-
-The UI also failed its actual API browser journey because a partial “Open world”
-label matched the administration selector's “Reopen world” option. Use the exact
-combobox accessible name and retain the API browser artifact separately from the
-workspace/PWA evidence. See [CI repair evidence](../docs/worldbuilder/CI-REPAIR-2026-10-19.md)
-for the source fix, local verification and hosted rerun status.
-
-
-## Independent inference
-
-Use [the inference runbook](../docs/Inference.md) for local maintenance, account preparation and rollback. `monthly_budget_exhausted` means settled estimates plus held reservations cannot admit another worst-case request; do not delete ledger rows to recover budget. `profile_revision_changed` means pinned work needs its original profile restored, not a silent provider replacement. `cloud_accounting_unavailable` includes absent/expired tariffs and database refusal; local requests should still succeed. An uncertain upstream outcome is never safe to replay automatically. Build-time TLS inspection can use the optional `build_ca` BuildKit secret; keep verification enabled and do not bake local trust material into runtime images.
+An MCP HTTP proxy timeout must return useful nonempty error content; inspect the
+upstream error and transport deadline instead of interpreting an empty tool result
+as successful work. Do not run the unfinished `scripts/pg-update.sh` placeholder;
+use the explicit numbered migration files and owner/grant procedure.

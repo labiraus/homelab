@@ -1,20 +1,20 @@
 # orchestrator
 
-Worldbuilder index projections retain original JSON number tokens in derived record text, including full-range signed fictional dates. The index remains rebuildable and external rechecks candidates against authorised canon; see the [date wire contract](../../docs/worldbuilder/API.md).
+Worldbuilder index projections retain original JSON number tokens in derived record text, including full-range signed fictional dates. The index remains rebuildable and external rechecks candidates against authorised canon; see the [date wire contract](../../docs/worldbuilder/api.md).
 
-Optional Worldbuilder outbox relay and canon projection live in `worldbuilder.go`. `WORLDBUILDER_RELAY_ENABLED=true` requires `WORLDBUILDER_RELAY_DATABASE_URL` (nonprivileged `worldbuilder_relay`), `WORLDBUILDER_OPENSEARCH_URL` and existing `NATS_URLS`. Both canon and generation relay publishes use a five-second context deadline, preserving shutdown cancellation without conflicting JetStream timeout options. The relay acknowledges durable publish before marking delivered; projection uses external revision versions and can rebuild with `WORLDBUILDER_REBUILD_ON_START=true`. See [API/events](../../docs/worldbuilder/API.md). Disabled by default. Existing document queue semantics below are retained.
+Optional Worldbuilder outbox relay and canon projection live in `worldbuilder.go`. `WORLDBUILDER_RELAY_ENABLED=true` requires `WORLDBUILDER_RELAY_DATABASE_URL` (nonprivileged `worldbuilder_relay`), `WORLDBUILDER_OPENSEARCH_URL` and existing `NATS_URLS`. Both canon and generation relay publishes use a five-second context deadline, preserving shutdown cancellation without conflicting JetStream timeout options. The relay acknowledges durable publish before marking delivered; projection uses external revision versions and can rebuild with `WORLDBUILDER_REBUILD_ON_START=true`. See [API/events](../../docs/worldbuilder/api.md). Disabled by default. Existing document queue semantics below are retained.
 
 Canon index startup retries twelve checks with five-second gaps while remaining unready; each HTTP request retains its ten-second timeout and shutdown cancels the wait. Persistent refusal still fails startup. Keep the OpenSearch ingress allowlist aligned in both its child chart and the Flux data parent.
 
-Run `python3 scripts/worldbuilder/test-canon-index.py /tmp/canon-index-result` from the repository root for actual disposable PostgreSQL → JetStream → OpenSearch acceptance, including duplicate delivery, stale-event refusal and reconstruction after lexical/vector index loss. Optional [semantic projection](../../docs/worldbuilder/SEMANTIC-SEARCH.md) uses immutable published snapshots, a shared pinned-model adapter, changed-record vector reuse, separate serialized background throughput and broker heartbeats. It remains disabled until explicitly configured and rebuilt. See [canon index acceptance](../../docs/worldbuilder/INDEX-ACCEPTANCE.md) for isolation and evidence limits.
+Run `python3 scripts/worldbuilder/test-canon-index.py /tmp/canon-index-result` from the repository root for actual disposable PostgreSQL → JetStream → OpenSearch acceptance, including duplicate delivery, stale-event refusal and reconstruction after lexical/vector index loss. Optional [semantic projection](../../docs/worldbuilder/api.md) uses immutable published snapshots, a shared pinned-model adapter, changed-record vector reuse, separate serialized background throughput and broker heartbeats. It remains disabled until explicitly configured and rebuilt. See [canon index acceptance](../../docs/testing.md) for isolation and evidence limits.
 
-Generation startup refuses an existing stream unless it uses three replicas, file storage and seven-day limits retention with the expected subject. Its durable consumer explicitly requires three replicas. Run `bash scripts/worldbuilder/test-jetstream.sh` from the repository root for the CI-gated, disposable three-node leader/quorum/restart drill. See [broker recovery](../../docs/worldbuilder/BROKER-RECOVERY.md) for coverage and remaining LAN gates.
+Generation startup refuses an existing stream unless it uses three replicas, file storage and seven-day limits retention with the expected subject. Its durable consumer explicitly requires three replicas. Run `bash scripts/worldbuilder/test-jetstream.sh` from the repository root for the CI-gated, disposable three-node leader/quorum/restart drill. See [broker recovery](../../docs/recovery.md) for coverage and remaining LAN gates.
 
 `orchestrator` is the internal Go control-plane service.
 
 It owns reconciliation and workflow decisions, including when documents should be queued for asynchronous processing.
 
-The current implementation accepts MinIO-backed document references, reconciles MinIO bucket inventory into Postgres, writes processable control-plane rows as `pending`, and publishes JetStream jobs for the `processor`.
+The current implementation accepts S3-backed document references, reconciles S3 bucket inventory into Postgres, writes processable control-plane rows as `pending`, and publishes JetStream jobs for the `processor`.
 
 `orchestrator` should remain the control-plane owner as retrieval quality, assistant proposals, file-type support, and recovery workflows grow. It should not become an extraction worker, LLM service, or public query surface.
 
@@ -32,148 +32,52 @@ When work is queued, the orchestrator emits the `documents.events.processor.queu
 - `/readiness`
 - `/liveness`
 
-The health endpoints are provided by [pkg/api](/workspaces/homelab/apps/pkg/api).
+The health endpoints are provided by [pkg/api](../pkg/api).
 
-## Document Submission Contract
+## Document API
 
-`POST /documents` currently expects a reference payload, not inline text.
+All mutation routes are private and reached through external. Submission references
+an existing S3 object; create/edit receive text. The supported type policy is
+`text/*`, including HTML. MinIO-compatible environment names serve either the
+retained source or SeaweedFS target.
 
-Required fields:
+| POST path | Required body | Optional body |
+| --- | --- | --- |
+| `/documents` | `documentId`, `bucket`, `objectKey`, `sourceUri`, `contentType` | `versionMarker`, `etag`, `sizeBytes`, `lastModified`, `metadata`, `processingVersion` |
+| `/documents/scan-bucket` | — | `bucket` (default `MINIO_BUCKET`), `prefix`, `maxKeys`, `processingVersion` |
+| `/documents/curation` | `documentId`, object `metadata` | `replace` (default false: merge; true: full replacement) |
+| `/documents/create-text` | `objectKey`, `text` (empty allowed) | `documentId` (default `s3://<bucket>/<objectKey>`), `contentType` (default `text/plain; charset=utf-8`), `metadata`, `processingVersion`, `actorEmail`, `conversationId`, `proposalId` |
+| `/documents/edit-text` | `documentId`, `text` (empty allowed) | `contentType` (current type), `metadata`, `processingVersion`, `actorEmail`, `conversationId`, `proposalId` |
+| `/documents/revert` | `documentId`, S3 `versionMarker` | `contentType` (current type), `metadata`, `processingVersion`, `actorEmail`, `conversationId`, `proposalId` |
+| `/documents/reprocess` | `documentId` | `processingVersion` |
 
-- `documentId`
-- `bucket`
-- `objectKey`
-- `sourceUri`
-- `contentType`
+Scans use version listings and `IsLatest`, retaining literal `null`. Historical
+versions and delete markers are excluded before applying `maxKeys`. Missing version
+identity/listing refusal fails. Unchanged objects keep status and the highest
+desired/completed generation; changed objects advance beyond both. Unsupported
+files remain inventoried. Exact fields and worker fencing are in [documents](../../docs/documents.md).
 
-Optional fields:
+Curation changes metadata without rewriting objects/chunks. Create/edit/revert
+record `rag.document_change_audits`; edit preserves bucket/key and adds
+`editedBy: orchestrator.editText`. Revert reads a historical version and writes it
+as a new current version. Edit, revert and reprocess default to the next derived
+generation and reject unsupported inventory types. Empty text is an intentional
+valid create/edit, distinct from MCP's nonblank text-upload contract.
 
-- `versionMarker`
-- `etag`
-- `sizeBytes`
-- `lastModified`
-- `metadata`
-- `processingVersion`
+## Configuration and checks
 
-This slice supports MinIO-backed `text/*` objects only.
+Configure PostgreSQL/NATS and `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`,
+`MINIO_SECRET_KEY`, `MINIO_USE_SSL`, `MINIO_REGION`, `MINIO_BUCKET`.
+Optional `S3_VERSION_MAP_KEY` and `S3_VERSION_MAP_VERSION` must both pin a verified
+immutable mapping-object version in that bucket. Startup validates schema,
+endpoint/bucket and identities; mapped reverts validate hash/size and reject delete
+markers. New writes use destination-native IDs. With both unset, native reads
+are unchanged. Follow [storage](../../docs/storage.md) before activation.
 
-## Bucket Scan Contract
+Run `go test ./...` and `go build ./...` here. Use the owned PostgreSQL, canon-index,
+broker and storage gates linked above for actual service boundaries. Ordinary
+unit success may skip endpoint-dependent cases and does not prove live acceptance.
 
-`POST /documents/scan-bucket` reconciles objects from the configured documents bucket into `rag.documents`.
-
-Optional fields:
-
-- `bucket`, defaulting to `MINIO_BUCKET`
-- `prefix`
-- `maxKeys`
-- `processingVersion`
-
-The scan:
-
-- inventories each object with bucket, object key, source URI, ETag or version marker, size, last modified timestamp, content type, and desired processing version
-- uses version listings to retain the exact current version, including literal `null`; ordinary listings and legacy HEAD responses can omit it. Historical versions and current delete markers are excluded, and `maxKeys` counts current live objects. Missing version identities and listing refusal fail the scan rather than silently creating unversioned rows.
-- marks non-`text/*` objects as `unsupported`
-- preserves status for unchanged known objects while refreshing `last_reconciled_at`
-- preserves the highest desired/completed processing generation on unchanged scans; changed source identities advance beyond both generations, even when the scan uses its default version. This prevents processor deduplication from discarding changed content as already completed.
-- queues new or changed `text/*` objects through the same Postgres plus JetStream path as `POST /documents`
-
-## Curation Contract
-
-`POST /documents/curation` updates curated metadata for an existing inventory document without touching the raw MinIO object or derived chunks.
-
-Required fields:
-
-- `documentId`
-- `metadata`, a JSON object
-
-Optional fields:
-
-- `replace`, defaulting to `false`. When omitted, the metadata object is merged into existing `rag.documents.metadata`; when true, it replaces the full metadata object.
-
-## Text Create Contract
-
-`POST /documents/create-text` creates a new raw MinIO text object, inventories it, queues the first processing version, and records a `rag.document_change_audits` row.
-
-Required fields:
-
-- `objectKey`
-- `text`, which may be an empty string when intentionally creating an empty text object
-
-Optional fields:
-
-- `documentId`, defaulting to `s3://<bucket>/<objectKey>`
-- `contentType`, defaulting to `text/plain; charset=utf-8` and limited to `text/*`
-- `metadata`
-- `processingVersion`
-- `actorEmail`
-- `conversationId`
-- `proposalId`
-
-## Text Edit Contract
-
-`POST /documents/edit-text` overwrites the raw MinIO text object for an existing inventory document, queues a newer processing version, and records a `rag.document_change_audits` row.
-
-Required fields:
-
-- `documentId`
-- `text`, which may be an empty string when intentionally clearing a text object
-
-Optional fields:
-
-- `contentType`, defaulting to the current document content type and still limited to `text/*`
-- `metadata`, merged into existing document metadata alongside `editedBy: orchestrator.editText`
-- `processingVersion`, defaulting to the next version after the current desired or completed version
-- `actorEmail`
-- `conversationId`
-- `proposalId`
-
-The endpoint rejects non-`text/*` inventory rows, writes the replacement object to the existing bucket and object key, captures the new object ETag/version metadata, and reuses the normal pending-row plus JetStream queue path.
-
-## Revert Contract
-
-`POST /documents/revert` reads a prior MinIO object version for an existing inventory document, writes that content as the new current object version, queues a newer processing version, and records a `rag.document_change_audits` row.
-
-Required fields:
-
-- `documentId`
-- `versionMarker`, the MinIO version ID to restore from
-
-Optional fields:
-
-- `contentType`, defaulting to the current inventory content type and limited to `text/*`
-- `metadata`
-- `processingVersion`, defaulting to the next version after the current desired or completed version
-- `actorEmail`
-- `conversationId`
-- `proposalId`
-
-Historical object versions copied between S3 stores can be resolved through a verified map without rewriting inventory or audit history. Optional `S3_VERSION_MAP_KEY` and `S3_VERSION_MAP_VERSION` must both identify an immutable mapping-object version in `MINIO_BUCKET`. Startup validates the map's schema, endpoint, bucket and version identities; mapped revert reads verify SHA-256/size and reject delete markers. With both unset, existing native version reads are unchanged. New writes always use destination-native IDs. See [version migration and offline client acceptance](../../docs/StorageVersionMigration.md) for the archive/copy tool, limits and controlled activation.
-
-## Reprocess Contract
-
-`POST /documents/reprocess` queues an existing inventory row for a newer processing version.
-
-Required fields:
-
-- `documentId`
-
-Optional fields:
-
-- `processingVersion`, defaulting to the next version after the current desired or completed version
-
-The endpoint reads the existing inventory row from Postgres, rejects non-`text/*` documents, preserves the raw MinIO source metadata, and reuses the normal pending-row plus JetStream queue path.
-
-Runtime configuration now expects both Postgres/NATS settings and the standard documents-bucket MinIO settings:
-
-- `MINIO_ENDPOINT`
-- `MINIO_ACCESS_KEY`
-- `MINIO_SECRET_KEY`
-- `MINIO_USE_SSL`
-- `MINIO_REGION`
-- `MINIO_BUCKET`
-
-Optional Worldbuilder generation dispatch requires schema 10 (aligned with current external), the existing relay flag and `WORLDBUILDER_JOBS_ENABLED=true`, `WORLDBUILDER_JOB_TOKEN` and `WORLDBUILDER_JOB_API_URL`. It relays metadata-only generation outbox events and invokes external's fixed worker endpoint one checkpoint at a time. Dedicated relay grants cannot read private jobs or mutate canon. Both jobs flags default off; configure the dedicated secret, verified mesh identity and conditional network path using the [LAN runbook](../../docs/worldbuilder/LAN-RUNBOOK.md). Orchestrator publication runs the disposable migration harness, including a startup/schema probe that stops before broker activation; schema and harness changes trigger this gate too.
+Optional Worldbuilder generation dispatch requires schema 10 (aligned with current external), the existing relay flag and `WORLDBUILDER_JOBS_ENABLED=true`, `WORLDBUILDER_JOB_TOKEN` and `WORLDBUILDER_JOB_API_URL`. It relays metadata-only generation outbox events and invokes external's fixed worker endpoint one checkpoint at a time. Dedicated relay grants cannot read private jobs or mutate canon. Both jobs flags default off; configure the dedicated secret, verified mesh identity and conditional network path using the [LAN runbook](../../docs/operations.md). Orchestrator publication runs the disposable migration harness, including a startup/schema probe that stops before broker activation; schema and harness changes trigger this gate too.
 
 Canon event decoding accepts explicit initial revision 0 and rejects omitted/null or negative revisions. New worlds now reach both lexical and optional vector projections through the ordinary durable relay; prior revision-0 worlds without events remain covered by the explicit rebuild path.
-
-Current schema-9 governance, immutable established accounts, conversations and offline contracts supersede the earlier role/policy descriptions above. See [PWA implementation](../../docs/worldbuilder/PWA-IMPLEMENTATION.md). Source verification does not imply production activation.

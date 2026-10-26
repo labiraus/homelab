@@ -1,8 +1,8 @@
 # Inference policy proxy
 
-Independent Go service, deployed with `helm/infra/inference`. Worldbuilder and operator experiments share authenticated OpenAI-compatible chat routes. Local has no monetary/daily quota; explicitly selected Bedrock requests share an atomic $100 UTC-month PostgreSQL budget. No automatic paid fallback or billed-request replay.
+Independent Go service, packaged for opt-in deployment with `helm/infra/inference`. Worldbuilder and operator experiments share authenticated OpenAI-compatible chat routes. Local has no monetary/daily quota; explicitly selected Bedrock requests share an atomic $100 UTC-month PostgreSQL budget. No automatic paid fallback or billed-request replay.
 
-Read [the operator guide](../../docs/Inference.md) for catalogue settings, API limits, private access, certificate renewal, pricing approval, model maintenance, backup and staged activation. The default chart disables Bedrock and uses the existing Helheim Qwen model. Embeddings are unchanged.
+Read [the operator guide](../../docs/inference.md) for catalogue settings, API limits, private access, certificate renewal, pricing approval, model maintenance, backup and staged activation. The default chart disables Bedrock and uses the existing Helheim Qwen model. Embeddings are unchanged.
 
 Runtime environment:
 

@@ -1,6 +1,9 @@
-# Independent inference platform
+# Inference
 
-The independent Go service in `apps/inference` is the policy boundary for Worldbuilder and operator experiments. It uses the existing Envoy AI Gateway controllers for translation and routing. Local is the default; there is no paid fallback. Source activation is opt-in and has not been published or deployed. AWS account access, allowance eligibility and live model acceptance remain activation gates.
+The source catalogue and procedures below are versioned repository contracts.
+Publication, activation and live model acceptance are tracked in [status](status.md).
+
+The independent Go service in `apps/inference` is the policy boundary for Worldbuilder and operator experiments. It uses the existing Envoy AI Gateway controllers for translation and routing. Local is the default; there is no paid fallback. Source activation is opt-in; the latest retained evidence does not establish publication or deployment of the independent proxy. AWS account access, allowance eligibility and live model acceptance remain activation gates.
 
 ## Routes and contracts
 
@@ -64,7 +67,7 @@ Use `helm/infra/vllm/profiles/helheim-qwen3b.yaml` as the baseline experiment pr
 
 ## AWS preparation and activation
 
-A blank local profile was prepared in ignored `.local/aws/config` and `.local/aws/credentials`, named `homelab-bedrock`, region `eu-west-1`. Fill these privately before publication. It is operator provisioning access; workload access uses Roles Anywhere certificates, never these static credentials. To select it:
+Use ignored `.local/aws/config` and `.local/aws/credentials` for an operator profile named `homelab-bedrock` in `eu-west-1`, populated privately when needed. Do not assume a prior session's local profile exists. It is operator provisioning access; workload access uses Roles Anywhere certificates, never these static credentials. To select it:
 
 ```sh
 export AWS_CONFIG_FILE="$PWD/.local/aws/config"
@@ -94,7 +97,7 @@ Rollback disables `cloud.enabled`, returns Worldbuilder to the tested local prof
 
 ## Verification and references
 
-Offline commands: `go test -race ./...` in `apps/inference`, `bash scripts/inference/test-postgres.sh`, `python3 scripts/inference/test-manifests.py`, the existing Worldbuilder PostgreSQL/platform/backup gates, and `python3 scripts/inference/test-gateway.py OUTPUT SCHEMAS` after fetching pinned platform schemas. Gateway acceptance uses actual Envoy/Cilium controllers with synthetic providers and temporary credentials; no AWS account or production cluster is used. See [acceptance status](worldbuilder/ACCEPTANCE-MATRIX.md) for the boundary between source tests and live deployment.
+Offline commands: `go test -race ./...` in `apps/inference`, `bash scripts/inference/test-postgres.sh`, `python3 scripts/inference/test-manifests.py`, the existing Worldbuilder PostgreSQL/platform/backup gates, and `python3 scripts/inference/test-gateway.py OUTPUT SCHEMAS` after fetching pinned platform schemas. Gateway acceptance uses actual Envoy/Cilium controllers with synthetic providers and temporary credentials; no AWS account or production cluster is used. See [acceptance status](status.md) for the boundary between source tests and live deployment.
 
 After building the processor with `npm --prefix apps/processor run build`, run the bounded Worldbuilder suite through the authenticated localhost forward:
 
@@ -106,8 +109,134 @@ INFERENCE_TOKEN="$INFERENCE_OPERATOR_TOKEN" node scripts/worldbuilder/check-live
 
 For an approved paid evaluation, select the cloud alias and its matching revision in these variables and explicitly add `INFERENCE_ALLOW_PAID=true`. The suite does not bypass proxy accounting. Never substitute a direct Bedrock endpoint.
 
-Source acceptance on 19 October 2026 includes proxy race/accounting tests (`/tmp/inference-unit-complete.log`, `/tmp/inference-proxy-tariff-final.log`), populated Worldbuilder schema-10 migration/generation/logical restore (`/tmp/inference-worldbuilder-postgres-corrected.log`), and physical latest/PITR recovery of all 22 populated tables plus shared auth and permissions (`/tmp/inference-physical-backup-retry.log`). Processor tests/build, UI tests/build, image builds, Helm packaging, 612-resource Kubernetes validation and Terraform validation pass. Actual Envoy/Cilium controllers also pass required-tool translation, credential sidecar injection, synthetic credential refresh/expiry refusal, direct gateway bypass denial and local independence (`/tmp/inference-gateway-complete/acceptance.json`); owned cleanup passed. Earlier gateway fixture failures were caused by a missing IMDSv2 token lifetime header and are superseded by this corrected run. No Terraform apply or production migration was performed.
-
-The corrected eleven-case local quality suite passes against Helheim through a candidate localhost proxy (`/tmp/inference-local-quality-final/quality.jsonl`). Four short warm requests had median latency 0.194 seconds and measured GPU memory 7,264/8,192 MiB (`measurements.json` in the same directory); these synthetic timings are not representative workload throughput. The earlier proposal-preservation failure is retained as diagnostic history and superseded by the corrected complete suite. Cold startup, new persistent-cache retention/model rollback, live PKI and both paid-model suites remain rollout gates.
-
 Authoritative activation references: [Nova 2 Lite](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-amazon-nova-2-lite.html), [Sonnet 4.5](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-sonnet-4-5.html), [Bedrock pricing](https://aws.amazon.com/bedrock/pricing/), [credential helper](https://docs.aws.amazon.com/rolesanywhere/latest/userguide/credential-helper.html), [AWS Budgets](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-managing-costs.html). Account-specific eligibility and current tariffs must be verified before paid activation.
+
+## Legacy gateway and embeddings
+
+Envoy AI Gateway is installed through `helm/infra/envoy-ai-gateway/` and reconciled by Flux through the `envoy-ai-gateway` component block and template in `helm/bootstrap/flux-infra/`.
+
+The infra stack installs two upstream controller artifacts plus two parent-owned CRD sources:
+
+- Envoy Gateway CRDs from the upstream `envoyproxy/gateway` Git repository
+- Envoy Gateway into `envoy-gateway-system`
+- Envoy AI Gateway CRDs from the upstream `envoyproxy/ai-gateway-crds-helm` OCI artifact via a dedicated Flux `HelmRelease`
+- Envoy AI Gateway controller into `envoy-ai-gateway-system`
+
+The Envoy Gateway Helm values include the upstream AI Gateway compatibility settings so Envoy Gateway exposes the Backend API and the xDS translation hooks required by Envoy AI Gateway.
+
+Current scope:
+
+- installs the control-plane components only
+- app-specific AI routing resources now live with the infra chart that owns the model runtime
+- `helm/infra/vllm` creates a local vLLM service plus Envoy Gateway `Backend`, Envoy AI Gateway `AIServiceBackend`, `AIGatewayRoute`, and an internal `GatewayClass`/`Gateway` for the first OpenAI-compatible local model path
+- provider credentials are still not managed by the infra chart; the local vLLM backend does not require an upstream provider API key
+- the Flux bootstrap ownership for the `vllm` chart now lives in `helm/bootstrap/flux-infra/` alongside `envoy-ai-gateway`, rather than under `flux-apps`
+
+Pinned upstream versions in this repo:
+
+- Envoy Gateway `v1.7.0`
+- Envoy Gateway CRDs `v1.7.0`
+- Envoy AI Gateway CRDs `v1.0.0`
+- Envoy AI Gateway controller `v1.0.0`
+- Gateway API standard CRDs `v1.4.1` via `helm/bootstrap/flux-bootstrap/`
+
+Current repo note:
+
+- Gateway API is pinned to `v1.4.1` to stay aligned with the upstream Envoy Gateway `v1.7.x` compatibility matrix used by this repo
+- clean installs split CRD ownership so Flux bootstrap owns Gateway API CRDs, a Flux `GitRepository` + `Kustomization` owns Envoy Gateway CRDs from `envoyproxy/gateway`, a dedicated Flux `HelmRelease` owns Envoy AI Gateway CRDs from the upstream CRD chart, and the controller HelmReleases install with CRD management disabled
+- the top-level `envoy-ai-gateway` Flux component in `flux-infra` is configured with wait disabled because it bootstraps child Flux objects; readiness is tracked on the child `HelmRelease` and `Kustomization` resources instead of on the wrapper chart itself
+- operator access to Postgres no longer depends on a permanent Gateway API `TCPRoute`; the supported workflow is local `make postgres` with a temporary `kubectl port-forward`
+
+Local vLLM integration:
+
+- chart: `helm/infra/vllm`
+- default image: `vllm/vllm-openai:v0.20.2`
+- default model: `Qwen/Qwen2.5-3B-Instruct-AWQ`
+- default node path: `helheim` with `node-llm=gpu` and `nvidia.com/gpu: 1`
+- runtime flags enable OpenAI-compatible serving, tool-call parsing, automatic tool choice, prefix caching, and eager-mode execution for faster startup on the current consumer GPU path; quantization can be enabled by setting `model.quantization`
+- the startup probe allows roughly one hour for first-load model download, CUDA setup, and compilation on the lab GPU path before Kubernetes restarts the container
+- the processor service uses `AI_GATEWAY_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`; Envoy AI Gateway routes that OpenAI-compatible traffic to the in-cluster vLLM backend
+- OpenSearch ML Commons models used by RAG indexing/search should be configured with connectors that call Envoy AI Gateway, so embedding providers can move from local/OpenSearch-backed inference to Bedrock without app code changes
+- current gap: the repo creates the OpenSearch ingest/search pipelines but does not yet automate ML Commons model and connector registration; operators must register `OPENSEARCH_RAG_MODEL_ID` against Envoy AI Gateway before processor indexing succeeds
+- `helm/infra/embeddings` supplies a separate private CPU embedding runtime and model-specific gateway route. Owned real inference passes and bootstrap enables its deployment; live gateway, registration and ingestion checks remain required. See [document search recovery](documents.md).
+
+Near-term validation focus:
+
+- confirm the vLLM pod schedules onto `helheim` with the expected `node-llm=gpu` label and one `nvidia.com/gpu`
+- confirm the model cache and startup probe settings are sufficient for first-load startup without repeated restarts
+- confirm the Envoy AI Gateway service accepts OpenAI-compatible chat requests from `processor`
+- keep the default model conservative until startup time, memory pressure, answer quality, and tool-call compatibility are measured
+
+## Runtime Smoke Test
+
+Use the repo target after the `vllm`, `processor`, and Envoy AI Gateway releases have reconciled:
+
+```bash
+make vllm-gateway-smoke
+```
+
+The target runs `scripts/vllm-gateway-smoke.sh`. It:
+
+- checks nodes labeled `node-llm=gpu` and reports allocatable `nvidia.com/gpu`
+- waits for `deployment/homelab-vllm` in namespace `homelab`
+- prints current vLLM pod placement so `helheim` scheduling is visible
+- checks the internal Envoy AI Gateway service `envoy-gateway-system/homelab-vllm-ai-gateway`
+- creates a temporary in-cluster curl `Job` in namespace `homelab` with the same app labels used by the processor network-policy path
+- sends an OpenAI-compatible `POST /v1/chat/completions` request to `AI_GATEWAY_BASE_URL` or the legacy `LLM_BASE_URL`
+- requires a response containing `choices`
+
+Default smoke-test inputs:
+
+- `AI_GATEWAY_BASE_URL=http://homelab-vllm-ai-gateway.envoy-gateway-system.svc.cluster.local/v1`
+- `AI_CHAT_MODEL=Qwen/Qwen2.5-3B-Instruct-AWQ`
+- `VLLM_ROLLOUT_TIMEOUT=70m`
+- `VLLM_SMOKE_TIMEOUT=5m`
+
+Useful overrides:
+
+```bash
+AI_CHAT_MODEL=Qwen/Qwen2.5-3B-Instruct-AWQ make vllm-gateway-smoke
+VLLM_SMOKE_KEEP_JOB=1 make vllm-gateway-smoke
+VLLM_ROLLOUT_TIMEOUT=10m VLLM_SMOKE_TIMEOUT=2m make vllm-gateway-smoke
+```
+
+## Runtime Checks
+
+Start with scheduling and GPU visibility:
+
+```bash
+kubectl get nodes -l node-llm=gpu -o wide
+kubectl describe node helheim | grep -A8 -E 'Labels:|Allocatable:'
+kubectl -n homelab get deploy,pod -l app.kubernetes.io/name=vllm -o wide
+kubectl -n homelab describe pod -l app.kubernetes.io/name=vllm
+```
+
+Then inspect startup and cache behavior:
+
+```bash
+kubectl -n homelab logs deploy/homelab-vllm --tail=200
+kubectl -n homelab get events --sort-by=.lastTimestamp | grep -E 'homelab-vllm|Failed|BackOff|Unhealthy'
+kubectl -n homelab get deploy homelab-vllm -o jsonpath='{.spec.template.spec.volumes[?(@.name=="model-cache")].emptyDir.sizeLimit}{"\n"}'
+```
+
+Check the Gateway resources and generated proxy service:
+
+```bash
+kubectl -n homelab get gatewayclass,gateway,backend,aiservicebackend,aigatewayroute
+kubectl -n envoy-gateway-system get svc,pod -l gateway.envoyproxy.io/owning-gateway-name=vllm-ai-gateway -o wide
+kubectl -n envoy-gateway-system logs -l gateway.envoyproxy.io/owning-gateway-name=vllm-ai-gateway --tail=120
+```
+
+If `make vllm-gateway-smoke` fails:
+
+- a pending vLLM pod usually means `helheim` is missing the `node-llm=gpu` label, the GPU device plugin is not advertising `nvidia.com/gpu`, or the node cannot satisfy CPU/memory requests
+- repeated startup probe failures usually mean first-load model download or CUDA setup exceeded the current probe window, the model cache is too small, or the image cannot initialize the local GPU runtime
+- `curl` timeouts from the smoke job usually point to the Gateway service, Envoy proxy readiness, or network-policy labels on the processor-to-gateway path
+- HTTP 4xx/5xx responses with vLLM logs usually mean the served model name, OpenAI-compatible path, or Envoy AI Gateway route no longer matches the processor configuration
+
+Keep the default model small and unquantized until this smoke test is reliable and the startup time, memory pressure, response quality, and tool-call behavior are measured on the live `helheim` GPU path.
+
+Upstream references used for this integration:
+
+- Envoy AI Gateway install guide: `https://aigateway.envoyproxy.io/docs/getting-started/installation/`
+- Envoy AI Gateway base Envoy Gateway values: `https://raw.githubusercontent.com/envoyproxy/ai-gateway/v1.0.0/manifests/envoy-gateway-values.yaml`

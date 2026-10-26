@@ -1,12 +1,6 @@
-## Scope
+# Application rules
 
-This file applies to everything under `apps/`.
-
-## Purpose
-
-`apps/` contains Worldbuilder and retained document services plus shared Go packages under `apps/pkg/`. Canon publication belongs only to external; processor can generate candidates, never approve or publish.
-
-The goal here is clarity and operability, not unnecessary abstraction.
+Apply the root policy and these directory-specific constraints.
 
 ## Working Rules
 
@@ -23,20 +17,10 @@ The goal here is clarity and operability, not unnecessary abstraction.
 - `orchestrator/` is the internal Go document control plane and optional canon outbox/index worker
 - `processor/` is the TypeScript Node HTTP/LangGraph service and NATS JetStream worker
 - `ui/` is the Vite frontend
+- Worldbuilder reasoning is in `apps/external/worldbuilder/reasoning.go`, HTTP routing in `worldbuilder/http.go`, and startup checks in `apps/external/worldbuilder.go`; there is no `worldbuilder/api.go`. Discover actual files before reads.
 - Run UI npm commands from `apps/ui`; there is no root `package.json`.
 - UI styling lives in `apps/ui/src/styles.css`; there is no `App.css`. Scoped canon views consume published records and submitted filters, never staged edits, unsaved inputs or the editor's independent reference catalog.
 - `pkg/` contains shared Go helpers used by application code
-
-## Safety Notes
-
-- Do not hardcode real credentials, tokens, or cluster-specific endpoints in app source or tests.
-- Keep local-only secrets in ignored files or runtime configuration, not tracked source.
-
-## Self-Learning Loop
-
-If a repeated app-level convention emerges, record it here.
-
-If a lesson applies only to one app, add a more specific `AGENTS.md` under that app directory later rather than overloading this file.
 
 ## Build and canon boundaries
 
@@ -48,7 +32,7 @@ If a lesson applies only to one app, add a more specific `AGENTS.md` under that 
 - Fictional record `from`/`until` and query `at` ticks span signed int64. Preserve original JSON number tokens at JavaScript and generic Go boundaries; JavaScript carries unsafe ticks as decimal strings. Never restrict canon to JS safe integers or convert already-rounded Numbers to BigInt. Keep numeric persisted history/hash encoding stable; test both extremes, equivalent quoted/numeric retries and half-open historical reads when changing date handling.
 - AI proposal candidates must retain their generation `baseRevision` when persisted; never replace it with a newly fetched revision to avoid a conflict. Rebase explicitly and obtain fresh review.
 - Build live AI evidence fixtures from the actual Go `Record` contract. A source description belongs in `attributes.description`; a top-level `description` is rejected by the canonical API. Direct processor JSON smoke acceptance does not prove canonical request compatibility.
-- Manual editor staging must also retain the displayed revision and original before-state. Refreshing canon must not silently change a draft's base revision. Reconciliation creates a fresh draft with explicit conflict choices and independent approval.
+- Manual editor staging must also retain the displayed revision and original before-state. Refreshing canon must not silently change a draft's base revision. Reconciliation creates a fresh draft with explicit conflict choices and the current publication policy.
 
 - Generated story candidates must retain their inspected sessionVersion when saved; do not substitute a refreshed session version. Definitions and narrative premises retain their original revision/timeline pin. Compare persisted JSONB semantically in tests, since PostgreSQL may reorder object keys without changing content.
 
@@ -65,7 +49,6 @@ If a lesson applies only to one app, add a more specific `AGENTS.md` under that 
 - When advancing the Worldbuilder schema, search every app's startup checks, including orchestrator generation workers, and exercise them against the migrated disposable database. External publication tests alone do not cover relay/worker activation compatibility.
 
 - Schema 9 uses collective Authors, Readers and global Administrators. Administrative publication policy is versioned separately from canon; old `reviewPolicy` fields remain historical and cannot change governance. Independent reviews exclude every proposer; unanimous policy includes an Author proposer. Administrator publication overrides require an immutable reason and bypass approval count only. Reevaluate policy/membership authority, protect final Authors/Administrators and retain historical approvals. Runtime cannot directly mutate grant rows or immutable established-account ledgers. Never weaken original revision, private-session ownership or validation checks.
-
 
 - Exercise the production Worldbuilder publish helper in disposable broker tests. JetStream rejects passing both `nats.Context` and publish `nats.AckWait`; use a timeout-bearing context so bounded acknowledgement and shutdown cancellation share one option. Direct test-only publishes missed this live relay failure.
 

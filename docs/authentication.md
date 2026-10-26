@@ -1,6 +1,94 @@
-# Native MCP authentication
+# Authentication
 
-The website uses Google through OAuth2 Proxy. Native MCP clients need a separate authorization-code flow: the observed `codex mcp login homelab-mcp` failed at Google's unsupported dynamic client registration. The opt-in authorization server in `apps/external/mcpauth/` reuses website sign-in for explicit client consent, then issues resource-bound opaque tokens. It does not mint Google credentials. Disposable protocol/restore tests and production-clone migration rehearsals pass; production activation and actual client login remain separate gates.
+Google authenticates browser users through oauth2-proxy. External authorizes the
+normalized email against `auth.users`, then checks current world authority.
+Native MCP clients use the separate local authorization server described below.
+Metadata discovery, Google login and authenticated tool execution are distinct gates.
+
+## Browser identity and routing
+
+The shared Go middleware reports `mode`, `email`, `valid` and `invalidReason` through
+`/api/auth/status`. Trusted certificate identity uses `mode: certificate`; trusted
+proxy identity uses `oidc`; absent identity uses `none`. Unknown registered-user
+identity fails application authorization. Never rerun the truncating legacy
+`sql/auth.pgsql` seed against a populated registry.
+
+The browser route is `mcp.labiraus.com` → oauth2-proxy → UI or external. The UI reads
+`/api/auth/providers`; external publishes the start URL in `OIDC_LOGIN_URL`.
+The proxy forwards sanitized identity, with `X-Forwarded-Email` preferred by the
+existing API. The API's supported header fallbacks are safe only behind the exact
+trusted proxy/mesh boundary. Caller-supplied headers are not authentication.
+
+Keep `OAUTH2_PROXY_PASS_HOST_HEADER=true` and the proxy-scoped mesh VirtualService
+in `helm/infra/oauth2-proxy/templates/upstream-routing.yaml`. Preserving the public
+Host lets external enforce same-origin writes; the explicit route avoids
+PassthroughCluster against STRICT mTLS. Do not weaken Origin checks to compensate
+for broken routing. Keep parent and child Istio provider arrays aligned: parent
+values replace lists. Adding the first workload ALLOW policy must preserve all
+existing intended routes.
+
+## Google configuration
+
+Use the existing project's Web application OAuth client, not a separate callback
+inside each app. Repository-required settings are:
+
+| Setting | Value |
+| --- | --- |
+| Browser start | `https://mcp.labiraus.com/oauth2/start?rd=https%3A%2F%2Fmcp.labiraus.com%2F` |
+| Exact redirect URI | `https://mcp.labiraus.com/oauth2/callback` |
+| JavaScript origin / home | `https://mcp.labiraus.com` / `https://mcp.labiraus.com/` |
+| Privacy / terms | `/privacy-policy.html` / `/terms-of-service.html` on that host |
+| Scopes | `openid email profile` |
+| Proxy email domains | `OAUTH2_PROXY_EMAIL_DOMAINS="*"` |
+| Intended audience | External, with production publishing for deployed access |
+| Secret | `homelab/oauth2-proxy-google` (see [secrets](secrets.md)) |
+
+An Internal Google project restricts sign-in to its Workspace organization.
+Changing the audience does not register accounts or grant world membership.
+Configure the existing client/project through Google Auth Platform; do not rotate
+credentials just to change audience. Provider UI/policy may evolve; confirm the
+current project settings before making changes.
+
+Use the Administrator account-management UI to register intended normalized Google
+emails. Administrators can manage global Administrator access through the audited
+API with final-Administrator protection. Grant Author/Reader world access separately
+where appropriate. The legacy `superuser` field/table is a compatibility name,
+not a PostgreSQL superuser role. See [governance](worldbuilder/api.md).
+
+Acceptance requires a fresh session for a registered outside-domain account,
+`mode: oidc`, `valid: true` and permitted world actions; an unregistered account must
+remain invalid and unable to read worlds. The proxy wildcard, lack of an `hd` filter
+or a successful Google callback alone does not establish these behaviors. The
+latest retained audience/device limitations are in [status](status.md).
+
+## Client certificates
+
+The optional certificate path uses gateway-validated email identity and
+`SANITIZE_SET` forwarding of `X-Forwarded-Client-Cert`. It prefers URI SAN
+`spiffe://homelab/users/<email>`, with email in the subject also supported.
+The application client-auth CA is separate from the SSH user CA.
+
+Use `bash scripts/generate-client-cert.sh init-ca ./.local/auth-certs "Homelab Client CA"`
+only when creating a new CA. Issue a client with
+`bash scripts/generate-client-cert.sh issue-client ./.local/auth-certs <registered-email>`;
+export a password-protected PKCS#12 bundle with the script's `export-p12` command
+when browser import is needed. Keep all keys/bundles local-only and protect the
+export password. Use the system's verified server trust for HTTPS; a client-auth
+CA is not automatically the server certificate issuer.
+
+The gateway's `clientCertificateValidation.enabled` and `secretName` reference
+`ingress/homelab-client-ca` containing public `ca.crt`. The Gateway renders
+`spec.tls.frontend.default.validation.caCertificateRefs`. Enabling strict client
+validation on the shared HTTPS listener makes certificates mandatory before browser
+OIDC. Keep normal HTTPS for the shared browser hostname; use a dedicated listener
+or hostname for certificate-only access.
+
+## Native MCP authorization
+
+Native authorization reuses website sign-in for explicit client consent, then
+issues resource-bound opaque credentials. It does not mint Google tokens.
+The normal source paths support both legacy SSE and Streamable HTTP. Preserve
+public discovery and authenticate every transport path.
 
 ## Protocol and isolation
 
@@ -30,18 +118,29 @@ Never write tokens or connection passwords into Git, logs, command arguments or 
 
 ## Restart, restore and revocation
 
-Production staging on 2026-10-11: backup `20261011T203021` completed before native authorization changes. The dedicated `data/mcp-oauth-credentials` Secret is provisioned separately and `flux-data` enables its managed role while preserving the closed canon migration owner. Schema installation and application activation are subsequent explicit steps.
+Observe parent and child Flux values together during a provider switch; prevent an
+older in-flight parent build from restoring an old child pin, and resume normal
+reconciliation when published values agree. Temporary recovery patches must converge
+to committed inputs. Dated native-login acceptance is in [status](status.md).
 
-The corrected chart publication (`66a6c89`, Helm run `38173417526`) has reconciled the role and both Istio providers. Explicit OAuth schema 1 and dedicated grants are installed; accessible legacy table fingerprints are unchanged, and the runtime has no canon/user-registry write access. The separate `homelab/native-oauth-external` Secret is ready. The Flux apps parent now stages external's issuer using the observed exact service principals; MCP retains its legacy provider and verified artifact pin until live issuer/boundary checks pass. Any recovery-time HelmRelease values patch must match these committed inputs and converge to the published parent.
-
-External `38173626806` is live. Public issuer/registration checks pass, and diagnostic Pods with the four actual service accounts confirm browser-only consent, gateway/MCP-only checks, and invalid bearer/cookie refusal. Readiness gates kept them out of service traffic; they authenticated no real user. The first gateway consent probe timed out, and a complete fresh probe run passed. MCP `38173624785` passes full CI and is now the exact staged pin with native mode enabled. Hold the parent Flux apps release during the staged child switch to prevent an older in-flight parent build restoring the old pin; resume it once its published values match this configuration. Real client consent, tool listing and document acceptance remain required.
+A repeated consent POST after a successful redirect may return 403. Check client
+completion and timestamped status-only logs before treating a stale browser error
+as a failed grant. Never expose callback codes or tokens. A CLI login and an existing
+conversation's MCP connection are separate clients and need independent checks.
+Public validators must expect the selected native issuer/endpoints and S256 PKCE,
+not the legacy Google discovery contract.
 
 Ordinary service replacement retains valid credentials in the shared store. Database restoration is different: a backup can precede a revocation. Before exposing a restored authorization store, apply `sql/mcp/revoke-after-restore.sql` to clear pending requests/codes and revoke all token families, then require fresh browser consent. Preserve approved client identities. Do not automatically perform this reset on ordinary startup.
-
-Recovery acceptance on 2026-10-11: external `38175617058` contains the real-browser consent fix and passes all eight CI jobs. The Flux apps parent is resumed and Ready on its inspected archive, retaining MCP pin `38173624785`. The actual configured `codex mcp login homelab-mcp` completed and saved credentials. Using that saved grant against public HTTPS, initialize, initialized notification, all 15 tools, inventory and an actual document resource read pass; the 42-byte document matches source S3 byte for byte. A repeated consent POST after the successful 303 returned 403, so a stale error page alone does not establish login failure. Check client completion and timestamped status-only logs without exposing callback codes or tokens. The current conversation's pre-existing MCP tool bridge still fails before sending initialize; that connection needs separate recovery and is not counted as working by the CLI result.
-
-New-session verification on 2026-10-11: the actual conversation MCP connection now initializes and successfully calls authenticated document inventory. The stale bridge failure above is resolved in this session. The public smoke validator now requires the native issuer metadata, its exact endpoints and S256 PKCE; its former Google-issuer expectation caused a false CI failure after activation. All ten classifier tests and the live TLS/discovery/anonymous/forged-header checks pass.
 
 The standard revocation endpoint accepts a token bound to its client and revokes its family. An operator may revoke families by registered email through the dedicated schema when a client or device is lost. No raw token is needed for an operator-side revocation. Retain the website's existing Google session and registered-user controls.
 
 The protocol follows the [MCP authorization specification](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization), [OpenAI client authentication contract](https://developers.openai.com/plugins/build/auth) and [Codex configuration](https://learn.chatgpt.com/docs/extend/mcp?surface=cli). Gateway failure behavior uses the explicit [Istio external authorization settings](https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshConfig-ExtensionProvider-EnvoyExternalAuthorizationHttpProvider).
+
+## Legacy edge compatibility
+
+When the selected edge provider checks the OAuth proxy directly, its
+`pathPrefix: /oauth2/auth?` deliberately prevents Envoy's appended transport path
+from changing the auth-only endpoint into `/oauth2/auth/mcp`. Native OAuth instead
+uses the configured local check endpoint. Inspect the effective provider before
+changing either path. Anonymous, forged-header, expired-token and unavailable-
+authority refusal must hold on every exposed transport.

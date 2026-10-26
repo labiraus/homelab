@@ -1,20 +1,12 @@
-# external
+# External API
 
-Fictional record dates accept exact decimal strings as well as legacy integer JSON tokens across the signed 64-bit range. Responses/history remain numeric and equivalent representations retain canonical idempotency. See the [date wire contract](../../docs/worldbuilder/API.md); this requires no schema migration.
+Public Go API and sole Worldbuilder canon writer. Requires validated identity and
+mode-specific dedicated credentials; no startup schema migration. See
+[Worldbuilder contracts](../../docs/worldbuilder/api.md),
+[authentication](../../docs/authentication.md) and [operations](../../docs/operations.md).
 
-External now contains the default-disabled Worldbuilder canon engine, authorised wiki/history, proposal/review/publication, bounded reasoning proxy and persistent story APIs under `/api/worlds`. See [API contract](../../docs/worldbuilder/API.md). `WORLDBUILDER_ENABLED=true` requires schema version 9 and a dedicated `worldbuilder_external` login supplied through `WORLDBUILDER_DATABASE_URL`. Startup never migrates. Existing document and assistant routes below remain compatible.
-
-GET canon search retains canonical lexical ranking. Optional POST hybrid search and large-world AI evidence use the shared pinned-model vector adapter, canonical reconciliation and existing durable allowance. See [semantic configuration and limits](../../docs/worldbuilder/SEMANTIC-SEARCH.md). It remains disabled by default. The [disposable canon index gate](../../docs/worldbuilder/INDEX-ACCEPTANCE.md) tests actual OpenSearch retrieval and relay/rebuild without production endpoints.
-
-`POST /api/worlds/{world}/timeline-branches` creates a reviewed snapshot branch proposal from an explicit immutable parent revision. It copies the complete timeline-specific record set (at most 99 records), remaps scoped references and retains the shared current world catalog. It never publishes automatically. Published creation origin is available at `/timelines/{timeline}/origin?revision=N`; audit, exact retries, stale/partial rebase refusal and retired identity checks preserve lineage. No new schema is required. See [timeline branches](../../docs/worldbuilder/TIMELINE-BRANCHES.md).
-
-Revision lists/diffs, proposal and story reconciliation, and compensating restore are available through the same authenticated API. Reconciliation compares original/current/proposed records, requires explicit conflict decisions and creates a freshly validated draft; it never transfers approval or changes a session pin. Audit records preserve lineage and exact retry requests. These original history features were introduced in schema 2; current startup requires all migrations through schema 10. Canon lists also accept a validated comma-separated `kind` filter before pagination, allowing complete editor reference catalogs without widening world/timeline/revision scope.
-
-`external` is the public Go HTTP API for the homelab app stack.
-
-It is the browser-facing API for `ui` and should remain a stable surface even as the internal async pipeline evolves behind `orchestrator` and `processor`.
-
-Keep document and assistant workflows on the existing `/api/documents/*` and `/api/assistant/*` shapes. Retrieval, cited context, and assistant calls should not introduce a parallel public RAG API unless the repo plan explicitly changes.
+Run `go test -race ./...` here. Real database/API/browser acceptance runs through
+`bash scripts/worldbuilder/test-postgres.sh` from repository root; never a production DSN.
 
 ## Endpoints
 
@@ -130,38 +122,21 @@ The document event bridge expects:
 
 Lifecycle delivery to the browser is best-effort. The document processing path remains successful even if the notification fan-out path is temporarily unavailable.
 
-World names/default timelines/settings are reviewed `world_settings` records. Owner-only administration separately controls archive/reopen, versioned member changes, revocation and ownership transfer; immutable audit binds exact retries. Archived worlds allow reads and membership administration, while canon/story/inference writes are blocked. The database retains immutable record kinds after deletion.
+## Worldbuilder and native authorization
 
-The canon validator also enforces temporal relationship cardinality, mutually exclusive boolean facts and explicit canonical chronology exceptions. Rule changes are ordinary reviewed operations and can be grouped atomically with affected records; see the rule contracts in the Worldbuilder API documentation.
+Worldbuilder route families include worlds/membership/administration, canon/history,
+changes/review/publication, reasoning, private definitions/sessions/generations,
+shared conversations, established accounts, activity and cross-world search.
+The canonical [API reference](../../docs/worldbuilder/api.md) owns their contracts.
+Current enabled binaries require schema 10. Canon write credentials belong only
+here; the relay has separate read/outbox access. Proxy-mode inference keeps immutable
+profile pins and zero-cost local attempts; the independent proxy owns cloud accounting.
 
-Scoped `/api/worlds/{world}/search` reconciles OpenSearch candidate IDs against authorised PostgreSQL snapshots, with canonical fallback and stable pinned pagination. Large-world AI evidence selection retains rule/settings/reference groups and reports limited coverage. See [API contracts](../../docs/worldbuilder/API.md).
+`/api/worldbuilder-tools` accepts only signed bounded MCP read/draft delegation.
+`/api/worldbuilder-jobs/run` accepts only the dedicated worker token and mesh identity.
+Neither endpoint is a human review/publication bypass. Optional monitoring uses fixed
+privacy-preserving metrics and the exact configured scraper identity.
 
-Optional MCP delegation uses only `/api/worldbuilder-tools` with signed, expiring, exact-request identity assertions and active-identity/membership checks. Reads and validated draft proposals are the entire allowlist; human routes remain separately mesh-restricted. Configure only after the [LAN gates](../../docs/worldbuilder/LAN-RUNBOOK.md).
-
-AI activation requires schema 10 and explicit `worldbuilder.aiBudget` settings. `mode: proxy` pins a configured alias/revision, retains zero-cost USD audit attempts and concurrency protection, and removes local daily/monetary quotas. The independent proxy owns shared cloud accounting. `legacy` mode preserves old allocation behavior for compatibility; historical records are never rewritten. See [inference deployment and rollback](../../docs/Inference.md) and [budget/provenance contracts](../../docs/worldbuilder/API.md).
-
-Schema 4 adds owner-private immutable story definitions and atomic turn memory/choices. Story generation checks expected session version before spending allowance and returns that version for later human save. Narrative generation returns prose only; see the API contract.
-
-Durable creative jobs were introduced in schema 5; current external requires schema 10. `WORLDBUILDER_JOBS_ENABLED` remains false by default. Enabling requires configured reasoning/budget plus dedicated `WORLDBUILDER_JOB_TOKEN`; the fixed worker endpoint reloads private human intent and checks current access. Job lists/details/cancellation live under each world's `/generations`; queued output remains a candidate. See the [durable API contract](../../docs/worldbuilder/API.md#durable-creative-generations-schema-5).
-
-Consistency checks now run deterministic validation first and optionally bind a proposal via `changeId`. Structured evidence-backed findings are advisory and audited with model provenance; they never change review status. Stale proposal checks fail before allocating inference.
-
-Worldbuilder endpoints emit fixed request/outcome labels in existing external Prometheus metrics. The [operator guide](../../docs/worldbuilder/OBSERVABILITY.md) covers opt-in ServiceMonitor/network/mesh configuration, provisioned Grafana dashboard, disposable runtime acceptance and privacy-preserving read-only PostgreSQL diagnostics. Private IDs and narrative text never become metric labels. `worldbuilderMonitoring` remains disabled until actual scraper selectors and its dedicated mTLS identity are verified; it does not activate canon.
-
-`/records/{id}/connections` adds authorised, paginated forward/back typed-reference traversal at a pinned timeline/revision/time. Optional `WORLDBUILDER_BROWSER_TEST=1` in the disposable harness runs Chromium against a loopback server defined only in `worldbuilder/browser_test.go`; no runtime auth switch is introduced. [Offline acceptance](../../docs/worldbuilder/OFFLINE-ACCEPTANCE.md) also records the 5,000-record domain benchmark and exact CRD schema checks.
-
-Schema 6 adds reviewed calendar projection and exact `tick` facts. Canon/search metadata carries the requested snapshot calendar even when records are filtered. Life-bound rules accept full-range date strings while preserving historical safe-integer numeric facts. See [calendar contracts](../../docs/worldbuilder/CALENDARS.md).
-
-Historical schema 7 introduced reviewed 1–5 human approval quorums and immutable per-membership decisions. Policy changes require the stricter count; role changes/removal invalidate old votes permanently for future publication. Published approval identities remain historical evidence. See [review policy](../../docs/worldbuilder/REVIEW-POLICY.md).
-
-Historical schema 8 introduced operator-granted superuser accounts, authenticated user registration and audited self-review. At that checkpoint the class did not bypass world membership, archival, validation or the configured distinct-human count. Schema 9 replaces those rules with global Administrator access and explicit reasoned approval-count overrides, while enforcing validation, privacy and archival. User registration remains separate from granting Administrator access. Refresh canon grants and the separately owned `auth-grants.sql` before activation. See [account API](../../docs/worldbuilder/API.md#superuser-accounts-schema-8).
-
-## Native MCP authorization
-
-The opt-in `mcpauth/` package supplies native client registration, S256 PKCE, explicit browser consent and resource-bound tokens while preserving Google website login. It requires an independently migrated schema and isolated `mcp_oauth_runtime` connection; all native flags default off. See [activation, tests and restore handling](../../docs/MCPAuthentication.md). The gateway validates tokens through a private route and forwards only the resulting identity. This does not grant canon access or permit native human review/publication.
-
-External CI also runs real Chromium consent and callback acceptance against an owned TLS loopback fixture. HTTP-only protocol tests cannot detect browser referrer-policy or form-action redirect failures; see the [native authorization test instructions](mcpauth/README.md).
-
-World creation also queues its initial revision-0 canon snapshot in the same transaction. Exact creation retries keep one event; a failed outbox insert rolls back the whole new world. New-world indexing no longer depends on a later reviewed publication. See [initial publication/events](../../docs/worldbuilder/API.md#atomic-publication-and-events).
-
-Current schema-9 governance, immutable established accounts, conversations and offline contracts supersede the earlier role/policy descriptions above. See [PWA implementation](../../docs/worldbuilder/PWA-IMPLEMENTATION.md). Source verification does not imply production activation.
+The opt-in `mcpauth/` package uses its own schema and `mcp_oauth_runtime` login.
+Follow its [README](mcpauth/README.md) for real Chromium consent tests and
+[authentication](../../docs/authentication.md) for activation and restored-token revocation.

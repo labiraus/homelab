@@ -22,4 +22,4 @@ Height is 900px; both themes request reduced motion.
 ![Dark narrow workspace](worldbuilder-dark-320.png)
 
 Automated checks do not establish installed-window behavior, a real software keyboard,
-TalkBack or live-model answer quality. See [release gates](../../PWA-IMPLEMENTATION.md).
+TalkBack or live-model answer quality. See [release gates](../../experience.md).

@@ -6,9 +6,9 @@ production authentication, live-model quality, current deployment health or real
 Android keyboard/installation/screen-reader behaviour.
 
 Baseline: commit `97e0d1679108aeb9871ee4216962a1860a38a76f`, captured from a
-preserved pre-change production bundle. After: uncommitted experience correction;
+preserved pre-change production bundle. After: experience correction uncommitted at capture time;
 exact source/build/screenshot hashes are in [evidence.json](evidence.json).
-The [audit](../../UX-AUDIT-2026-10-26.md) separates journey gaps and evidence tiers.
+The [audit](../../../status.md) separates journey gaps and evidence tiers.
 
 | Moment | Desktop | Mobile |
 | --- | --- | --- |

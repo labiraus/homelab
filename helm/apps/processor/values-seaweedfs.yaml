@@ -1,4 +1,4 @@
-# Prepared cutover overlay; apply only after docs/SeaweedFSMigration.md gates.
+# Prepared cutover overlay; apply only after docs/storage.md gates.
 # Helm replaces lists, so generatedSecrets and egress are complete.
 generatedSecrets:
 - name: processor-config

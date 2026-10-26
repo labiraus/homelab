@@ -4,13 +4,13 @@
 
 Use `make ansible-seaweedfs-host` (or `make bootstrap-svartalfheim-storage`) for the new target on `svartalfheim`. `playbooks/seaweedfs-external-pi-host.yml` uses the `seaweedfs_external_pi_host` inventory group and the `seaweedfs` role. It provisions the pinned release, authenticated private S3 service, persistent metadata, four buckets and document versioning, then renders new Kubernetes credentials to ignored `out/seaweedfs/k8s-secrets.yaml` without applying them.
 
-Supply the ten `SEAWEED_*` credential inputs in local `ansible/.env`; see [bootstrap](../docs/StorageBootstrap.md). MinIO credential refresh is disabled for this path and defaults off in the generic wrapper. The external mount is required before volume-directory creation and by the systemd unit. Filer/master metadata lives on the native filesystem rather than the NTFS volume disk. The role preserves the existing source service, data and Samba configuration.
+Supply the ten `SEAWEED_*` credential inputs in local `ansible/.env`; see [bootstrap](../docs/storage.md). MinIO credential refresh is disabled for this path and defaults off in the generic wrapper. The external mount is required before volume-directory creation and by the systemd unit. Filer/master metadata lives on the native filesystem rather than the NTFS volume disk. The role preserves the existing source service, data and Samba configuration.
 
 If Samba is configured, bootstrap requires `/seaweedfs/` in the `storage` share's `veto files` before creating volume data. The Samba role preserves both `/minio-data/` and `/seaweedfs/` exclusions. For an existing host, update and validate the share configuration and reload it before running SeaweedFS; do not reapply the legacy storage role merely to change this exclusion.
 
 Delegated local secret-rendering tasks use the wrapper's private `ANSIBLE_LOCAL_TEMP`, including Ansible's remote-temp setting for those tasks, so bootstrap works when the devcontainer home is read-only.
 
-Follow [the migration plan](../docs/SeaweedFSMigration.md) before publishing the application/backup chart changes. A file copy is insufficient for document history: source version markers and backup chains need explicit migration and restore validation.
+Follow [the migration plan](../docs/storage.md) before publishing the application/backup chart changes. A file copy is insufficient for document history: source version markers and backup chains need explicit migration and restore validation.
 
 ## Legacy MinIO reference and other services
 
@@ -28,13 +28,13 @@ This directory manages external services out-of-band from Kubernetes:
 - dedicated Minecraft VM service configuration on `nidavellir`
 
 Kubernetes remains Helm/Flux-managed. Storage-host services are Ansible-managed.
-The authoritative MinIO service and attached-drive network share for this repo both live on the external Raspberry Pi host `svartalfheim`.
+The retained MinIO source and attached-drive share live on `svartalfheim`; private SeaweedFS is the target.
 Minecraft now runs on its own Proxmox VM and is managed through Ansible rather than Helm.
 
 ## Prerequisites
 
 - `ansible-core` 2.15+
-- MinIO client `mc` on the machine running playbooks
+- MinIO client `mc` only when explicitly operating legacy MinIO playbooks
 - Optional: `amazon.aws` collection for future S3 module adoption
 - SSH access with sudo for external host bootstrap playbooks
 
@@ -60,61 +60,7 @@ The Kubernetes node groups connect over SSH, install the worker prerequisites on
 
 ## Secure credentials
 
-Keep Ansible secret material local-only and split it by scope:
-
-- shared operator settings or credentials used across the repo belong in `.devcontainer/.env`
-- Ansible-only external-service secrets belong in `ansible/.env`
-- cluster-derived credentials should be rebuilt from the cluster when possible rather than copied by hand into env files
-
-Sync the MinIO admin credentials from `svartalfheim` into `ansible/.env`:
-
-```bash
-make refresh-ansible-secrets
-```
-
-This SSHes to `svartalfheim`, reads `/etc/default/minio`, and upserts:
-
-- `MINIO_EXTERNAL_ADMIN_ACCESS_KEY`
-- `MINIO_EXTERNAL_ADMIN_SECRET_KEY`
-
-The script preserves any other existing entries in `ansible/.env`.
-
-Current limitation:
-
-- `SVARTALFHEIM_SAMBA_PASSWORD` is not recoverable from `/etc/default/minio`
-- managed MinIO user access keys and secret keys are not recoverable from the live MinIO server after creation
-- keep those remaining Ansible-only secrets in local `ansible/.env` until they gain their own fetch workflow
-
-Set admin credentials for the `svartalfheim` MinIO endpoint:
-
-```bash
-export MINIO_EXTERNAL_ADMIN_ACCESS_KEY='...'
-export MINIO_EXTERNAL_ADMIN_SECRET_KEY='...'
-```
-
-For the external Pi bootstrap playbook, these same environment variables are used as the MinIO root credentials written into the service environment file on the host.
-
-Set managed user credentials (do not commit):
-
-```bash
-export MINIO_VELERO_ACCESS_KEY='...'
-export MINIO_VELERO_SECRET_KEY='...'
-export MINIO_CNPG_ACCESS_KEY='...'
-export MINIO_CNPG_SECRET_KEY='...'
-export MINIO_DOCUMENTS_ACCESS_KEY='...'
-export MINIO_DOCUMENTS_SECRET_KEY='...'
-export MINIO_SITE1_UPLOADER_ACCESS_KEY='...'
-export MINIO_SITE1_UPLOADER_SECRET_KEY='...'
-```
-
-Set the Samba password for the `oliver` network-share account:
-
-```bash
-export SVARTALFHEIM_SAMBA_PASSWORD='...'
-```
-
-Use Ansible Vault or CI secret store for production automation.
-For local interactive runs in this repo, prefer `ansible/.env` plus the wrapper scripts below over exporting secrets into every shell.
+Follow [secret custody and rotation](../docs/secrets.md). Use ignored `ansible/.env` for Ansible-only inputs and the wrapper for consistent environment loading. SeaweedFS uses fresh `SEAWEED_*` identities; explicit legacy MinIO targets alone refresh source credentials. Never commit generated outputs.
 
 ## Run playbooks
 
@@ -375,10 +321,7 @@ kubectl apply -f ansible/out/k8s-secrets/
 
 ## Key rotation
 
-1. Rotate key material in secret manager / CI variables.
-2. Re-run the relevant playbook.
-3. Re-apply generated Kubernetes secrets.
-4. Restart workloads if they do not hot-reload credentials.
+Coordinate external identity and Kubernetes consumer changes using [secrets](../docs/secrets.md#rotation) and the relevant [storage gates](../docs/storage.md). Preserve source credentials for migration rollback.
 
 ## Replication / mirroring skeleton
 
