@@ -57,6 +57,12 @@ Back up the independent database and roles with the existing CNPG backup infrast
 
 The pinned baseline is vLLM 0.20.2, Qwen2.5 3B AWQ revision `3559b226e8ce77211e2c1bd7ddfb7686fec4d6dd`, Helheim's single GPU, eager execution and 0.85 memory utilization. The activation overlay adds an 80 GiB Longhorn PVC with retention. One Recreate Deployment owns one GPU model. Midgard and alternate runtimes are deferred.
 
+Verify the actual Pod's `model-cache` volume before assuming that retention is
+active. Base deployments can still use an 80 GiB `emptyDir`; replacement then
+downloads the weights again. A configured size limit is not a persistent claim.
+During recovery inspect download progress and the bounded startup window before
+restarting a model that is still loading.
+
 Use `helm/infra/vllm/profiles/helheim-qwen3b.yaml` as the baseline experiment profile. A new profile must pin an immutable model revision and compatible tool parser/context limits. Keep the corresponding inference catalogue and Worldbuilder revision pins consistent. Do not switch a model in response to an individual request.
 
 1. Record the currently published image/chart, values and PVC identity. Publish `config.local_paused: true` through the inference Flux values and wait for reconciliation. This persists maintenance across proxy replacement. Run `experiment.py drain` and require `active: 0`.

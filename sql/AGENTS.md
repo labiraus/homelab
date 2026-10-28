@@ -24,3 +24,5 @@ Administrator grants retain the legacy superuser table name; they are not Postgr
 Privilege audits across inaccessible schemas should use catalog OIDs and check schema USAGE separately. Name-based `has_table_privilege` lookup can raise a schema-permission error before a SQL filter excludes that schema; do not broaden the operator or runtime grants merely to collect fingerprints.
 
 Schema 9 established accounts are append-only independently of the replaceable record projection. Ledger insertion belongs to the fixed-search-path publication trigger; runtime receives SELECT only. Never rewrite account history in restores, reconciliation or membership/policy upgrades.
+
+Migration 009's role conversion invokes the existing member authority-rotation trigger. A populated rehearsal must verify new authority IDs only for converted memberships while preserving all historical reviews/revisions; do not mistake the expected rotation for content loss or omit it from comparison. Follow `docs/recovery.md` for full pre/post checks and rerun acceptance.

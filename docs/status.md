@@ -1,7 +1,9 @@
 # Status and evidence
 
-Documentation reconciled against repository source on **26 October 2026**. No live
-system check, test rerun, publication or deployment was performed for this cleanup.
+Documentation reconciled against repository source on **26 October 2026**; live
+recovery observations added on **27 October 2026**, with user confirmation of browser
+sign-in on **28 October 2026**. The documentation cleanup itself did not perform
+live checks, publication or deployment.
 Dates below are observation dates; none establishes present production health.
 Source implementation, local fixtures, hosted publication and deployment are
 separate evidence levels. Git history retains superseded checkpoint narratives.
@@ -28,8 +30,8 @@ separate evidence levels. Git history retains superseded checkpoint narratives.
 
 | Area | Required next evidence |
 | --- | --- |
-| Estate health and connectivity | Fresh normal-DNS hosted/public checks plus node/CNPG/Flux and authenticated application evidence. The latest retained 20 October observation had DNS/WAN mismatch and a separate database/node outage; verify current conditions before repair. |
-| Current source release | Passing hosted gates, exact image/chart publication and observed reconciliation for the schema-9/10/PWA/inference/26 October changes. Old UI revision 60 cannot prove the latest source is deployed. |
+| Estate health and connectivity | The 27 October sweep restored intended workloads, all 40 HelmReleases and production schema 10 after a fresh backup and isolated rehearsal. The user confirmed successful browser sign-in on 28 October. Resolve the absent resource metrics API for Istiod autoscaling and explain the differing public/private TLS leaves. `midgard` remains intentionally cordoned/offline. See the recovery record below. |
+| Current source release | UI revision 62, external revision 81 and orchestrator revision 84 reconciled on 27 October with schema 10. Exact source/signature provenance and real-user acceptance remain separate from these observed artifact versions; the optional inference proxy is not established by this recovery. |
 | Identity and real-user experience | Production Google outside-domain login, registered/unregistered refusal, distinct actual Authors/Readers/Administrators, private-story isolation and governed outcomes. Single-operator or fixture acceptance is insufficient. |
 | Product journeys | Real-model Ask/Create/consequence quality, focused graph answers, complete task return/selection continuity, durable candidate versions/task links and representative large-world performance. See [experience](worldbuilder/experience.md). |
 | Devices | Real Android install/window, keyboard/dictation/TalkBack, update/offline/replay and account isolation. iOS follows later. |
@@ -47,6 +49,7 @@ explicitly includes the complete applicable publication.
 
 | Observation | Evidence and boundary |
 | --- | --- |
+| 27 Oct cluster recovery and schema upgrade | Both Proxmox hosts returned; API/etcd and all intended Deployment/StatefulSet replicas recovered. All 40 HelmReleases Ready. Frozen backup `20261027T093222` restored in isolation: all 35 tables and 87 security/sequence entries matched. Migrations 009/010 and grants passed preservation, runtime denials and identical reruns before production upgrade to 10. Post-upgrade backup `20261027T094036` completed; temporary maintenance and the owned clone were removed. Public TLS/discovery/refusal passed; the user confirmed successful browser sign-in on 28 October. |
 | 26 Oct UI/SQL source acceptance | [Committed evidence index](worldbuilder/screenshots/ux-2026-10-26/README.md): 100 component tests, 23 workspace journeys, 10 strengthened viewport/theme journeys, 12 production-worker PWA cases, and real Go/SQL migrations 001–010 with 3 API browser journeys and full logical restore. Exact source/build hashes are in the evidence JSON. Ask/Create answers are fixtures; no live-model/device/deployment claim. |
 | 19 Oct PWA source | [Retained responsive screenshots](worldbuilder/screenshots/pwa-2026-10-19/README.md) cover both themes at five widths with fixture APIs. Schema-9 governance/device contracts are implemented; desktop screenshots do not establish Android acceptance. |
 | 19 Oct CI repair | Source `59eaadbdff40d34e2fb8b1ec8b6c5463d8c647b7` failed [UI 39233407115](https://github.com/labiraus/homelab/actions/runs/39233407115) and [platform 39233407076](https://github.com/labiraus/homelab/actions/runs/39233407076) on an ambiguous browser locator and retired-role/19-table backup seed. The corrected exact selector and 22-table seed/restore assertions passed local Go/SQL/browser and physical latest/PITR recovery with source removal and cleanup. No passing hosted repair rerun is retained. |
@@ -62,20 +65,77 @@ explicitly includes the complete applicable publication.
 | 11 Oct document recovery | Processor source `fd0ac3e`, deployed artifact `38182654891`: actual worker ownership-loss recovery and final read-only comparison recorded 115 processed texts, 2 unsupported images, 374 chunks and 133,440 source bytes. Original 2,199 lifecycle rows retained fingerprint `4905c033579662ce1e9ce401216ae3eb`. |
 | 11 Oct pre-cutover storage/recovery | SeaweedFS snapshot and 33-object CNPG copy/restores passed isolated comparison; later source preflight read 119 versions and covered 116 restored references with `writersFrozen:false`, `migrationReady:false`. Schema-8 backup `20261011T225138` and isolated Prometheus recovery (45 series / 27,360 samples) were recorded. Production cutover/new backups and owned cleanup were not established. |
 
-## Latest retained outage observation
+## Latest recovery observation
 
-On **20 October 2026**, hosted [public check 39406857741](https://github.com/labiraus/homelab/actions/runs/39406857741)
-and four preceding inspected runs timed out. DNS returned `31.50.185.136`, while
-observed WAN egress was `81.151.43.40`. Diagnostic overrides preserving hostname/SNI
-and certificate verification passed against that WAN address and private Gateway
-`192.168.8.240`; they were not public-DNS passes. Reobserve the WAN before any DNS
-change; these addresses are dated evidence, not current configuration instructions.
+On **27 October 2026, 09:42 UTC**, following the user's reboot of both Proxmox
+hosts, all five intended online Kubernetes nodes were Ready. API/etcd readyz
+passed. `midgard` remained cordoned/offline in its documented intermittent state;
+its Cilium, kube-proxy, GPU and retained engine-image Pods account for offline-node
+readiness gaps. No node was force-fenced and no production Pod/PVC/replica was
+force-deleted. The workstation SSH certificate expired on 1 August; no SSH trust
+was replaced and Kubernetes recovery did not require a PKI reset.
 
-The same record found `alfheim` NotReady after its 19 October lease stopped,
-`data/app-db-1` Terminating, no ready CNPG instance, orchestrator stalled and external
-blocked. Gateway/MCP readiness did not prove database-backed authenticated function.
-The 11 October control-plane interruption and 12 October API recovery are older
-observations and do not replace this later record or establish today's health.
+The Helm controller's live-only hostname pin to `alfheim` had stranded it for
+seven days. Removing that selector restored leadership on `niflheim` and resumed
+published upgrades. All **40 HelmReleases** and discovered Flux sources were Ready
+at the final check. All **47 Deployments/StatefulSets** met their configured replica
+counts. External revision **81** uses artifact `40412803991`, orchestrator revision
+**84** uses `40412804004`, processor revision **45** uses `39406630859`, and UI
+revision **62** uses `40412804078`. These are observed deployment identities,
+not signature or full source-provenance verification.
+
+PostgreSQL reattached its original storage after `alfheim` returned. Local `psql`
+confirmed two registered users, twelve worlds and schema 8. The browser's reported
+`identity validation failed` matches the API's database-error path. The user approved
+schema 10 after a fresh backup and isolated restore rehearsal. External, orchestrator
+and processor were paused, including their releases and the processor scaler;
+backup **`20261027T093222`** then completed against the unchanged MinIO source.
+
+The backup was restored with PostgreSQL 16.13 into the owned, network-isolated
+`recovery-upgrade-20261027` namespace. All **35 application tables** and **87
+security/sequence entries** matched the frozen source exactly. Separate role,
+membership and schema-owner comparison also passed. Migrations 009/010 and canon
+grants ran as the independent owner; auth grants ran separately as `app`. Legacy
+content, immutable history and sequences were preserved. Converted memberships
+received new authority IDs through the existing trigger; historical reviews stayed
+unchanged. New defaults, runtime permission denials and identical migration/grant
+reruns passed. The clone had no application exposure or backup destination and
+was deleted, including its namespace/PVC, after validation.
+
+Production received the same hashed SQL, reached **schema 10 / 22 canon tables**,
+and matched the rehearsed data/security/sequence state apart from independently
+generated membership IDs and migration timestamps, which were checked separately.
+Live external, relay, native-MCP and legacy-app permission checks passed. The canon
+owner's login was closed again; original role attributes, memberships and schema
+owners matched. All three writer releases and replicas resumed, KEDA's pause was
+removed, and external/orchestrator started successfully. A fresh post-upgrade
+backup **`20261027T094036`** completed; CNPG Ready, ContinuousArchiving and
+LastBackupSucceeded were True. Existing backups and migration sources remain intact.
+
+Prometheus, vLLM and both OpenSearch Pods were Ready. vLLM's live 80 GiB `emptyDir`
+cache required a fresh unchanged-model download; it was allowed to finish. All
+three NATS health checks passed; KEDA reported a valid zero backlog. OpenSearch
+had both nodes, all 16 primary shards active and no pending tasks; yellow reflects
+two unassigned replicas on its single data node. All attached Longhorn volumes
+were healthy; an older detached restore volume was retained. Istiod's single
+replica was healthy, but CPU autoscaling still lacks `metrics.k8s.io`; no metrics
+server was present in the discovered desired configuration.
+
+Normal DNS and observed WAN both returned `81.151.43.97`. Public reports at 09:12,
+09:15 and **09:40** passed with `attempts[].ok: true`, including discovery and
+anonymous/forged-header refusal. These are local normal-DNS observations, not
+hosted-runner or authenticated acceptance. The public TLS leaf expires 8 November;
+private Gateway `192.168.8.240` served the configured leaf expiring 9 January 2027.
+Both verified for `mcp.labiraus.com`; differing termination paths still need
+explanation. Public/private MCP discovery bytes matched. No Labiraus MCP connector
+was available in this session. On **28 October 2026**, the user confirmed successful
+browser sign-in after retrying, resolving the reported signed-out/identity-validation
+incident. This is user-reported login acceptance; broader authenticated browser
+journeys and native MCP flows were not revalidated by this recovery.
+
+Private snapshots, backup records, full fingerprints, SQL hashes, rehearsal and
+production acceptance, and public reports are under `.local/recovery-20261027/`.
+No private recovery material was committed.
 
 ## Evidence custody
 

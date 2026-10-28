@@ -12,6 +12,7 @@ incident used it.
 | Public HTTPS times out or presents another hostname | Compare ordinary DNS, current WAN and private Gateway; preserve Host/SNI and TLS verification for diagnostic overrides. Check hosted results independently. See [operations](../docs/operations.md#public-connectivity). |
 | Google rejects outside-domain users | Inspect the existing project's audience and proxy wildcard domains. Register intended emails separately; test registered and unregistered users. See [authentication](../docs/authentication.md). |
 | Browser login loops, plain Authenticated or RBAC denial | Inspect selected provider, exact service/Service port, redirect and reverse-proxy upstreams. Preserve public Host plus proxy-scoped mesh routing; parent values can replace child provider lists. |
+| Signed out after Google login; reason is `identity validation failed` | The API received identity but its database lookup failed. Check CNPG readiness, ready `app-db-rw` endpoints and database transport; repeated login or account registration does not repair an unavailable database. See [authentication](../docs/authentication.md). |
 | MCP discovery works but tools fail | Discovery is public. Verify actual native consent/credential, both transports, registered-user checks and private authority health; forwarded headers alone are insufficient. |
 | Native login fails at Google registration | Native clients use the local MCP issuer, not Google's DCR. Browser Google cookies alone do not establish native login. |
 | SSH permission denied | Inspect certificate validity before changing trust. Lost CA passphrase needs staged trust rotation, not VM recreation or Kubernetes PKI reset. See [SSH recovery](../docs/recovery.md#ssh-trust-recovery). |
@@ -37,6 +38,7 @@ from an owned loopback forward is a different evidence tier.
 | --- | --- |
 | Local render works but Flux fails | Inspect the actual OCI archive, tag/digest and effective parent values. A stale digest pin or retained child values can keep Kafka-era/scaler settings alive. Publish/repoint through reviewed GitOps; do not assume local edits deployed. |
 | Release appears missing | Discover HelmRelease/OCI namespace independently of workload namespace; app releases live in `flux-system`. |
+| Helm releases stop reconciling after a worker outage | Inspect the Helm controller's actual Pod, node selector and leader lease. A hard hostname pin can strand its replacement on the failed worker while old releases retain Ready conditions. See [Flux recovery](../docs/recovery.md#flux-reconciliation-recovery). |
 | Empty defaults in published chart | Inspect `helm show values` on that artifact; use shared overlay merger and packaged-chart parity test. Empty/null overlays must preserve base defaults. |
 | Late build restores old code | Inspect actual checkout SHA and publication freshness guard; match image/chart and intended source before changing the pin. |
 | Prometheus wrapper conflicts with itself | Wrapper owns `flux-system/prometheus`; upstream child is `prometheus-stack` while Helm release name stays `prometheus`. A merged parent chartRef/child chart is invalid. |

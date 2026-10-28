@@ -76,6 +76,25 @@ Recover in this order:
 
 Worldbuilder derived state can be rebuilt from PostgreSQL revision snapshots; document derived state can be rebuilt from raw S3 objects, but audit history and user-approved assistant state live in Postgres and should be treated as primary data.
 
+### Database Pod stranded on an unavailable worker
+
+Check the CNPG Cluster, the Pod's deletion timestamp/node, the `app-db-rw`
+EndpointSlice readiness and the actual Longhorn engine/replica states. A
+Terminating Pod can retain stale `1/1` readiness while its endpoint is not serving.
+Confirm local `psql` transport through the normal Service forward; failure to reach
+the old kubelet is transport failure, not a database query result.
+
+Do not force-delete a database Pod or detach its volume merely because the node is
+NotReady or SSH times out. Establish that the old machine is powered off or fenced
+before allowing a replacement writer. Kubernetes' [non-graceful shutdown
+procedure](https://kubernetes.io/docs/concepts/cluster-administration/node-shutdown/)
+requires this before applying the `node.kubernetes.io/out-of-service` NoExecute
+taint. Observe replacement scheduling, volume attachment, PostgreSQL recovery and
+ready endpoints before checking registered-user lookup and authenticated app reads.
+Remove the temporary taint only after verifying the old node's recovery. Retain
+PVCs, replicas and existing backup sources throughout; a restore is a separate
+recovery path, not the default response to a stranded Pod.
+
 ## Backup Baseline
 
 Postgres recovery rehearsal assumes the repo-managed CNPG chart keeps both of these paths alive:
@@ -123,6 +142,23 @@ sequences; a desired restore resource or matching current-record projection is n
 acceptance. Current Worldbuilder has 22 tables, including established-account ledger
 and shared conversations, alongside the shared auth registry. Update the fixture
 seed and physical table inventory whenever the schema evolves.
+
+For an isolated CNPG rehearsal under Cilium, keep default-deny ingress and narrow
+egress to DNS, the verified backup store and the Kubernetes API. An `ipBlock`
+matching the control-plane address may not match Cilium's reserved API identity;
+use a namespace-scoped `CiliumNetworkPolicy` with `toEntities: [kube-apiserver]`
+and the observed API ports. Do not remove isolation to fix restore-job API timeouts.
+See [Cilium API-server policy](https://docs.cilium.io/en/latest/security/policy/layer3/).
+
+During a schema-8 to schema-10 rehearsal, first compare the restored database
+exactly with the frozen source. Migration 009 converts legacy memberships to
+Authors, which invokes the existing review-authority rotation trigger. Verify
+that only converted memberships receive new authority IDs; preserve original
+review rows and immutable revisions byte-for-byte. Compare all other old fields
+and sequences, validate new policy/accounting defaults and dedicated-role denials,
+then rerun the migrations/grants and require identical state. Apply auth grants
+separately as the existing auth owner, close migration-owner login afterwards,
+and restore every paused writer/release/scaler. Keep a post-upgrade backup.
 
 Revoke restored native OAuth token families and pending grants before exposing a
 restored authorization database; retain registered client identities and require
@@ -392,6 +428,14 @@ new, confirmed empty faulted volumes are candidates for recreation; data-bearing
 volumes require their own recovery. Disk UUID repair is described above.
 
 ## Flux reconciliation recovery
+
+Inspect the controller Deployment's node selector before restarting it. A hard
+`kubernetes.io/hostname` pin to an unavailable worker can leave every replacement
+Pending. Preserve the current Deployment locally, identify the selector's owner,
+and remove a diagnosed stale hostname restriction while retaining OS/security
+constraints. The repo's `scripts/kube-init.sh` uses ordinary `flux install` without
+a hostname pin. Verify the replacement's readiness and renewed leader lease;
+restoring the controller can immediately resume already-published upgrades.
 
 Inspect source/helm controller logs, OCI and HelmRelease dependencies, and compare
 `status.observedGeneration` with `metadata.generation`. An old Ready condition

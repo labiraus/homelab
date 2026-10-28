@@ -13,6 +13,13 @@ proxy identity uses `oidc`; absent identity uses `none`. Unknown registered-user
 identity fails application authorization. Never rerun the truncating legacy
 `sql/auth.pgsql` seed against a populated registry.
 
+`invalidReason: "identity validation failed"` means an email identity reached the
+API, but the registered-user lookup returned an error. Check PostgreSQL readiness,
+the `app-db-rw` ready endpoints and application-to-database transport before changing
+Google settings or registering the account again. The current UI labels all invalid
+statuses "Signed out", including this backend failure. `email is not recognized`
+is the separate response for a completed lookup that found no registered account.
+
 The browser route is `mcp.labiraus.com` → oauth2-proxy → UI or external. The UI reads
 `/api/auth/providers`; external publishes the start URL in `OIDC_LOGIN_URL`.
 The proxy forwards sanitized identity, with `X-Forwarded-Email` preferred by the

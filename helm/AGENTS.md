@@ -43,11 +43,13 @@ Read [development](../docs/development.md) and [operations](../docs/operations.m
 - The `helm-all.yml` workflow tests charts on non-main branches and publishes them to GHCR on `main` and `dev`.
 - If a chart directory contains `values-ghcr.yaml`, the Helm CI pipeline uses that file for GHCR packaging; otherwise it falls back to `values.yaml`.
 - The upstream NATS chart deployed here uses Helm release name `nats` in namespace `nats`, which yields service DNS like `nats-nats.nats.svc.cluster.local`; do not assume the broker service is `nats.nats.svc.cluster.local`.
+- Verify vLLM's live `model-cache` volume before assuming retained weights. The activation profile enables a PVC, but base deployments can still use `emptyDir`; an ordinary replacement then needs a fresh download. Inspect startup/download progress before repeating restarts.
 
 ## Flux Troubleshooting
 
 - Start by identifying the owning Flux objects: the `OCIRepository` that fetches the chart and the `HelmRelease` that applies it.
 - If a deployment is stale, check whether the chart was actually published by GitHub Actions before assuming Flux is broken.
+- Check Flux controller scheduling and renewed leader leases after a node outage. A live-only hostname pin can strand the Helm controller on a failed worker; old Ready release conditions do not prove ongoing reconciliation. Follow the diagnosed selector-recovery procedure in `docs/recovery.md`.
 - If Flux cannot fetch the chart, inspect the `OCIRepository` first for bad repository URLs, wrong tags or semver filters, or auth failures against `ghcr-creds`.
 - If Flux fetches the chart but the workload does not update, inspect the `HelmRelease` next for values/rendering errors or Kubernetes apply failures.
 - When troubleshooting app deployments, verify that the app workflow published both the image and the chart with the expected matching version.
