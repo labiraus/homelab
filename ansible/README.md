@@ -191,7 +191,8 @@ Managed Minecraft VM state:
 
 Current seeded profiles:
 
-- `ftb_skies_2_aero` is the repo-authoritative active profile and is pinned to Aero `1.10.0` with `FTB_MODPACK_ID=134`, `FTB_MODPACK_VERSION_ID=100497`, `MOD_PLATFORM=FTBA`, and Java 21
+- `just_create_smp_2` is the repo-authoritative active profile, pinned to Just Create SMP Season 2 `1.0.3` with `CF_SLUG=just-create-smp-2`, `CF_FILE_ID=8718376`, Minecraft 1.21.1 / NeoForge, and Java 21. It uses its own fresh world directory.
+- `ftb_skies_2_aero` preserves the Aero world and is pinned to Aero `1.10.0` with `FTB_MODPACK_ID=134`, `FTB_MODPACK_VERSION_ID=100497`, `MOD_PLATFORM=FTBA`, and Java 21
 - `atm10_aeronautics` preserves its world and is pinned to All The Mods 10 Aeronautics `0.4.1` with `CF_SLUG=all-the-mods-10-aeronautics`, `MOD_PLATFORM=AUTO_CURSEFORGE`, Minecraft 1.21.1 / NeoForge, and Java 21
 - `atm11` preserves the existing ATM11 world and is pinned with `CF_SLUG=all-the-mods-11`, `CF_FILENAME_MATCHER=0.3.0`, `NEOFORGE_VERSION=26.1.2.93`, and `start_mode=preinstalled_run_script`
 - `atm10_tts` preserves the older ATM10 To The Sky world with `CF_SLUG=all-the-mods-10-sky` and `CF_FILENAME_MATCHER=2.0.2`
@@ -215,18 +216,16 @@ put -r ./world /srv/minecraft/data/world
 Switch profiles directly on the VM:
 
 ```bash
+ssh nidavellir 'sudo minecraft-switch just_create_smp_2'
 ssh nidavellir 'sudo minecraft-switch atm10_tts'
 ssh nidavellir 'sudo minecraft-switch atm11'
 ssh nidavellir 'sudo minecraft-switch atm10_aeronautics'
 ssh nidavellir 'sudo minecraft-switch ftb_skies_2_aero'
 ```
 
-The repo remains authoritative. Rerunning `make ansible-minecraft-vm` reapplies the configured `minecraft_vm_active_server`, which currently switches the active profile back to `ftb_skies_2_aero`.
+The repo remains authoritative. Rerunning `make ansible-minecraft-vm` reapplies the configured `minecraft_vm_active_server`, which currently switches the active profile back to `just_create_smp_2`.
 
-Before the first Aero rollout, stop ATM11 and archive its `world` directory under
-`/srv/minecraft/archives/atm11-world-<UTC timestamp>.tar.gz`. Verify the tarball with `tar -tzf`,
-confirm at least 15 GB remains free, and leave `/srv/minecraft/servers/atm11/data` untouched. If Aero
-fails to initialize, use `sudo minecraft-switch atm11` to return to the preserved profile.
+Before switching packs, take and verify a cold backup of the active profile and retain an independent copy. Preserve all existing profile directories. See [Minecraft](../docs/minecraft.md#service-management) for cutover, verification and rollback.
 
 After the playbook adds or refreshes Docker group membership for `ubuntu`, start a new SSH session before relying on plain `docker ps` or `docker logs`. Until then, use `sudo docker ...`.
 

@@ -65,6 +65,30 @@ explicitly includes the complete applicable publication.
 | 11 Oct document recovery | Processor source `fd0ac3e`, deployed artifact `38182654891`: actual worker ownership-loss recovery and final read-only comparison recorded 115 processed texts, 2 unsupported images, 374 chunks and 133,440 source bytes. Original 2,199 lifecycle rows retained fingerprint `4905c033579662ce1e9ce401216ae3eb`. |
 | 11 Oct pre-cutover storage/recovery | SeaweedFS snapshot and 33-object CNPG copy/restores passed isolated comparison; later source preflight read 119 versions and covered 116 restored references with `writersFrozen:false`, `migrationReady:false`. Schema-8 backup `20261011T225138` and isolated Prometheus recovery (45 series / 27,360 samples) were recorded. Production cutover/new backups and owned cleanup were not established. |
 
+## Minecraft switch observation
+
+On **1 November 2026**, `nidavellir` switched from `ftb_skies_2_aero` to
+`just_create_smp_2`, pinned to CurseForge client file **8718376** (Just Create SMP
+Season 2 **1.0.3**), Minecraft **1.21.1**, NeoForge **21.1.233**, Java 21.
+The new profile has a fresh world; all prior profile data remains intact.
+
+Aero was flushed and stopped for a complete cold `data` archive. The VM archive
+`/srv/minecraft/archives/ftb-skies-2-aero-before-jcsmp2-20261101.tar.gz` and the
+independent operator copy under ignored `.local/minecraft-20261101/` matched
+SHA-256 `86fcf00ffa0c00f12873e6954a9f6eed49be93812ccc233072696e28f6e977f2`;
+tar listing passed. The archive is 3,954,823,084 bytes. Existing backups were retained.
+No copy to `svartalfheim` was made in this session.
+
+Ansible syntax and repository template rendering passed. Deployment used the
+rendered profile and switch helper over Windows SSH, retaining secrets on the VM;
+the full remote Ansible playbook was not run because devcontainer SSH host-key
+verification failed. No SSH trust was changed. After the final restart, startup, authenticated RCON, shared server-property
+verification and workstation LAN TCP 25565 passed. At **15:35 UTC**, logs showed
+a successful player login and RCON listed one online player. Public DNS was not
+independently probed, and voice-chat UDP reachability was not tested.
+The VM had approximately **4.3 GiB free**, so capacity expansion or separately
+reviewed backup offloading remains necessary for comfortable world growth.
+
 ## Latest recovery observation
 
 On **27 October 2026, 09:42 UTC**, following the user's reboot of both Proxmox

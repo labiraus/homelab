@@ -20,8 +20,9 @@ Minecraft runs outside Kubernetes on a dedicated Ubuntu VM on `proxmox-node1`.
 - `cpu_cores = 6`
 - `memory_mb = 14336`
 - `disk_size_gb = 120`
-- default active server profile: `ftb_skies_2_aero`
-- available managed server profiles: `atm10_aeronautics`, `ftb_skies_2_aero`, `atm11`, `atm10_tts`
+- default active server profile: `just_create_smp_2`
+- available managed server profiles: `just_create_smp_2`, `atm10_aeronautics`, `ftb_skies_2_aero`, `atm11`, `atm10_tts`
+- `just_create_smp_2` pins [Just Create SMP Season 2 1.0.3](https://www.curseforge.com/minecraft/modpacks/just-create-smp-2/files/8718376) with `CF_FILE_ID=8718376`, Minecraft 1.21.1 / NeoForge and Java 21. AUTO_CURSEFORGE uses the client manifest to select the matching loader; server file `8718412` is not the manifest pin.
 - shared default image: `itzg/minecraft-server:java21`
 - `ftb_skies_2_aero` pins FTB pack ID `134`, version ID `100497` (Aero `1.10.0`), and uses the image's FTBA bootstrap path on Java 21
 - `atm10_aeronautics` pins the CurseForge pack `all-the-mods-10-aeronautics` at `0.4.1` (Minecraft 1.21.1 / NeoForge) and uses the image's AUTO_CURSEFORGE bootstrap path on Java 21
@@ -77,6 +78,7 @@ ssh nidavellir 'readlink -f /srv/minecraft/data'
 Switch between managed profiles with:
 
 ```bash
+ssh nidavellir 'sudo minecraft-switch just_create_smp_2'
 ssh nidavellir 'sudo minecraft-switch atm11'
 ssh nidavellir 'sudo minecraft-switch atm10_aeronautics'
 ssh nidavellir 'sudo minecraft-switch ftb_skies_2_aero'
@@ -84,23 +86,24 @@ ssh nidavellir 'sudo minecraft-switch ftb_skies_2_aero'
 
 The switch helper gracefully restarts the single `minecraft.service`; all profiles remain isolated
 under `/srv/minecraft/servers/<profile>`, and only one container binds TCP `25565` at a time. Rerunning
-the Ansible playbook restores the repo-authoritative `ftb_skies_2_aero` selection.
+the Ansible playbook restores the repo-authoritative `just_create_smp_2` selection.
 
-Before the first Aero deployment, preserve a cold copy of the ATM11 world:
+Before switching packs, flush saves, stop the service and archive the currently active
+profile's complete `data` directory under `/srv/minecraft/archives/`. Verify the archive
+with `tar -tzf` and SHA-256, and retain an independent copy on operator storage or
+`svartalfheim`. Check capacity for both the archive and new pack before installing.
 
-```bash
-ssh nidavellir 'sudo docker exec minecraft rcon-cli "save-all flush"'
-ssh nidavellir 'sudo systemctl stop minecraft'
-ssh nidavellir '\
-  ts=$(date -u +%Y%m%dT%H%M%SZ) && \
-  sudo tar -C /srv/minecraft/servers/atm11/data -czf /srv/minecraft/archives/atm11-world-${ts}.tar.gz world && \
-  sudo tar -tzf /srv/minecraft/archives/atm11-world-${ts}.tar.gz >/dev/null && \
-  df -h /srv/minecraft'
-```
+Just Create SMP 2 starts with a fresh world in `/srv/minecraft/servers/just_create_smp_2/data`.
+Preserve the Aero and older profile directories; do not copy their worlds into this pack.
+Switch with `sudo minecraft-switch just_create_smp_2`. Roll back to the retained Aero
+profile with `sudo minecraft-switch ftb_skies_2_aero`; update the repo selection too
+if that rollback should persist across Ansible runs.
 
-Do not reuse or synchronize the ATM11 data directory for Aero. If Aero initialization fails after
-the role has installed the launcher and switch helper, restore ATM11 with
-`sudo minecraft-switch atm11`.
+Verify the installed `.curseforge-manifest.json`, startup completion, and authenticated
+`sudo docker exec minecraft rcon-cli list`. Players need the matching 1.0.3 client pack.
+The upstream installed manifest labels this release `Just Create SMP Season 2 DEV` and
+leaves `modpackVersion` empty; verify `fileId=8718376` and `modLoaderId=neoforge-21.1.233`
+against the pinned release instead of relying on its embedded display name.
 
 If `docker ps` or `docker logs` returns a permission error for `/var/run/docker.sock`, rerun `make ansible-minecraft-vm` so the `ubuntu` SSH user is in the `docker` group, then reconnect your SSH session. `sudo docker ...` works as an immediate fallback.
 

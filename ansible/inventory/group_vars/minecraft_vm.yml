@@ -14,9 +14,19 @@ minecraft_vm_common_runtime_env: &minecraft_vm_common_runtime_env
   INIT_MEMORY: 2G
   TZ: UTC
 
-minecraft_vm_active_server: ftb_skies_2_aero
+minecraft_vm_active_server: just_create_smp_2
 
 minecraft_vm_servers:
+  just_create_smp_2:
+    data_dir: "{{ minecraft_vm_servers_root }}/just_create_smp_2/data"
+    backup_dir: "{{ minecraft_vm_servers_root }}/just_create_smp_2/backups"
+    runtime_env:
+      <<: *minecraft_vm_common_runtime_env
+      TYPE: NEOFORGE
+      VERSION: "1.21.1"
+      MOD_PLATFORM: AUTO_CURSEFORGE
+      CF_SLUG: just-create-smp-2
+      CF_FILE_ID: "8718376" # Just Create SMP Season 2 - 1.0.3 (client manifest)
   atm10_aeronautics:
     data_dir: "{{ minecraft_vm_servers_root }}/atm10_aeronautics/data"
     backup_dir: "{{ minecraft_vm_servers_root }}/atm10_aeronautics/backups"
