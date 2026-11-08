@@ -2,7 +2,7 @@ namespace: mongodb
 cluster:
   name: mongo-single
   members: 1
-  version: "7.0.30"
+  version: "7.0.45"
   storageClassName: longhorn
   storageSize: 20Gi
   appUser: app

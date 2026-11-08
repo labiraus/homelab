@@ -24,7 +24,7 @@ kubernetes_manual_node_nvidia_container_toolkit_packages:
 kubernetes_manual_node_nvidia_runtime_class_name: nvidia
 kubernetes_manual_node_nvidia_device_plugin_namespace: kube-system
 kubernetes_manual_node_nvidia_device_plugin_name: nvidia-device-plugin
-kubernetes_manual_node_nvidia_device_plugin_image: nvcr.io/nvidia/k8s-device-plugin:v0.17.1
+kubernetes_manual_node_nvidia_device_plugin_image: nvcr.io/nvidia/k8s-device-plugin:v0.20.1
 kubernetes_manual_node_nvidia_selector_label_key: gpu.nvidia.com/device-plugin
 kubernetes_manual_node_nvidia_selector_label_value: "true"
 kubernetes_manual_node_gpu_labels: {}

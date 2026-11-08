@@ -10,7 +10,7 @@ import sys
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-STACK_VERSION = '92.3.0'
+STACK_VERSION = '92.14.1'
 NAMESPACE = 'homelab'
 SCRAPER_NAMESPACE = 'istio-system'
 SCRAPER = 'prometheus-kube-prometheus-prometheus'
@@ -41,7 +41,7 @@ def main(output, stack_chart):
         valuefile.write_text(yaml.safe_dump(values))
         chartpath = ROOT / 'helm' / chart
         result = subprocess.run(['helm', 'template', release or 'homelab-' + chartpath.name,
-            str(chartpath), '--kube-version', '1.35.0', '-f', str(chartpath / overlay),
+            str(chartpath), '--kube-version', '1.37.0', '-f', str(chartpath / overlay),
             '-f', str(valuefile), '--set', 'global.allowMissingGeneratedSecretRefs=true'],
             capture_output=True, text=True)
         if reject:
@@ -158,7 +158,7 @@ def main(output, stack_chart):
     storage_input = fixtures / 'storage-upstream-values.yaml'
     storage_input.write_text(yaml.safe_dump({'prometheus': storage_values}))
     result = subprocess.run(['helm', 'template', 'prometheus', str(stack_chart), '-n', SCRAPER_NAMESPACE,
-        '--kube-version', '1.35.0', '-f', str(storage_input)], capture_output=True, text=True)
+        '--kube-version', '1.37.0', '-f', str(storage_input)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     persistent_prom = only([d for d in yaml.safe_load_all(result.stdout) if d], 'Prometheus')
     assert persistent_prom['spec']['storage'] == storage_values['prometheusSpec']['storageSpec']
@@ -172,7 +172,7 @@ def main(output, stack_chart):
     upstream_values = fixtures / 'upstream-values.yaml'
     upstream_values.write_text(yaml.safe_dump(release['spec']['values']))
     result = subprocess.run(['helm', 'template', 'prometheus', str(stack_chart), '-n', SCRAPER_NAMESPACE,
-        '--kube-version', '1.35.0', '-f', str(upstream_values)], capture_output=True, text=True)
+        '--kube-version', '1.37.0', '-f', str(upstream_values)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     (fixtures / 'stack.upstream').write_text(result.stdout)
     upstream = [d for d in yaml.safe_load_all(result.stdout) if d]

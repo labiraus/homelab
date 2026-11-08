@@ -24,8 +24,8 @@ ROOT = HERE.parents[1]
 spec = importlib.util.spec_from_file_location('transport', HERE / 'docker-exec.py')
 transport = importlib.util.module_from_spec(spec); spec.loader.exec_module(transport)
 IMAGES = {
-    'postgres': 'postgres:16.13@sha256:5d143123fdf80462d1778cd4f24b9f7ca13c87174bca19141fb194c5a1ebca59',
-    'nats': 'nats:2.11.9-alpine@sha256:777787bbb4c7c4083ec2213b0b8b14151617610a3e0d85776bd995cd46599c73',
+    'postgres': 'postgres:16.15@sha256:1beaa3084eee2676f20a9cd9928f0bf2c5bf674f8e49f81017912183d377c61c',
+    'nats': 'nats:2.15.2-alpine@sha256:823e7f1d6d8ffe3b30dbd73d4a06bbb939acf94929f7fdf224404da7a05bafb5',
     'search': 'opensearchproject/opensearch:3.9.0@sha256:adfa61f85025d06b4aeb562e7e74fde7e31c437039c93c3862c17e9acebd6c7c'}
 LABEL = 'homelab.worldbuilder.index-fixture'
 

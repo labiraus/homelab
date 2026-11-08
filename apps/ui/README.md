@@ -1,5 +1,7 @@
 # Worldbuilder frontend
 
+Local image builds behind TLS inspection can pass `--secret id=build_ca,src=/path/to/ca-bundle.pem`. The optional CA is mounted only for locked npm installation and is not retained in the image.
+
 React/Vite PWA for Worldbuilder and retained Labiraus document tools. Read the
 [experience and journeys](../../docs/worldbuilder/experience.md) before UX changes,
 [API](../../docs/worldbuilder/api.md) for authority/persistence, and

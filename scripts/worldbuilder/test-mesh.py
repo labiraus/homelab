@@ -13,9 +13,9 @@ import yaml
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-CILIUM_VERSION = '1.20.2'
-ISTIO_VERSION = '1.30.5'
-PYTHON_IMAGE = 'python:3.12.12-alpine3.22'
+CILIUM_VERSION = '1.20.4'
+ISTIO_VERSION = '1.30.7'
+PYTHON_IMAGE = 'python:3.15.2-alpine3.24'
 
 
 def module(name):
@@ -56,7 +56,7 @@ def render(f, name, chart, namespace, values, repo=None, version=None):
     inputs = f.output / (name + '-values.yaml')
     inputs.write_text(yaml.safe_dump(values))
     command = ['helm', 'template', name, str(chart), '--namespace', namespace,
-               '--kube-version', '1.35.0', '--include-crds', '-f', str(inputs)]
+               '--kube-version', '1.37.0', '--include-crds', '-f', str(inputs)]
     if repo: command += ['--repo', repo, '--version', version]
     result = subprocess.run(command, env=f.helm_env, capture_output=True, text=True,
                             check=True, timeout=120)

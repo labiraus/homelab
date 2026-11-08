@@ -7,8 +7,8 @@ replicaCount: 1
 image:
   repository: nginx
   pullPolicy: IfNotPresent
-  # Avoid defaulting to Chart.appVersion (1.16.0), use an explicit modern image tag.
-  tag: "1.27.4"
+  # Pin the actual placeholder web-server image independently of chart metadata.
+  tag: "1.31.8"
 
 imagePullSecrets: []
 nameOverride: ""

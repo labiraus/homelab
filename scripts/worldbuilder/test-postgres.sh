@@ -8,7 +8,7 @@ export WORLDBUILDER_POSTGRES_CONTAINER="$container_name"
 # The streaming database bridge still uses the original CLI. Finite fixture
 # commands require authoritative completion even when attach returns early.
 docker() { python3 "$repo_dir/scripts/worldbuilder/docker-exec.py" "$@"; }
-docker run -d --name "$container_name" --label "homelab.worldbuilder.postgres-fixture=$container_name" -e POSTGRES_PASSWORD=offline-test-only -e POSTGRES_DB=worldbuilder_test -p "127.0.0.1:${WORLDBUILDER_TEST_PORT:-}:5432" postgres:16.13 >/dev/null
+docker run -d --name "$container_name" --label "homelab.worldbuilder.postgres-fixture=$container_name" -e POSTGRES_PASSWORD=offline-test-only -e POSTGRES_DB=worldbuilder_test -p "127.0.0.1:${WORLDBUILDER_TEST_PORT:-}:5432" postgres:16.15 >/dev/null
 relay_pid=""
 cleanup() {
   if [[ -n "$relay_pid" ]]; then kill "$relay_pid" 2>/dev/null || true; fi

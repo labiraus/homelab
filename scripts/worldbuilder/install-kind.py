@@ -7,11 +7,11 @@ import platform
 import sys
 import urllib.request
 
-VERSION = '0.31.0'
-NODE = 'kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f'
+VERSION = '0.33.0'
+NODE = 'kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5'
 CHECKSUMS = {
-    'amd64': 'eb244cbafcc157dff60cf68693c14c9a75c4e6e6fedaf9cd71c58117cb93e3fa',
-    'arm64': '8e1014e87c34901cc422a1445866835d1e666f2a61301c27e722bdeab5a1f7e4',
+    'amd64': 'aee6151561422756b764a4ae28e7f44cda5af5a9eead3cc9985112b1de8d8e0d',
+    'arm64': '20022bee6cfcd5086cb7234d218e3454e6090022f2a8f55d1fa7fcf42c3867a2',
 }
 
 

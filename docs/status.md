@@ -8,6 +8,10 @@ Dates below are observation dates; none establishes present production health.
 Source implementation, local fixtures, hosted publication and deployment are
 separate evidence levels. Git history retains superseded checkpoint narratives.
 
+Local dependency and fixture validation was performed on **6 November 2026**
+against the uncommitted working tree based on `e9b0292`. This did not publish
+artifacts, deploy workloads or revalidate production health.
+
 ## Current source
 
 - Worldbuilder uses schema **10**. Schema 9 introduced Authors/Readers, administrative
@@ -23,8 +27,10 @@ separate evidence levels. Git history retains superseded checkpoint narratives.
 - Canon lexical discovery, reviewed branches, calendars, private scenes and durable
   jobs have source coverage. Optional canon semantic search needs its own deployment
   and real-corpus acceptance; document embeddings do not establish that activation.
-- SeaweedFS 4.48 is the private target. Source defaults retain MinIO until final
+- SeaweedFS 4.51 is the private target pin. Source defaults retain MinIO until final
   frozen reference/copy/map/restore/cutover gates pass. Source data is retained.
+- Application modules and CI use Go 1.27.3; Node images use 26.12.1. The inference
+  JSON Schema v6 and optional Pub/Sub v2 migrations have consistent module graphs.
 
 ## Outstanding work
 
@@ -49,6 +55,7 @@ explicitly includes the complete applicable publication.
 
 | Observation | Evidence and boundary |
 | --- | --- |
+| 6 Nov dependency source acceptance | All application Go modules passed tests with `-mod=readonly`; external/MCP/orchestrator built, and inference/PubSub race tests passed. UI: 100 component tests, 23 workspace journeys, 12 PWA cases and the real PostgreSQL/API/browser gate passed. Processor: 63 tests passed with 2 endpoint-dependent cases skipped in the unit run; its actual S3 client passed separately. Node images built and runtime smoke checks passed. The complete feature-enabled devcontainer built and its tools ran as `vscode`; explicit `GOTOOLCHAIN=auto` selected verified Go 1.27.3 from the base's 1.27.2 compiler. Kubernetes 1.37 accepted 524 renders against 79 CRDs, including refusal checks; Helm packaging and inference renders passed. Inference accounting/restore and Worldbuilder migrations 001-010/all-table restore passed. SeaweedFS 4.51 actual-client, historical-version and 5 GiB + 17 byte migration/re-export gates passed with owned cleanup. UI audit has 4 moderate/2 low advisories, none high/critical; processor audit is clean. All 17 referenced CI action tags exist. Hosted CI, controller/physical-backup fixtures for the upgraded pins, and deployment remain unverified. |
 | 27 Oct cluster recovery and schema upgrade | Both Proxmox hosts returned; API/etcd and all intended Deployment/StatefulSet replicas recovered. All 40 HelmReleases Ready. Frozen backup `20261027T093222` restored in isolation: all 35 tables and 87 security/sequence entries matched. Migrations 009/010 and grants passed preservation, runtime denials and identical reruns before production upgrade to 10. Post-upgrade backup `20261027T094036` completed; temporary maintenance and the owned clone were removed. Public TLS/discovery/refusal passed; the user confirmed successful browser sign-in on 28 October. |
 | 26 Oct UI/SQL source acceptance | [Committed evidence index](worldbuilder/screenshots/ux-2026-10-26/README.md): 100 component tests, 23 workspace journeys, 10 strengthened viewport/theme journeys, 12 production-worker PWA cases, and real Go/SQL migrations 001–010 with 3 API browser journeys and full logical restore. Exact source/build hashes are in the evidence JSON. Ask/Create answers are fixtures; no live-model/device/deployment claim. |
 | 19 Oct PWA source | [Retained responsive screenshots](worldbuilder/screenshots/pwa-2026-10-19/README.md) cover both themes at five widths with fixture APIs. Schema-9 governance/device contracts are implemented; desktop screenshots do not establish Android acceptance. |
@@ -162,6 +169,10 @@ production acceptance, and public reports are under `.local/recovery-20261027/`.
 No private recovery material was committed.
 
 ## Evidence custody
+
+The 6 November source-check logs are session-local `/tmp/homelab-finish-*.log`;
+platform schemas/renders are under `/tmp/homelab-finish-platform/`. They are not
+committed artifacts or evidence of publication/deployment.
 
 Committed screenshots, logs and hash manifests remain beside their evidence READMEs.
 Private recovery records were documented under `.local/lan-recovery-20261011/`,

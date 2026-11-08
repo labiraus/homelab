@@ -35,7 +35,7 @@ min_version: 0.0.0-0
     name: jetstack
     url: https://charts.jetstack.io
   chart: cert-manager
-  version: 1.18.x
+  version: v1.21.3
   targetNamespace: cert-manager
   values:
     crds:
@@ -139,7 +139,7 @@ istio:
     name: metallb
     url: https://metallb.github.io/metallb
   chart: metallb
-  version: 0.15.x
+  version: 0.16.1
   targetNamespace: metallb-system
   values:
     speaker:
@@ -158,7 +158,7 @@ metallb:
     name: longhorn
     url: https://charts.longhorn.io
   chart: longhorn
-  version: 1.11.2
+  version: 1.13.0
   targetNamespace: longhorn-system
   values:
     defaultSettings:

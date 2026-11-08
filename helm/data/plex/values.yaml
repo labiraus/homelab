@@ -1,6 +1,6 @@
 enabled: false
 namespace: plex
-image: plexinc/pms-docker:1.41.4.9463-630c9f557
+image: plexinc/pms-docker:1.43.5.11079-b3b13e506
 service:
   type: LoadBalancer
   port: 32400

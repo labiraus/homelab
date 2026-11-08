@@ -33,15 +33,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.commit_sha || github.sha }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7.1.0
         with:
-          python-version: '3.12'
-      - uses: actions/setup-go@v6
+          python-version: '3.15.2'
+      - uses: actions/setup-go@v7.0.0
         with:
-          go-version: '1.25.6'
+          go-version: '1.27.3'
           cache: false
       - name: Refuse unowned canon-index fixtures
         run: python3 scripts/worldbuilder/test-canon-index-unit.py
@@ -55,7 +55,7 @@ jobs:
           WORLDBUILDER_TEST_DATABASE_URL: postgres://refuse-existing.invalid/canon
           WORLDBUILDER_TEST_NATS_URL: nats://refuse-existing.invalid:4222
           WORLDBUILDER_TEST_OPENSEARCH_URL: http://refuse-existing.invalid:9200
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: offline-canon-index-result
@@ -67,26 +67,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.commit_sha || github.sha }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7.1.0
         with:
-          python-version: '3.12'
-      - uses: actions/setup-go@v6
+          python-version: '3.15.2'
+      - uses: actions/setup-go@v7.0.0
         with:
-          go-version: '1.25.6'
+          go-version: '1.27.3'
           cache: false
-      - uses: azure/setup-helm@v4.2.0
+      - uses: azure/setup-helm@v5.0.1
         with:
-          version: 'v4.3.0'
+          version: 'v4.3.1'
       - name: Install structural validation dependencies
         run: python3 -m pip install -r scripts/worldbuilder/requirements.txt
       - name: Validate source against a disposable API server
         run: bash scripts/worldbuilder/test-platform.sh "$RUNNER_TEMP/platform-acceptance"
       - name: Retain public schema and synthetic render evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: offline-platform-evidence
           path: |
@@ -106,16 +106,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.commit_sha || github.sha }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7.1.0
         with:
-          python-version: '3.12'
-      - uses: azure/setup-helm@v4.2.0
+          python-version: '3.15.2'
+      - uses: azure/setup-helm@v5.0.1
         with:
-          version: 'v4.3.0'
-      - uses: actions/download-artifact@v4
+          version: 'v4.3.1'
+      - uses: actions/download-artifact@v8.0.2
         with:
           name: offline-platform-evidence
           path: ${{ runner.temp }}/platform-evidence
@@ -123,7 +123,7 @@ jobs:
         run: python3 -m pip install -r scripts/worldbuilder/requirements.txt
       - name: Verify real gateway routing, credential injection and isolation
         run: python3 scripts/inference/test-gateway.py "$RUNNER_TEMP/inference-gateway" "$RUNNER_TEMP/platform-evidence/schemas"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: offline-inference-gateway-result
@@ -136,20 +136,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.commit_sha || github.sha }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7.1.0
         with:
-          python-version: '3.12'
-      - uses: actions/setup-go@v6
+          python-version: '3.15.2'
+      - uses: actions/setup-go@v7.0.0
         with:
-          go-version: '1.25.6'
+          go-version: '1.27.3'
           cache: false
-      - uses: azure/setup-helm@v4.2.0
+      - uses: azure/setup-helm@v5.0.1
         with:
-          version: 'v4.3.0'
-      - uses: actions/download-artifact@v4
+          version: 'v4.3.1'
+      - uses: actions/download-artifact@v8.0.2
         with:
           name: offline-platform-evidence
           path: ${{ runner.temp }}/platform-evidence
@@ -162,7 +162,7 @@ jobs:
         run: WORLDBUILDER_METRICS_FIXTURE="$RUNNER_TEMP/worldbuilder-metrics.txt" go test -count=1 -run '^TestWorldbuilderObservabilityFixture$' .
       - name: Verify real admission, monitor reconciliation and recovery
         run: python3 scripts/worldbuilder/test-controllers.py "$RUNNER_TEMP/controller-acceptance" "$RUNNER_TEMP/platform-evidence/renders/observability" "$RUNNER_TEMP/worldbuilder-metrics.txt"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: offline-controller-result
@@ -177,20 +177,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.commit_sha || github.sha }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7.1.0
         with:
-          python-version: '3.12'
-      - uses: actions/setup-go@v6
+          python-version: '3.15.2'
+      - uses: actions/setup-go@v7.0.0
         with:
-          go-version: '1.25.6'
+          go-version: '1.27.3'
           cache: false
-      - uses: azure/setup-helm@v4.2.0
+      - uses: azure/setup-helm@v5.0.1
         with:
-          version: 'v4.3.0'
-      - uses: actions/download-artifact@v4
+          version: 'v4.3.1'
+      - uses: actions/download-artifact@v8.0.2
         with:
           name: offline-platform-evidence
           path: ${{ runner.temp }}/platform-evidence
@@ -204,7 +204,7 @@ jobs:
         run: WORLDBUILDER_METRICS_FIXTURE="$RUNNER_TEMP/worldbuilder-metrics.txt" go test -count=1 -run '^TestWorldbuilderObservabilityFixture$' .
       - name: Verify persistent TSDB and snapshot recovery after source loss
         run: python3 scripts/worldbuilder/test-tsdb.py "$RUNNER_TEMP/tsdb-acceptance" "$RUNNER_TEMP/platform-evidence/renders/observability" "$RUNNER_TEMP/worldbuilder-metrics.txt"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: offline-tsdb-result
@@ -219,16 +219,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.commit_sha || github.sha }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7.1.0
         with:
-          python-version: '3.12'
-      - uses: azure/setup-helm@v4.2.0
+          python-version: '3.15.2'
+      - uses: azure/setup-helm@v5.0.1
         with:
-          version: 'v4.3.0'
-      - uses: actions/download-artifact@v4
+          version: 'v4.3.1'
+      - uses: actions/download-artifact@v8.0.2
         with:
           name: offline-platform-evidence
           path: ${{ runner.temp }}/platform-evidence
@@ -240,7 +240,7 @@ jobs:
           python3 scripts/worldbuilder/test-backups-unit.py
       - name: Verify CNPG physical backup, WAL and point-in-time restore
         run: python3 scripts/worldbuilder/test-backups.py "$RUNNER_TEMP/backup-acceptance" "$RUNNER_TEMP/platform-evidence/schemas"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: offline-backup-result
@@ -256,15 +256,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.commit_sha || github.sha }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7.1.0
         with:
-          python-version: '3.12'
-      - uses: azure/setup-helm@v4.2.0
+          python-version: '3.15.2'
+      - uses: azure/setup-helm@v5.0.1
         with:
-          version: 'v4.3.0'
+          version: 'v4.3.1'
       - name: Install and test recovery fixture dependencies
         run: |
           python3 -m pip install -r scripts/worldbuilder/requirements.txt -r scripts/storage/requirements.txt
@@ -272,7 +272,7 @@ jobs:
           python3 scripts/worldbuilder/test-velero-unit.py
       - name: Verify Velero file and resource restore after source loss
         run: python3 scripts/worldbuilder/test-velero.py "$RUNNER_TEMP/velero-acceptance"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: offline-velero-result
@@ -287,16 +287,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.commit_sha || github.sha }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7.1.0
         with:
-          python-version: '3.12'
-      - uses: azure/setup-helm@v4.2.0
+          python-version: '3.15.2'
+      - uses: azure/setup-helm@v5.0.1
         with:
-          version: 'v4.3.0'
-      - uses: actions/download-artifact@v4
+          version: 'v4.3.1'
+      - uses: actions/download-artifact@v8.0.2
         with:
           name: offline-platform-evidence
           path: ${{ runner.temp }}/platform-evidence
@@ -311,7 +311,7 @@ jobs:
         id: mesh-artifacts-safe
         if: always()
         run: python3 scripts/worldbuilder/test-mesh.py --check-artifacts "$RUNNER_TEMP/mesh-acceptance"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         if: always() && steps.mesh-artifacts-safe.outcome == 'success'
         with:
           name: offline-mesh-result
@@ -325,17 +325,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.commit_sha || github.sha }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7.1.0
         with:
-          python-version: '3.12'
-      - uses: actions/setup-go@v6
+          python-version: '3.15.2'
+      - uses: actions/setup-go@v7.0.0
         with:
-          go-version: '1.25.6'
+          go-version: '1.27.3'
           cache: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8.0.2
         with:
           name: offline-platform-evidence
           path: ${{ runner.temp }}/platform-evidence
@@ -346,7 +346,7 @@ jobs:
         run: WORLDBUILDER_METRICS_FIXTURE="$RUNNER_TEMP/worldbuilder-metrics.txt" go test -count=1 -run '^TestWorldbuilderObservabilityFixture$' .
       - name: Verify disposable Prometheus and Grafana provisioning
         run: python3 scripts/worldbuilder/test-observability.py "$RUNNER_TEMP/platform-evidence/renders/observability" "$RUNNER_TEMP/worldbuilder-metrics.txt"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: offline-observability-result

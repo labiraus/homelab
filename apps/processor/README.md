@@ -1,5 +1,7 @@
 # processor
 
+Local image builds behind TLS inspection can pass `--secret id=build_ca,src=/path/to/ca-bundle.pem`. The optional CA is mounted only for locked npm installation and is not retained in the image.
+
 Both container stages consume `package-lock.json` with `npm ci`; the runtime stage omits development dependencies. Local dependencies, generated output and environment files are excluded from the Docker context, keeping the published dependency tree aligned with CI tests.
 
 Before chart publication, CI runs `test/image-smoke.mjs` inside the published image with networking disabled. It compares the image lockfile hash to source, validates installed production package versions/dependency health, imports compiled storage/reasoning code, and checks exact date parsing on the actual image runtime.

@@ -18,11 +18,11 @@ import yaml
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-STACK_VERSION = '92.3.0'
+STACK_VERSION = '92.14.1'
 STACK_NAMESPACE = 'istio-system'
 PROMETHEUS = 'prometheus-kube-prometheus-prometheus'
 OPERATOR = 'prometheus-kube-prometheus-operator'
-PYTHON_IMAGE = 'python:3.12.12-alpine3.22'
+PYTHON_IMAGE = 'python:3.15.2-alpine3.24'
 
 
 def module(name):
@@ -163,7 +163,7 @@ def render_stack(f, values):
     valuefile = f.output / 'stack-values.yaml'; valuefile.write_text(yaml.safe_dump(values))
     rendered = subprocess.check_output(['helm', 'template', 'prometheus',
         str(chartdir / 'kube-prometheus-stack'), '-n', STACK_NAMESPACE,
-        '--kube-version', '1.35.0', '--include-crds', '-f', str(valuefile)], env=f.helm_env)
+        '--kube-version', '1.37.0', '--include-crds', '-f', str(valuefile)], env=f.helm_env)
     (f.output / 'stack.yaml').write_bytes(rendered)
     # The upstream CRD enums can contain an unquoted '='. Use the repository safe loader.
     loader = module('validate-custom-resources').KubernetesLoader

@@ -102,8 +102,8 @@ func checkedAssets(directory string) error {
 	if err = json.Unmarshal(data, &manifest); err != nil {
 		return err
 	}
-	if manifest.Version != "1.35.0" {
-		return fmt.Errorf("expected pinned envtest 1.35.0")
+	if manifest.Version != "1.37.0" {
+		return fmt.Errorf("expected pinned envtest 1.37.0")
 	}
 	for _, binary := range []string{"kube-apiserver", "etcd", "kubectl"} {
 		file, err := os.Open(filepath.Join(directory, binary))
@@ -248,7 +248,10 @@ func run(ctx context.Context, assets, schemaDir, renderDir string) (result error
 	apiServer := testEnv.ControlPlane.GetAPIServer()
 	apiServer.Path = filepath.Join(assets, "kube-apiserver")
 	apiServer.SecureServing.Address = "127.0.0.1"
-	apiServer.Configure().Set("bind-address", "127.0.0.1").Set("advertise-address", "127.0.0.1")
+	// This API-only fixture has no kubelets or Service routing. Kubernetes 1.37
+	// rejects loopback endpoints for the default reconciler; keep the listener
+	// private and disable only the unused kubernetes Service endpoint reconciler.
+	apiServer.Configure().Set("bind-address", "127.0.0.1").Set("advertise-address", "127.0.0.1").Set("endpoint-reconciler-type", "none")
 	testEnv.ControlPlane.Etcd = &envtest.Etcd{Path: filepath.Join(assets, "etcd")}
 	testEnv.ControlPlane.KubectlPath = filepath.Join(assets, "kubectl")
 	defer func() { result = errors.Join(result, testEnv.Stop()) }()
@@ -277,7 +280,7 @@ func run(ctx context.Context, assets, schemaDir, renderDir string) (result error
 			return fmt.Errorf("source CRD %s: %w", name, err)
 		}
 	}
-	fmt.Printf("PASS: %d unmodified source CRDs installed in disposable Kubernetes 1.35.0\n", len(crds))
+	fmt.Printf("PASS: %d unmodified source CRDs installed in disposable Kubernetes 1.37.0\n", len(crds))
 	if err = refusalChecks(ctx, client); err != nil {
 		return err
 	}

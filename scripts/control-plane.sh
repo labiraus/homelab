@@ -87,8 +87,8 @@ kubectl -n kube-system rollout status deploy/cilium-operator --timeout=5m
 # Install Kubernetes Gateway API CRDs
 kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/latest/download/standard-install.yaml
 
-# Install Istio CLI (1.29.x)
-curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.29.0 sh -
+# Install Istio CLI (1.31.x)
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.31.3 sh -
 cd istio-*
 sudo install -m 0755 bin/istioctl /usr/local/bin/istioctl
 

@@ -11,6 +11,8 @@ import subprocess
 import sys
 import tempfile
 import time
+from urllib.error import URLError
+from urllib.request import ProxyHandler, build_opener
 
 import boto3
 from botocore import UNSIGNED
@@ -51,7 +53,9 @@ def main():
     bootstrap = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(bootstrap)
 
-    def client(name, unsigned=False, endpoint=ENDPOINT, read_timeout=10):
+    # Cold allocation after startup/restart can take more than ten seconds.
+    # Keep requests bounded and retries disabled, including uncertain writes.
+    def client(name, unsigned=False, endpoint=ENDPOINT, read_timeout=60):
         return boto3.client(
             "s3", endpoint_url=endpoint, region_name="us-east-1",
             aws_access_key_id="test-" + name, aws_secret_access_key="test-secret-" + name,
@@ -107,15 +111,23 @@ def main():
                                        stdout=log, stderr=subprocess.STDOUT,
                                        env={"PATH": os.environ["PATH"], "LANG": "C.UTF-8"})
             try:
+                local_http = build_opener(ProxyHandler({}))
                 for _ in range(60):
                     if process.poll() is not None:
                         raise RuntimeError("SeaweedFS exited during startup")
                     try:
                         client("admin", endpoint="http://127.0.0.1:8333").list_buckets()
-                        return process
-                    except (ClientError, EndpointConnectionError):
-                        time.sleep(1)
-                raise RuntimeError("SeaweedFS S3 readiness timed out")
+                        # S3 can list buckets before the volume heartbeat reaches
+                        # the master. Require capacity before issuing any writes;
+                        # never retry a mutation whose outcome is uncertain.
+                        with local_http.open("http://127.0.0.1:9333/dir/status", timeout=2) as response:
+                            topology = json.load(response)["Topology"]
+                        if topology["Free"] >= 7:
+                            return process
+                    except (ClientError, EndpointConnectionError, URLError, TimeoutError):
+                        pass
+                    time.sleep(1)
+                raise RuntimeError("SeaweedFS S3/volume readiness timed out")
             except Exception:
                 process.terminate()
                 process.wait(timeout=30)

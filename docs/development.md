@@ -8,7 +8,9 @@ covers host provisioning and [testing](testing.md) covers acceptance fixtures.
 
 Install a container runtime, copy `.devcontainer/.env.example` to the ignored
 `.devcontainer/.env`, populate only required local settings, and rebuild the
-Dev Container with its configured features. Keep SSH identities under
+Dev Container with its configured features. The Trixie base uses the Docker CLI
+(`moby: false`), because the Docker feature does not support Moby packages on that
+distribution. It still uses the host socket. Keep SSH identities under
 `.devcontainer/ssh/` and kubeconfig at `.devcontainer/kubeconfig`.
 
 ```bash
@@ -130,6 +132,11 @@ The separate `helm/infra/embeddings` chart supplies CPU embeddings through the s
 
 Use the checked-in workflow definitions and lockfiles as the source of toolchain and gate configuration; a historical runtime note is not an installed-version observation.
 
+For local Node image builds behind TLS inspection, pass a trusted public CA bundle
+with `docker build --secret id=build_ca,src=/path/to/ca-bundle.pem ...`.
+The optional secret is used only during `npm ci`; it is not copied into the image
+and TLS verification remains enabled. Ordinary CI builds need no secret.
+
 ## Ansible Workflow
 
 Provision the new SeaweedFS service and buckets with `make ansible-seaweedfs-host` (also `make bootstrap-svartalfheim-storage`); see [storage bootstrap](storage.md) for credentials and [migration](storage.md) for cutover.
@@ -157,6 +164,12 @@ Published private endpoints use wired `http://192.168.8.177:8333` for the Seawee
 
 There is no root `package.json`, `go.mod` or `go.work`. Run Go tests in the
 individual module directory and npm commands in `apps/ui` or `apps/processor`.
+Application modules and CI use Go 1.27.3. The pinned devcontainer base bundles
+Go 1.27.2 and defaults to local-only selection. The devcontainer explicitly sets
+`GOTOOLCHAIN=auto` to download and verify 1.27.3 on first use of an application
+module, so that first run needs network access. Run `go mod tidy` in affected shared
+modules and their consuming services after a dependency change. Verify with
+`go test -mod=readonly ./...` so missing manifest updates fail locally.
 Use the committed lockfiles with `npm ci`. Follow each app's README for its
 required environment, health endpoints and build commands.
 
@@ -168,7 +181,9 @@ acceptance tiers; see [testing](testing.md).
 ## Tooling and documentation discipline
 
 Check configured devcontainer features before adding a binary installer: the
-Terraform feature already installs TFLint. Direct downloads must use pinned official
+Terraform feature already installs TFLint. Keep the apt-provided pipx and install
+Ansible in its isolated environment; do not upgrade Debian-managed pipx dependencies
+with pip. Direct downloads must use pinned official
 release assets and architecture-specific checksums. Verify changes with a complete
 feature-enabled Dev Containers build, not only a Dockerfile build.
 

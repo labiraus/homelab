@@ -5,4 +5,4 @@ type: application
 version: 0.1.0
 sources:
   - "https://github.com/labiraus/homelab"
-appVersion: "v0.20.2"
+appVersion: "v0.32.0"

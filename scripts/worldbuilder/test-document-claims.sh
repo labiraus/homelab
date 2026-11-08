@@ -14,7 +14,7 @@ cleanup() {
   rm -rf "$work_dir"
 }
 trap cleanup EXIT
-docker run -d --name "$container_name" --label "homelab.worldbuilder.postgres-fixture=$container_name" -e POSTGRES_PASSWORD=offline-claims-only -e POSTGRES_DB=document_claims_test postgres:16.13 >/dev/null
+docker run -d --name "$container_name" --label "homelab.worldbuilder.postgres-fixture=$container_name" -e POSTGRES_PASSWORD=offline-claims-only -e POSTGRES_DB=document_claims_test postgres:16.15 >/dev/null
 ready=false
 for attempt in {1..30}; do
   if docker exec "$container_name" pg_isready -h 127.0.0.1 -U postgres -d document_claims_test >/dev/null 2>&1; then ready=true; break; fi

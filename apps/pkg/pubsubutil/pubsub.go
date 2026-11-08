@@ -7,14 +7,17 @@ import (
 	"os"
 	"sync"
 
-	"cloud.google.com/go/pubsub"
+	"cloud.google.com/go/pubsub/v2"
+	"cloud.google.com/go/pubsub/v2/apiv1/pubsubpb"
 	"google.golang.org/api/option"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v3"
 )
 
 var (
 	client      *pubsub.Client
-	topics      = make(map[string]*pubsub.Topic)
+	topics      = make(map[string]*pubsub.Publisher)
 	UseProtobuf = false
 	config      PubsubConfig
 	rwMux       = sync.RWMutex{}
@@ -65,32 +68,20 @@ func Start(ctx context.Context, c PubsubConfig) error {
 func Subscribe(ctx context.Context, topicID string, handler func(context.Context, *pubsub.Message)) error {
 	topicConfig := config.Topics[topicID]
 
-	topic := client.Topic(topicConfig.Name)
-	if exists, err := topic.Exists(ctx); err != nil {
-		return fmt.Errorf("failed to check if topic %s exists: %v", topicConfig.Name, err)
-	} else if !exists && topicConfig.CreateTopic {
-		topic, err = client.CreateTopic(ctx, topicConfig.Name)
-		if err != nil {
-			return fmt.Errorf("failed to create topic: %v", err)
-		}
-	} else if !exists {
-		return fmt.Errorf("topic creation turned off %v and doesn't exist: %v", topicConfig.Name, err)
+	topic, err := GetTopic(ctx, topicID)
+	if err != nil {
+		return err
 	}
-
-	sub := client.Subscription(topicConfig.Subscription)
-	if exists, err := sub.Exists(ctx); err != nil {
-		return fmt.Errorf("failed to check if subscription %s exists: %v", topicConfig.Subscription, err)
-	} else if !exists && topicConfig.CreateSubscription {
-		sub, err = client.CreateSubscription(context.Background(), topicConfig.Subscription, pubsub.SubscriptionConfig{Topic: topic})
-		if err != nil {
-			return fmt.Errorf("failed to subscribe to topic %v as subscription %v: %v", topicConfig.Name, topicConfig.Subscription, err)
-		}
-	} else if !exists {
-		return fmt.Errorf("subscription creation turned off and %v on topic %v doesn't exist: %v", topicConfig.Subscription, topicConfig.Name, err)
+	sub := client.Subscriber(topicConfig.Subscription)
+	_, err = client.SubscriptionAdminClient.GetSubscription(ctx, &pubsubpb.GetSubscriptionRequest{Subscription: sub.String()})
+	if status.Code(err) == codes.NotFound && topicConfig.CreateSubscription {
+		_, err = client.SubscriptionAdminClient.CreateSubscription(ctx, &pubsubpb.Subscription{Name: sub.String(), Topic: topic.String()})
+	}
+	if err != nil {
+		return fmt.Errorf("failed to access subscription %s: %w", topicConfig.Subscription, err)
 	}
 
 	if topicConfig.Concurrency > 1 {
-		sub.ReceiveSettings.Synchronous = false
 		sub.ReceiveSettings.NumGoroutines = topicConfig.Concurrency
 		sub.ReceiveSettings.MaxOutstandingMessages = topicConfig.MaxOutstandingMessages
 	}
@@ -106,9 +97,9 @@ func Subscribe(ctx context.Context, topicID string, handler func(context.Context
 	return nil
 }
 
-func GetTopic(ctx context.Context, topicID string) (*pubsub.Topic, error) {
+func GetTopic(ctx context.Context, topicID string) (*pubsub.Publisher, error) {
 	topicConfig := config.Topics[topicID]
-	var topic *pubsub.Topic
+	var topic *pubsub.Publisher
 	ok := false
 	func() {
 		rwMux.RLock()
@@ -122,16 +113,13 @@ func GetTopic(ctx context.Context, topicID string) (*pubsub.Topic, error) {
 	err := func() error {
 		rwMux.Lock()
 		defer rwMux.Unlock()
-		topic = client.Topic(topicConfig.Name)
-		if exists, err := topic.Exists(ctx); err != nil {
-			return fmt.Errorf("failed to check if topic %s exists: %v", topicConfig.Name, err)
-		} else if !exists && topicConfig.CreateTopic {
-			topic, err = client.CreateTopic(ctx, topicConfig.Name)
-			if err != nil {
-				return fmt.Errorf("failed to create topic: %v", err)
-			}
-		} else if !exists {
-			return fmt.Errorf("topic does not exist and cannot be created")
+		topic = client.Publisher(topicConfig.Name)
+		_, err := client.TopicAdminClient.GetTopic(ctx, &pubsubpb.GetTopicRequest{Topic: topic.String()})
+		if status.Code(err) == codes.NotFound && topicConfig.CreateTopic {
+			_, err = client.TopicAdminClient.CreateTopic(ctx, &pubsubpb.Topic{Name: topic.String()})
+		}
+		if err != nil {
+			return fmt.Errorf("failed to access topic %s: %w", topicConfig.Name, err)
 		}
 		topics[topicConfig.Name] = topic
 		return nil

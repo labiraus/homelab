@@ -14,7 +14,7 @@ nats:
     name: nats
     url: https://nats-io.github.io/k8s/helm/charts/
   chart: nats
-  version: 2.12.6
+  version: 2.15.1
   targetNamespace: nats
   values:
     config:
@@ -39,7 +39,7 @@ keda:
     name: kedacore
     url: https://kedacore.github.io/charts
   chart: keda
-  version: 2.16.x
+  version: 2.21.0
   targetNamespace: keda
 
 opensearch:
@@ -78,7 +78,7 @@ plex:
     name: cnpg
     url: https://cloudnative-pg.github.io/charts
   chart: cloudnative-pg
-  version: 0.23.x
+  version: 0.29.1
   targetNamespace: cnpg-system
 
 postgres:
