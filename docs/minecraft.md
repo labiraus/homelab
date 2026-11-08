@@ -180,6 +180,56 @@ Notes:
 - The repo remains authoritative for the active profile and pinned version. Any local in-guest changes will be overwritten the next time `make ansible-minecraft-vm` runs.
 - If `/srv/minio/backups/minecraft/` does not exist yet on `svartalfheim`, create it once before the first copy with `ssh svartalfheim 'mkdir -p /srv/minio/backups/minecraft'`.
 
+## Gameplay performance
+
+For gameplay lag, query `sudo docker exec minecraft rcon-cli tick query` and
+`sudo docker exec minecraft rcon-cli neoforge tps`. Compare tick times with the
+50 ms budget at 20 TPS and measure the client's actual network route separately.
+A public-address connection through a VPN can be slow while the private VM
+address is responsive. Check the active connection before attributing delay to
+server load.
+
+## Offloading inactive profiles
+
+The private SeaweedFS bucket `minecraft-backups` holds Minecraft offloads on
+`http://192.168.8.177:8333`. The dated prefix
+`nidavellir/offload-20261105/` separates existing `archives/` from complete
+inactive `profiles/`; `manifest.json` records full SHA-256 readback verification
+and local removal status. An incomplete manifest is not a completed offload.
+
+The low-memory retry uses the `chunked/` subprefix: each archive is split into
+ordered 8 MiB objects with an archive-specific manifest containing each part's
+size/hash and the complete archive hash. Reconstruct by downloading and verifying
+parts in the manifest's listed order, concatenating their bytes, then verifying
+the full archive SHA-256 before tar validation/extraction. Individual parts are
+not standalone tar archives. The retry uploads one part at a time, reads it back,
+pauses between requests, and backs off after transport/service errors. Existing
+parts are checked before reuse; a checksum conflict stops the job. Only a fully
+verified, readable archive permits source removal. The two original unchunked
+copies remain separately recorded in the parent manifest.
+
+The private task directory also contains `restore-chunked.py`, which accepts an
+archive's `--manifest-key` and a new `--output` path. It uses standard AWS
+credential environment variables or a private `--credentials-json` file, verifies
+each part and the concatenated archive, and retains a `.partial` file if recovery
+fails. It never overwrites an existing output. Tar validation and the profile's
+ownership-aware extraction remain separate restore steps.
+
+Before removing a local archive, upload it, read the entire S3 object back and
+compare size and SHA-256. Validate its tar contents too; retain malformed originals
+for review even when their bytes have been preserved remotely. For an inactive
+profile, archive the complete profile directory, including backups and disabled
+mods, compare the archive against the source before and after upload, and verify
+that the active profile and data symlink remain unchanged before removal. Keep
+credentials and detailed transfer reports outside Git. Run transfers at low CPU
+and disk priority and monitor live ticks during gameplay.
+
+An offloaded profile must be restored before using `minecraft-switch` for it.
+Read its manifest, download the exact object, verify its SHA-256, and extract the
+complete profile under `/srv/minecraft/servers/` with its original ownership and
+permissions before switching. Do not let an absent old profile silently become a
+fresh world. The current active profile is excluded from offloads.
+
 ## First Checks
 
 ```bash

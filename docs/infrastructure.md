@@ -50,6 +50,11 @@ Record new durable physical-host facts here rather than in separate agent memory
 - SeaweedFS 4.48's internal interfaces, including S3 gRPC, remain loopback-only;
   a systemd proxy exposes only wired private S3 HTTP on port 8333. Wi-Fi DNS
   resolution is not equivalent to the egress-permitted wired address.
+- `svartalfheim` is a Raspberry Pi 3 Model B Rev 1.2, with approximately 905 MiB
+  usable RAM and 904 MiB swap; its
+  wired interface supports at most 100 Mb/s. Budget large S3 transfers for this
+  small host, independently of the external disk's ample capacity. The 5 November
+  bulk-transfer attempt exposed OOM and undervoltage failures; see [status](status.md).
 
 ## ProxMox
 

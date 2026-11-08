@@ -89,6 +89,57 @@ independently probed, and voice-chat UDP reachability was not tested.
 The VM had approximately **4.3 GiB free**, so capacity expansion or separately
 reviewed backup offloading remains necessary for comfortable world growth.
 
+## Minecraft storage offload attempt
+
+On **5 November 2026**, live Minecraft remained at **20 TPS**, with sampled
+average tick times of **5.5–7.3 ms** against the 50 ms budget. The workstation's
+public-address connection used its WireGuard interface; TCP connection probes
+took **279–361 ms**, versus **4–16 ms** to `192.168.8.126:25565`. These are TCP
+connection measurements, not an in-game ping trace. The VM disk was **98% full**:
+about **64 GiB** in historical archives, **30 GiB** in four inactive profiles,
+**1.3 GiB** in the active Just Create profile and **15 GiB** in Docker overlay data.
+
+The user authorized moving old worlds to private S3. Svartalfheim's external
+disk was mounted with **5.2 TiB free**; its wired link negotiated **100 Mb/s**.
+The enabled private S3 socket had failed while SeaweedFS was active. Starting
+the existing socket restored authenticated S3 access and anonymous HTTP 403.
+No SSH trust changed: the valid certificate already in `.devcontainer/ssh/`
+worked, whereas the workstation's default certificate was expired.
+
+The attempt created `minecraft-backups/nidavellir/offload-20261105/`. Two archives
+passed full S3 readback SHA-256/size checks. Only the readable **41,429,084-byte**
+`ftb_skies_2_aero-world-20260821T165800Z.tar.gz` was removed locally. The
+**83,623,936-byte** `atm11-20260424T192419Z.tar.gz` failed tar validation and was
+retained locally despite its verified byte-for-byte S3 copy.
+
+During the third upload, svartalfheim stopped answering SSH/S3. The transfer was
+terminated; all remaining archives and all inactive profiles stayed on the VM.
+After SSH recovered, kernel logs showed **SeaweedFS OOM-killed at 20:06:48 UTC**
+and repeated undervoltage events. The host has **905 MiB RAM** and about **904 MiB
+swap**; SeaweedFS restarted automatically. This is an **incomplete offload**, not
+disk-capacity remediation. Resolve the storage host's power/memory constraints
+before resuming bulk writes. Private scripts, checksums and logs are under
+`.local/minecraft-offload-20261105/`; the S3 manifest records per-object results.
+Both completed objects passed another full readback after SeaweedFS restarted;
+the attempt's unfinished multipart upload was aborted and the manifest explicitly
+marked incomplete. Temporary credential copies from that attempt were removed
+from both hosts.
+
+The user subsequently requested continued retries despite the known power
+constraint. At **20:31 UTC**, a serial retry began using independent **8 MiB S3
+objects**, per-part full readback checks, archive reconstruction manifests and
+10–60 second backoff after service/transport failures. By **21:41 UTC**, five
+archives totaling **8,706,062,671 bytes** had passed all part readbacks and tar
+validation and been removed locally, in addition to the earlier small unchunked
+archive. Free VM space increased to approximately **12 GiB**. The next ATM11
+archive was uploading. The full scope inventory records **15 original archives
+totaling 67,743,612,723 bytes and four inactive profiles**; not all are moved yet.
+This retry remains in progress, not completed cleanup. Its private runner/log and
+checkpoint are under `/home/ubuntu/minecraft-offload-20261105/` on `nidavellir`,
+with source under ignored `.local/minecraft-offload-20261105/`; its S3 subprefix is
+`nidavellir/offload-20261105/chunked/`. The credential copy is restricted to the
+private task directory and is removed on completion. The active world is excluded.
+
 ## Latest recovery observation
 
 On **27 October 2026, 09:42 UTC**, following the user's reboot of both Proxmox

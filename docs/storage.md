@@ -22,6 +22,14 @@ The disk mount name is retained to avoid changing mounts and file shares during 
 
 The service requires the disk mount and stops when its mount unit disappears, preventing writes into the root-filesystem fallback directory. Existing NTFS ownership maps to `oliver`; LevelDB metadata stays off NTFS. Check native-filesystem capacity before bootstrap. The current Samba `storage` share exports `/srv/minio`: restrict SMB access to the new `seaweedfs` subtree before use so clients cannot alter volume files. Preserve existing media and Minecraft backup directories.
 
+Check host RAM, swap and kernel power/OOM messages before bulk transfers, not only
+free disk space. Svartalfheim has roughly 905 MiB usable RAM and a 100 Mb/s wired
+link. The 5 November Minecraft offload hit an OOM kill and undervoltage warnings
+with two concurrent 64 MiB multipart uploads. Do not resume that workload unchanged;
+resolve host power/memory health and validate a smaller bounded transfer first.
+An active `seaweedfs.service` does not establish private S3 reachability: inspect
+`seaweedfs-s3-proxy.socket` separately and require authenticated S3 operations.
+
 The official [release](https://github.com/seaweedfs/seaweedfs/releases/tag/4.48), [server flags](https://github.com/seaweedfs/seaweedfs/blob/4.48/weed/command/server.go) and [S3 configuration](https://github.com/seaweedfs/seaweedfs/wiki/Amazon-S3-API) describe the upstream interfaces. Actual compatibility is a validation gate, not an assumption from the S3 label.
 
 ## Configuration and compatibility
