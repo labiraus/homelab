@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/go:1-bookworm
+FROM mcr.microsoft.com/devcontainers/go:2.3.3-1.27-trixie
 
 USER root
 
@@ -38,33 +38,34 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends gh; \
     rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m pip install --upgrade --break-system-packages pipx
-RUN pipx install --global 'ansible-core>=2.15,<2.16'
+# Use the distro-managed pipx; pip cannot uninstall Debian packages without RECORD files.
+RUN pipx install --global 'ansible-core==2.21.5'
 
-# Install terraform-docs
-RUN curl -sSLo /tmp/terraform-docs.tar.gz https://terraform-docs.io/dl/v0.16.0/terraform-docs-v0.16.0-$(uname)-amd64.tar.gz \
-    && tar -xzf /tmp/terraform-docs.tar.gz -C /tmp \
-    && mv /tmp/terraform-docs /usr/local/bin/terraform-docs \
-    && chmod +x /usr/local/bin/terraform-docs
-
+# Install pinned official tools with architecture-specific release checksums.
 # TFLint is installed by the Terraform feature in devcontainer.json.
-
-# Install istioctl
 RUN set -eux; \
-    cd /tmp && \
-    curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.29.0 sh - && \
-    cd istio-* && \
-    install -m 0755 bin/istioctl /usr/local/bin/istioctl && \
-    cd / && \
-    rm -rf /tmp/istio-*
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in \
+    amd64) docs_sha='9005daf969de0b50134493a2c00078b49f5f5b39d021cda7c89bf4d4f3d776d3'; istio_sha='b32bba09bc6138d738fd19a09ef6d0fcdd5c5c013efeb72969663c24a2bddd47' ;; \
+    arm64) docs_sha='d12bd7b73c1fc9c64efc79f8157dd713dabd559f1ecf3cfc0f42e32279a155fd'; istio_sha='e7efaf26b6ad60d878994d1ed6febccc11dc291962a92857e53946e663e9bb53' ;; \
+    *) echo "Unsupported architecture: $arch" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://github.com/terraform-docs/terraform-docs/releases/download/v0.24.0/terraform-docs-v0.24.0-linux-${arch}.tar.gz" -o /tmp/terraform-docs.tar.gz; \
+    echo "${docs_sha}  /tmp/terraform-docs.tar.gz" | sha256sum -c -; \
+    tar -xzf /tmp/terraform-docs.tar.gz -C /usr/local/bin terraform-docs; \
+    curl -fsSL "https://github.com/istio/istio/releases/download/1.31.3/istio-1.31.3-linux-${arch}.tar.gz" -o /tmp/istio.tar.gz; \
+    echo "${istio_sha}  /tmp/istio.tar.gz" | sha256sum -c -; \
+    tar -xzf /tmp/istio.tar.gz -C /tmp istio-1.31.3/bin/istioctl; \
+    install -m 0755 /tmp/istio-1.31.3/bin/istioctl /usr/local/bin/istioctl; \
+    rm -rf /tmp/terraform-docs.tar.gz /tmp/istio.tar.gz /tmp/istio-1.31.3
 
 # Install SeaweedFS tooling from a pinned, checksum-verified release.
 RUN set -eux; \
-    seaweed_version='4.48'; \
+    seaweed_version='4.51'; \
     arch="$(dpkg --print-architecture)"; \
     case "$arch" in \
-    amd64) seaweed_sha256='4a7d108384d044d95212d1342cdda9533fa55842c1c9b41f606ca3c8a9561124' ;; \
-    arm64) seaweed_sha256='557e92c38c5c7d180748eb8e2b2b45e426f8e5282a4caca8e098a90d09f03a07' ;; \
+    amd64) seaweed_sha256='c03be37416a8ee672c77766e20b22a4e1430744c3af2668599a4b6eeaec14cee' ;; \
+    arm64) seaweed_sha256='4772e7de6a3b8711eb53587a1c156aee67ebfc24536d15d85cd74a0d70ad53ec' ;; \
     *) echo "Unsupported architecture: $arch" >&2; exit 1 ;; \
     esac; \
     curl -fsSL "https://github.com/seaweedfs/seaweedfs/releases/download/${seaweed_version}/linux_${arch}.tar.gz" -o /tmp/seaweedfs.tar.gz; \

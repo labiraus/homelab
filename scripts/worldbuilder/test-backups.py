@@ -18,7 +18,7 @@ import yaml
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 NAMESPACE = 'fixture-postgres'
-CHART_VERSION = '0.23.2'
+CHART_VERSION = '0.29.1'
 PORTS = {'offline-source': 30432, 'offline-latest': 30433, 'offline-pitr': 30434}
 TABLES = ('world', 'member', 'revision', 'record', 'record_identity', 'change_set',
           'change_review', 'audit', 'outbox', 'story_session', 'story_turn', 'story_outcome',

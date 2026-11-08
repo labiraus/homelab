@@ -1,6 +1,6 @@
 module pkg/redisutil
 
-go 1.25.6
+go 1.27.3
 
 require (
 	github.com/redis/go-redis/v9 v9.5.3

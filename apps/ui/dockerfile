@@ -1,5 +1,5 @@
 # Use the current Active LTS Node.js runtime as the build image
-FROM node:24.13.0-bookworm AS build
+FROM node:26.12.1-bookworm-slim AS build
 
 # Set the maintainer
 LABEL org.opencontainers.image.source=https://github.com/labiraus/homelab
@@ -18,7 +18,9 @@ RUN npm config set registry https://registry.npmjs.org/ \
     && npm config set fetch-retry-maxtimeout 600000
 
 # Install dependencies
-RUN npm ci
+RUN --mount=type=secret,id=build_ca \
+    if [ -f /run/secrets/build_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/build_ca; fi; \
+    npm ci
 
 # Copy the entire application code to the container
 COPY . .
@@ -27,7 +29,7 @@ COPY . .
 RUN npm run build
 
 # Use the current Nginx alpine-slim image as the production server
-FROM nginx:1.29.5-alpine3.23-slim
+FROM nginx:1.31.8-alpine3.24-slim
 
 # Copy the built React app to Nginx's web server directory
 COPY --from=build /app/dist /usr/share/nginx/html

@@ -29,7 +29,7 @@ def main():
         values = yaml.safe_load((ROOT / 'helm/infra/envoy-ai-gateway/values.yaml').read_text())
         # Include every controller-owned CRD from the pinned chart; no operator context.
         gateway_values=f.private/'gateway-values.yaml';gateway_values.write_text(yaml.safe_dump(values['envoyGateway']['values']))
-        command=['helm','template','envoy-gateway','oci://docker.io/envoyproxy/gateway-helm','--version','v1.7.0','--namespace','envoy-gateway-system','--include-crds','-f',str(gateway_values)]
+        command=['helm','template','envoy-gateway','oci://docker.io/envoyproxy/gateway-helm','--version','v1.9.3','--namespace','envoy-gateway-system','--include-crds','-f',str(gateway_values)]
         eg=[d for d in yaml.safe_load_all(subprocess.check_output(command,env=f.helm_env,text=True)) if d]
         crds = [d for d in eg if d['kind'] == 'CustomResourceDefinition']
         f.apply(crds)
@@ -41,7 +41,7 @@ def main():
         for d in ai_crds:
             f.kubectl('wait', 'crd/' + d['metadata']['name'], '--for=condition=Established', '--timeout=60s')
         # mesh.render passes versions only with a repo; OCI references carry explicit --version below.
-        command = ['helm', 'template', 'envoy-ai-gateway', 'oci://docker.io/envoyproxy/ai-gateway-helm', '--version', 'v1.0.0', '--namespace', 'envoy-ai-gateway-system']
+        command = ['helm', 'template', 'envoy-ai-gateway', 'oci://docker.io/envoyproxy/ai-gateway-helm', '--version', 'v1.2.0', '--namespace', 'envoy-ai-gateway-system']
         ai = list(yaml.safe_load_all(subprocess.check_output(command, env=f.helm_env, text=True)))
         f.apply([d for d in ai if d])
         for ns in ['envoy-gateway-system', 'envoy-ai-gateway-system']:

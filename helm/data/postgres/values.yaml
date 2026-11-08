@@ -2,7 +2,7 @@ namespace: data
 cluster:
   name: app-db
   instances: 1
-  image: ghcr.io/cloudnative-pg/postgresql:16.13
+  image: ghcr.io/cloudnative-pg/postgresql:16.15
   storageClass: longhorn
   storageSize: 10Gi
   bootstrapSecretName: app-db-bootstrap

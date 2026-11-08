@@ -12,6 +12,10 @@ Runtime environment:
 
 The HTTP listener defaults to port 8080. For local development set `INFERENCE_LISTEN=127.0.0.1:18081` to bind only loopback.
 
+Structured output and tool schemas use JSON Schema Draft 2020-12 by default with
+the v6 validator. References within the submitted schema work; external network
+and filesystem references are refused.
+
 Run `go test -race ./...` here. From repository root run `bash scripts/inference/test-postgres.sh` for concurrent reservations, rollover, tariff/duplicate/role/recovery and populated restore checks. `scripts/inference/test-manifests.py` checks route/secret/overlay contracts; `test-gateway.py` exercises actual controllers with synthetic providers. All database/controller tests create owned disposable resources and never use live AWS access.
 
 The ledger reserves worst-case billable input and allowed output before dispatch. Unknown outcomes keep their reservation indefinitely; the concurrency lease is separate. Missing usage, expired rates and failed accounting never trigger a retry or refund. Usage and metrics contain estimated costs, not invoices. Do not log request bodies, credentials or certificate keys.

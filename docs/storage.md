@@ -10,7 +10,7 @@ evidence; [secrets](secrets.md) owns credential custody.
 | Concern | Target |
 | --- | --- |
 | Host/service | `svartalfheim` (`192.168.8.177`), Ansible-managed `seaweedfs.service` |
-| Release | SeaweedFS 4.48; amd64/arm64 downloads pinned by SHA-256 |
+| Release | SeaweedFS 4.51; amd64/arm64 downloads pinned by SHA-256 |
 | S3 | Private `http://192.168.8.177:8333` on `svartalfheim`, authenticated identities |
 | Internal interfaces | All SeaweedFS listeners on `127.0.0.1`; systemd socket proxy exposes only S3 HTTP on the private address; administration over SSH |
 | Volume data | `/srv/minio/seaweedfs/volumes` on the existing external disk |
@@ -30,7 +30,7 @@ resolve host power/memory health and validate a smaller bounded transfer first.
 An active `seaweedfs.service` does not establish private S3 reachability: inspect
 `seaweedfs-s3-proxy.socket` separately and require authenticated S3 operations.
 
-The official [release](https://github.com/seaweedfs/seaweedfs/releases/tag/4.48), [server flags](https://github.com/seaweedfs/seaweedfs/blob/4.48/weed/command/server.go) and [S3 configuration](https://github.com/seaweedfs/seaweedfs/wiki/Amazon-S3-API) describe the upstream interfaces. Actual compatibility is a validation gate, not an assumption from the S3 label.
+The official [release](https://github.com/seaweedfs/seaweedfs/releases/tag/4.51), [server flags](https://github.com/seaweedfs/seaweedfs/blob/4.51/weed/command/server.go) and [S3 configuration](https://github.com/seaweedfs/seaweedfs/wiki/Amazon-S3-API) describe the upstream interfaces. Actual compatibility is a validation gate, not an assumption from the S3 label. The disposable smoke test waits for both authenticated S3 listing and master-reported free volume capacity before writes; listing alone can precede volume registration. Cold allocation after startup/restart has a bounded 60-second response timeout (120 seconds for multipart acceptance); the test does not retry uncertain writes.
 
 ## Configuration and compatibility
 

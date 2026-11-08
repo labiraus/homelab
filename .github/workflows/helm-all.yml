@@ -25,7 +25,7 @@ jobs:
       app_matrix: ${{ steps.matrix.outputs.app_matrix }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
@@ -59,7 +59,7 @@ jobs:
         include: ${{ fromJson(needs.discover.outputs.matrix) }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v7.0.1
 
       - name: Test Default
         uses: ./.github/actions/helm/test
@@ -78,7 +78,7 @@ jobs:
         include: ${{ fromJson(needs.discover.outputs.matrix) }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v7.0.1
 
       - name: Test GHCR
         uses: ./.github/actions/helm/test
@@ -98,7 +98,7 @@ jobs:
         include: ${{ fromJson(needs.discover.outputs.ghcr_matrix) }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 

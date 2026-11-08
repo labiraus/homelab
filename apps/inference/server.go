@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/santhosh-tekuri/jsonschema/v5"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
 type Message struct {
@@ -201,12 +201,18 @@ func decodeBody(w http.ResponseWriter, r *http.Request, v any) error {
 }
 func compileSchema(schema map[string]any) (*jsonschema.Schema, error) {
 	c := jsonschema.NewCompiler()
-	c.LoadURL = func(string) (io.ReadCloser, error) { return nil, errors.New("external schema references prohibited") }
+	c.DefaultDraft(jsonschema.Draft2020)
+	// No external scheme, including file:, may load a schema resource.
+	c.UseLoader(jsonschema.SchemeURLLoader{})
 	b, e := json.Marshal(schema)
 	if e != nil {
 		return nil, e
 	}
-	if e = c.AddResource("urn:inference:schema", bytes.NewReader(b)); e != nil {
+	doc, e := jsonschema.UnmarshalJSON(bytes.NewReader(b))
+	if e != nil {
+		return nil, e
+	}
+	if e = c.AddResource("urn:inference:schema", doc); e != nil {
 		return nil, e
 	}
 	return c.Compile("urn:inference:schema")

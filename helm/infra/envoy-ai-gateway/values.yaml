@@ -2,9 +2,9 @@ envoyGatewayCrds:
   name: envoy-gateway-crds-upstream
   repository:
     url: https://github.com/envoyproxy/gateway
-  path: ./charts/gateway-helm/crds/generated
+  path: ./charts/gateway-helm/charts/crds/crds/generated
   source:
-    version: v1.7.0
+    version: v1.9.3
   interval: 1h
   timeout: 10m
 
@@ -14,7 +14,7 @@ envoyGateway:
   repository:
     url: oci://docker.io/envoyproxy/gateway-helm
   chart:
-    version: v1.7.0
+    version: v1.9.3
   interval: 1h
   timeout: 10m
   targetNamespace: envoy-gateway-system
@@ -57,7 +57,7 @@ aiGatewayCrds:
   repository:
     url: oci://docker.io/envoyproxy/ai-gateway-crds-helm
   chart:
-    version: v1.0.0
+    version: v1.2.0
   interval: 1h
   timeout: 10m
   targetNamespace: envoy-ai-gateway-system
@@ -68,7 +68,7 @@ aiGateway:
   repository:
     url: oci://docker.io/envoyproxy/ai-gateway-helm
   chart:
-    version: v1.0.0
+    version: v1.2.0
   interval: 1h
   timeout: 10m
   targetNamespace: envoy-ai-gateway-system

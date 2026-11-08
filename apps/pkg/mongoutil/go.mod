@@ -1,6 +1,6 @@
 module pkg/mongoutil
 
-go 1.25.6
+go 1.27.3
 
 require (
 	go.mongodb.org/mongo-driver/v2 v2.3.1

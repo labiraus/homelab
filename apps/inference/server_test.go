@@ -23,6 +23,27 @@ type memoryLedger struct {
 	reservations int
 }
 
+func TestSchemaCompilerKeepsReferencesLocal(t *testing.T) {
+	for _, ref := range []string{"https://example.test/schema", "file:///etc/passwd"} {
+		if _, err := compileSchema(map[string]any{"$ref": ref}); err == nil {
+			t.Fatalf("external reference %q was accepted", ref)
+		}
+	}
+	schema, err := compileSchema(map[string]any{
+		"$defs": map[string]any{"answer": map[string]any{"type": "string"}},
+		"$ref":  "#/$defs/answer",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := schema.Validate("local answer"); err != nil {
+		t.Fatal(err)
+	}
+	if err := schema.Validate(42); err == nil {
+		t.Fatal("local reference did not enforce its type")
+	}
+}
+
 func (l *memoryLedger) Reserve(_ context.Context, id, _, _ string, _ Model, n, limit int64, _ int) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()

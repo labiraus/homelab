@@ -21,7 +21,7 @@ runs:
   using: "composite"
   steps:
     - name: Set up Helm
-      uses: azure/setup-helm@v4.2.0
+      uses: azure/setup-helm@v5.0.1
 
     - name: Login to GHCR (Helm OCI)
       shell: bash

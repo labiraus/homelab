@@ -31,7 +31,7 @@ runs:
   steps:    
   - 
     name: Configure AWS credentials
-    uses: aws-actions/configure-aws-credentials@v4
+    uses: aws-actions/configure-aws-credentials@v6.3.0
     with:
       aws-region: ${{ inputs.aws-region}}
       role-to-assume: ${{ inputs.role-to-assume }}
@@ -39,15 +39,15 @@ runs:
   - 
     name: Login to Amazon ECR
     id: login-ecr
-    uses: aws-actions/amazon-ecr-login@v2
+    uses: aws-actions/amazon-ecr-login@v2.1.7
 
   - 
     name: Set up Helm
-    uses: azure/setup-helm@v4.2.0
+    uses: azure/setup-helm@v5.0.1
 
   - 
     name: Setup Flux CLI
-    uses: fluxcd/flux2/action@main
+    uses: fluxcd/flux2/action@v2.10.0
 
   -
     name: Login to Helm registry

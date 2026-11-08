@@ -11,7 +11,7 @@ import time
 import uuid
 import yaml
 
-PYTHON_IMAGE = 'python:3.12.12-alpine3.22'
+PYTHON_IMAGE = 'python:3.15.2-alpine3.24'
 
 
 def command(*args, **kwargs):

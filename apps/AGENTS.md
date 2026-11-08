@@ -24,6 +24,7 @@ Apply the root policy and these directory-specific constraints.
 
 ## Build and canon boundaries
 
+- When updating shared Go dependencies or the Go version, tidy and test each consuming service as well as the shared module. Service-local replacement dependencies participate in its module graph; use `go test -mod=readonly ./...` to catch incomplete manifest updates.
 - There is no root `go.mod` or `go.work`. Run Go checks from each module directory (for example `cd apps/external && go test ./...`); CI must use the same working directory.
 - When a tool's working directory is already an app directory, pass app-relative paths to formatters and scripts; do not repeat the repository's `apps/<name>/` prefix.
 - Worldbuilder canon credentials belong only to external. Processor and MCP must not receive the schema owner/runtime login or human publication authority. Mesh identity/header isolation must be validated before enabling the feature.

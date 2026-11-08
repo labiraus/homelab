@@ -10,11 +10,11 @@ import tarfile
 import tempfile
 import urllib.request
 
-VERSION = "1.35.0"
+VERSION = "1.37.0"
 # Official kubernetes-sigs/controller-tools envtest release index, SHA-512.
 CHECKSUMS = {
-    "amd64": "130369c16f076e724d089189afaede960316f5f5dea6cf57be7a4fc6f09c77342893192509790e4056e116e232dff832ed863f5bd55dcb55d38f3ab834828a11",
-    "arm64": "e53e2b88398f5b9503e3f074d82a2dcb090c708b34940848607ce658138a5d4a25962e042ab683ccc026a8a6c90c0be7f658e42dde0887369d73c3b68e2fc86c",
+    "amd64": "1d1c453633b72c161a5d5a886cde7ac850be1a2ac796a9e1d4ffacacc64868295bdd2d57aa66cd0c158f5ce510f5dfe3fbc61ac21bd3dcfb875bd70658aa663a",
+    "arm64": "ae6a670502988200b0131c943758cfd3d3a58cf4e6247ef7f0e6a6467f1cd9a333c802e86101f0446b1b92a0e327387224e1e44fe1a4693da0929c6e529cfe9a",
 }
 
 
