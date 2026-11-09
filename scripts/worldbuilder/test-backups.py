@@ -39,6 +39,15 @@ common = module('kind-fixture')
 Storage = module('s3-fixture').Storage
 
 
+def conflicting_bootstrap_refused(code, error):
+    # CNPG 1.30 reports the same invalid bootstrap with different wording
+    # from earlier operators. Require the relevant field and a failed request.
+    messages = ('Too many bootstrap types specified',
+                'Only one bootstrap method can be specified at a time')
+    return code != 0 and any('spec.bootstrap:' in line and any(message in line for message in messages)
+                             for line in error.splitlines())
+
+
 class Database:
     def __init__(self, fixture, cluster, password):
         if cluster not in PORTS: raise ValueError('Unknown disposable database')
@@ -182,7 +191,7 @@ def install(f, schemas, storage):
     invalid = copy.deepcopy(cluster); invalid['metadata']['name'] = 'offline-invalid'
     invalid['spec']['bootstrap']['recovery'] = {'source': 'missing'}
     code, _, error = f.kubectl('apply', '--dry-run=server', '-f', '-', data=yaml.safe_dump(invalid).encode(), check=False)
-    assert code and 'Too many bootstrap types specified' in error, error
+    assert conflicting_bootstrap_refused(code, error), error
     valid = copy.deepcopy(cluster); valid['metadata']['name'] = 'offline-valid'
     f.kubectl('apply', '--dry-run=server', '-f', '-', data=yaml.safe_dump(valid).encode())
     f.kubectl('-n', 'cnpg-system', 'scale', 'deployment/cnpg-cloudnative-pg', '--replicas=0')

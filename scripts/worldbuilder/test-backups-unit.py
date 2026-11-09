@@ -11,6 +11,15 @@ backups = importlib.util.module_from_spec(spec); spec.loader.exec_module(backups
 
 
 class BackupTests(unittest.TestCase):
+    def test_conflicting_bootstrap_requires_the_correct_webhook_refusal(self):
+        for error in ('spec.bootstrap: Invalid value: "": Too many bootstrap types specified',
+                      'spec.bootstrap: Forbidden: Only one bootstrap method can be specified at a time'):
+            self.assertTrue(backups.conflicting_bootstrap_refused(1, error))
+            self.assertFalse(backups.conflicting_bootstrap_refused(0, error))
+            self.assertFalse(backups.conflicting_bootstrap_refused(1, error.replace('spec.bootstrap', 'spec.backup')))
+            self.assertFalse(backups.conflicting_bootstrap_refused(1, 'spec.bootstrap: bad source\n' + error.replace('spec.bootstrap', 'spec.backup')))
+        self.assertFalse(backups.conflicting_bootstrap_refused(1, 'spec.bootstrap: webhook unavailable'))
+
     def fixture(self):
         f = Mock()
         f.node = 'wbctrl-1234abcd-control-plane'; f.ports = (30432,)
