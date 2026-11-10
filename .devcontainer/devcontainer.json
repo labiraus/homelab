@@ -71,7 +71,8 @@
         "redhat.vscode-yaml",
         "fluxcd.flux",
         "ckolkman.vscode-postgres",
-        "bierner.markdown-mermaid"
+        "bierner.markdown-mermaid",
+        "openai.chatgpt"
       ]
     }
   },
