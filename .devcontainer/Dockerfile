@@ -1,4 +1,11 @@
-FROM mcr.microsoft.com/devcontainers/go:2.3.3-1.27-trixie
+FROM golang:1.27.1-trixie AS go-toolchain
+FROM mcr.microsoft.com/devcontainers/go:1-bookworm
+
+# Replace the base image's Go tree so files from different releases cannot mix.
+USER root
+RUN rm -rf /usr/local/go
+COPY --from=go-toolchain /usr/local/go /usr/local/go
+ENV GOTOOLCHAIN=local
 
 USER root
 
@@ -39,7 +46,9 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*
 
 # Use the distro-managed pipx; pip cannot uninstall Debian packages without RECORD files.
-RUN pipx install --global 'ansible-core==2.21.5'
+# The base image is Python 3.11 (bookworm), so ansible-core 2.21.x is unavailable here;
+# install the newest version that supports the image's interpreter instead.
+RUN pipx install 'ansible-core==2.19.15'
 
 # Install pinned official tools with architecture-specific release checksums.
 # TFLint is installed by the Terraform feature in devcontainer.json.
